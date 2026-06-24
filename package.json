@@ -1,0 +1,23 @@
+{
+  "name": "production-management",
+  "version": "1.0.0",
+  "description": "プリント刺繍加工業向けの案件管理ローカルWebアプリ",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["management", "project", "print", "embroidery"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "better-sqlite3": "^11.0.0",
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

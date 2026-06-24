@@ -1,0 +1,845 @@
+/* ========================================
+   基本スタイル
+   ======================================== */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --primary-color: #3b82f6;
+  --primary-dark: #2563eb;
+  --secondary-color: #10b981;
+  --danger-color: #ef4444;
+  --warning-color: #f59e0b;
+  --success-color: #10b981;
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
+  --gray-500: #6b7280;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+  --border-radius: 8px;
+  --box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+  --transition: all 0.3s ease;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Kaku Gothic ProN', 'Helvetica Neue', sans-serif;
+  font-size: 14px;
+  color: var(--gray-800);
+  background: var(--gray-50);
+}
+
+/* ========================================
+   レイアウト
+   ======================================== */
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-header {
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+  color: white;
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: var(--box-shadow);
+}
+
+.header-content {
+  flex: 1;
+}
+
+.app-title {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.app-subtitle {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.btn-staff-manage {
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid white;
+  color: white;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-weight: 600;
+  transition: var(--transition);
+}
+
+.btn-staff-manage:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* ===== タブナビゲーション ===== */
+
+.tab-nav {
+  display: flex;
+  background: white;
+  border-bottom: 2px solid var(--gray-200);
+  overflow-x: auto;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--gray-500);
+  border-bottom: 3px solid transparent;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+
+.tab-btn:hover {
+  color: var(--primary-color);
+  background: var(--gray-50);
+}
+
+.tab-btn.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+}
+
+/* ===== メインコンテンツ ===== */
+
+.main-content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+/* ========================================
+   ボタン
+   ======================================== */
+
+.btn {
+  padding: 10px 16px;
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn-primary {
+  background: var(--primary-color);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--primary-dark);
+}
+
+.btn-secondary {
+  background: var(--gray-200);
+  color: var(--gray-800);
+}
+
+.btn-secondary:hover {
+  background: var(--gray-300);
+}
+
+.btn-danger {
+  background: var(--danger-color);
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+}
+
+.btn-small {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 4px;
+  background: var(--gray-200);
+  color: var(--gray-800);
+  border: none;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.btn-small:hover {
+  background: var(--gray-300);
+}
+
+/* ========================================
+   一覧ビュー
+   ======================================== */
+
+.list-controls {
+  background: white;
+  padding: 16px;
+  border-radius: var(--border-radius);
+  margin-bottom: 20px;
+  box-shadow: var(--box-shadow);
+}
+
+.filter-group {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.filter-group label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.filter-group select {
+  padding: 8px 12px;
+  border: 1px solid var(--gray-300);
+  border-radius: 4px;
+  background: white;
+  font-size: 14px;
+}
+
+.table-container {
+  background: white;
+  border-radius: var(--border-radius);
+  overflow-x: auto;
+  box-shadow: var(--box-shadow);
+}
+
+.projects-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.projects-table thead {
+  background: var(--gray-100);
+  font-weight: 600;
+}
+
+.projects-table th {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 2px solid var(--gray-200);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.projects-table th:hover {
+  background: var(--gray-200);
+}
+
+.projects-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.projects-table tbody tr {
+  transition: var(--transition);
+}
+
+.projects-table tbody tr:hover {
+  background: var(--gray-50);
+}
+
+.projects-table tbody tr.row-overdue {
+  background: #fee2e2;
+}
+
+.projects-table tbody tr.row-urgent {
+  background: #fef3c7;
+}
+
+.projects-table tbody tr.row-warning {
+  background: #dbeafe;
+}
+
+.cell-project-name {
+  font-weight: 600;
+}
+
+.deadline-cell {
+  font-weight: 600;
+}
+
+.text-center {
+  text-align: center;
+}
+
+/* ===== ステータスバッジ ===== */
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status-pre-order {
+  background: #e5e7eb;
+  color: var(--gray-700);
+}
+
+.status-confirmed {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-waiting {
+  background: #bfdbfe;
+  color: #1e40af;
+}
+
+.status-in-progress {
+  background: #fbbf24;
+  color: #78350f;
+}
+
+.status-inspection {
+  background: #f87171;
+  color: white;
+}
+
+.status-delivered {
+  background: #86efac;
+  color: #15803d;
+}
+
+/* ===== 優先度バッジ ===== */
+
+.priority-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.priority-high {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.priority-medium {
+  background: #fef3c7;
+  color: #78350f;
+}
+
+.priority-low {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+/* ========================================
+   カンバンビュー
+   ======================================== */
+
+.kanban-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+  height: auto;
+}
+
+.kanban-column {
+  background: var(--gray-100);
+  border-radius: var(--border-radius);
+  display: flex;
+  flex-direction: column;
+  min-height: 500px;
+}
+
+.kanban-header {
+  background: var(--gray-200);
+  padding: 12px;
+  border-radius: var(--border-radius) var(--border-radius) 0 0;
+  font-weight: 600;
+}
+
+.kanban-header h3 {
+  font-size: 14px;
+}
+
+.kanban-cards {
+  flex: 1;
+  padding: 12px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.kanban-card {
+  background: white;
+  border-radius: var(--border-radius);
+  padding: 12px;
+  cursor: move;
+  box-shadow: var(--box-shadow);
+  transition: var(--transition);
+  border-left: 4px solid var(--gray-300);
+}
+
+.kanban-card.priority-high {
+  border-left-color: var(--danger-color);
+}
+
+.kanban-card.priority-medium {
+  border-left-color: var(--warning-color);
+}
+
+.kanban-card.priority-low {
+  border-left-color: var(--primary-color);
+}
+
+.kanban-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.card-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+  word-wrap: break-word;
+}
+
+.card-customer {
+  font-size: 12px;
+  color: var(--gray-600);
+  margin-bottom: 6px;
+}
+
+.card-deadline {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-bottom: 6px;
+}
+
+.card-info {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--gray-600);
+  margin-bottom: 8px;
+}
+
+.card-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* ========================================
+   カレンダービュー
+   ======================================== */
+
+.calendar-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  background: white;
+  padding: 16px;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+}
+
+.calendar-controls button {
+  padding: 8px 16px;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.calendar-controls h2 {
+  font-size: 18px;
+}
+
+.calendar-container {
+  background: white;
+  padding: 16px;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+}
+
+.calendar-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.calendar-table th {
+  background: var(--gray-200);
+  padding: 12px;
+  text-align: center;
+  font-weight: 600;
+  border: 1px solid var(--gray-300);
+}
+
+.calendar-cell {
+  border: 1px solid var(--gray-300);
+  height: 120px;
+  vertical-align: top;
+  padding: 8px;
+  background: white;
+  transition: var(--transition);
+}
+
+.calendar-cell:hover {
+  background: var(--gray-50);
+}
+
+.calendar-cell.empty {
+  background: var(--gray-100);
+}
+
+.date-number {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.calendar-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.calendar-item {
+  background: var(--primary-color);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: var(--transition);
+}
+
+.calendar-item:hover {
+  background: var(--primary-dark);
+}
+
+/* ========================================
+   コピペ取り込みビュー
+   ======================================== */
+
+.import-section {
+  background: white;
+  padding: 20px;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+}
+
+.import-section h2 {
+  margin-bottom: 8px;
+}
+
+.import-help {
+  color: var(--gray-600);
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+
+.import-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+#import-textarea {
+  padding: 12px;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--border-radius);
+  font-family: monospace;
+  font-size: 12px;
+  resize: vertical;
+}
+
+.import-preview {
+  background: var(--gray-50);
+  padding: 16px;
+  border-radius: var(--border-radius);
+  margin-top: 20px;
+}
+
+.import-preview h3 {
+  margin-bottom: 16px;
+}
+
+/* ========================================
+   モーダル
+   ======================================== */
+
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.modal-content {
+  background: white;
+  border-radius: var(--border-radius);
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.modal-lg {
+  max-width: 800px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.modal-header h2 {
+  font-size: 18px;
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--gray-500);
+  transition: var(--transition);
+}
+
+.btn-close:hover {
+  color: var(--gray-800);
+}
+
+/* ========================================
+   フォーム
+   ======================================== */
+
+.project-form {
+  padding: 20px;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--gray-300);
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--gray-200);
+}
+
+/* ========================================
+   担当者管理
+   ======================================== */
+
+.staff-management {
+  padding: 20px;
+}
+
+.staff-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.staff-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: var(--gray-50);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--gray-200);
+}
+
+.staff-info {
+  flex: 1;
+}
+
+.staff-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.staff-role {
+  font-size: 12px;
+  color: var(--gray-600);
+}
+
+.staff-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ========================================
+   レスポンシブ
+   ======================================== */
+
+@media (max-width: 768px) {
+  .app-header {
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+  }
+
+  .header-content {
+    order: 2;
+  }
+
+  .btn-staff-manage {
+    order: 1;
+    align-self: flex-end;
+  }
+
+  .tab-nav {
+    flex-wrap: wrap;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-group select {
+    width: 100%;
+  }
+
+  .kanban-board {
+    grid-template-columns: 1fr;
+  }
+
+  .projects-table {
+    font-size: 12px;
+  }
+
+  .projects-table th,
+  .projects-table td {
+    padding: 8px;
+  }
+
+  .modal-content {
+    max-width: 90vw;
+  }
+}
+
+@media (max-width: 480px) {
+  .main-content {
+    padding: 12px;
+  }
+
+  .app-title {
+    font-size: 18px;
+  }
+
+  .tab-btn {
+    padding: 12px;
+    font-size: 12px;
+  }
+
+  .btn {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .projects-table th,
+  .projects-table td {
+    padding: 6px;
+  }
+
+  .calendar-cell {
+    height: 100px;
+  }
+}

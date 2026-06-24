@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>案件管理システム - Production Management</title>
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- ヘッダー -->
+    <header class="app-header">
+      <div class="header-content">
+        <h1 class="app-title">📋 案件管理システム</h1>
+        <p class="app-subtitle">Print & Embroidery Project Management</p>
+      </div>
+      <button class="btn-staff-manage" onclick="app.openStaffModal()">👥 担当者管理</button>
+    </header>
+
+    <!-- タブナビゲーション -->
+    <nav class="tab-nav">
+      <button class="tab-btn active" onclick="app.switchTab('list')">
+        📊 一覧ビュー
+      </button>
+      <button class="tab-btn" onclick="app.switchTab('kanban')">
+        🎯 カンバンビュー
+      </button>
+      <button class="tab-btn" onclick="app.switchTab('calendar')">
+        📅 カレンダービュー
+      </button>
+      <button class="tab-btn" onclick="app.switchTab('import')">
+        📥 コピペ取り込み
+      </button>
+    </nav>
+
+    <!-- メインコンテンツ -->
+    <main class="main-content">
+
+      <!-- ===== 一覧ビュー ===== -->
+      <section id="tab-list" class="tab-content active">
+        <div class="list-controls">
+          <button class="btn btn-primary" onclick="app.openProjectModal()">
+            ➕ 新規案件
+          </button>
+          
+          <div class="filter-group">
+            <label>ステータス:</label>
+            <select id="filter-status" onchange="app.applyFilters()">
+              <option value="">すべて</option>
+              <option value="PRE_ORDER">受注前</option>
+              <option value="CONFIRMED">受注確定</option>
+              <option value="WAITING">生産待ち</option>
+              <option value="IN_PROGRESS">生産中</option>
+              <option value="INSPECTION">検品</option>
+              <option value="DELIVERED">納品済</option>
+            </select>
+
+            <label>加工種別:</label>
+            <select id="filter-process" onchange="app.applyFilters()">
+              <option value="">すべて</option>
+              <option value="PRINT">プリント</option>
+              <option value="EMBROIDERY">刺繍</option>
+              <option value="COMBINED">複合</option>
+            </select>
+
+            <label>担当者:</label>
+            <select id="filter-staff" onchange="app.applyFilters()">
+              <option value="">すべて</option>
+            </select>
+
+            <label>優先度:</label>
+            <select id="filter-priority" onchange="app.applyFilters()">
+              <option value="">すべて</option>
+              <option value="HIGH">高</option>
+              <option value="MEDIUM">中</option>
+              <option value="LOW">低</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="projects-table" id="projects-table">
+            <thead>
+              <tr>
+                <th onclick="app.sortTable('project_name')">案件名</th>
+                <th onclick="app.sortTable('received_date')">受付日</th>
+                <th onclick="app.sortTable('deadline')">納期</th>
+                <th>顧客名</th>
+                <th>加工種別</th>
+                <th onclick="app.sortTable('quantity')">数量</th>
+                <th>担当者</th>
+                <th>ステータス</th>
+                <th>優先度</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="projects-tbody">
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===== カンバンビュー ===== -->
+      <section id="tab-kanban" class="tab-content">
+        <div class="kanban-board" id="kanban-board">
+          <!-- カンバンカラムは JavaScript で動的に生成 -->
+        </div>
+      </section>
+
+      <!-- ===== カレンダービュー ===== -->
+      <section id="tab-calendar" class="tab-content">
+        <div class="calendar-controls">
+          <button onclick="app.prevMonth()">◀ 前月</button>
+          <h2 id="calendar-month-year"></h2>
+          <button onclick="app.nextMonth()">次月 ▶</button>
+        </div>
+        <div class="calendar-container" id="calendar-container">
+          <!-- カレンダーは JavaScript で動的に生成 -->
+        </div>
+      </section>
+
+      <!-- ===== コピペ取り込みビュー ===== -->
+      <section id="tab-import" class="tab-content">
+        <div class="import-section">
+          <h2>テキストから案件情報を抽出</h2>
+          <p class="import-help">
+            LINE、メール、チャットなどの本文をコピーして貼り付けてください。<br>
+            案件名、顧客名、数量、納期などが自動で抽出されます。
+          </p>
+
+          <div class="import-form">
+            <textarea
+              id="import-textarea"
+              placeholder="ここにテキストを貼り付けてください..."
+              rows="8"
+            ></textarea>
+
+            <button class="btn btn-secondary" onclick="app.extractFromText()">
+              🔍 テキストから抽出
+            </button>
+          </div>
+
+          <div id="import-preview" class="import-preview" style="display: none;">
+            <h3>抽出結果（確認・修正してから登録）</h3>
+            <form id="import-form" class="project-form">
+              <div class="form-group">
+                <label>案件名 *</label>
+                <input type="text" name="project_name" required>
+              </div>
+
+              <div class="form-group">
+                <label>顧客名 *</label>
+                <input type="text" name="customer_name" required>
+              </div>
+
+              <div class="form-group">
+                <label>受付日 *</label>
+                <input type="date" name="received_date" required>
+              </div>
+
+              <div class="form-group">
+                <label>納期 *</label>
+                <input type="date" name="deadline" required>
+              </div>
+
+              <div class="form-group">
+                <label>連絡経路 *</label>
+                <select name="contact_method" required>
+                  <option value="">選択してください</option>
+                  <option value="LINE">LINE</option>
+                  <option value="EMAIL">メール</option>
+                  <option value="PHONE">電話</option>
+                  <option value="OTHER">その他</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>加工種別 *</label>
+                <select name="process_type" required>
+                  <option value="">選択してください</option>
+                  <option value="PRINT">プリント</option>
+                  <option value="EMBROIDERY">刺繍</option>
+                  <option value="COMBINED">複合</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>数量 *</label>
+                <input type="number" name="quantity" min="1" required>
+              </div>
+
+              <div class="form-group">
+                <label>作業予定時間（分） *</label>
+                <input type="number" name="planned_hours" min="1" required>
+              </div>
+
+              <div class="form-group">
+                <label>作業内容</label>
+                <textarea name="work_content" rows="3"></textarea>
+              </div>
+
+              <div class="form-group">
+                <label>メモ</label>
+                <textarea name="memo" rows="3"></textarea>
+              </div>
+
+              <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="app.closeImportForm()">
+                  キャンセル
+                </button>
+                <button type="button" class="btn btn-primary" onclick="app.submitImportedProject()">
+                  登録
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ===== モーダル: 案件編集 ===== -->
+  <div id="project-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modal-title">新規案件</h2>
+        <button class="btn-close" onclick="app.closeProjectModal()">✕</button>
+      </div>
+      <form id="project-form" class="project-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label>案件名 *</label>
+            <input type="text" name="project_name" required>
+          </div>
+          <div class="form-group">
+            <label>顧客名 *</label>
+            <input type="text" name="customer_name" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>受付日 *</label>
+            <input type="date" name="received_date" required>
+          </div>
+          <div class="form-group">
+            <label>納期 *</label>
+            <input type="date" name="deadline" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>連絡経路 *</label>
+            <select name="contact_method" required>
+              <option value="">選択してください</option>
+              <option value="LINE">LINE</option>
+              <option value="EMAIL">メール</option>
+              <option value="PHONE">電話</option>
+              <option value="OTHER">その他</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>加工種別 *</label>
+            <select name="process_type" required>
+              <option value="">選択してください</option>
+              <option value="PRINT">プリント</option>
+              <option value="EMBROIDERY">刺繍</option>
+              <option value="COMBINED">複合</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>数量 *</label>
+            <input type="number" name="quantity" min="1" required>
+          </div>
+          <div class="form-group">
+            <label>作業予定時間（分） *</label>
+            <input type="number" name="planned_hours" min="1" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>担当者</label>
+            <select name="assigned_staff_id" id="staff-select">
+              <option value="">未割り当て</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>ステータス</label>
+            <select name="status">
+              <option value="PRE_ORDER">受注前</option>
+              <option value="CONFIRMED">受注確定</option>
+              <option value="WAITING">生産待ち</option>
+              <option value="IN_PROGRESS">生産中</option>
+              <option value="INSPECTION">検品</option>
+              <option value="DELIVERED">納品済</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>優先度</label>
+            <select name="priority">
+              <option value="LOW">低</option>
+              <option value="MEDIUM" selected>中</option>
+              <option value="HIGH">高</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>関連資料リンク</label>
+            <input type="url" name="reference_link" placeholder="https://...">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>作業内容</label>
+          <textarea name="work_content" rows="3"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>メモ</label>
+          <textarea name="memo" rows="3"></textarea>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" onclick="app.closeProjectModal()">
+            キャンセル
+          </button>
+          <button type="button" class="btn btn-danger" id="btn-delete" style="display: none;" onclick="app.deleteProject()">
+            削除
+          </button>
+          <button type="submit" class="btn btn-primary">
+            保存
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== モーダル: 担当者管理 ===== -->
+  <div id="staff-modal" class="modal">
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <h2>担当者管理</h2>
+        <button class="btn-close" onclick="app.closeStaffModal()">✕</button>
+      </div>
+
+      <div class="staff-management">
+        <button class="btn btn-primary" onclick="app.openStaffFormModal()">
+          ➕ 新規担当者
+        </button>
+
+        <div class="staff-list" id="staff-list">
+          <!-- スタッフリストは JavaScript で動的に生成 -->
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" onclick="app.closeStaffModal()">
+          閉じる
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== モーダル: 担当者編集フォーム ===== -->
+  <div id="staff-form-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="staff-form-title">新規担当者</h2>
+        <button class="btn-close" onclick="app.closeStaffFormModal()">✕</button>
+      </div>
+      <form id="staff-form" class="project-form">
+        <div class="form-group">
+          <label>名前 *</label>
+          <input type="text" name="name" required>
+        </div>
+
+        <div class="form-group">
+          <label>職種 *</label>
+          <select name="role" required>
+            <option value="FULL_TIME">フルタイム</option>
+            <option value="PART_TIME">パート</option>
+            <option value="PRODUCTION_MANAGER">生産管理</option>
+            <option value="DESIGNER">デザイナー</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>1日の稼働可能時間（分）</label>
+          <input type="number" name="capacity_minutes" value="480" min="1">
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" onclick="app.closeStaffFormModal()">
+            キャンセル
+          </button>
+          <button type="submit" class="btn btn-primary">
+            保存
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- スクリプト -->
+  <script src="js/utils.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
