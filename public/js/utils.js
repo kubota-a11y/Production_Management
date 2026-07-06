@@ -24,7 +24,7 @@ function getStatusLabel(status) {
     'WAITING': '生産待ち',
     'IN_PROGRESS': '生産中',
     'INSPECTION': '検品',
-    'DELIVERED': '納品済'
+    'DELIVERED': '納品待ち'
   };
   return statusMap[status] || status;
 }
@@ -45,11 +45,58 @@ function getStatusClass(status) {
 // 加工種別日本語変換
 function getProcessLabel(process) {
   const processMap = {
+    'SILK_SCREEN_PRINT': 'シルクスクリーンプリント',
+    'DTF_PRINT': 'DTFプリント',
+    'RUBBER_TRANSFER_PRINT': 'ラバー転写プリント',
+    'STANDARD_EMBROIDERY': '通常刺繍',
+    'HAT_EMBROIDERY': '帽子刺繍',
+    'PATCH_EMBROIDERY': 'ワッペン刺繍',
     'PRINT': 'プリント',
     'EMBROIDERY': '刺繍',
     'COMBINED': '複合'
   };
   return processMap[process] || process;
+}
+
+// 加工種別（複数選択・カンマ区切り）を日本語ラベルの一覧に変換
+function getProcessLabels(processTypeCsv) {
+  if (!processTypeCsv) return '';
+  return processTypeCsv
+    .split(',')
+    .map(p => p.trim())
+    .filter(Boolean)
+    .map(getProcessLabel)
+    .join('・');
+}
+
+// 作業の準備項目 日本語変換
+function getPrepItemLabel(item) {
+  const prepItemMap = {
+    'SCREEN_MAKING': 'シルクスクリーン製版',
+    'POSITIVE_FILM_OUTPUT': 'ポジフィルム出力',
+    'PRINT_COLOR_SELECTION': 'プリントカラー選定',
+    'PRINT_POSITION_ADJUSTMENT': 'プリント位置調整',
+    'PRINT_SIZE_SELECTION': 'プリントサイズ選定',
+    'SUBLIMATION_SHEET_OUTPUT': '昇華プリント用シート出力',
+    'DTF_SHEET_OUTPUT': 'DTFシート出力',
+    'EMBROIDERY_DATA_REQUEST': '刺繍データ作成依頼',
+    'DTF_DATA_CREATION': 'DTFデータ作成',
+    'SCREEN_DATA_CREATION': 'スクリーンデータ作成',
+    'RUBBER_SHEET_OUTPUT': 'ラバーシート出力',
+    'RUBBER_SHEET_TRIMMING': 'ラバーシートカス取り'
+  };
+  return prepItemMap[item] || item;
+}
+
+// 作業の準備項目（複数選択・カンマ区切り）を日本語ラベルの一覧に変換
+function getPrepItemLabels(prepItemsCsv) {
+  if (!prepItemsCsv) return '';
+  return prepItemsCsv
+    .split(',')
+    .map(p => p.trim())
+    .filter(Boolean)
+    .map(getPrepItemLabel)
+    .join('・');
 }
 
 // 優先度日本語変換
@@ -88,6 +135,13 @@ function getDeadlineWarning(deadline) {
   if (diffDays <= 3) return 'urgent';
   if (diffDays <= 7) return 'warning';
   return '';
+}
+
+// 曜日（0=月〜6=日）ラベル一覧
+const DAY_OF_WEEK_LABELS = ['月', '火', '水', '木', '金', '土', '日'];
+
+function getDayOfWeekLabel(dayOfWeek) {
+  return DAY_OF_WEEK_LABELS[dayOfWeek] || '';
 }
 
 // 職種日本語変換

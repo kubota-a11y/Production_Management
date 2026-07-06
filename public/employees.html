@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>従業員管理 - Production Management</title>
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- ヘッダー -->
+    <header class="app-header">
+      <div class="header-content">
+        <h1 class="app-title">🧑‍🏭 従業員管理</h1>
+        <p class="app-subtitle">Employee Management</p>
+      </div>
+      <div class="header-buttons">
+        <a class="btn-staff-manage" href="/">📋 案件管理に戻る</a>
+      </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="main-content">
+      <section id="employees-section">
+        <div class="list-controls">
+          <button class="btn btn-primary" onclick="employeesApp.openEmployeeModal()">
+            ➕ 新規従業員
+          </button>
+        </div>
+
+        <div class="table-container">
+          <table class="projects-table" id="employees-table">
+            <thead>
+              <tr>
+                <th>名前</th>
+                <th>役割</th>
+                <th>ステータス</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="employees-tbody">
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ===== モーダル: 従業員追加・編集 ===== -->
+  <div id="employee-modal" class="modal">
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <h2 id="employee-modal-title">新規従業員</h2>
+        <button class="btn-close" onclick="employeesApp.closeEmployeeModal()">✕</button>
+      </div>
+      <form id="employee-form" class="project-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label>名前 *</label>
+            <input type="text" name="name" required>
+          </div>
+          <div class="form-group">
+            <label>役割 *</label>
+            <select name="role" required>
+              <option value="FULL_TIME">フルタイム</option>
+              <option value="PART_TIME">パート</option>
+              <option value="PRODUCTION_MANAGER">生産管理</option>
+              <option value="DESIGNER">デザイナー</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="schedule-day-checkbox">
+            <input type="checkbox" name="is_active" checked> 有効
+          </label>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" onclick="employeesApp.closeEmployeeModal()">
+            キャンセル
+          </button>
+          <button type="submit" class="btn btn-primary">
+            保存
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- スクリプト -->
+  <script src="js/utils.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/employees.js"></script>
+</body>
+</html>

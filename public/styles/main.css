@@ -74,15 +74,45 @@ html, body {
   opacity: 0.9;
 }
 
-.btn-staff-manage {
-  padding: 10px 20px;
+.header-buttons {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.btn-header {
+  padding: 10px 14px;
   background: rgba(255, 255, 255, 0.2);
   border: 2px solid white;
   color: white;
   border-radius: var(--border-radius);
   cursor: pointer;
   font-weight: 600;
+  font-size: 12px;
   transition: var(--transition);
+  white-space: nowrap;
+}
+
+.btn-header:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.btn-header.active {
+  background: rgba(255, 255, 255, 0.4);
+  border-color: #4ade80;
+}
+
+.btn-staff-manage {
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid white;
+  color: white;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 12px;
+  transition: var(--transition);
+  white-space: nowrap;
 }
 
 .btn-staff-manage:hover {
@@ -716,6 +746,90 @@ html, body {
   border-top: 1px solid var(--gray-200);
 }
 
+  .reference-input-group {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+  }
+
+  .field-hint {
+    font-weight: 400;
+    font-size: 12px;
+    color: var(--gray-500);
+  }
+
+  .checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 6px;
+  }
+
+  .checkbox-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border: 1px solid var(--gray-300);
+    border-radius: 20px;
+    background: var(--gray-50);
+    font-size: 13px;
+    font-weight: 400;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+
+  .checkbox-pill:hover {
+    background: var(--gray-100);
+  }
+
+  .checkbox-pill:has(input:checked) {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+  }
+
+  .checkbox-pill input[type="checkbox"] {
+    width: auto;
+    height: auto;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    accent-color: var(--primary-dark);
+  }
+
+  .nas-search-input {
+    margin-top: 10px;
+  }
+
+  .folder-list {
+    margin-top: 12px;
+    display: grid;
+    gap: 8px;
+    max-height: 320px;
+    overflow-y: auto;
+  }
+
+  .folder-item {
+    padding: 12px;
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    background: var(--gray-50);
+    cursor: pointer;
+    transition: var(--transition);
+  }
+
+  .folder-item:hover {
+    background: var(--gray-100);
+  }
+
+  .folder-notice {
+    font-size: 14px;
+    color: var(--gray-600);
+    margin-top: 8px;
+  }
+
 /* ========================================
    担当者管理
    ======================================== */
@@ -761,6 +875,79 @@ html, body {
 }
 
 /* ========================================
+   従業員管理
+   ======================================== */
+
+.active-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.active-badge.is-active {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.active-badge.is-inactive {
+  background: var(--gray-200);
+  color: var(--gray-600);
+}
+
+.schedule-day-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.schedule-day-checkbox input {
+  width: auto;
+}
+
+/* ========================================
+   作業計画
+   ======================================== */
+
+.time-allocation-wrapper {
+  padding: 20px;
+  border-top: 1px solid var(--gray-200);
+}
+
+.time-allocation-title {
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+.time-allocation-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.time-allocation-form select,
+.time-allocation-form input {
+  padding: 8px 10px;
+  border: 1px solid var(--gray-300);
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.time-allocation-form input[type="number"] {
+  width: 110px;
+}
+
+.time-allocation-table-row-editing {
+  background: #dbeafe;
+}
+
+/* ========================================
    レスポンシブ
    ======================================== */
 
@@ -768,16 +955,22 @@ html, body {
   .app-header {
     flex-direction: column;
     gap: 12px;
-    text-align: center;
   }
 
   .header-content {
-    order: 2;
+    width: 100%;
   }
 
-  .btn-staff-manage {
-    order: 1;
-    align-self: flex-end;
+  .header-buttons {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .btn-header, .btn-staff-manage {
+    padding: 8px 12px;
+    font-size: 11px;
   }
 
   .tab-nav {
@@ -824,9 +1017,22 @@ html, body {
     font-size: 18px;
   }
 
+  .app-subtitle {
+    font-size: 11px;
+  }
+
+  .header-buttons {
+    gap: 6px;
+  }
+
+  .btn-header, .btn-staff-manage {
+    padding: 6px 10px;
+    font-size: 10px;
+  }
+
   .tab-btn {
-    padding: 12px;
-    font-size: 12px;
+    padding: 10px 8px;
+    font-size: 11px;
   }
 
   .btn {

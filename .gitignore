@@ -6,3 +6,5 @@ dist/
 build/
 .env
 .env.local
+db/backups/
+launchd/

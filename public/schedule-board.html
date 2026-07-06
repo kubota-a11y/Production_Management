@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>週間作業スケジュールボード - Production Management</title>
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="stylesheet" href="styles/schedule-board.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- ヘッダー -->
+    <header class="app-header">
+      <div class="header-content">
+        <h1 class="app-title">🗓️ 週間作業スケジュールボード</h1>
+        <p class="app-subtitle">Weekly Work Schedule Board</p>
+      </div>
+      <div class="header-buttons">
+        <a class="btn-staff-manage" href="/">📋 案件管理に戻る</a>
+      </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="main-content">
+      <section class="sb-week-nav">
+        <button class="btn btn-secondary" onclick="scheduleBoard.prevWeek()">◀ 前週</button>
+        <h2 id="sb-week-label"></h2>
+        <button class="btn btn-secondary" onclick="scheduleBoard.nextWeek()">次週 ▶</button>
+      </section>
+
+      <div class="sb-legend" id="sb-legend"></div>
+
+      <div class="table-container">
+        <table class="projects-table sb-board-table" id="sb-board-table">
+          <thead>
+            <tr id="sb-board-head"></tr>
+          </thead>
+          <tbody id="sb-board-body"></tbody>
+        </table>
+      </div>
+
+      <section class="sb-progress-section">
+        <h2 class="sb-section-title">📈 案件別 消化率（実績時間 ÷ 作業予定時間）</h2>
+        <div id="sb-progress-list"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ===== モーダル: セル詳細 ===== -->
+  <div id="sb-detail-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="sb-detail-title">詳細</h2>
+        <button class="btn-close" onclick="scheduleBoard.closeDetailModal()">✕</button>
+      </div>
+      <div class="sb-detail-body" id="sb-detail-body"></div>
+    </div>
+  </div>
+
+  <!-- ===== モーダル: 勤務時間編集（その日だけの勤務時間 + 案件の割り当て） ===== -->
+  <div id="sb-override-modal" class="modal">
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <h2 id="sb-override-title">勤務時間編集</h2>
+        <button class="btn-close" onclick="scheduleBoard.closeOverrideModal()">✕</button>
+      </div>
+      <form id="sb-override-form" class="project-form">
+        <div class="form-group">
+          <label class="sb-override-daycheck">
+            <input type="checkbox" id="ov-is-day-off"> この日は休み
+          </label>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>出勤時刻</label>
+            <input type="time" id="ov-start-time">
+          </div>
+          <div class="form-group">
+            <label>退勤時刻</label>
+            <input type="time" id="ov-end-time">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>休憩時間（分）</label>
+          <input type="number" id="ov-break-minutes" min="0" step="5" value="0">
+        </div>
+
+        <div class="form-group sb-allocation-section">
+          <label>案件の割り当て</label>
+          <div class="sb-override-summary" id="sb-override-summary"></div>
+          <div id="sb-allocation-rows"></div>
+          <button type="button" class="btn btn-small btn-secondary sb-add-allocation-btn" onclick="scheduleBoard.addAllocationRow()">
+            ➕ 案件を追加
+          </button>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-danger" id="ov-delete-btn" style="display: none;" onclick="scheduleBoard.deleteOverride()">
+            🗑️ 削除
+          </button>
+          <button type="button" class="btn btn-secondary" onclick="scheduleBoard.closeOverrideModal()">
+            キャンセル
+          </button>
+          <button type="submit" class="btn btn-primary">
+            保存
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- スクリプト -->
+  <script src="js/utils.js"></script>
+  <script src="js/schedule-board.js"></script>
+</body>
+</html>
