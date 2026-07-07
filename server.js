@@ -203,9 +203,18 @@ app.put('/api/projects/:id', (req, res) => {
   }
 });
 
+// case_time_allocations・case_preparation_itemsはprojects.idをFOREIGN KEYで参照しており、
+// (better-sqlite3はSQLite側でforeign_keys=ONがデフォルトのため)子レコードが残ったまま
+// projectsを削除するとFOREIGN KEY constraint failedになる。トランザクションで子→親の順に削除する
+const deleteProjectCascade = db.transaction((projectId) => {
+  db.prepare('DELETE FROM case_preparation_items WHERE case_id = ?').run(projectId);
+  db.prepare('DELETE FROM case_time_allocations WHERE case_id = ?').run(projectId);
+  db.prepare('DELETE FROM projects WHERE id = ?').run(projectId);
+});
+
 app.delete('/api/projects/:id', (req, res) => {
   try {
-    db.prepare('DELETE FROM projects WHERE id = ?').run(req.params.id);
+    deleteProjectCascade(req.params.id);
     res.json({ message: 'Project deleted successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -284,18 +293,29 @@ app.delete('/api/time-allocations/:id', (req, res) => {
 // WAITING(生産待ち)⇔PREP_COMPLETE(準備完了)以外の手動ステータス(受注前/受注確定/生産中/検品/納品待ち)は変更しない
 function syncCaseStatusForPreparationItems(caseId) {
   const items = db.prepare('SELECT status FROM case_preparation_items WHERE case_id = ?').all(caseId);
-  if (items.length === 0) return;
+  if (items.length === 0) {
+    console.log(`[準備項目同期] 案件#${caseId}: case_preparation_itemsが0件のため対象外`);
+    return;
+  }
 
   const project = db.prepare('SELECT status FROM projects WHERE id = ?').get(caseId);
-  if (!project) return;
+  if (!project) {
+    console.log(`[準備項目同期] 案件#${caseId}: projectsに該当行なし`);
+    return;
+  }
 
   const allCompleted = items.every(i => i.status === '完了');
+  const completedCount = items.filter(i => i.status === '完了').length;
   const now = new Date().toISOString();
+
+  console.log(`[準備項目同期] 案件#${caseId}: 完了${completedCount}/${items.length}件, 現在のstatus=${project.status}`);
 
   if (allCompleted && project.status === 'WAITING') {
     db.prepare(`UPDATE projects SET status = 'PREP_COMPLETE', updated_at = ? WHERE id = ?`).run(now, caseId);
+    console.log(`[準備項目同期] 案件#${caseId}: WAITING → PREP_COMPLETE に自動更新しました`);
   } else if (!allCompleted && project.status === 'PREP_COMPLETE') {
     db.prepare(`UPDATE projects SET status = 'WAITING', updated_at = ? WHERE id = ?`).run(now, caseId);
+    console.log(`[準備項目同期] 案件#${caseId}: PREP_COMPLETE → WAITING に自動更新しました`);
   }
 }
 
