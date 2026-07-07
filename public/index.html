@@ -91,12 +91,12 @@
               <tr>
                 <th onclick="app.sortTable('project_name')">案件名</th>
                 <th onclick="app.sortTable('received_date')">受付日</th>
-                <th onclick="app.sortTable('deadline')">納期</th>
+                <th id="th-group-deadline" onclick="app.toggleGroupColumn('deadline')">納期</th>
                 <th>顧客名</th>
                 <th>加工種別</th>
                 <th onclick="app.sortTable('quantity')">数量</th>
                 <th>担当者</th>
-                <th>ステータス</th>
+                <th id="th-group-status" onclick="app.toggleGroupColumn('status')">ステータス</th>
                 <th>優先度</th>
                 <th>操作</th>
               </tr>

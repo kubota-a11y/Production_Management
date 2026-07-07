@@ -15,6 +15,7 @@ const app = {
   currentMonth: new Date(),
   sortColumn: 'deadline',
   sortOrder: 'asc',
+  groupBy: null, // null | 'deadline' | 'status'
   nasEntriesCache: [],
 
   // ===== 初期化 =====
@@ -89,45 +90,114 @@ const app = {
     const tbody = document.getElementById('projects-tbody');
     tbody.innerHTML = '';
 
-    projects.forEach(project => {
-      const row = document.createElement('tr');
-      const deadlineWarning = getDeadlineWarning(project.deadline);
-      
-      if (deadlineWarning === 'overdue') {
-        row.classList.add('row-overdue');
-      } else if (deadlineWarning === 'urgent') {
-        row.classList.add('row-urgent');
-      } else if (deadlineWarning === 'warning') {
-        row.classList.add('row-warning');
-      }
+    this.updateGroupHeaderUI();
 
-      row.innerHTML = `
-        <td class="cell-project-name">${this.escapeHtml(project.project_name)}</td>
-        <td>${formatDate(project.received_date)}</td>
-        <td class="deadline-cell">${formatDate(project.deadline)}</td>
-        <td>${this.escapeHtml(project.customer_name)}</td>
-        <td>${getProcessLabels(project.process_type)}</td>
-        <td class="text-center">${project.quantity}</td>
-        <td>${project.assigned_staff_name || '未割り当て'}</td>
-        <td>
-          <span class="status-badge ${getStatusClass(project.status)}">
-            ${getStatusLabel(project.status)}
-          </span>
-        </td>
-        <td>
-          <span class="priority-badge ${getPriorityClass(project.priority)}">
-            ${getPriorityLabel(project.priority)}
-          </span>
-        </td>
-        <td class="text-center">
-          <button class="btn-small" onclick="app.openProjectModal(${project.id})">
-            ✎ 編集
-          </button>
-        </td>
-      `;
+    if (this.groupBy === 'deadline') {
+      this.renderGroupedRows(tbody, this.groupProjectsByDeadline(projects));
+    } else if (this.groupBy === 'status') {
+      this.renderGroupedRows(tbody, this.groupProjectsByStatus(projects));
+    } else {
+      projects.forEach(project => tbody.appendChild(this.buildProjectRow(project)));
+    }
+  },
 
-      tbody.appendChild(row);
+  buildProjectRow(project) {
+    const row = document.createElement('tr');
+    const deadlineWarning = getDeadlineWarning(project.deadline);
+
+    if (deadlineWarning === 'overdue') {
+      row.classList.add('row-overdue');
+    } else if (deadlineWarning === 'urgent') {
+      row.classList.add('row-urgent');
+    } else if (deadlineWarning === 'warning') {
+      row.classList.add('row-warning');
+    }
+
+    row.innerHTML = `
+      <td class="cell-project-name">${this.escapeHtml(project.project_name)}</td>
+      <td>${formatDate(project.received_date)}</td>
+      <td class="deadline-cell">${formatDate(project.deadline)}</td>
+      <td>${this.escapeHtml(project.customer_name)}</td>
+      <td>${getProcessLabels(project.process_type)}</td>
+      <td class="text-center">${project.quantity}</td>
+      <td>${project.assigned_staff_name || '未割り当て'}</td>
+      <td>
+        <span class="status-badge ${getStatusClass(project.status)}">
+          ${getStatusLabel(project.status)}
+        </span>
+      </td>
+      <td>
+        <span class="priority-badge ${getPriorityClass(project.priority)}">
+          ${getPriorityLabel(project.priority)}
+        </span>
+      </td>
+      <td class="text-center">
+        <button class="btn-small" onclick="app.openProjectModal(${project.id})">
+          ✎ 編集
+        </button>
+      </td>
+    `;
+
+    return row;
+  },
+
+  buildGroupHeaderRow(label, count) {
+    const row = document.createElement('tr');
+    row.className = 'group-header-row';
+    const colCount = document.querySelectorAll('#projects-table thead th').length;
+    row.innerHTML = `<td colspan="${colCount}">${this.escapeHtml(label)} (${count}件)</td>`;
+    return row;
+  },
+
+  renderGroupedRows(tbody, groups) {
+    groups.forEach(group => {
+      tbody.appendChild(this.buildGroupHeaderRow(group.label, group.projects.length));
+      group.projects.forEach(project => tbody.appendChild(this.buildProjectRow(project)));
     });
+  },
+
+  groupProjectsByDeadline(projects) {
+    const map = new Map();
+    projects.forEach(project => {
+      const key = project.deadline || '';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(project);
+    });
+
+    const keys = Array.from(map.keys()).sort((a, b) => {
+      if (!a) return 1;
+      if (!b) return -1;
+      return a < b ? -1 : a > b ? 1 : 0;
+    });
+
+    return keys
+      .map(key => ({
+        label: key ? formatDate(key) : '納期未設定',
+        projects: map.get(key)
+      }))
+      .filter(group => group.projects.length > 0);
+  },
+
+  groupProjectsByStatus(projects) {
+    const statusOrder = ['PRE_ORDER', 'CONFIRMED', 'WAITING', 'IN_PROGRESS', 'INSPECTION', 'DELIVERED'];
+    return statusOrder
+      .map(statusKey => ({
+        label: getStatusLabel(statusKey),
+        projects: projects.filter(project => project.status === statusKey)
+      }))
+      .filter(group => group.projects.length > 0);
+  },
+
+  toggleGroupColumn(column) {
+    this.groupBy = this.groupBy === column ? null : column;
+    this.renderListView();
+  },
+
+  updateGroupHeaderUI() {
+    const deadlineTh = document.getElementById('th-group-deadline');
+    const statusTh = document.getElementById('th-group-status');
+    if (deadlineTh) deadlineTh.classList.toggle('grouped-column', this.groupBy === 'deadline');
+    if (statusTh) statusTh.classList.toggle('grouped-column', this.groupBy === 'status');
   },
 
   getFilteredProjects() {

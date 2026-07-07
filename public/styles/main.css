@@ -294,6 +294,30 @@ html, body {
   background: var(--gray-200);
 }
 
+.projects-table th.grouped-column {
+  background: var(--gray-200);
+  color: var(--primary-dark);
+}
+
+.projects-table th.grouped-column::after {
+  content: ' ▼';
+  font-size: 10px;
+}
+
+.projects-table tbody tr.group-header-row {
+  background: var(--gray-100);
+}
+
+.projects-table tbody tr.group-header-row:hover {
+  background: var(--gray-100);
+}
+
+.projects-table tbody tr.group-header-row td {
+  padding: 8px 12px;
+  font-weight: 700;
+  border-bottom: 2px solid var(--gray-200);
+}
+
 .projects-table td {
   padding: 12px;
   border-bottom: 1px solid var(--gray-200);
