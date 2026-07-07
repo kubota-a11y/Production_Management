@@ -268,6 +268,7 @@ html, body {
   background: white;
   border-radius: var(--border-radius);
   overflow-x: auto;
+  overflow-y: visible;
   box-shadow: var(--box-shadow);
 }
 
@@ -279,15 +280,22 @@ html, body {
 .projects-table thead {
   background: var(--gray-100);
   font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
 .projects-table th {
-  padding: 12px;
+  padding: 8px 10px;
   text-align: left;
   border-bottom: 2px solid var(--gray-200);
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--gray-100);
 }
 
 .projects-table th:hover {
@@ -319,7 +327,7 @@ html, body {
 }
 
 .projects-table td {
-  padding: 12px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--gray-200);
 }
 
@@ -442,7 +450,8 @@ html, body {
   border-radius: var(--border-radius);
   display: flex;
   flex-direction: column;
-  min-height: 500px;
+  min-height: 200px;
+  max-height: calc(100vh - 260px);
 }
 
 .kanban-header {
@@ -450,10 +459,24 @@ html, body {
   padding: 12px;
   border-radius: var(--border-radius) var(--border-radius) 0 0;
   font-weight: 600;
+  flex-shrink: 0;
 }
 
 .kanban-header h3 {
   font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.kanban-count-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--gray-700);
 }
 
 .kanban-cards {
@@ -463,6 +486,10 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.kanban-mobile-tabs {
+  display: none;
 }
 
 .kanban-card {
@@ -1029,8 +1056,45 @@ html, body {
     width: 100%;
   }
 
+  .kanban-mobile-tabs {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .kanban-tab-btn {
+    flex: 0 0 auto;
+    padding: 8px 14px;
+    border: none;
+    border-radius: 20px;
+    background: var(--gray-200);
+    color: var(--gray-700);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+
+  .kanban-tab-btn.active {
+    background: var(--primary-color);
+    color: white;
+  }
+
   .kanban-board {
-    grid-template-columns: 1fr;
+    display: block;
+  }
+
+  .kanban-column {
+    display: none;
+    max-height: calc(100vh - 320px);
+  }
+
+  .kanban-column.active {
+    display: flex;
   }
 
   .projects-table {

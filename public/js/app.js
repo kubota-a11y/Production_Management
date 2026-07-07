@@ -285,9 +285,13 @@ const app = {
   },
 
   // ===== UI: カンバンビュー =====
+  kanbanActiveStatus: null,
+
   renderKanbanView() {
     const board = document.getElementById('kanban-board');
+    const mobileTabs = document.getElementById('kanban-mobile-tabs');
     board.innerHTML = '';
+    mobileTabs.innerHTML = '';
 
     const statuses = [
       { key: 'PRE_ORDER', label: '受注前' },
@@ -299,13 +303,31 @@ const app = {
       { key: 'DELIVERED', label: '納品待ち' }
     ];
 
+    if (!this.kanbanActiveStatus || !statuses.some(s => s.key === this.kanbanActiveStatus)) {
+      this.kanbanActiveStatus = statuses[0].key;
+    }
+
     statuses.forEach(status => {
+      const cardsInStatus = this.projects.filter(p => p.status === status.key);
+      const isActive = status.key === this.kanbanActiveStatus;
+
+      // モバイル用タブボタン（件数バッジ入り）
+      const tabBtn = document.createElement('button');
+      tabBtn.className = `kanban-tab-btn${isActive ? ' active' : ''}`;
+      tabBtn.textContent = `${status.label} (${cardsInStatus.length})`;
+      tabBtn.onclick = () => {
+        this.kanbanActiveStatus = status.key;
+        this.renderKanbanView();
+      };
+      mobileTabs.appendChild(tabBtn);
+
       const column = document.createElement('div');
-      column.className = 'kanban-column';
+      column.className = `kanban-column${isActive ? ' active' : ''}`;
+      column.dataset.status = status.key;
 
       const header = document.createElement('div');
       header.className = 'kanban-header';
-      header.innerHTML = `<h3>${status.label}</h3>`;
+      header.innerHTML = `<h3>${status.label} <span class="kanban-count-badge">${cardsInStatus.length}</span></h3>`;
       column.appendChild(header);
 
       const content = document.createElement('div');
@@ -313,7 +335,6 @@ const app = {
       content.ondragover = (e) => e.preventDefault();
       content.ondrop = (e) => this.handleCardDrop(e, status.key);
 
-      const cardsInStatus = this.projects.filter(p => p.status === status.key);
       cardsInStatus.forEach(project => {
         const card = document.createElement('div');
         card.className = `kanban-card priority-${project.priority.toLowerCase()}`;
