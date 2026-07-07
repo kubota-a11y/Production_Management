@@ -22,6 +22,7 @@ function getStatusLabel(status) {
     'PRE_ORDER': '受注前',
     'CONFIRMED': '受注確定',
     'WAITING': '生産待ち',
+    'PREP_COMPLETE': '準備完了',
     'IN_PROGRESS': '生産中',
     'INSPECTION': '検品',
     'DELIVERED': '納品待ち'
@@ -35,6 +36,7 @@ function getStatusClass(status) {
     'PRE_ORDER': 'status-pre-order',
     'CONFIRMED': 'status-confirmed',
     'WAITING': 'status-waiting',
+    'PREP_COMPLETE': 'status-prep-complete',
     'IN_PROGRESS': 'status-in-progress',
     'INSPECTION': 'status-inspection',
     'DELIVERED': 'status-delivered'
@@ -83,7 +85,8 @@ function getPrepItemLabel(item) {
     'DTF_DATA_CREATION': 'DTFデータ作成',
     'SCREEN_DATA_CREATION': 'スクリーンデータ作成',
     'RUBBER_SHEET_OUTPUT': 'ラバーシート出力',
-    'RUBBER_SHEET_TRIMMING': 'ラバーシートカス取り'
+    'RUBBER_SHEET_TRIMMING': 'ラバーシートカス取り',
+    'TEST_PRINT': 'テストプリント'
   };
   return prepItemMap[item] || item;
 }

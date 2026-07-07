@@ -73,6 +73,30 @@ CREATE TABLE IF NOT EXISTS case_time_allocations (
   FOREIGN KEY (employee_id) REFERENCES employees(id)
 );
 
+-- 準備項目マスター(案件新規登録画面の選択肢。codeは既存のprep_items CSVコードと一致させる)
+CREATE TABLE IF NOT EXISTS preparation_item_master (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  code TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL UNIQUE,
+  display_order INTEGER DEFAULT 0,
+  is_active INTEGER DEFAULT 1
+);
+
+-- 案件ごとの準備項目タスク(担当者・工数・完了状態を持つ)
+CREATE TABLE IF NOT EXISTS case_preparation_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  case_id INTEGER NOT NULL,
+  preparation_item_id INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT '未着手',
+  assigned_staff_id INTEGER,
+  scheduled_date TEXT,
+  estimated_hours REAL,
+  completed_at TEXT,
+  FOREIGN KEY (case_id) REFERENCES projects(id),
+  FOREIGN KEY (preparation_item_id) REFERENCES preparation_item_master(id),
+  FOREIGN KEY (assigned_staff_id) REFERENCES employees(id)
+);
+
 -- インデックス
 CREATE INDEX IF NOT EXISTS idx_projects_deadline ON projects(deadline);
 CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);
@@ -82,3 +106,5 @@ CREATE INDEX IF NOT EXISTS idx_employees_is_active ON employees(is_active);
 CREATE INDEX IF NOT EXISTS idx_case_time_allocations_case_id ON case_time_allocations(case_id);
 CREATE INDEX IF NOT EXISTS idx_case_time_allocations_work_date ON case_time_allocations(work_date);
 CREATE INDEX IF NOT EXISTS idx_schedule_overrides_employee_date ON schedule_overrides(employee_id, work_date);
+CREATE INDEX IF NOT EXISTS idx_case_preparation_items_case_id ON case_preparation_items(case_id);
+CREATE INDEX IF NOT EXISTS idx_case_preparation_items_scheduled_date ON case_preparation_items(scheduled_date);

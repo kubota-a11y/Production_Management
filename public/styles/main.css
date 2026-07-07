@@ -381,6 +381,11 @@ html, body {
   color: #1e40af;
 }
 
+.status-prep-complete {
+  background: #ddd6fe;
+  color: #5b21b6;
+}
+
 .status-in-progress {
   background: #fbbf24;
   color: #78350f;
@@ -511,6 +516,16 @@ html, body {
   gap: 8px;
   font-size: 12px;
   color: var(--gray-600);
+  margin-bottom: 8px;
+}
+
+.card-prep-progress {
+  font-size: 12px;
+  color: #5b21b6;
+  background: #f5f3ff;
+  border-radius: 4px;
+  padding: 2px 6px;
+  display: inline-block;
   margin-bottom: 8px;
 }
 

@@ -8,6 +8,8 @@ const scheduleBoard = {
   projects: [],
   scheduleOverrides: [],
   allocations: [],
+  preparationItems: [],
+  unassignedPreparationItems: [],
   projectProgress: [],
   currentWeekStart: null,
   detailModalContext: null,
@@ -26,6 +28,7 @@ const scheduleBoard = {
     await this.loadProjects();
     await this.loadScheduleOverrides();
     await this.loadWeekAllocations();
+    await this.loadWeekPreparationItems();
     await this.loadProjectProgress();
     this.render();
     console.log('✓ 初期化完了');
@@ -114,6 +117,30 @@ const scheduleBoard = {
     }
   },
 
+  async loadWeekPreparationItems() {
+    try {
+      const dates = this.getWeekDates();
+      const start = this.toISODate(dates[0]);
+      const end = this.toISODate(dates[6]);
+      this.preparationItems = await (await fetch(`/api/preparation-items?start=${start}&end=${end}`)).json();
+    } catch (error) {
+      console.error('準備項目タスク取得エラー:', error);
+      alert('準備項目タスクの取得に失敗しました');
+      this.preparationItems = [];
+    }
+  },
+
+  async loadUnassignedPreparationItems() {
+    try {
+      const all = await (await fetch('/api/preparation-items?unassigned=true')).json();
+      this.unassignedPreparationItems = all.filter(i => i.status !== '完了');
+    } catch (error) {
+      console.error('未割当の準備項目タスク取得エラー:', error);
+      alert('未割当の準備項目タスクの取得に失敗しました');
+      this.unassignedPreparationItems = [];
+    }
+  },
+
   async loadProjectProgress() {
     try {
       this.projectProgress = await (await fetch('/api/stats/project-progress')).json();
@@ -128,12 +155,14 @@ const scheduleBoard = {
   async prevWeek() {
     this.currentWeekStart.setDate(this.currentWeekStart.getDate() - 7);
     await this.loadWeekAllocations();
+    await this.loadWeekPreparationItems();
     this.render();
   },
 
   async nextWeek() {
     this.currentWeekStart.setDate(this.currentWeekStart.getDate() + 7);
     await this.loadWeekAllocations();
+    await this.loadWeekPreparationItems();
     this.render();
   },
 
@@ -163,6 +192,10 @@ const scheduleBoard = {
 
   getAllocationsFor(employeeId, dateISO) {
     return this.allocations.filter(a => a.employee_id === employeeId && a.work_date === dateISO);
+  },
+
+  getPrepItemsFor(employeeId, dateISO) {
+    return this.preparationItems.filter(i => i.assigned_staff_id === employeeId && i.scheduled_date === dateISO);
   },
 
   getProjectColor(projectId) {
@@ -231,7 +264,10 @@ const scheduleBoard = {
     }
 
     const dayAllocations = this.getAllocationsFor(employee.id, dateISO);
-    const plannedTotal = dayAllocations.reduce((sum, a) => sum + a.planned_hours, 0);
+    const dayPrepItems = this.getPrepItemsFor(employee.id, dateISO);
+    const allocationHours = dayAllocations.reduce((sum, a) => sum + a.planned_hours, 0);
+    const prepHours = dayPrepItems.reduce((sum, i) => sum + (i.estimated_hours || 0), 0);
+    const plannedTotal = allocationHours + prepHours;
     const scaleMax = Math.max(referenceHours, plannedTotal, 0.1);
     const referencePct = Math.min((referenceHours / scaleMax) * 100, 100);
     const isShort = plannedTotal < referenceHours;
@@ -243,12 +279,22 @@ const scheduleBoard = {
       return `<div class="sb-bar-segment" style="width:${widthPct}%; background:${color};" title="${this.escapeHtml(title)}">${this.escapeHtml(a.project_name)}</div>`;
     }).join('');
 
+    // 準備項目タスクは案件の作業と区別できるよう【準備】ラベル・専用スタイルで表示する
+    const prepSegments = dayPrepItems.map(i => {
+      const hours = i.estimated_hours || 0;
+      const widthPct = (hours / scaleMax) * 100;
+      const label = `【準備】${i.project_name} / ${i.preparation_item_name}`;
+      const title = `${label}: 予定${hours}h（${i.status}）`;
+      return `<div class="sb-bar-segment sb-bar-segment-prep${i.status === '完了' ? ' is-completed' : ''}" style="width:${widthPct}%;" title="${this.escapeHtml(title)}">${this.escapeHtml(label)}</div>`;
+    }).join('');
+
     return `
       <td class="sb-cell" onclick="${cellOnclick}">
         ${isShort ? `<div class="sb-cell-warning" title="計画時間(${this.roundHours(plannedTotal)}h)が勤務時間(${this.roundHours(referenceHours)}h)に不足しています">⚠️ 計画不足</div>` : ''}
         <div class="sb-cell-hours-label">${this.roundHours(plannedTotal)}h / ${this.roundHours(referenceHours)}h</div>
         <div class="sb-bar-track" onclick="event.stopPropagation(); scheduleBoard.openDetailModal(${employee.id}, '${dateISO}')">
           ${segments}
+          ${prepSegments}
           <div class="sb-bar-reference-marker" style="left:${referencePct}%;"></div>
         </div>
       </td>
@@ -316,14 +362,15 @@ const scheduleBoard = {
     if (!this.detailModalContext) return;
     const { employeeId, dateISO } = this.detailModalContext;
     const dayAllocations = this.getAllocationsFor(employeeId, dateISO);
+    const dayPrepItems = this.getPrepItemsFor(employeeId, dateISO);
     const body = document.getElementById('sb-detail-body');
 
-    if (dayAllocations.length === 0) {
+    if (dayAllocations.length === 0 && dayPrepItems.length === 0) {
       body.innerHTML = '<p class="sb-empty-notice">この日の作業計画は登録されていません</p>';
       return;
     }
 
-    body.innerHTML = dayAllocations.map(a => `
+    const allocationsHtml = dayAllocations.map(a => `
       <div class="sb-detail-row">
         <div class="sb-detail-row-top">
           <span class="sb-detail-swatch" style="background:${this.getProjectColor(a.case_id)};"></span>
@@ -344,6 +391,39 @@ const scheduleBoard = {
         </div>
       </div>
     `).join('');
+
+    // 準備項目タスクは案件の作業と区別できるよう【準備】ラベルで表示し、完了チェックボックスのみを持つ
+    const prepItemsHtml = dayPrepItems.map(i => `
+      <div class="sb-detail-row sb-detail-row-prep">
+        <div class="sb-detail-row-top">
+          <span class="sb-detail-swatch sb-detail-swatch-prep"></span>
+          <span class="sb-detail-project-name">【準備】${this.escapeHtml(i.project_name)} / ${this.escapeHtml(i.preparation_item_name)}</span>
+          <span class="sb-detail-meta">予定${i.estimated_hours ?? '-'}h（${this.escapeHtml(i.status)}）</span>
+        </div>
+        <div class="sb-detail-row-actual">
+          <label class="sb-prep-complete-check">
+            <input type="checkbox" ${i.status === '完了' ? 'checked' : ''} onchange="scheduleBoard.togglePrepItemComplete(${i.id}, this.checked)">
+            完了
+          </label>
+        </div>
+      </div>
+    `).join('');
+
+    body.innerHTML = allocationsHtml + prepItemsHtml;
+  },
+
+  async togglePrepItemComplete(itemId, isComplete) {
+    try {
+      await fetch(`/api/preparation-items/${itemId}/${isComplete ? 'complete' : 'incomplete'}`, { method: 'PUT' });
+      await this.loadWeekPreparationItems();
+      await this.loadProjects();
+      this.renderDetailModalBody();
+      this.renderBoard();
+      console.log(`✓ 準備項目タスクの完了状態を更新 (item #${itemId})`);
+    } catch (error) {
+      console.error('準備項目タスク完了状態更新エラー:', error);
+      alert('完了状態の更新に失敗しました');
+    }
   },
 
   async saveActualHours(allocationId) {
@@ -387,12 +467,15 @@ const scheduleBoard = {
   },
 
   // ===== 勤務時間編集モーダル（その日だけの勤務時間 + 案件の割り当て） =====
-  openOverrideModal(employeeId, dateISO) {
+  async openOverrideModal(employeeId, dateISO) {
     const employee = this.employees.find(e => e.id === employeeId);
     if (!employee) return;
 
     const override = this.getOverrideFor(employeeId, dateISO);
     const dayAllocations = this.getAllocationsFor(employeeId, dateISO);
+    const dayPrepItems = this.getPrepItemsFor(employeeId, dateISO);
+
+    await this.loadUnassignedPreparationItems();
 
     this.overrideModalContext = {
       employeeId,
@@ -406,7 +489,15 @@ const scheduleBoard = {
         planned_hours: a.planned_hours,
         actual_hours: a.actual_hours
       })),
-      newRowCounter: 0
+      newRowCounter: 0,
+      // 準備項目タスクは既存タスク(case_preparation_items)への割り当てのみ(新規作成はしない)
+      prepItemRows: dayPrepItems.map(i => ({
+        id: i.id,
+        label: `${i.project_name} / ${i.preparation_item_name}`,
+        estimated_hours: i.estimated_hours,
+        status: i.status
+      })),
+      removedPrepItemIds: []
     };
 
     document.getElementById('sb-override-title').textContent = `${employee.name} / ${formatDate(dateISO)} の勤務時間`;
@@ -421,6 +512,8 @@ const scheduleBoard = {
     document.getElementById('ov-delete-btn').style.display = override ? 'inline-block' : 'none';
 
     this.renderAllocationRows();
+    this.renderPrepItemRows();
+    this.renderPrepItemAddOptions();
     this.updateOverrideSummary();
 
     document.getElementById('sb-override-modal').style.display = 'flex';
@@ -499,6 +592,83 @@ const scheduleBoard = {
     this.updateOverrideSummary();
   },
 
+  // ===== 準備項目タスクの割り当て（モーダル内） =====
+  renderPrepItemRows() {
+    const container = document.getElementById('sb-prep-item-rows');
+    const rows = this.overrideModalContext.prepItemRows;
+
+    if (rows.length === 0) {
+      container.innerHTML = '<p class="sb-empty-notice">準備項目タスクの割り当てはまだありません</p>';
+      return;
+    }
+
+    container.innerHTML = rows.map(row => `
+      <div class="sb-allocation-row sb-prep-item-row" data-prep-id="${row.id}">
+        <span class="sb-prep-item-label">【準備】${this.escapeHtml(row.label)}${row.status === '完了' ? '（完了）' : ''}</span>
+        <input type="number" class="sb-prep-hours" data-prep-id="${row.id}" step="0.5" min="0"
+          placeholder="工数(h)" value="${row.estimated_hours ?? ''}" oninput="scheduleBoard.updateOverrideSummary()">
+        <button type="button" class="btn-small btn-danger" onclick="scheduleBoard.removePrepItemRow(${row.id})">🗑️ 解除</button>
+      </div>
+    `).join('');
+  },
+
+  renderPrepItemAddOptions() {
+    const select = document.getElementById('sb-add-prep-item-select');
+    if (!select) return;
+    if (this.unassignedPreparationItems.length === 0) {
+      select.innerHTML = '<option value="">未割当の準備項目タスクはありません</option>';
+      return;
+    }
+    select.innerHTML = '<option value="">準備項目タスクを選択...</option>' +
+      this.unassignedPreparationItems.map(i => `
+        <option value="${i.id}">${this.escapeHtml(i.project_name)} / ${this.escapeHtml(i.preparation_item_name)}</option>
+      `).join('');
+  },
+
+  addPrepItemRow() {
+    if (!this.overrideModalContext) return;
+    const select = document.getElementById('sb-add-prep-item-select');
+    const hoursInput = document.getElementById('sb-add-prep-item-hours');
+    const itemId = parseInt(select.value, 10);
+    if (!itemId) {
+      alert('準備項目タスクを選択してください');
+      return;
+    }
+    const hours = parseFloat(hoursInput.value);
+    if (hoursInput.value.trim() === '' || Number.isNaN(hours) || hours <= 0) {
+      alert('準備項目タスクの工数には0より大きい数値を入力してください');
+      return;
+    }
+
+    const item = this.unassignedPreparationItems.find(i => i.id === itemId);
+    if (!item) return;
+
+    this.overrideModalContext.prepItemRows.push({
+      id: item.id,
+      label: `${item.project_name} / ${item.preparation_item_name}`,
+      estimated_hours: hours,
+      status: item.status
+    });
+    // 選択済みの項目は候補から外し、同一項目の二重追加を防ぐ
+    this.unassignedPreparationItems = this.unassignedPreparationItems.filter(i => i.id !== itemId);
+
+    this.renderPrepItemAddOptions();
+    this.renderPrepItemRows();
+    this.updateOverrideSummary();
+    hoursInput.value = '';
+  },
+
+  removePrepItemRow(prepId) {
+    if (!this.overrideModalContext) return;
+    const rows = this.overrideModalContext.prepItemRows;
+    const idx = rows.findIndex(r => r.id === prepId);
+    if (idx !== -1) rows.splice(idx, 1);
+    this.overrideModalContext.removedPrepItemIds.push(prepId);
+
+    this.renderPrepItemRows();
+    this.updateOverrideSummary();
+  },
+
   // 「この日は休み」チェック・時刻・休憩の現在の入力値から稼働時間を算出（未保存の編集内容にも追従）
   computeCurrentReferenceHours() {
     const isDayOff = document.getElementById('ov-is-day-off').checked;
@@ -517,6 +687,10 @@ const scheduleBoard = {
       const v = parseFloat(input.value);
       if (!Number.isNaN(v)) plannedTotal += v;
     });
+    document.querySelectorAll('#sb-prep-item-rows .sb-prep-hours').forEach(input => {
+      const v = parseFloat(input.value);
+      if (!Number.isNaN(v)) plannedTotal += v;
+    });
     plannedTotal = this.roundHours(plannedTotal);
     const remaining = this.roundHours(referenceHours - plannedTotal);
 
@@ -527,7 +701,7 @@ const scheduleBoard = {
   async submitOverrideForm(e) {
     e.preventDefault();
     if (!this.overrideModalContext) return;
-    const { employeeId, dateISO, overrideId, allocationRows } = this.overrideModalContext;
+    const { employeeId, dateISO, overrideId, allocationRows, removedPrepItemIds } = this.overrideModalContext;
 
     // ---- 案件の割り当て行をDOMから読み取り、保存前に検証 ----
     const rowEls = [...document.querySelectorAll('#sb-allocation-rows .sb-allocation-row')];
@@ -546,6 +720,21 @@ const scheduleBoard = {
       const planned = parseFloat(row.plannedRaw);
       if (row.plannedRaw === '' || Number.isNaN(planned) || planned <= 0) {
         alert('案件の割り当てで、予定時間には0より大きい数値を入力してください');
+        return;
+      }
+    }
+
+    // ---- 準備項目タスクの割り当て行をDOMから読み取り、保存前に検証 ----
+    const prepRowEls = [...document.querySelectorAll('#sb-prep-item-rows .sb-prep-item-row')];
+    const currentPrepRows = prepRowEls.map(rowEl => ({
+      id: parseInt(rowEl.dataset.prepId, 10),
+      hoursRaw: rowEl.querySelector('.sb-prep-hours').value
+    }));
+
+    for (const row of currentPrepRows) {
+      const hours = parseFloat(row.hoursRaw);
+      if (row.hoursRaw.trim() === '' || Number.isNaN(hours) || hours <= 0) {
+        alert('準備項目タスクの工数には0より大きい数値を入力してください');
         return;
       }
     }
@@ -616,8 +805,28 @@ const scheduleBoard = {
         }
       }
 
+      // 準備項目タスクの割り当て更新(担当者・予定日・工数)
+      for (const row of currentPrepRows) {
+        const hours = parseFloat(row.hoursRaw);
+        await fetch(`/api/preparation-items/${row.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ assigned_staff_id: employeeId, scheduled_date: dateISO, estimated_hours: hours })
+        });
+      }
+
+      // モーダル内で「解除」した準備項目タスクは担当者・予定日・工数をクリアして未割当に戻す
+      for (const id of removedPrepItemIds) {
+        await fetch(`/api/preparation-items/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ assigned_staff_id: null, scheduled_date: null, estimated_hours: null })
+        });
+      }
+
       await this.loadScheduleOverrides();
       await this.loadWeekAllocations();
+      await this.loadWeekPreparationItems();
       await this.loadProjectProgress();
       this.renderBoard();
       this.renderLegend();

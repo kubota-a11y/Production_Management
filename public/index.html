@@ -54,6 +54,7 @@
               <option value="PRE_ORDER">受注前</option>
               <option value="CONFIRMED">受注確定</option>
               <option value="WAITING">生産待ち</option>
+              <option value="PREP_COMPLETE">準備完了</option>
               <option value="IN_PROGRESS">生産中</option>
               <option value="INSPECTION">検品</option>
               <option value="DELIVERED">納品待ち</option>
@@ -286,20 +287,7 @@
 
         <div class="form-group">
           <label>作業の準備項目 <span class="field-hint">(複数選択可)</span></label>
-          <div class="checkbox-group">
-            <label class="checkbox-pill"><input type="checkbox" name="prep_items" value="SCREEN_MAKING"> シルクスクリーン製版</label>
-            <label class="checkbox-pill"><input type="checkbox" name="prep_items" value="POSITIVE_FILM_OUTPUT"> ポジフィルム出力</label>
-            <label class="checkbox-pill"><input type="checkbox" name="prep_items" value="PRINT_COLOR_SELECTION"> プリントカラー選定</label>
-            <label class="checkbox-pill"><input type="checkbox" name="prep_items" value="PRINT_POSITION_ADJUSTMENT"> プリント位置調整</label>
-            <label class="checkbox-pill"><input type="checkbox" name="prep_items" value="PRINT_SIZE_SELECTION"> プリントサイズ選定</label>
-            <label class="checkbox-pill"><input type="checkbox" name="prep_items" value="SUBLIMATION_SHEET_OUTPUT"> 昇華プリント用シート出力</label>
-            <label class="checkbox-pill"><input type="checkbox" name="prep_items" value="DTF_SHEET_OUTPUT"> DTFシート出力</label>
-            <label class="checkbox-pill"><input type="checkbox" name="prep_items" value="EMBROIDERY_DATA_REQUEST"> 刺繍データ作成依頼</label>
-            <label class="checkbox-pill"><input type="checkbox" name="prep_items" value="DTF_DATA_CREATION"> DTFデータ作成</label>
-            <label class="checkbox-pill"><input type="checkbox" name="prep_items" value="SCREEN_DATA_CREATION"> スクリーンデータ作成</label>
-            <label class="checkbox-pill"><input type="checkbox" name="prep_items" value="RUBBER_SHEET_OUTPUT"> ラバーシート出力</label>
-            <label class="checkbox-pill"><input type="checkbox" name="prep_items" value="RUBBER_SHEET_TRIMMING"> ラバーシートカス取り</label>
-          </div>
+          <div class="checkbox-group" id="prep-items-checkbox-group"></div>
         </div>
 
         <div class="form-row">
@@ -326,6 +314,7 @@
               <option value="PRE_ORDER">受注前</option>
               <option value="CONFIRMED">受注確定</option>
               <option value="WAITING">生産待ち</option>
+              <option value="PREP_COMPLETE">準備完了</option>
               <option value="IN_PROGRESS">生産中</option>
               <option value="INSPECTION">検品</option>
               <option value="DELIVERED">納品待ち</option>

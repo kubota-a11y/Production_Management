@@ -17,6 +17,8 @@ const app = {
   sortOrder: 'asc',
   groupBy: null, // null | 'deadline' | 'status'
   nasEntriesCache: [],
+  prepItemsMaster: [],
+  preparationItems: [],
 
   // ===== 初期化 =====
   async init() {
@@ -24,6 +26,7 @@ const app = {
     await this.loadProjects();
     await this.loadStaff();
     await this.loadEmployees();
+    await this.loadPrepItemsMaster();
     this.updateStaffSelects();
     this.renderListView();
     this.handleQueryParams();
@@ -58,6 +61,39 @@ const app = {
     }
   },
 
+  async loadPrepItemsMaster() {
+    try {
+      this.prepItemsMaster = await API.getPreparationItemsMaster();
+      this.renderPrepItemsCheckboxGroup();
+    } catch (error) {
+      console.error('準備項目マスター取得エラー:', error);
+      alert('準備項目マスターの取得に失敗しました');
+    }
+  },
+
+  // 準備項目の選択肢をマスターデータから動的に生成する。
+  // value は既存の prep_items CSV(projects.prep_items)と互換性を保つため code を使う
+  renderPrepItemsCheckboxGroup() {
+    const container = document.getElementById('prep-items-checkbox-group');
+    if (!container) return;
+    container.innerHTML = this.prepItemsMaster.map(item => `
+      <label class="checkbox-pill"><input type="checkbox" name="prep_items" value="${this.escapeHtml(item.code)}"> ${this.escapeHtml(item.name)}</label>
+    `).join('');
+  },
+
+  async loadPreparationItems() {
+    try {
+      this.preparationItems = await API.getPreparationItems();
+    } catch (error) {
+      console.error('準備項目タスク取得エラー:', error);
+      alert('準備項目タスクの取得に失敗しました');
+    }
+  },
+
+  getPreparationItemsForCase(caseId) {
+    return this.preparationItems.filter(item => item.case_id === caseId);
+  },
+
   // ===== UI: タブ切り替え =====
   switchTab(tabName) {
     this.currentTab = tabName;
@@ -76,7 +112,7 @@ const app = {
 
     // ビュー固有の処理
     if (tabName === 'kanban') {
-      this.renderKanbanView();
+      this.loadPreparationItems().then(() => this.renderKanbanView());
     } else if (tabName === 'calendar') {
       this.renderCalendarView();
     } else if (tabName === 'list') {
@@ -179,7 +215,7 @@ const app = {
   },
 
   groupProjectsByStatus(projects) {
-    const statusOrder = ['PRE_ORDER', 'CONFIRMED', 'WAITING', 'IN_PROGRESS', 'INSPECTION', 'DELIVERED'];
+    const statusOrder = ['PRE_ORDER', 'CONFIRMED', 'WAITING', 'PREP_COMPLETE', 'IN_PROGRESS', 'INSPECTION', 'DELIVERED'];
     return statusOrder
       .map(statusKey => ({
         label: getStatusLabel(statusKey),
@@ -257,6 +293,7 @@ const app = {
       { key: 'PRE_ORDER', label: '受注前' },
       { key: 'CONFIRMED', label: '受注確定' },
       { key: 'WAITING', label: '生産待ち' },
+      { key: 'PREP_COMPLETE', label: '準備完了' },
       { key: 'IN_PROGRESS', label: '生産中' },
       { key: 'INSPECTION', label: '検品' },
       { key: 'DELIVERED', label: '納品待ち' }
@@ -282,6 +319,10 @@ const app = {
         card.className = `kanban-card priority-${project.priority.toLowerCase()}`;
         card.draggable = true;
         card.ondragstart = (e) => this.handleCardDragStart(e, project.id);
+        const prepItems = this.getPreparationItemsForCase(project.id);
+        const prepProgressHtml = prepItems.length > 0
+          ? `<div class="card-prep-progress">準備: ${prepItems.filter(i => i.status === '完了').length}/${prepItems.length}完了</div>`
+          : '';
         card.innerHTML = `
           <div class="card-title">${this.escapeHtml(project.project_name)}</div>
           <div class="card-customer">${this.escapeHtml(project.customer_name)}</div>
@@ -290,6 +331,7 @@ const app = {
             <span>${getProcessLabels(project.process_type)}</span>
             <span>×${project.quantity}</span>
           </div>
+          ${prepProgressHtml}
           <div class="card-actions">
             <button class="btn-small" onclick="app.openProjectModal(${project.id})">
               ✎ 編集
@@ -876,7 +918,8 @@ const app = {
     }
 
     // 作業の準備項目（複数選択・任意）をカンマ区切りにまとめる
-    data.prep_items = formData.getAll('prep_items').join(',');
+    const prepItemCodes = formData.getAll('prep_items');
+    data.prep_items = prepItemCodes.join(',');
 
     // 数値変換
     data.quantity = parseInt(data.quantity);
@@ -884,12 +927,23 @@ const app = {
     data.assigned_staff_id = data.assigned_staff_id ? parseInt(data.assigned_staff_id) : null;
 
     try {
+      let projectId = this.editingProjectId;
       if (this.editingProjectId) {
         await API.updateProject(this.editingProjectId, data);
         console.log(`✓ プロジェクト #${this.editingProjectId} を更新`);
       } else {
-        await API.createProject(data);
+        const result = await API.createProject(data);
+        projectId = result.id;
         console.log('✓ 新規プロジェクトを作成');
+      }
+
+      // 選択された準備項目をタスクとして登録(既に登録済みのものはサーバー側でスキップされる)
+      if (prepItemCodes.length > 0) {
+        const codeToId = new Map(this.prepItemsMaster.map(m => [m.code, m.id]));
+        const prepItemIds = prepItemCodes.map(code => codeToId.get(code)).filter(Boolean);
+        if (prepItemIds.length > 0) {
+          await API.registerCasePreparationItems(projectId, prepItemIds);
+        }
       }
 
       await this.loadProjects();

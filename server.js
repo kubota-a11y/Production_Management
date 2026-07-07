@@ -278,6 +278,169 @@ app.delete('/api/time-allocations/:id', (req, res) => {
   }
 });
 
+// ===== 準備項目 =====
+
+// 案件が全準備項目完了→未完了、未完了→全完了に切り替わったタイミングでcases.statusを同期する。
+// WAITING(生産待ち)⇔PREP_COMPLETE(準備完了)以外の手動ステータス(受注前/受注確定/生産中/検品/納品待ち)は変更しない
+function syncCaseStatusForPreparationItems(caseId) {
+  const items = db.prepare('SELECT status FROM case_preparation_items WHERE case_id = ?').all(caseId);
+  if (items.length === 0) return;
+
+  const project = db.prepare('SELECT status FROM projects WHERE id = ?').get(caseId);
+  if (!project) return;
+
+  const allCompleted = items.every(i => i.status === '完了');
+  const now = new Date().toISOString();
+
+  if (allCompleted && project.status === 'WAITING') {
+    db.prepare(`UPDATE projects SET status = 'PREP_COMPLETE', updated_at = ? WHERE id = ?`).run(now, caseId);
+  } else if (!allCompleted && project.status === 'PREP_COMPLETE') {
+    db.prepare(`UPDATE projects SET status = 'WAITING', updated_at = ? WHERE id = ?`).run(now, caseId);
+  }
+}
+
+// 準備項目マスター一覧(案件新規登録画面の選択肢用)
+app.get('/api/preparation-items/master', (req, res) => {
+  try {
+    const items = db.prepare(`
+      SELECT * FROM preparation_item_master WHERE is_active = 1 ORDER BY display_order ASC
+    `).all();
+    res.json(items);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 案件作成・編集時に選択した準備項目をまとめて登録(既に登録済みの項目はスキップ = 冪等)
+app.post('/api/projects/:projectId/preparation-items', (req, res) => {
+  try {
+    const { preparation_item_ids } = req.body;
+    if (!Array.isArray(preparation_item_ids)) {
+      return res.status(400).json({ error: 'preparation_item_ids は配列で指定してください' });
+    }
+    const caseId = req.params.projectId;
+    const existingIds = new Set(
+      db.prepare('SELECT preparation_item_id FROM case_preparation_items WHERE case_id = ?')
+        .all(caseId).map(row => row.preparation_item_id)
+    );
+    const insertStmt = db.prepare(`
+      INSERT INTO case_preparation_items (case_id, preparation_item_id, status)
+      VALUES (?, ?, '未着手')
+    `);
+    let createdCount = 0;
+    preparation_item_ids.forEach(itemId => {
+      if (!existingIds.has(itemId)) {
+        insertStmt.run(caseId, itemId);
+        createdCount++;
+      }
+    });
+    res.status(201).json({ created: createdCount, message: 'Preparation items registered successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// スケジュールボード表示用・案件詳細表示用の準備項目タスク取得
+// クエリ: case_id / start+end / date / staff_id / unassigned=true をそれぞれ任意で組み合わせ可能
+app.get('/api/preparation-items', (req, res) => {
+  try {
+    const { case_id, start, end, date, staff_id, unassigned } = req.query;
+    const conditions = [];
+    const params = [];
+
+    if (case_id) {
+      conditions.push('cpi.case_id = ?');
+      params.push(case_id);
+    }
+    if (start && end) {
+      conditions.push('cpi.scheduled_date BETWEEN ? AND ?');
+      params.push(start, end);
+    } else if (date) {
+      conditions.push('cpi.scheduled_date = ?');
+      params.push(date);
+    }
+    if (staff_id) {
+      conditions.push('cpi.assigned_staff_id = ?');
+      params.push(staff_id);
+    }
+    if (unassigned === 'true') {
+      conditions.push('cpi.scheduled_date IS NULL');
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const items = db.prepare(`
+      SELECT cpi.*, pim.name as preparation_item_name, p.project_name, e.name as assigned_staff_name
+      FROM case_preparation_items cpi
+      JOIN preparation_item_master pim ON cpi.preparation_item_id = pim.id
+      JOIN projects p ON cpi.case_id = p.id
+      LEFT JOIN employees e ON cpi.assigned_staff_id = e.id
+      ${whereClause}
+      ORDER BY cpi.scheduled_date ASC, cpi.id ASC
+    `).all(...params);
+    res.json(items);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 担当者・予定日・工数の割り当て更新、およびstatus更新
+app.put('/api/preparation-items/:id', (req, res) => {
+  try {
+    const existing = db.prepare('SELECT * FROM case_preparation_items WHERE id = ?').get(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Preparation item not found' });
+
+    const assigned_staff_id = req.body.assigned_staff_id !== undefined ? req.body.assigned_staff_id : existing.assigned_staff_id;
+    const scheduled_date = req.body.scheduled_date !== undefined ? req.body.scheduled_date : existing.scheduled_date;
+    const estimated_hours = req.body.estimated_hours !== undefined ? req.body.estimated_hours : existing.estimated_hours;
+    const status = req.body.status !== undefined ? req.body.status : existing.status;
+    const completed_at = status === '完了'
+      ? (existing.status === '完了' ? existing.completed_at : new Date().toISOString())
+      : null;
+
+    db.prepare(`
+      UPDATE case_preparation_items SET
+        assigned_staff_id=?, scheduled_date=?, estimated_hours=?, status=?, completed_at=?
+      WHERE id=?
+    `).run(assigned_staff_id || null, scheduled_date || null, estimated_hours, status, completed_at, req.params.id);
+
+    if (status !== existing.status) {
+      syncCaseStatusForPreparationItems(existing.case_id);
+    }
+    res.json({ message: 'Preparation item updated successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 完了操作。全準備項目が完了していれば案件ステータスを自動で「準備完了」に進める
+app.put('/api/preparation-items/:id/complete', (req, res) => {
+  try {
+    const existing = db.prepare('SELECT * FROM case_preparation_items WHERE id = ?').get(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Preparation item not found' });
+
+    const now = new Date().toISOString();
+    db.prepare(`UPDATE case_preparation_items SET status='完了', completed_at=? WHERE id=?`).run(now, req.params.id);
+    syncCaseStatusForPreparationItems(existing.case_id);
+    res.json({ message: 'Preparation item marked as completed' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 完了の取り消し(未着手に戻す)。「準備完了」まで自動で進んでいた案件は「生産待ち」に自動で巻き戻す
+app.put('/api/preparation-items/:id/incomplete', (req, res) => {
+  try {
+    const existing = db.prepare('SELECT * FROM case_preparation_items WHERE id = ?').get(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Preparation item not found' });
+
+    db.prepare(`UPDATE case_preparation_items SET status='未着手', completed_at=NULL WHERE id=?`).run(req.params.id);
+    syncCaseStatusForPreparationItems(existing.case_id);
+    res.json({ message: 'Preparation item marked as incomplete' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ===== 週間作業スケジュールボード =====
 
 app.get('/schedule-board', (req, res) => {

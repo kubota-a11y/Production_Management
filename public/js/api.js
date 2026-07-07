@@ -117,6 +117,53 @@ const API = {
     return response.json();
   },
 
+  // ===== 準備項目 =====
+
+  // 準備項目マスター一覧取得
+  async getPreparationItemsMaster() {
+    const response = await fetch('/api/preparation-items/master');
+    return response.json();
+  },
+
+  // 案件への準備項目タスク一括登録(既存分はスキップされる)
+  async registerCasePreparationItems(projectId, preparationItemIds) {
+    const response = await fetch(`/api/projects/${projectId}/preparation-items`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ preparation_item_ids: preparationItemIds })
+    });
+    return response.json();
+  },
+
+  // 準備項目タスク一覧取得(paramsは { case_id, start, end, date, staff_id, unassigned } のうち任意の組み合わせ)
+  async getPreparationItems(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    const response = await fetch(`/api/preparation-items${query ? `?${query}` : ''}`);
+    return response.json();
+  },
+
+  // 準備項目タスクの担当者・予定日・工数・ステータス更新
+  async updatePreparationItem(id, data) {
+    const response = await fetch(`/api/preparation-items/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return response.json();
+  },
+
+  // 準備項目タスクの完了
+  async completePreparationItem(id) {
+    const response = await fetch(`/api/preparation-items/${id}/complete`, { method: 'PUT' });
+    return response.json();
+  },
+
+  // 準備項目タスクの完了取り消し
+  async incompletePreparationItem(id) {
+    const response = await fetch(`/api/preparation-items/${id}/incomplete`, { method: 'PUT' });
+    return response.json();
+  },
+
   // ===== 従業員関連 =====
 
   // 全従業員取得（有効・無効を問わず全件）
