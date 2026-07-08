@@ -605,7 +605,7 @@ const scheduleBoard = {
     container.innerHTML = rows.map(row => `
       <div class="sb-allocation-row sb-prep-item-row" data-prep-id="${row.id}">
         <span class="sb-prep-item-label">【準備】${this.escapeHtml(row.label)}${row.status === '完了' ? '（完了）' : ''}</span>
-        <input type="number" class="sb-prep-hours" data-prep-id="${row.id}" step="0.5" min="0"
+        <input type="number" class="sb-prep-hours" data-prep-id="${row.id}" step="0.25" min="0"
           placeholder="工数(h)" value="${row.estimated_hours ?? ''}" oninput="scheduleBoard.updateOverrideSummary()">
         <button type="button" class="btn-small btn-danger" onclick="scheduleBoard.removePrepItemRow(${row.id})">🗑️ 解除</button>
       </div>
