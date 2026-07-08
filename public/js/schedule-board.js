@@ -532,9 +532,27 @@ const scheduleBoard = {
   },
 
   // ===== 案件の割り当て（モーダル内） =====
+  // 割り当てプルダウンに出す案件のみに絞り込む:
+  //   1) ステータスが「生産待ち・準備完了・生産中」のいずれかであること
+  //   2) 案件の作業予定時間（分→時間換算）に対して、すでに全時間分を作業計画へ割り振り済みでないこと
+  //      （例: 3時間の案件に3時間分を割り振り済みなら、以後のプルダウンには表示しない）
+  // ただし、その行で現在選択中の案件は上記に当てはまらなくなっていても選択肢から消さない
+  ASSIGNABLE_PROJECT_STATUSES: ['WAITING', 'PREP_COMPLETE', 'IN_PROGRESS'],
+
+  isProjectAssignable(project) {
+    if (!this.ASSIGNABLE_PROJECT_STATUSES.includes(project.status)) return false;
+    const budgetHours = (project.planned_hours || 0) / 60;
+    const allocatedHours = project.allocated_hours_total || 0;
+    const remainingHours = budgetHours - allocatedHours;
+    return remainingHours > 0.001; // 浮動小数点誤差を吸収する程度の許容値
+  },
+
   getProjectOptionsHtml(selectedCaseId) {
-    if (this.projects.length === 0) return '';
-    return this.projects.map(p => `
+    const selectableProjects = this.projects.filter(p =>
+      this.isProjectAssignable(p) || String(p.id) === String(selectedCaseId)
+    );
+    if (selectableProjects.length === 0) return '';
+    return selectableProjects.map(p => `
       <option value="${p.id}" ${String(p.id) === String(selectedCaseId) ? 'selected' : ''}>${this.escapeHtml(p.project_name)}</option>
     `).join('');
   },
@@ -828,6 +846,9 @@ const scheduleBoard = {
       await this.loadWeekAllocations();
       await this.loadWeekPreparationItems();
       await this.loadProjectProgress();
+      // 案件ごとの割り当て済み時間(allocated_hours_total)を最新化し、次回モーダルを開いた時の
+      // 案件割り当てプルダウンの絞り込みに反映させる
+      await this.loadProjects();
       this.renderBoard();
       this.renderLegend();
       this.renderProgress();

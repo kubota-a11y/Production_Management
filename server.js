@@ -133,10 +133,18 @@ app.get('/api/nas/download', (req, res) => {
 
 app.get('/api/projects', (req, res) => {
   try {
+    // allocated_hours_total: 案件ごとにこれまで作業計画（case_time_allocations）へ割り振った予定時間の合計（時間単位・全期間）
+    // 週間スケジュールボードで「案件の作業予定時間（分→時間換算）に対してすでに割り振り済みかどうか」を判定するために使用する
     const projects = db.prepare(`
-      SELECT p.*, s.name as assigned_staff_name
+      SELECT p.*, s.name as assigned_staff_name,
+        COALESCE(alloc.total_planned, 0) as allocated_hours_total
       FROM projects p
       LEFT JOIN staff s ON p.assigned_staff_id = s.id
+      LEFT JOIN (
+        SELECT case_id, SUM(planned_hours) as total_planned
+        FROM case_time_allocations
+        GROUP BY case_id
+      ) alloc ON alloc.case_id = p.id
       ORDER BY p.deadline ASC
     `).all();
     res.json(projects);
