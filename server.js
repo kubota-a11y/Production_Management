@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const { execFileSync } = require('child_process');
 const { initDatabase } = require('./db/init');
+const line = require('@line/bot-sdk');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -44,6 +45,43 @@ function openInFileManager(targetPath) {
 }
 
 app.use(cors());
+
+// LINE Messaging APIのWebhook。line.middleware()が生のリクエストボディから
+// 署名検証を行うため、ボディをパースしてしまうbodyParserより前に登録する。
+const lineConfig = {
+  channelSecret: process.env.LINE_CHANNEL_SECRET,
+  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
+};
+
+app.post('/webhook', line.middleware(lineConfig), (req, res) => {
+  const events = req.body.events || [];
+  for (const event of events) {
+    const userId = event.source && event.source.userId;
+    console.log(`[LINE Webhook] type=${event.type} userId=${userId}`);
+    if (event.type === 'message') {
+      if (event.message.type === 'text') {
+        console.log(`[LINE Webhook] text: ${event.message.text}`);
+      } else if (event.message.type === 'image') {
+        console.log('[LINE Webhook] image message received');
+      }
+    }
+  }
+  res.sendStatus(200);
+});
+
+// LINE SDKのmiddleware()は署名不正時にnext(err)するだけなので、
+// ここで400を返す（署名エラー以外はサーバー側の問題として500）。
+app.use('/webhook', (err, req, res, next) => {
+  if (err instanceof line.SignatureValidationFailed) {
+    return res.status(400).send(err.message);
+  }
+  if (err instanceof line.JSONParseError) {
+    return res.status(400).send(err.message);
+  }
+  console.error('[LINE Webhook] error:', err);
+  res.status(500).end();
+});
+
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static('public'));
