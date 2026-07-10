@@ -507,6 +507,7 @@ const scheduleBoard = {
     document.getElementById('ov-start-time').value = override?.start_time || '';
     document.getElementById('ov-end-time').value = override?.end_time || '';
     document.getElementById('ov-break-minutes').value = override?.break_minutes ?? 0;
+    document.getElementById('ov-reserved-hours').value = override?.reserved_hours ?? 0;
     this.toggleOverrideTimeInputs(isDayOff);
 
     document.getElementById('ov-delete-btn').style.display = override ? 'inline-block' : 'none';
@@ -762,6 +763,7 @@ const scheduleBoard = {
     const startTime = isDayOff ? null : (document.getElementById('ov-start-time').value || null);
     const endTime = isDayOff ? null : (document.getElementById('ov-end-time').value || null);
     const breakMinutes = isDayOff ? 0 : (parseInt(document.getElementById('ov-break-minutes').value, 10) || 0);
+    const reservedHours = parseFloat(document.getElementById('ov-reserved-hours').value) || 0;
 
     const overrideData = {
       employee_id: employeeId,
@@ -769,7 +771,8 @@ const scheduleBoard = {
       start_time: startTime,
       end_time: endTime,
       break_minutes: breakMinutes,
-      is_day_off: isDayOff
+      is_day_off: isDayOff,
+      reserved_hours: reservedHours
     };
 
     try {

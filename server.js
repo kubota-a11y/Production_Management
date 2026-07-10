@@ -868,11 +868,11 @@ app.get('/api/schedule-overrides', (req, res) => {
 
 app.post('/api/schedule-overrides', (req, res) => {
   try {
-    const { employee_id, work_date, start_time, end_time, break_minutes, is_day_off } = req.body;
+    const { employee_id, work_date, start_time, end_time, break_minutes, is_day_off, reserved_hours } = req.body;
     const result = db.prepare(`
-      INSERT INTO schedule_overrides (employee_id, work_date, start_time, end_time, break_minutes, is_day_off)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(employee_id, work_date, start_time || null, end_time || null, break_minutes || 0, is_day_off ? 1 : 0);
+      INSERT INTO schedule_overrides (employee_id, work_date, start_time, end_time, break_minutes, is_day_off, reserved_hours)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(employee_id, work_date, start_time || null, end_time || null, break_minutes || 0, is_day_off ? 1 : 0, reserved_hours || 0);
     res.status(201).json({ id: result.lastInsertRowid, message: 'Schedule override created successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -881,10 +881,10 @@ app.post('/api/schedule-overrides', (req, res) => {
 
 app.put('/api/schedule-overrides/:id', (req, res) => {
   try {
-    const { start_time, end_time, break_minutes, is_day_off } = req.body;
+    const { start_time, end_time, break_minutes, is_day_off, reserved_hours } = req.body;
     db.prepare(`
-      UPDATE schedule_overrides SET start_time=?, end_time=?, break_minutes=?, is_day_off=? WHERE id=?
-    `).run(start_time || null, end_time || null, break_minutes || 0, is_day_off ? 1 : 0, req.params.id);
+      UPDATE schedule_overrides SET start_time=?, end_time=?, break_minutes=?, is_day_off=?, reserved_hours=? WHERE id=?
+    `).run(start_time || null, end_time || null, break_minutes || 0, is_day_off ? 1 : 0, reserved_hours || 0, req.params.id);
     res.json({ message: 'Schedule override updated successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });

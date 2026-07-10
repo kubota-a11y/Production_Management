@@ -70,6 +70,17 @@ function initDatabase() {
     db.prepare(`ALTER TABLE schedule_overrides ADD COLUMN is_day_off INTEGER NOT NULL DEFAULT 0`).run();
   }
 
+  // 既存DBの schedule_overrides に reserved_hours カラムがない場合は追加
+  if (scheduleOverrideColumns.length > 0 && !scheduleOverrideColumns.includes('reserved_hours')) {
+    db.prepare(`ALTER TABLE schedule_overrides ADD COLUMN reserved_hours REAL DEFAULT 0`).run();
+  }
+
+  // 既存DBの employee_default_schedule に reserved_hours カラムがない場合は追加
+  const employeeDefaultScheduleColumns = db.prepare(`PRAGMA table_info('employee_default_schedule')`).all().map(col => col.name);
+  if (employeeDefaultScheduleColumns.length > 0 && !employeeDefaultScheduleColumns.includes('reserved_hours')) {
+    db.prepare(`ALTER TABLE employee_default_schedule ADD COLUMN reserved_hours REAL DEFAULT 0`).run();
+  }
+
   // 準備項目マスターの初期データ投入(未投入の場合のみ)。
   // code は案件新規登録画面(旧ハードコード)・既存projects.prep_itemsのCSVコードと一致させる
   const prepItemCount = db.prepare(`SELECT COUNT(*) as c FROM preparation_item_master`).get().c;
