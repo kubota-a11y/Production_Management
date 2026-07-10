@@ -1154,6 +1154,24 @@ html, body {
   width: auto;
 }
 
+.default-schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.default-schedule-table th,
+.default-schedule-table td {
+  padding: 6px 8px;
+  text-align: center;
+}
+
+.default-schedule-table input[type="number"] {
+  width: 70px;
+}
+
 /* ========================================
    作業計画
    ======================================== */
