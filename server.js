@@ -503,14 +503,12 @@ function autoProposeForProject(db, projectId) {
   const suggestions = calculateSuggestions(db, project);
   // スコアは「空き時間・スキル一致」から算出されるが、必要スキルタグ未設定の案件では
   // 空き時間が0でもskillScoreのみでscoreが0より大きくなるため、score単独では
-  // 「実際に割り振れる空き時間があるか」を判定できない。available_hoursも合わせて確認する
-  const best = suggestions.find(s => s.score > 0 && s.available_hours > 0);
-  if (!best) {
+  // 「実際に割り振れる空き時間があるか」を判定できない。そのためscore>0の候補をスコア順に
+  // 実際に日程へ割り振れるか順番に試し、1人も割り振れなかった場合のみ対応不可とする
+  const candidates = suggestions.filter(s => s.score > 0);
+  if (!candidates.length) {
     return { project_id: projectId, error: '対応可能な担当者が見つかりませんでした' };
   }
-
-  const employeeId = best.employee_id;
-  let remainingHours = best.required_hours;
 
   db.prepare(`DELETE FROM case_time_allocations WHERE case_id = ? AND status = '提案'`).run(projectId);
 
@@ -531,66 +529,73 @@ function autoProposeForProject(db, projectId) {
     return Math.max(0, minutes / 60);
   }
 
-  const cursor = new Date(receivedDate);
-  cursor.setDate(cursor.getDate() + 1);
-  cursor.setHours(0, 0, 0, 0);
-  const endDate = new Date(deadline);
-  endDate.setHours(0, 0, 0, 0);
+  for (const candidate of candidates) {
+    const employeeId = candidate.employee_id;
+    let remainingHours = candidate.required_hours;
 
-  const allocatedDates = [];
-  let guard = 0;
-
-  while (cursor <= endDate && remainingHours > 0.01 && guard < 60) {
-    const dateStr = cursor.toISOString().slice(0, 10);
-    const weekday = cursor.getDay();
-
-    let dayHours = 0;
-    let dayReserved = 0;
-    const override = overrideStmt.get(employeeId, dateStr);
-    if (override) {
-      if (!override.is_day_off) {
-        dayHours = timeToHours(override.start_time, override.end_time, override.break_minutes);
-        dayReserved = override.reserved_hours || 0;
-      }
-    } else {
-      const def = defaultStmt.get(employeeId, weekday);
-      if (def && def.is_working) {
-        dayHours = timeToHours(def.start_time, def.end_time, def.break_minutes);
-        dayReserved = def.reserved_hours || 0;
-      }
-    }
-
-    const alreadyAllocated = allocatedStmt.get(employeeId, dateStr).total;
-    const dayAvailable = Math.max(0, dayHours - dayReserved - alreadyAllocated);
-
-    if (dayAvailable > 0) {
-      const useHours = Math.min(dayAvailable, remainingHours);
-      insertStmt.run(projectId, employeeId, dateStr, Math.round(useHours * 10) / 10);
-      allocatedDates.push({ date: dateStr, hours: Math.round(useHours * 10) / 10 });
-      remainingHours -= useHours;
-    }
-
+    const cursor = new Date(receivedDate);
     cursor.setDate(cursor.getDate() + 1);
-    guard++;
+    cursor.setHours(0, 0, 0, 0);
+    const endDate = new Date(deadline);
+    endDate.setHours(0, 0, 0, 0);
+
+    const allocatedDates = [];
+    let guard = 0;
+
+    while (cursor <= endDate && remainingHours > 0.01 && guard < 60) {
+      const dateStr = cursor.toISOString().slice(0, 10);
+      const weekday = cursor.getDay();
+
+      let dayHours = 0;
+      let dayReserved = 0;
+      const override = overrideStmt.get(employeeId, dateStr);
+      if (override) {
+        if (!override.is_day_off) {
+          dayHours = timeToHours(override.start_time, override.end_time, override.break_minutes);
+          dayReserved = override.reserved_hours || 0;
+        }
+      } else {
+        const def = defaultStmt.get(employeeId, weekday);
+        if (def && def.is_working) {
+          dayHours = timeToHours(def.start_time, def.end_time, def.break_minutes);
+          dayReserved = def.reserved_hours || 0;
+        }
+      }
+
+      const alreadyAllocated = allocatedStmt.get(employeeId, dateStr).total;
+      const dayAvailable = Math.max(0, dayHours - dayReserved - alreadyAllocated);
+
+      if (dayAvailable > 0) {
+        const useHours = Math.min(dayAvailable, remainingHours);
+        insertStmt.run(projectId, employeeId, dateStr, Math.round(useHours * 10) / 10);
+        allocatedDates.push({ date: dateStr, hours: Math.round(useHours * 10) / 10 });
+        remainingHours -= useHours;
+      }
+
+      cursor.setDate(cursor.getDate() + 1);
+      guard++;
+    }
+
+    // calculateSuggestions の available_hours は「今日」起点、この割り振りループは
+    // 「受付日の翌日」起点で計算しており日数の基準がずれるため、スコア上は空きがあっても
+    // 実際には1日も割り振れないことがある。その場合はこの候補を諦めて次点を試す
+    if (allocatedDates.length === 0) {
+      continue;
+    }
+
+    const fitsInDeadline = remainingHours <= 0.01;
+
+    return {
+      project_id: projectId,
+      employee_id: employeeId,
+      employee_name: candidate.employee_name,
+      allocated_dates: allocatedDates,
+      fits_in_deadline: fitsInDeadline,
+      remaining_hours: Math.round(remainingHours * 10) / 10,
+    };
   }
 
-  // calculateSuggestions の available_hours は「今日」起点、この割り振りループは
-  // 「受付日の翌日」起点で計算しており日数の基準がずれるため、スコア上は空きがあっても
-  // 実際には1日も割り振れないことがある。実際の割り振り結果が0件なら対応不可として扱う
-  if (allocatedDates.length === 0) {
-    return { project_id: projectId, error: '対応可能な担当者が見つかりませんでした' };
-  }
-
-  const fitsInDeadline = remainingHours <= 0.01;
-
-  return {
-    project_id: projectId,
-    employee_id: employeeId,
-    employee_name: best.employee_name,
-    allocated_dates: allocatedDates,
-    fits_in_deadline: fitsInDeadline,
-    remaining_hours: Math.round(remainingHours * 10) / 10,
-  };
+  return { project_id: projectId, error: '対応可能な担当者が見つかりませんでした' };
 }
 
 app.post('/api/projects/:id/auto-propose', (req, res) => {
