@@ -40,6 +40,30 @@ function initDatabase() {
     db.prepare(`ALTER TABLE staff ADD COLUMN skill_tags TEXT`).run();
   }
 
+  // 既存DBに employees.skill_tags カラムがない場合は追加
+  const employeeColumns = db.prepare(`PRAGMA table_info('employees')`).all().map(col => col.name);
+  if (!employeeColumns.includes('skill_tags')) {
+    db.prepare(`ALTER TABLE employees ADD COLUMN skill_tags TEXT`).run();
+  }
+
+  // 従業員の曜日ごとの標準勤務パターン
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS employee_default_schedule (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      employee_id INTEGER NOT NULL,
+      weekday INTEGER NOT NULL,
+      is_working INTEGER NOT NULL DEFAULT 1,
+      start_time TEXT,
+      end_time TEXT,
+      break_minutes INTEGER DEFAULT 0,
+      FOREIGN KEY (employee_id) REFERENCES employees(id)
+    )
+  `);
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_employee_default_schedule_employee_weekday
+    ON employee_default_schedule(employee_id, weekday)
+  `);
+
   // 既存DBの schedule_overrides に is_day_off カラムがない場合は追加
   const scheduleOverrideColumns = db.prepare(`PRAGMA table_info('schedule_overrides')`).all().map(col => col.name);
   if (scheduleOverrideColumns.length > 0 && !scheduleOverrideColumns.includes('is_day_off')) {
