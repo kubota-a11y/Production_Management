@@ -7,6 +7,7 @@ const fs = require('fs');
 const { execFileSync } = require('child_process');
 const { initDatabase } = require('./db/init');
 const line = require('@line/bot-sdk');
+const { runExtractionCycle } = require('./lib/ai-extraction');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -845,6 +846,20 @@ app.get('/api/stats/daily-workload', (req, res) => {
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
+// 5分ごとにLINEメッセージのAI構造化抽出を実行する。前回の実行が終わっていなければスキップする。
+let aiExtractionRunning = false;
+setInterval(async () => {
+  if (aiExtractionRunning) return;
+  aiExtractionRunning = true;
+  try {
+    await runExtractionCycle(db);
+  } catch (err) {
+    console.error('[AI抽出] 定期実行でエラー:', err);
+  } finally {
+    aiExtractionRunning = false;
+  }
+}, 5 * 60 * 1000);
 
 app.listen(PORT, HOST, () => {
   const candidates = getLocalIPs();

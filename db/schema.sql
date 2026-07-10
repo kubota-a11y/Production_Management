@@ -119,6 +119,23 @@ CREATE TABLE IF NOT EXISTS line_messages (
   FOREIGN KEY (line_user_id) REFERENCES line_users(line_user_id)
 );
 
+-- LINEメッセージをAnthropic APIで構造化抽出した受注情報の下書き
+CREATE TABLE IF NOT EXISTS ai_extracted_intake (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  line_user_id TEXT NOT NULL,
+  extracted_at TEXT NOT NULL,
+  customer_name TEXT,
+  items TEXT,
+  quantity TEXT,
+  deadline TEXT,
+  notes TEXT,
+  raw_ai_response TEXT,
+  message_ids TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  case_id INTEGER,
+  FOREIGN KEY (line_user_id) REFERENCES line_users(line_user_id)
+);
+
 -- インデックス
 CREATE INDEX IF NOT EXISTS idx_projects_deadline ON projects(deadline);
 CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);
@@ -132,3 +149,5 @@ CREATE INDEX IF NOT EXISTS idx_case_preparation_items_case_id ON case_preparatio
 CREATE INDEX IF NOT EXISTS idx_case_preparation_items_scheduled_date ON case_preparation_items(scheduled_date);
 CREATE INDEX IF NOT EXISTS idx_line_messages_line_user_id ON line_messages(line_user_id);
 CREATE INDEX IF NOT EXISTS idx_line_messages_received_at ON line_messages(received_at);
+CREATE INDEX IF NOT EXISTS idx_ai_extracted_intake_line_user_id ON ai_extracted_intake(line_user_id);
+CREATE INDEX IF NOT EXISTS idx_ai_extracted_intake_status ON ai_extracted_intake(status);
