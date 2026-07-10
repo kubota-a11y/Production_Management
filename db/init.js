@@ -34,6 +34,12 @@ function initDatabase() {
     db.prepare(`ALTER TABLE projects ADD COLUMN estimated_hours REAL`).run();
   }
 
+  // 既存DBに assigned_employee_id カラムがない場合は追加
+  // (assigned_staff_id は staff テーブル(管理担当者)への参照。こちらは employees テーブル(実作業者)への参照で、担当者提案機能の割り当て先として使う)
+  if (!columns.includes('assigned_employee_id')) {
+    db.prepare(`ALTER TABLE projects ADD COLUMN assigned_employee_id INTEGER REFERENCES employees(id)`).run();
+  }
+
   // 既存DBに staff.skill_tags カラムがない場合は追加
   const staffColumns = db.prepare(`PRAGMA table_info('staff')`).all().map(col => col.name);
   if (!staffColumns.includes('skill_tags')) {

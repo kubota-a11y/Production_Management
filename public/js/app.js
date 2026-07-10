@@ -247,6 +247,9 @@ const app = {
         <button class="btn-small" onclick="app.openProjectModal(${project.id})">
           ✎ 編集
         </button>
+        <button class="btn-small" onclick="app.openSuggestModal(${project.id})">
+          🔎 提案
+        </button>
       </td>
     `;
 
@@ -960,6 +963,72 @@ const app = {
   closeProjectModal() {
     document.getElementById('project-modal').style.display = 'none';
     this.editingProjectId = null;
+  },
+
+  // ===== 担当者提案 =====
+  async openSuggestModal(projectId) {
+    const modal = document.getElementById('suggest-modal');
+    const body = document.getElementById('suggest-modal-body');
+    const title = document.getElementById('suggest-modal-title');
+
+    body.innerHTML = '<p>候補者を計算中...</p>';
+    modal.style.display = 'flex';
+
+    try {
+      const res = await fetch(`/api/projects/${projectId}/suggest-assignees`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        body.innerHTML = `<p>${this.escapeHtml(data.error || '提案を取得できませんでした')}</p>`;
+        return;
+      }
+
+      title.textContent = `${this.escapeHtml(data.project_name)} の担当者候補`;
+
+      if (data.suggestions.length === 0) {
+        body.innerHTML = '<p>対応可能な担当者が見つかりませんでした。</p>';
+        return;
+      }
+
+      body.innerHTML = data.suggestions.map((s, i) => `
+        <div class="suggest-card" style="border:1px solid var(--gray-200); border-radius:8px; padding:14px; margin-bottom:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <strong>${i + 1}. ${this.escapeHtml(s.employee_name)}</strong>
+            <span>スコア: ${(s.score * 100).toFixed(0)}%</span>
+          </div>
+          <div style="color:var(--gray-600); font-size:14px; margin-top:6px;">
+            空き時間: ${s.available_hours}h / 必要時間: ${s.required_hours}h<br>
+            ${this.escapeHtml(s.reason)}
+          </div>
+          <button class="btn btn-primary" style="margin-top:8px;" onclick="app.assignFromSuggestion(${projectId}, ${s.employee_id})">
+            この人に割り当てる
+          </button>
+        </div>
+      `).join('');
+    } catch (error) {
+      console.error('提案取得エラー:', error);
+      body.innerHTML = '<p>提案の取得に失敗しました。</p>';
+    }
+  },
+
+  closeSuggestModal() {
+    document.getElementById('suggest-modal').style.display = 'none';
+  },
+
+  async assignFromSuggestion(projectId, employeeId) {
+    try {
+      // PUT /api/projects/:id は全項目を送る前提の更新のため、既存データに割り当て先だけ上書きして送信する
+      const project = this.projects.find(p => p.id === projectId);
+      if (!project) return;
+      await API.updateProject(projectId, { ...project, assigned_employee_id: employeeId });
+      this.closeSuggestModal();
+      await this.loadProjects();
+      this.renderListView();
+      if (this.currentTab === 'kanban') this.renderKanbanView();
+    } catch (error) {
+      console.error('担当者割り当てエラー:', error);
+      alert('担当者の割り当てに失敗しました');
+    }
   },
 
   // ===== 作業計画 =====
