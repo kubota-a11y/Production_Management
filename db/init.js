@@ -24,6 +24,22 @@ function initDatabase() {
     db.prepare(`ALTER TABLE projects ADD COLUMN prep_items TEXT`).run();
   }
 
+  // 既存DBに required_skill_tags カラムがない場合は追加
+  if (!columns.includes('required_skill_tags')) {
+    db.prepare(`ALTER TABLE projects ADD COLUMN required_skill_tags TEXT`).run();
+  }
+
+  // 既存DBに estimated_hours カラムがない場合は追加
+  if (!columns.includes('estimated_hours')) {
+    db.prepare(`ALTER TABLE projects ADD COLUMN estimated_hours REAL`).run();
+  }
+
+  // 既存DBに staff.skill_tags カラムがない場合は追加
+  const staffColumns = db.prepare(`PRAGMA table_info('staff')`).all().map(col => col.name);
+  if (!staffColumns.includes('skill_tags')) {
+    db.prepare(`ALTER TABLE staff ADD COLUMN skill_tags TEXT`).run();
+  }
+
   // 既存DBの schedule_overrides に is_day_off カラムがない場合は追加
   const scheduleOverrideColumns = db.prepare(`PRAGMA table_info('schedule_overrides')`).all().map(col => col.name);
   if (scheduleOverrideColumns.length > 0 && !scheduleOverrideColumns.includes('is_day_off')) {
