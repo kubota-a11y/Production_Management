@@ -301,6 +301,133 @@ app.get('/api/projects/:id', (req, res) => {
   }
 });
 
+// 案件に対する担当者候補を提案する
+app.get('/api/projects/:id/suggest-assignees', (req, res) => {
+  try {
+    const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(req.params.id);
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+
+    const today = new Date();
+    const deadline = project.deadline ? new Date(project.deadline) : null;
+    if (!deadline || deadline < today) {
+      return res.status(400).json({ error: '締切日が未設定、または過去の日付です' });
+    }
+
+    // 今日から締切日までの日付リストを作成(最大60日でガード)
+    const dateList = [];
+    const cursor = new Date(today);
+    cursor.setHours(0, 0, 0, 0);
+    const endDate = new Date(deadline);
+    endDate.setHours(0, 0, 0, 0);
+    let guard = 0;
+    while (cursor <= endDate && guard < 60) {
+      dateList.push(cursor.toISOString().slice(0, 10)); // YYYY-MM-DD
+      cursor.setDate(cursor.getDate() + 1);
+      guard++;
+    }
+
+    const employees = db.prepare('SELECT * FROM employees WHERE is_active = 1').all();
+
+    const overrideStmt = db.prepare(
+      'SELECT * FROM schedule_overrides WHERE employee_id = ? AND work_date = ?'
+    );
+    const defaultStmt = db.prepare(
+      'SELECT * FROM employee_default_schedule WHERE employee_id = ? AND weekday = ?'
+    );
+    const allocationStmt = db.prepare(
+      'SELECT COALESCE(SUM(planned_hours), 0) as total FROM case_time_allocations WHERE employee_id = ? AND work_date BETWEEN ? AND ?'
+    );
+
+    function timeToHours(start, end, breakMinutes) {
+      if (!start || !end) return 0;
+      const [sh, sm] = start.split(':').map(Number);
+      const [eh, em] = end.split(':').map(Number);
+      const minutes = (eh * 60 + em) - (sh * 60 + sm) - (breakMinutes || 0);
+      return Math.max(0, minutes / 60);
+    }
+
+    const requiredTags = (project.required_skill_tags || '')
+      .split(',').map(t => t.trim()).filter(Boolean);
+
+    const results = employees.map(emp => {
+      let availableHours = 0;
+      let hasUnknownDay = false;
+
+      dateList.forEach(dateStr => {
+        const weekday = new Date(dateStr).getDay();
+        const override = overrideStmt.get(emp.id, dateStr);
+
+        if (override) {
+          if (!override.is_day_off) {
+            availableHours += timeToHours(override.start_time, override.end_time, override.break_minutes);
+          }
+          return;
+        }
+
+        const def = defaultStmt.get(emp.id, weekday);
+        if (def) {
+          if (def.is_working) {
+            availableHours += timeToHours(def.start_time, def.end_time, def.break_minutes);
+          }
+          return;
+        }
+
+        // schedule_overrides にも employee_default_schedule にも情報がない日
+        hasUnknownDay = true;
+      });
+
+      const allocated = allocationStmt.get(emp.id, dateList[0], dateList[dateList.length - 1]).total;
+      const remainingHours = Math.max(0, availableHours - allocated);
+
+      // スキル一致
+      const empTags = (emp.skill_tags || '').split(',').map(t => t.trim()).filter(Boolean);
+      const matchedTags = requiredTags.filter(t => empTags.includes(t));
+      const skillScore = requiredTags.length === 0 ? 1 : matchedTags.length / requiredTags.length;
+
+      // 空き時間スコア(必要工数に対する充足率、上限1.0)
+      const estimatedHours = project.estimated_hours || 0;
+      const availabilityScore = estimatedHours > 0
+        ? Math.min(1, remainingHours / estimatedHours)
+        : Math.min(1, remainingHours / 8); // 見積もり工数が未設定なら1日分を基準に
+
+      const score = availabilityScore * 0.5 + skillScore * 0.5;
+
+      let reason;
+      if (requiredTags.length > 0 && matchedTags.length === 0) {
+        reason = '空き時間はあるがスキルタグ未一致';
+      } else if (remainingHours <= 0) {
+        reason = 'スキル一致だが空き時間が不足';
+      } else {
+        reason = 'スキル一致・空き時間十分';
+      }
+      if (hasUnknownDay) {
+        reason += '(勤務未確定の日を含む)';
+      }
+
+      return {
+        employee_id: emp.id,
+        employee_name: emp.name,
+        score: Math.round(score * 100) / 100,
+        available_hours: Math.round(remainingHours * 10) / 10,
+        skill_match: matchedTags,
+        reason,
+        has_unknown_day: hasUnknownDay,
+      };
+    });
+
+    results.sort((a, b) => b.score - a.score);
+
+    res.json({
+      project_id: project.id,
+      project_name: project.project_name,
+      deadline: project.deadline,
+      suggestions: results.slice(0, 3),
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 案件新規作成の共通処理。/api/projects と AI受注候補の確認登録(/api/ai-intake/:id/confirm)の
 // 両方から使うため、案件テーブルへのINSERT本体をここに集約する
 function createProjectRecord(data) {
