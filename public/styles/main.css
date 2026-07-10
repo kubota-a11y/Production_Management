@@ -151,6 +151,22 @@ html, body {
   border-bottom-color: var(--primary-color);
 }
 
+.tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  margin-left: 4px;
+  border-radius: 10px;
+  background: var(--danger-color);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
 /* ===== メインコンテンツ ===== */
 
 .main-content {
@@ -703,6 +719,166 @@ html, body {
   margin-bottom: 16px;
 }
 
+/* ===== AI受注候補(LINEから自動収集) ===== */
+
+.ai-intake-section {
+  margin-bottom: 20px;
+}
+
+.ai-intake-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.ai-intake-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  cursor: pointer;
+  background: white;
+  transition: var(--transition);
+}
+
+.ai-intake-card:hover {
+  box-shadow: var(--box-shadow);
+  border-color: var(--primary-color);
+}
+
+.ai-intake-card-thumb {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  background: var(--gray-100);
+}
+
+.ai-intake-card-thumb-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  color: var(--gray-400);
+}
+
+.ai-intake-card-body {
+  padding: 12px;
+}
+
+.ai-intake-card-sender {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.ai-intake-card-items {
+  font-size: 13px;
+  color: var(--gray-700);
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ai-intake-card-date {
+  font-size: 12px;
+  color: var(--gray-500);
+}
+
+.ai-intake-modal-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  padding: 20px;
+  max-height: 75vh;
+}
+
+.ai-intake-chat-panel,
+.ai-intake-form-panel {
+  overflow-y: auto;
+  max-height: 75vh;
+}
+
+.ai-intake-chat-panel h3,
+.ai-intake-form-panel h3 {
+  margin-bottom: 12px;
+  font-size: 15px;
+}
+
+.ai-intake-form-panel .project-form {
+  padding: 0;
+}
+
+.ai-intake-form-actions {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 16px;
+}
+
+.chat-transcript {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--gray-50);
+  padding: 12px;
+  border-radius: var(--border-radius);
+}
+
+.chat-bubble {
+  align-self: flex-start;
+  max-width: 90%;
+  background: white;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 10px 14px;
+}
+
+.chat-bubble-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.chat-bubble-image {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: block;
+}
+
+.chat-bubble-time {
+  font-size: 11px;
+  color: var(--gray-500);
+  margin-top: 6px;
+}
+
+.image-lightbox {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 2000;
+  justify-content: center;
+  align-items: center;
+  cursor: zoom-out;
+  padding: 20px;
+}
+
+.image-lightbox.active {
+  display: flex;
+}
+
+.image-lightbox img {
+  max-width: 90%;
+  max-height: 90%;
+  border-radius: 4px;
+}
+
 /* ========================================
    モーダル
    ======================================== */
@@ -733,6 +909,10 @@ html, body {
 
 .modal-lg {
   max-width: 800px;
+}
+
+.modal-xl {
+  max-width: 1100px;
 }
 
 .modal-header {
@@ -1045,6 +1225,16 @@ html, body {
 
   .form-row {
     grid-template-columns: 1fr;
+  }
+
+  .ai-intake-modal-body {
+    grid-template-columns: 1fr;
+    max-height: none;
+  }
+
+  .ai-intake-chat-panel,
+  .ai-intake-form-panel {
+    max-height: 50vh;
   }
 
   .filter-group {

@@ -23,17 +23,18 @@
 
     <!-- タブナビゲーション -->
     <nav class="tab-nav">
-      <button class="tab-btn active" onclick="app.switchTab('list')">
+      <button class="tab-btn active" data-tab="list" onclick="app.switchTab('list')">
         📊 一覧ビュー
       </button>
-      <button class="tab-btn" onclick="app.switchTab('kanban')">
+      <button class="tab-btn" data-tab="kanban" onclick="app.switchTab('kanban')">
         🎯 カンバンビュー
       </button>
-      <button class="tab-btn" onclick="app.switchTab('calendar')">
+      <button class="tab-btn" data-tab="calendar" onclick="app.switchTab('calendar')">
         📅 カレンダービュー
       </button>
-      <button class="tab-btn" onclick="app.switchTab('import')">
+      <button class="tab-btn" data-tab="import" onclick="app.switchTab('import')">
         📥 コピペ取り込み
+        <span id="ai-intake-badge" class="tab-badge" style="display: none;">0</span>
       </button>
     </nav>
 
@@ -132,6 +133,21 @@
 
       <!-- ===== コピペ取り込みビュー ===== -->
       <section id="tab-import" class="tab-content">
+
+        <!-- LINEから自動収集された受注候補(AI抽出) -->
+        <div class="import-section ai-intake-section">
+          <h2>🤖 LINEから自動収集された受注候補</h2>
+          <p class="import-help">
+            LINEでのやり取りをAIが自動で読み取り、受注候補として一時保存したものです。<br>
+            内容を確認・修正のうえ、案件として登録するか却下してください。
+          </p>
+
+          <div id="ai-intake-list" class="ai-intake-grid"></div>
+          <div id="ai-intake-empty" class="folder-notice" style="display: none;">
+            現在、確認待ちのAI受注候補はありません
+          </div>
+        </div>
+
         <div class="import-section">
           <h2>テキストから案件情報を抽出</h2>
           <p class="import-help">
@@ -417,6 +433,144 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- ===== モーダル: AI受注候補 詳細・確認 ===== -->
+  <div id="ai-intake-modal" class="modal">
+    <div class="modal-content modal-xl">
+      <div class="modal-header">
+        <h2>AI受注候補の確認</h2>
+        <button class="btn-close" onclick="app.closeAiIntakeModal()">✕</button>
+      </div>
+
+      <div class="ai-intake-modal-body">
+        <!-- 左側: LINEでのやり取り -->
+        <div class="ai-intake-chat-panel">
+          <h3>LINEでのやり取り</h3>
+          <div id="ai-intake-chat-transcript" class="chat-transcript"></div>
+        </div>
+
+        <!-- 右側: 編集可能な登録フォーム -->
+        <div class="ai-intake-form-panel">
+          <h3>抽出結果（確認・修正してから登録）</h3>
+          <form id="ai-intake-form" class="project-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label>案件名 *</label>
+                <input type="text" name="project_name" required>
+              </div>
+              <div class="form-group">
+                <label>顧客名 *</label>
+                <input type="text" name="customer_name" required>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>受付日 *</label>
+                <input type="date" name="received_date" required>
+              </div>
+              <div class="form-group">
+                <label>納期 *</label>
+                <input type="date" name="deadline" required>
+                <div class="field-hint" id="ai-intake-deadline-hint"></div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>連絡経路 *</label>
+                <select name="contact_method" required>
+                  <option value="">選択してください</option>
+                  <option value="LINE">LINE</option>
+                  <option value="EMAIL">メール</option>
+                  <option value="PHONE">電話</option>
+                  <option value="OTHER">その他</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>加工種別 * <span class="field-hint">(複数選択可)</span></label>
+              <div class="checkbox-group">
+                <label class="checkbox-pill"><input type="checkbox" name="process_type" value="SILK_SCREEN_PRINT"> シルクスクリーンプリント</label>
+                <label class="checkbox-pill"><input type="checkbox" name="process_type" value="DTF_PRINT"> DTFプリント</label>
+                <label class="checkbox-pill"><input type="checkbox" name="process_type" value="RUBBER_TRANSFER_PRINT"> ラバー転写プリント</label>
+                <label class="checkbox-pill"><input type="checkbox" name="process_type" value="STANDARD_EMBROIDERY"> 通常刺繍</label>
+                <label class="checkbox-pill"><input type="checkbox" name="process_type" value="HAT_EMBROIDERY"> 帽子刺繍</label>
+                <label class="checkbox-pill"><input type="checkbox" name="process_type" value="PATCH_EMBROIDERY"> ワッペン刺繍</label>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>数量 *</label>
+                <input type="number" name="quantity" min="1" required>
+                <div class="field-hint" id="ai-intake-quantity-hint"></div>
+              </div>
+              <div class="form-group">
+                <label>作業予定時間（分） *</label>
+                <input type="number" name="planned_hours" min="1" required>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>担当者</label>
+                <select name="assigned_staff_id" id="ai-intake-staff-select">
+                  <option value="">未割り当て</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>ステータス</label>
+                <select name="status">
+                  <option value="PRE_ORDER">受注前</option>
+                  <option value="CONFIRMED">受注確定</option>
+                  <option value="WAITING">生産待ち</option>
+                  <option value="PREP_COMPLETE">準備完了</option>
+                  <option value="IN_PROGRESS">生産中</option>
+                  <option value="INSPECTION">検品</option>
+                  <option value="DELIVERED">納品待ち</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>優先度</label>
+              <select name="priority">
+                <option value="LOW">低</option>
+                <option value="MEDIUM" selected>中</option>
+                <option value="HIGH">高</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>作業内容（items）</label>
+              <textarea name="work_content" rows="3"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label>メモ（notes）</label>
+              <textarea name="memo" rows="3"></textarea>
+            </div>
+
+            <div class="form-actions ai-intake-form-actions">
+              <button type="button" class="btn btn-danger" onclick="app.rejectAiIntakeConfirm()">
+                却下
+              </button>
+              <button type="button" class="btn btn-primary" onclick="app.submitAiIntakeConfirm()">
+                案件として登録
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 画像拡大表示（LINE画像サムネイルクリック時） ===== -->
+  <div id="image-lightbox" class="image-lightbox" onclick="app.closeImageLightbox()">
+    <img id="image-lightbox-img" src="" alt="">
   </div>
 
   <!-- ===== モーダル: 担当者管理 ===== -->

@@ -301,23 +301,30 @@ app.get('/api/projects/:id', (req, res) => {
   }
 });
 
+// 案件新規作成の共通処理。/api/projects と AI受注候補の確認登録(/api/ai-intake/:id/confirm)の
+// 両方から使うため、案件テーブルへのINSERT本体をここに集約する
+function createProjectRecord(data) {
+  const { project_name, received_date, deadline, customer_name, contact_method,
+    work_content, process_type, quantity, planned_hours, assigned_staff_id,
+    status, priority, reference_link, memo, nas_folder_path, prep_items } = data;
+  const now = new Date().toISOString();
+  const result = db.prepare(`
+    INSERT INTO projects (
+      project_name, received_date, deadline, customer_name, contact_method,
+      work_content, process_type, quantity, planned_hours, assigned_staff_id,
+      status, priority, reference_link, memo, nas_folder_path, prep_items, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(project_name, received_date, deadline, customer_name, contact_method,
+    work_content || '', process_type, quantity, planned_hours, assigned_staff_id || null,
+    status || 'PRE_ORDER', priority || 'MEDIUM', reference_link || '', memo || '',
+    nas_folder_path || '', prep_items || '', now, now);
+  return result.lastInsertRowid;
+}
+
 app.post('/api/projects', (req, res) => {
   try {
-    const { project_name, received_date, deadline, customer_name, contact_method,
-      work_content, process_type, quantity, planned_hours, assigned_staff_id,
-      status, priority, reference_link, memo, nas_folder_path, prep_items } = req.body;
-    const now = new Date().toISOString();
-    const result = db.prepare(`
-      INSERT INTO projects (
-        project_name, received_date, deadline, customer_name, contact_method,
-        work_content, process_type, quantity, planned_hours, assigned_staff_id,
-        status, priority, reference_link, memo, nas_folder_path, prep_items, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(project_name, received_date, deadline, customer_name, contact_method,
-      work_content || '', process_type, quantity, planned_hours, assigned_staff_id || null,
-      status || 'PRE_ORDER', priority || 'MEDIUM', reference_link || '', memo || '',
-      nas_folder_path || '', prep_items || '', now, now);
-    res.status(201).json({ id: result.lastInsertRowid, message: 'Project created successfully' });
+    const id = createProjectRecord(req.body);
+    res.status(201).json({ id, message: 'Project created successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -357,6 +364,109 @@ app.delete('/api/projects/:id', (req, res) => {
   try {
     deleteProjectCascade(req.params.id);
     res.json({ message: 'Project deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ===== AI受注候補(LINEから自動収集) =====
+
+app.get('/api/ai-intake', (req, res) => {
+  try {
+    const status = req.query.status || 'pending';
+    const rows = db.prepare(`
+      SELECT ai.*, lu.display_name
+      FROM ai_extracted_intake ai
+      LEFT JOIN line_users lu ON ai.line_user_id = lu.line_user_id
+      WHERE ai.status = ?
+      ORDER BY ai.extracted_at DESC
+    `).all(status);
+
+    // 一覧カード用に、各候補の先頭画像(message_idsに含まれる中で最も古い画像メッセージ)のパスも付与する
+    const withThumbnail = rows.map(row => {
+      let messageIds = [];
+      try {
+        messageIds = JSON.parse(row.message_ids);
+      } catch (err) {
+        messageIds = [];
+      }
+      let thumbnail_path = null;
+      if (Array.isArray(messageIds) && messageIds.length > 0) {
+        const placeholders = messageIds.map(() => '?').join(',');
+        const firstImage = db.prepare(`
+          SELECT image_path FROM line_messages
+          WHERE id IN (${placeholders}) AND message_type = 'image' AND image_path IS NOT NULL
+          ORDER BY received_at ASC LIMIT 1
+        `).get(...messageIds);
+        thumbnail_path = firstImage ? firstImage.image_path : null;
+      }
+      return { ...row, thumbnail_path };
+    });
+
+    res.json(withThumbnail);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/ai-intake/:id', (req, res) => {
+  try {
+    const intake = db.prepare(`
+      SELECT ai.*, lu.display_name
+      FROM ai_extracted_intake ai
+      LEFT JOIN line_users lu ON ai.line_user_id = lu.line_user_id
+      WHERE ai.id = ?
+    `).get(req.params.id);
+    if (!intake) return res.status(404).json({ error: 'Intake not found' });
+
+    let messageIds = [];
+    try {
+      messageIds = JSON.parse(intake.message_ids);
+    } catch (err) {
+      messageIds = [];
+    }
+
+    let messages = [];
+    if (Array.isArray(messageIds) && messageIds.length > 0) {
+      const placeholders = messageIds.map(() => '?').join(',');
+      messages = db.prepare(`
+        SELECT * FROM line_messages WHERE id IN (${placeholders}) ORDER BY received_at ASC
+      `).all(...messageIds);
+    }
+
+    res.json({ ...intake, messages });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 確認登録: ai_extracted_intakeの内容(編集後)から正式な案件を1件作成し、
+// 候補側のstatusをconfirmedにしてcase_idを紐付ける。1トランザクションで実行する
+const confirmAiIntake = db.transaction((intakeId, projectData) => {
+  const projectId = createProjectRecord(projectData);
+  db.prepare(`UPDATE ai_extracted_intake SET status = 'confirmed', case_id = ? WHERE id = ?`).run(projectId, intakeId);
+  return projectId;
+});
+
+app.post('/api/ai-intake/:id/confirm', (req, res) => {
+  try {
+    const intake = db.prepare(`SELECT id FROM ai_extracted_intake WHERE id = ?`).get(req.params.id);
+    if (!intake) return res.status(404).json({ error: 'Intake not found' });
+
+    const projectId = confirmAiIntake(req.params.id, req.body);
+    res.status(201).json({ id: projectId, message: 'Project created from intake successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/ai-intake/:id/reject', (req, res) => {
+  try {
+    const intake = db.prepare(`SELECT id FROM ai_extracted_intake WHERE id = ?`).get(req.params.id);
+    if (!intake) return res.status(404).json({ error: 'Intake not found' });
+
+    db.prepare(`UPDATE ai_extracted_intake SET status = 'rejected' WHERE id = ?`).run(req.params.id);
+    res.json({ message: 'Intake rejected' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

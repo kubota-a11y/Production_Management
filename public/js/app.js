@@ -19,6 +19,8 @@ const app = {
   nasEntriesCache: [],
   prepItemsMaster: [],
   preparationItems: [],
+  aiIntakeList: [],
+  editingAiIntakeId: null,
 
   // ===== 初期化 =====
   async init() {
@@ -27,6 +29,7 @@ const app = {
     await this.loadStaff();
     await this.loadEmployees();
     await this.loadPrepItemsMaster();
+    await this.loadAiIntakeList();
     this.updateStaffSelects();
     this.renderListView();
     this.handleQueryParams();
@@ -95,6 +98,8 @@ const app = {
   },
 
   // ===== UI: タブ切り替え =====
+  // data-tab属性でボタンを特定するため、onclick経由(event.target)だけでなく
+  // JavaScriptからの直接呼び出し(例: AI受注候補の登録後に一覧タブへ遷移)でも安全に動作する
   switchTab(tabName) {
     this.currentTab = tabName;
 
@@ -102,7 +107,7 @@ const app = {
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.classList.remove('active');
     });
-    event.target.classList.add('active');
+    document.querySelector(`.tab-btn[data-tab="${tabName}"]`)?.classList.add('active');
 
     // コンテンツの表示/非表示
     document.querySelectorAll('.tab-content').forEach(content => {
@@ -117,6 +122,8 @@ const app = {
       this.renderCalendarView();
     } else if (tabName === 'list') {
       this.renderListView();
+    } else if (tabName === 'import') {
+      this.loadAiIntakeList();
     }
   },
 
@@ -480,6 +487,11 @@ const app = {
     this.renderCalendarView();
   },
 
+  // テキスト中のキーワードから加工種別を推測する(コピペ取り込み・AI受注候補の両方で使用)
+  detectProcessType(text) {
+    return text.includes('刺繍') ? 'STANDARD_EMBROIDERY' : text.includes('帽子') ? 'HAT_EMBROIDERY' : text.includes('ワッペン') ? 'PATCH_EMBROIDERY' : text.includes('DTF') || text.includes('DTFプリント') ? 'DTF_PRINT' : text.includes('ラバー') ? 'RUBBER_TRANSFER_PRINT' : text.includes('シルク') ? 'SILK_SCREEN_PRINT' : 'STANDARD_EMBROIDERY';
+  },
+
   // ===== UI: コピペ取り込み =====
   extractFromText() {
     const text = document.getElementById('import-textarea').value;
@@ -490,7 +502,7 @@ const app = {
     }
 
     // テキスト解析
-    const detectedProcessType = text.includes('刺繍') ? 'STANDARD_EMBROIDERY' : text.includes('帽子') ? 'HAT_EMBROIDERY' : text.includes('ワッペン') ? 'PATCH_EMBROIDERY' : text.includes('DTF') || text.includes('DTFプリント') ? 'DTF_PRINT' : text.includes('ラバー') ? 'RUBBER_TRANSFER_PRINT' : text.includes('シルク') ? 'SILK_SCREEN_PRINT' : 'STANDARD_EMBROIDERY';
+    const detectedProcessType = this.detectProcessType(text);
     const extracted = {
       project_name: extractName(text) || '',
       customer_name: extractName(text).split('\n')[0] || '',
@@ -555,6 +567,270 @@ const app = {
     document.getElementById('import-preview').style.display = 'none';
     document.getElementById('import-textarea').value = '';
     document.getElementById('import-form').reset();
+  },
+
+  // ===== UI: AI受注候補(LINEから自動収集) =====
+  currentAiIntakeDetail: null,
+
+  async loadAiIntakeList() {
+    try {
+      this.aiIntakeList = await API.getAiIntakeList('pending');
+    } catch (error) {
+      console.error('AI受注候補取得エラー:', error);
+      this.aiIntakeList = [];
+    }
+    this.renderAiIntakeList();
+  },
+
+  renderAiIntakeList() {
+    const badge = document.getElementById('ai-intake-badge');
+    const grid = document.getElementById('ai-intake-list');
+    const empty = document.getElementById('ai-intake-empty');
+    if (!grid) return;
+
+    const count = this.aiIntakeList.length;
+    if (badge) {
+      badge.textContent = count;
+      badge.style.display = count > 0 ? 'inline-flex' : 'none';
+    }
+
+    grid.innerHTML = '';
+    if (count === 0) {
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+
+    this.aiIntakeList.forEach(intake => {
+      const card = document.createElement('div');
+      card.className = 'ai-intake-card';
+      card.onclick = () => this.openAiIntakeModal(intake.id);
+
+      if (intake.thumbnail_path) {
+        const img = document.createElement('img');
+        img.className = 'ai-intake-card-thumb';
+        img.src = API.getNasFileUrl(intake.thumbnail_path);
+        img.alt = '';
+        card.appendChild(img);
+      } else {
+        const placeholder = document.createElement('div');
+        placeholder.className = 'ai-intake-card-thumb ai-intake-card-thumb-empty';
+        placeholder.textContent = '📷';
+        card.appendChild(placeholder);
+      }
+
+      const body = document.createElement('div');
+      body.className = 'ai-intake-card-body';
+
+      const sender = document.createElement('div');
+      sender.className = 'ai-intake-card-sender';
+      sender.textContent = intake.display_name || '不明な送信者';
+      body.appendChild(sender);
+
+      const items = document.createElement('div');
+      items.className = 'ai-intake-card-items';
+      items.textContent = intake.items || '(内容未抽出)';
+      body.appendChild(items);
+
+      const dateEl = document.createElement('div');
+      dateEl.className = 'ai-intake-card-date';
+      dateEl.textContent = formatDateTime(intake.extracted_at);
+      body.appendChild(dateEl);
+
+      card.appendChild(body);
+      grid.appendChild(card);
+    });
+  },
+
+  openAiIntakeModal(id) {
+    this.editingAiIntakeId = id;
+    this.currentAiIntakeDetail = null;
+
+    document.getElementById('ai-intake-form').reset();
+    document.getElementById('ai-intake-chat-transcript').innerHTML = '<p class="folder-notice">読み込み中…</p>';
+    document.getElementById('ai-intake-deadline-hint').textContent = '';
+    document.getElementById('ai-intake-quantity-hint').textContent = '';
+    this.populateAiIntakeStaffSelect();
+
+    document.getElementById('ai-intake-modal').style.display = 'flex';
+
+    API.getAiIntake(id).then(intake => {
+      if (!intake || intake.error) {
+        alert('AI受注候補の取得に失敗しました');
+        this.closeAiIntakeModal();
+        return;
+      }
+      this.currentAiIntakeDetail = intake;
+      this.renderAiIntakeChatTranscript(intake.messages || []);
+      this.prefillAiIntakeForm(intake);
+    }).catch(error => {
+      console.error('AI受注候補取得エラー:', error);
+      alert('AI受注候補の取得に失敗しました');
+      this.closeAiIntakeModal();
+    });
+  },
+
+  closeAiIntakeModal() {
+    document.getElementById('ai-intake-modal').style.display = 'none';
+    document.getElementById('ai-intake-form').reset();
+    document.getElementById('ai-intake-chat-transcript').innerHTML = '';
+    this.editingAiIntakeId = null;
+    this.currentAiIntakeDetail = null;
+  },
+
+  populateAiIntakeStaffSelect() {
+    const select = document.getElementById('ai-intake-staff-select');
+    if (!select) return;
+    select.innerHTML = '<option value="">未割り当て</option>';
+    this.staff.forEach(staff => {
+      const option = document.createElement('option');
+      option.value = staff.id;
+      option.textContent = staff.name;
+      select.appendChild(option);
+    });
+  },
+
+  // LINEでのやり取りを時系列の吹き出しとして描画する
+  renderAiIntakeChatTranscript(messages) {
+    const container = document.getElementById('ai-intake-chat-transcript');
+    container.innerHTML = '';
+
+    if (messages.length === 0) {
+      container.innerHTML = '<p class="folder-notice">メッセージが見つかりません</p>';
+      return;
+    }
+
+    messages.forEach(message => {
+      const bubble = document.createElement('div');
+      bubble.className = 'chat-bubble';
+
+      if (message.message_type === 'image' && message.image_path) {
+        const img = document.createElement('img');
+        img.className = 'chat-bubble-image';
+        img.src = API.getNasFileUrl(message.image_path);
+        img.alt = 'LINE画像';
+        img.onclick = () => this.openImageLightbox(img.src);
+        bubble.appendChild(img);
+      } else if (message.message_type === 'text') {
+        const textEl = document.createElement('div');
+        textEl.className = 'chat-bubble-text';
+        textEl.textContent = message.text_content || '';
+        bubble.appendChild(textEl);
+      } else {
+        const textEl = document.createElement('div');
+        textEl.className = 'chat-bubble-text';
+        textEl.textContent = `[${message.message_type}メッセージ]`;
+        bubble.appendChild(textEl);
+      }
+
+      const timeEl = document.createElement('div');
+      timeEl.className = 'chat-bubble-time';
+      timeEl.textContent = formatDateTime(message.received_at);
+      bubble.appendChild(timeEl);
+
+      container.appendChild(bubble);
+    });
+  },
+
+  // AIの抽出結果(自由記述のquantity/deadlineを含む)を登録フォームの初期値として反映する
+  prefillAiIntakeForm(intake) {
+    const form = document.getElementById('ai-intake-form');
+    const messages = intake.messages || [];
+    const firstMessage = messages[0];
+    const receivedDate = firstMessage
+      ? firstMessage.received_at.split('T')[0]
+      : new Date().toISOString().split('T')[0];
+
+    const itemsText = intake.items || '';
+    const quantityRaw = (intake.quantity || '').toString().trim();
+    const quantityValue = /^\d+$/.test(quantityRaw) ? quantityRaw : (extractNumber(quantityRaw) || '');
+    const deadlineValue = extractDate((intake.deadline || '').toString()) || '';
+
+    form.elements['project_name'].value = itemsText.substring(0, 50) || (intake.customer_name ? `${intake.customer_name}様 ご依頼` : '');
+    form.elements['customer_name'].value = intake.customer_name || '';
+    form.elements['received_date'].value = receivedDate;
+    form.elements['deadline'].value = deadlineValue;
+    form.elements['contact_method'].value = 'LINE';
+    form.elements['quantity'].value = quantityValue;
+    form.elements['planned_hours'].value = '';
+    form.elements['assigned_staff_id'].value = '';
+    form.elements['status'].value = 'PRE_ORDER';
+    form.elements['priority'].value = 'MEDIUM';
+    form.elements['work_content'].value = itemsText;
+    form.elements['memo'].value = intake.notes || '';
+
+    this.setCheckboxGroupValues(form, 'process_type', this.detectProcessType(itemsText));
+
+    // AIが返した生の値が日付/数値としてうまく変換できなかった場合に備え、参考情報として表示する
+    document.getElementById('ai-intake-deadline-hint').textContent = intake.deadline ? `AI抽出値: ${intake.deadline}` : '';
+    document.getElementById('ai-intake-quantity-hint').textContent = intake.quantity ? `AI抽出値: ${intake.quantity}` : '';
+  },
+
+  async submitAiIntakeConfirm() {
+    if (!this.editingAiIntakeId) return;
+
+    const form = document.getElementById('ai-intake-form');
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+
+    data.process_type = formData.getAll('process_type').join(',');
+    if (!data.process_type) {
+      alert('加工種別を1つ以上選択してください');
+      return;
+    }
+
+    data.quantity = parseInt(data.quantity);
+    data.planned_hours = parseFloat(data.planned_hours);
+    data.assigned_staff_id = data.assigned_staff_id ? parseInt(data.assigned_staff_id) : null;
+
+    try {
+      const result = await API.confirmAiIntake(this.editingAiIntakeId, data);
+      if (result.error) {
+        alert(result.error);
+        return;
+      }
+      console.log(`✓ AI受注候補 #${this.editingAiIntakeId} を案件 #${result.id} として登録`);
+
+      this.closeAiIntakeModal();
+      await this.loadAiIntakeList();
+      await this.loadProjects();
+      this.switchTab('list');
+      this.renderListView();
+      alert('✓ 案件として登録しました');
+    } catch (error) {
+      console.error('AI受注候補の登録エラー:', error);
+      alert('案件の登録に失敗しました');
+    }
+  },
+
+  async rejectAiIntakeConfirm() {
+    if (!this.editingAiIntakeId) return;
+    if (!confirm('この受注候補を却下してもよろしいですか？(データは削除されません)')) return;
+
+    try {
+      await API.rejectAiIntake(this.editingAiIntakeId);
+      console.log(`✓ AI受注候補 #${this.editingAiIntakeId} を却下`);
+      this.closeAiIntakeModal();
+      await this.loadAiIntakeList();
+    } catch (error) {
+      console.error('AI受注候補の却下エラー:', error);
+      alert('却下処理に失敗しました');
+    }
+  },
+
+  openImageLightbox(url) {
+    document.getElementById('image-lightbox-img').src = url;
+    document.getElementById('image-lightbox').classList.add('active');
+  },
+
+  closeImageLightbox() {
+    document.getElementById('image-lightbox').classList.remove('active');
+    document.getElementById('image-lightbox-img').src = '';
   },
 
   // ===== UI: モーダル =====
@@ -1141,6 +1417,9 @@ const app = {
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('project-form')?.addEventListener('submit', (e) => app.submitProjectForm(e));
   document.getElementById('staff-form')?.addEventListener('submit', (e) => app.submitStaffForm(e));
+  // ボタンはtype="button"でapp.submitAiIntakeConfirm()を直接呼ぶため、
+  // フォーム内でEnterキー等により暗黙的にsubmitされた場合のページ遷移だけを防ぐ
+  document.getElementById('ai-intake-form')?.addEventListener('submit', (e) => e.preventDefault());
 
   const nasFolderPathInput = document.getElementById('nas-folder-path');
   nasFolderPathInput?.addEventListener('input', () => {
@@ -1163,6 +1442,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (e.target.id === 'staff-form-modal') {
       app.closeStaffFormModal();
+    }
+    if (e.target.id === 'ai-intake-modal') {
+      app.closeAiIntakeModal();
     }
   });
 

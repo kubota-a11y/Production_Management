@@ -229,6 +229,38 @@ const API = {
     return `/api/nas/download?path=${encodeURIComponent(path)}`;
   },
 
+  // ===== AI受注候補(LINEから自動収集) =====
+
+  // pending等ステータス指定で候補一覧取得
+  async getAiIntakeList(status = 'pending') {
+    const response = await fetch(`/api/ai-intake?status=${encodeURIComponent(status)}`);
+    return response.json();
+  },
+
+  // 候補1件の詳細(LINEメッセージの書き起こし込み)取得
+  async getAiIntake(id) {
+    const response = await fetch(`/api/ai-intake/${id}`);
+    return response.json();
+  },
+
+  // 編集後の内容で正式な案件として登録
+  async confirmAiIntake(id, data) {
+    const response = await fetch(`/api/ai-intake/${id}/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return response.json();
+  },
+
+  // 却下(データは削除せずstatusのみ更新)
+  async rejectAiIntake(id) {
+    const response = await fetch(`/api/ai-intake/${id}/reject`, {
+      method: 'POST'
+    });
+    return response.json();
+  },
+
   // ===== 統計関連 =====
 
   // 担当者別作業時間
