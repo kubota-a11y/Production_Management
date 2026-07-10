@@ -222,6 +222,22 @@ const API = {
     return response.json();
   },
 
+  // 従業員の作業別生産性を取得
+  async getEmployeeProcessRates(id) {
+    const response = await fetch(`/api/employees/${id}/process-rates`);
+    return response.json();
+  },
+
+  // 従業員の作業別生産性を一括更新
+  async saveEmployeeProcessRates(id, rates) {
+    const response = await fetch(`/api/employees/${id}/process-rates`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rates })
+    });
+    return response.json();
+  },
+
   // ===== NAS関連 =====
 
   // NASフォルダ内のファイル一覧を取得

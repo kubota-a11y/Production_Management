@@ -1095,6 +1095,41 @@ app.post('/api/employees/:id/default-schedule', (req, res) => {
   }
 });
 
+// 従業員の作業別生産性(1時間あたり処理数)を一括取得
+app.get('/api/employees/:id/process-rates', (req, res) => {
+  try {
+    const rates = db.prepare(`
+      SELECT * FROM employee_process_rates WHERE employee_id = ? ORDER BY process_type ASC
+    `).all(req.params.id);
+    res.json(rates);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 作業別生産性を一括で置き換える（既存分をDELETEしてから渡された分をINSERT。units_per_hourが0以下の行は保存しない）
+const replaceEmployeeProcessRates = db.transaction((employeeId, rates) => {
+  db.prepare('DELETE FROM employee_process_rates WHERE employee_id = ?').run(employeeId);
+  const insert = db.prepare(`
+    INSERT INTO employee_process_rates (employee_id, process_type, units_per_hour)
+    VALUES (?, ?, ?)
+  `);
+  for (const r of rates) {
+    if (!r.units_per_hour || r.units_per_hour <= 0) continue;
+    insert.run(employeeId, r.process_type, r.units_per_hour);
+  }
+});
+
+app.post('/api/employees/:id/process-rates', (req, res) => {
+  try {
+    const rates = req.body.rates || [];
+    replaceEmployeeProcessRates(req.params.id, rates);
+    res.json({ message: 'Process rates updated successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/stats/daily-workload', (req, res) => {
   try {
     const date = req.query.date || new Date().toISOString().split('T')[0];

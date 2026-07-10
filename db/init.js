@@ -64,6 +64,21 @@ function initDatabase() {
     ON employee_default_schedule(employee_id, weekday)
   `);
 
+  // 従業員ごとの作業別生産性(1時間あたり処理数)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS employee_process_rates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      employee_id INTEGER NOT NULL,
+      process_type TEXT NOT NULL,
+      units_per_hour REAL,
+      FOREIGN KEY (employee_id) REFERENCES employees(id)
+    )
+  `);
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_employee_process_rates_employee_process
+    ON employee_process_rates(employee_id, process_type)
+  `);
+
   // 既存DBの schedule_overrides に is_day_off カラムがない場合は追加
   const scheduleOverrideColumns = db.prepare(`PRAGMA table_info('schedule_overrides')`).all().map(col => col.name);
   if (scheduleOverrideColumns.length > 0 && !scheduleOverrideColumns.includes('is_day_off')) {

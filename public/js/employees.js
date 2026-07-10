@@ -4,6 +4,15 @@
 
 const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
 
+const PROCESS_TYPE_LABELS = {
+  SILK_SCREEN_PRINT: 'シルクスクリーンプリント',
+  DTF_PRINT: 'DTFプリント',
+  RUBBER_TRANSFER_PRINT: 'ラバー転写プリント',
+  STANDARD_EMBROIDERY: '通常刺繍',
+  HAT_EMBROIDERY: '帽子刺繍',
+  PATCH_EMBROIDERY: 'ワッペン刺繍'
+};
+
 const employeesApp = {
   // ===== ステート =====
   employees: [],
@@ -98,6 +107,31 @@ const employeesApp = {
     });
   },
 
+  // ===== 作業別生産性 =====
+  renderProcessRateRows(rates = []) {
+    const tbody = document.getElementById('process-rate-tbody');
+    tbody.innerHTML = '';
+
+    Object.keys(PROCESS_TYPE_LABELS).forEach(processType => {
+      const existing = rates.find(r => r.process_type === processType);
+      const row = document.createElement('tr');
+      row.dataset.processType = processType;
+      row.innerHTML = `
+        <td>${PROCESS_TYPE_LABELS[processType]}</td>
+        <td><input type="number" class="pr-units-per-hour" min="0" step="0.1" value="${existing?.units_per_hour || 0}"></td>
+      `;
+      tbody.appendChild(row);
+    });
+  },
+
+  collectProcessRateData() {
+    const rows = document.querySelectorAll('#process-rate-tbody tr');
+    return Array.from(rows).map(row => ({
+      process_type: row.dataset.processType,
+      units_per_hour: Number(row.querySelector('.pr-units-per-hour').value) || 0
+    }));
+  },
+
   // ===== 追加・編集モーダル =====
   async openEmployeeModal(employeeId = null) {
     this.editingEmployeeId = employeeId;
@@ -117,6 +151,8 @@ const employeesApp = {
         form.elements['skill_tags'].value = employee.skill_tags || '';
         const schedules = await API.getEmployeeDefaultSchedule(employeeId);
         this.renderDefaultScheduleRows(schedules);
+        const rates = await API.getEmployeeProcessRates(employeeId);
+        this.renderProcessRateRows(rates);
       } catch (error) {
         console.error('従業員取得エラー:', error);
         alert('従業員情報の取得に失敗しました');
@@ -126,6 +162,7 @@ const employeesApp = {
       title.textContent = '新規従業員';
       form.elements['is_active'].checked = true;
       this.renderDefaultScheduleRows();
+      this.renderProcessRateRows();
     }
 
     modal.style.display = 'flex';
@@ -156,6 +193,7 @@ const employeesApp = {
       }
 
       await API.saveEmployeeDefaultSchedule(employeeId, this.collectDefaultScheduleData());
+      await API.saveEmployeeProcessRates(employeeId, this.collectProcessRateData());
 
       await this.loadEmployees();
       this.renderEmployeesTable();
