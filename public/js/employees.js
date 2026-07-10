@@ -2,6 +2,8 @@
 // 従業員管理ページ ロジック
 // ========================================
 
+const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
+
 const employeesApp = {
   // ===== ステート =====
   employees: [],
@@ -59,6 +61,38 @@ const employeesApp = {
     return div.innerHTML;
   },
 
+  // ===== 曜日ごとの標準勤務パターン =====
+  renderDefaultScheduleRows(schedules = []) {
+    const tbody = document.getElementById('default-schedule-tbody');
+    tbody.innerHTML = '';
+
+    for (let weekday = 0; weekday < 7; weekday++) {
+      const existing = schedules.find(s => s.weekday === weekday);
+      const isWorking = existing ? !!existing.is_working : true;
+      const row = document.createElement('tr');
+      row.dataset.weekday = weekday;
+      row.innerHTML = `
+        <td>${WEEKDAY_LABELS[weekday]}</td>
+        <td><input type="checkbox" class="ds-is-working" ${isWorking ? 'checked' : ''}></td>
+        <td><input type="time" class="ds-start-time" value="${existing?.start_time || ''}"></td>
+        <td><input type="time" class="ds-end-time" value="${existing?.end_time || ''}"></td>
+        <td><input type="number" class="ds-break-minutes" min="0" step="1" value="${existing?.break_minutes ?? 0}"></td>
+      `;
+      tbody.appendChild(row);
+    }
+  },
+
+  collectDefaultScheduleData() {
+    const rows = document.querySelectorAll('#default-schedule-tbody tr');
+    return Array.from(rows).map(row => ({
+      weekday: Number(row.dataset.weekday),
+      is_working: row.querySelector('.ds-is-working').checked,
+      start_time: row.querySelector('.ds-start-time').value || null,
+      end_time: row.querySelector('.ds-end-time').value || null,
+      break_minutes: Number(row.querySelector('.ds-break-minutes').value) || 0
+    }));
+  },
+
   // ===== 追加・編集モーダル =====
   async openEmployeeModal(employeeId = null) {
     this.editingEmployeeId = employeeId;
@@ -75,6 +109,8 @@ const employeesApp = {
         form.elements['name'].value = employee.name;
         form.elements['role'].value = employee.role;
         form.elements['is_active'].checked = !!employee.is_active;
+        const schedules = await API.getEmployeeDefaultSchedule(employeeId);
+        this.renderDefaultScheduleRows(schedules);
       } catch (error) {
         console.error('従業員取得エラー:', error);
         alert('従業員情報の取得に失敗しました');
@@ -83,6 +119,7 @@ const employeesApp = {
     } else {
       title.textContent = '新規従業員';
       form.elements['is_active'].checked = true;
+      this.renderDefaultScheduleRows();
     }
 
     modal.style.display = 'flex';
@@ -101,13 +138,17 @@ const employeesApp = {
     data.is_active = form.elements['is_active'].checked;
 
     try {
-      if (this.editingEmployeeId) {
-        await API.updateEmployee(this.editingEmployeeId, data);
-        console.log(`✓ 従業員 #${this.editingEmployeeId} を更新`);
+      let employeeId = this.editingEmployeeId;
+      if (employeeId) {
+        await API.updateEmployee(employeeId, data);
+        console.log(`✓ 従業員 #${employeeId} を更新`);
       } else {
-        await API.createEmployee(data);
+        const created = await API.createEmployee(data);
+        employeeId = created.id;
         console.log('✓ 新規従業員を作成');
       }
+
+      await API.saveEmployeeDefaultSchedule(employeeId, this.collectDefaultScheduleData());
 
       await this.loadEmployees();
       this.renderEmployeesTable();

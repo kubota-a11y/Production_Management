@@ -206,6 +206,22 @@ const API = {
     return response.json();
   },
 
+  // 従業員の曜日ごとの標準勤務パターンを取得
+  async getEmployeeDefaultSchedule(id) {
+    const response = await fetch(`/api/employees/${id}/default-schedule`);
+    return response.json();
+  },
+
+  // 従業員の曜日ごとの標準勤務パターンを一括更新
+  async saveEmployeeDefaultSchedule(id, schedules) {
+    const response = await fetch(`/api/employees/${id}/default-schedule`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ schedules })
+    });
+    return response.json();
+  },
+
   // ===== NAS関連 =====
 
   // NASフォルダ内のファイル一覧を取得

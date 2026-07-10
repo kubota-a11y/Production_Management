@@ -929,6 +929,40 @@ app.delete('/api/employees/:id', (req, res) => {
   }
 });
 
+// 従業員の曜日ごとの標準勤務パターンを一括取得
+app.get('/api/employees/:id/default-schedule', (req, res) => {
+  try {
+    const schedules = db.prepare(`
+      SELECT * FROM employee_default_schedule WHERE employee_id = ? ORDER BY weekday ASC
+    `).all(req.params.id);
+    res.json(schedules);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 7曜日分を一括で置き換える（既存分をDELETEしてから渡された分をINSERT）
+const replaceEmployeeDefaultSchedule = db.transaction((employeeId, schedules) => {
+  db.prepare('DELETE FROM employee_default_schedule WHERE employee_id = ?').run(employeeId);
+  const insert = db.prepare(`
+    INSERT INTO employee_default_schedule (employee_id, weekday, is_working, start_time, end_time, break_minutes)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `);
+  for (const s of schedules) {
+    insert.run(employeeId, s.weekday, s.is_working ? 1 : 0, s.start_time || null, s.end_time || null, s.break_minutes || 0);
+  }
+});
+
+app.post('/api/employees/:id/default-schedule', (req, res) => {
+  try {
+    const schedules = req.body.schedules || [];
+    replaceEmployeeDefaultSchedule(req.params.id, schedules);
+    res.json({ message: 'Default schedule updated successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/stats/daily-workload', (req, res) => {
   try {
     const date = req.query.date || new Date().toISOString().split('T')[0];
