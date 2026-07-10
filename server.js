@@ -1026,12 +1026,12 @@ app.get('/api/employees/:id', (req, res) => {
 
 app.post('/api/employees', (req, res) => {
   try {
-    const { name, role, is_active } = req.body;
+    const { name, role, is_active, skill_tags } = req.body;
     const now = new Date().toISOString();
     const result = db.prepare(`
-      INSERT INTO employees (name, role, is_active, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(name, role, is_active === false ? 0 : 1, now, now);
+      INSERT INTO employees (name, role, is_active, skill_tags, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(name, role, is_active === false ? 0 : 1, skill_tags || null, now, now);
     res.status(201).json({ id: result.lastInsertRowid, message: 'Employee created successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1040,11 +1040,11 @@ app.post('/api/employees', (req, res) => {
 
 app.put('/api/employees/:id', (req, res) => {
   try {
-    const { name, role, is_active } = req.body;
+    const { name, role, is_active, skill_tags } = req.body;
     const now = new Date().toISOString();
     db.prepare(`
-      UPDATE employees SET name=?, role=?, is_active=?, updated_at=? WHERE id=?
-    `).run(name, role, is_active === false ? 0 : 1, now, req.params.id);
+      UPDATE employees SET name=?, role=?, is_active=?, skill_tags=?, updated_at=? WHERE id=?
+    `).run(name, role, is_active === false ? 0 : 1, skill_tags || null, now, req.params.id);
     res.json({ message: 'Employee updated successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });

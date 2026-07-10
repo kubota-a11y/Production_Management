@@ -109,6 +109,7 @@ const employeesApp = {
         form.elements['name'].value = employee.name;
         form.elements['role'].value = employee.role;
         form.elements['is_active'].checked = !!employee.is_active;
+        form.elements['skill_tags'].value = employee.skill_tags || '';
         const schedules = await API.getEmployeeDefaultSchedule(employeeId);
         this.renderDefaultScheduleRows(schedules);
       } catch (error) {
@@ -136,6 +137,7 @@ const employeesApp = {
     const formData = new FormData(form);
     const data = Object.fromEntries(formData);
     data.is_active = form.elements['is_active'].checked;
+    data.skill_tags = formData.get('skill_tags') || null;
 
     try {
       let employeeId = this.editingEmployeeId;
