@@ -45,6 +45,22 @@ const API = {
     return response.json();
   },
 
+  // 案件のプリント箇所を取得
+  async getPrintLocations(id) {
+    const response = await fetch(`/api/projects/${id}/print-locations`);
+    return response.json();
+  },
+
+  // 案件のプリント箇所を一括更新
+  async savePrintLocations(id, locations) {
+    const response = await fetch(`/api/projects/${id}/print-locations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locations })
+    });
+    return response.json();
+  },
+
   // ===== 担当者関連 =====
 
   // 全担当者取得

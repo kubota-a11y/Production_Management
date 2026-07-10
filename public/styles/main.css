@@ -1045,6 +1045,20 @@ html, body {
     accent-color: var(--primary-dark);
   }
 
+  .print-location-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 6px;
+  }
+
+  .print-location-row {
+    display: grid;
+    grid-template-columns: 1fr 100px auto;
+    gap: 8px;
+    align-items: center;
+  }
+
   .nas-search-input {
     margin-top: 10px;
   }

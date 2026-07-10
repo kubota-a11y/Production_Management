@@ -428,6 +428,40 @@ app.get('/api/projects/:id/suggest-assignees', (req, res) => {
   }
 });
 
+// 案件のプリント箇所を取得
+app.get('/api/projects/:id/print-locations', (req, res) => {
+  try {
+    const locations = db.prepare(`
+      SELECT * FROM case_print_locations WHERE case_id = ? ORDER BY id ASC
+    `).all(req.params.id);
+    res.json(locations);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// プリント箇所を一括で置き換える（既存分をDELETEしてから渡された分をINSERT）
+const replaceCasePrintLocations = db.transaction((caseId, locations) => {
+  db.prepare('DELETE FROM case_print_locations WHERE case_id = ?').run(caseId);
+  const insert = db.prepare(`
+    INSERT INTO case_print_locations (case_id, location_name, color_count)
+    VALUES (?, ?, ?)
+  `);
+  for (const l of locations) {
+    insert.run(caseId, l.location_name || '', l.color_count || 1);
+  }
+});
+
+app.post('/api/projects/:id/print-locations', (req, res) => {
+  try {
+    const locations = req.body.locations || [];
+    replaceCasePrintLocations(req.params.id, locations);
+    res.json({ message: 'Print locations updated successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 案件新規作成の共通処理。/api/projects と AI受注候補の確認登録(/api/ai-intake/:id/confirm)の
 // 両方から使うため、案件テーブルへのINSERT本体をここに集約する
 function createProjectRecord(data) {
@@ -483,12 +517,13 @@ app.put('/api/projects/:id', (req, res) => {
   }
 });
 
-// case_time_allocations・case_preparation_itemsはprojects.idをFOREIGN KEYで参照しており、
+// case_time_allocations・case_preparation_items・case_print_locationsはprojects.idをFOREIGN KEYで参照しており、
 // (better-sqlite3はSQLite側でforeign_keys=ONがデフォルトのため)子レコードが残ったまま
 // projectsを削除するとFOREIGN KEY constraint failedになる。トランザクションで子→親の順に削除する
 const deleteProjectCascade = db.transaction((projectId) => {
   db.prepare('DELETE FROM case_preparation_items WHERE case_id = ?').run(projectId);
   db.prepare('DELETE FROM case_time_allocations WHERE case_id = ?').run(projectId);
+  db.prepare('DELETE FROM case_print_locations WHERE case_id = ?').run(projectId);
   db.prepare('DELETE FROM projects WHERE id = ?').run(projectId);
 });
 

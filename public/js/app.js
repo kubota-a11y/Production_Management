@@ -21,6 +21,8 @@ const app = {
   preparationItems: [],
   aiIntakeList: [],
   editingAiIntakeId: null,
+  printLocationRows: [],
+  printLocationRowCounter: 0,
 
   // ===== 初期化 =====
   async init() {
@@ -82,6 +84,73 @@ const app = {
     container.innerHTML = this.prepItemsMaster.map(item => `
       <label class="checkbox-pill"><input type="checkbox" name="prep_items" value="${this.escapeHtml(item.code)}"> ${this.escapeHtml(item.name)}</label>
     `).join('');
+  },
+
+  // ===== プリント箇所（案件フォーム内） =====
+  printLocationRowHtml(rowKey, locationName, colorCount) {
+    const options = [1, 2, 3, 4].map(n =>
+      `<option value="${n}" ${Number(colorCount) === n ? 'selected' : ''}>${n}色</option>`
+    ).join('');
+    return `
+      <div class="print-location-row" data-row-key="${rowKey}">
+        <input type="text" class="pl-location-name" data-row-key="${rowKey}" placeholder="箇所名(例: 胸ロゴ)" value="${this.escapeHtml(locationName || '')}">
+        <select class="pl-color-count" data-row-key="${rowKey}">${options}</select>
+        <button type="button" class="btn-small btn-danger" onclick="app.removePrintLocationRow('${rowKey}')">🗑️</button>
+      </div>
+    `;
+  },
+
+  renderPrintLocationRows(locations = []) {
+    this.printLocationRowCounter = 0;
+    this.printLocationRows = locations.map(l => ({
+      rowKey: `existing-${this.printLocationRowCounter++}`,
+      location_name: l.location_name,
+      color_count: l.color_count
+    }));
+
+    const container = document.getElementById('print-locations-container');
+    if (!container) return;
+
+    if (this.printLocationRows.length === 0) {
+      container.innerHTML = '<div class="folder-notice">プリント箇所はまだありません</div>';
+      return;
+    }
+
+    container.innerHTML = this.printLocationRows.map(row =>
+      this.printLocationRowHtml(row.rowKey, row.location_name, row.color_count)
+    ).join('');
+  },
+
+  addPrintLocationRow() {
+    const rowKey = `new-${this.printLocationRowCounter++}`;
+    const container = document.getElementById('print-locations-container');
+    if (!container) return;
+
+    const emptyNotice = container.querySelector('.folder-notice');
+    if (emptyNotice) emptyNotice.remove();
+
+    container.insertAdjacentHTML('beforeend', this.printLocationRowHtml(rowKey, '', 1));
+  },
+
+  removePrintLocationRow(rowKey) {
+    const container = document.getElementById('print-locations-container');
+    if (!container) return;
+    const rowEl = container.querySelector(`[data-row-key="${rowKey}"]`);
+    if (rowEl) rowEl.remove();
+
+    if (container.children.length === 0) {
+      container.innerHTML = '<div class="folder-notice">プリント箇所はまだありません</div>';
+    }
+  },
+
+  collectPrintLocationData() {
+    const rows = [...document.querySelectorAll('#print-locations-container .print-location-row')];
+    return rows
+      .map(rowEl => ({
+        location_name: rowEl.querySelector('.pl-location-name').value.trim(),
+        color_count: parseInt(rowEl.querySelector('.pl-color-count').value, 10) || 1
+      }))
+      .filter(row => row.location_name !== '');
   },
 
   async loadPreparationItems() {
@@ -834,7 +903,7 @@ const app = {
   },
 
   // ===== UI: モーダル =====
-  openProjectModal(projectId = null) {
+  async openProjectModal(projectId = null) {
     this.editingProjectId = projectId;
     const modal = document.getElementById('project-modal');
     const form = document.getElementById('project-form');
@@ -860,6 +929,14 @@ const app = {
         this.setCheckboxGroupValues(form, 'prep_items', project.prep_items);
       }
 
+      try {
+        const printLocations = await API.getPrintLocations(projectId);
+        this.renderPrintLocationRows(printLocations);
+      } catch (error) {
+        console.error('プリント箇所取得エラー:', error);
+        this.renderPrintLocationRows();
+      }
+
       document.getElementById('time-allocation-disabled-notice').style.display = 'none';
       document.getElementById('time-allocation-body').style.display = 'block';
       this.populateTimeAllocationEmployeeSelect();
@@ -868,6 +945,7 @@ const app = {
     } else {
       title.textContent = '新規案件';
       deleteBtn.style.display = 'none';
+      this.renderPrintLocationRows();
       form.elements['received_date'].value = new Date().toISOString().split('T')[0];
 
       document.getElementById('time-allocation-disabled-notice').style.display = 'block';
@@ -1246,6 +1324,8 @@ const app = {
           await API.registerCasePreparationItems(projectId, prepItemIds);
         }
       }
+
+      await API.savePrintLocations(projectId, this.collectPrintLocationData());
 
       await this.loadProjects();
       this.closeProjectModal();

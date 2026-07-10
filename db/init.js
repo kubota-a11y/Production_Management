@@ -79,6 +79,27 @@ function initDatabase() {
     ON employee_process_rates(employee_id, process_type)
   `);
 
+  // 既存DBの employee_process_rates に color_count カラムがない場合は追加
+  const employeeProcessRateColumns = db.prepare(`PRAGMA table_info('employee_process_rates')`).all().map(col => col.name);
+  if (employeeProcessRateColumns.length > 0 && !employeeProcessRateColumns.includes('color_count')) {
+    db.prepare(`ALTER TABLE employee_process_rates ADD COLUMN color_count INTEGER DEFAULT 1`).run();
+  }
+
+  // 案件ごとのプリント箇所
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS case_print_locations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      case_id INTEGER NOT NULL,
+      location_name TEXT,
+      color_count INTEGER NOT NULL,
+      FOREIGN KEY (case_id) REFERENCES projects(id)
+    )
+  `);
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_case_print_locations_case_id
+    ON case_print_locations(case_id)
+  `);
+
   // 既存DBの schedule_overrides に is_day_off カラムがない場合は追加
   const scheduleOverrideColumns = db.prepare(`PRAGMA table_info('schedule_overrides')`).all().map(col => col.name);
   if (scheduleOverrideColumns.length > 0 && !scheduleOverrideColumns.includes('is_day_off')) {
