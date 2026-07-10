@@ -304,6 +304,168 @@ app.get('/api/projects/:id', (req, res) => {
 });
 
 // 案件に対する担当者候補を提案する
+// 案件に対する担当者候補をスコアリングする(空き時間・スキル一致・生産性から算出)。
+// 締切日の妥当性チェックは呼び出し側の責務(この関数は project.deadline が有効な前提)
+function calculateSuggestions(db, project) {
+  const today = new Date();
+  const deadline = new Date(project.deadline);
+
+  // 今日から締切日までの日付リストを作成(最大60日でガード)
+  const dateList = [];
+  const cursor = new Date(today);
+  cursor.setHours(0, 0, 0, 0);
+  const endDate = new Date(deadline);
+  endDate.setHours(0, 0, 0, 0);
+  let guard = 0;
+  while (cursor <= endDate && guard < 60) {
+    dateList.push(cursor.toISOString().slice(0, 10)); // YYYY-MM-DD
+    cursor.setDate(cursor.getDate() + 1);
+    guard++;
+  }
+
+  const employees = db.prepare('SELECT * FROM employees WHERE is_active = 1').all();
+
+  const overrideStmt = db.prepare(
+    'SELECT * FROM schedule_overrides WHERE employee_id = ? AND work_date = ?'
+  );
+  const defaultStmt = db.prepare(
+    'SELECT * FROM employee_default_schedule WHERE employee_id = ? AND weekday = ?'
+  );
+  const allocationStmt = db.prepare(
+    'SELECT COALESCE(SUM(planned_hours), 0) as total FROM case_time_allocations WHERE employee_id = ? AND work_date BETWEEN ? AND ?'
+  );
+
+  function timeToHours(start, end, breakMinutes) {
+    if (!start || !end) return 0;
+    const [sh, sm] = start.split(':').map(Number);
+    const [eh, em] = end.split(':').map(Number);
+    const minutes = (eh * 60 + em) - (sh * 60 + sm) - (breakMinutes || 0);
+    return Math.max(0, minutes / 60);
+  }
+
+  const requiredTags = (project.required_skill_tags || '')
+    .split(',').map(t => t.trim()).filter(Boolean);
+
+  const processTypes = (project.process_type || '').split(',').map(t => t.trim()).filter(Boolean);
+  const quantity = project.quantity || 0;
+  const printLocations = db.prepare('SELECT * FROM case_print_locations WHERE case_id = ?').all(project.id);
+  const rateStmt = db.prepare(
+    'SELECT * FROM employee_process_rates WHERE employee_id = ? AND process_type = ? AND color_count = ?'
+  );
+
+  const results = employees.map(emp => {
+    let availableHours = 0;
+    let hasUnknownDay = false;
+
+    dateList.forEach(dateStr => {
+      const weekday = new Date(dateStr).getDay();
+      const override = overrideStmt.get(emp.id, dateStr);
+
+      if (override) {
+        if (!override.is_day_off) {
+          availableHours += timeToHours(override.start_time, override.end_time, override.break_minutes);
+        }
+        return;
+      }
+
+      const def = defaultStmt.get(emp.id, weekday);
+      if (def) {
+        if (def.is_working) {
+          availableHours += timeToHours(def.start_time, def.end_time, def.break_minutes);
+        }
+        return;
+      }
+
+      // schedule_overrides にも employee_default_schedule にも情報がない日
+      hasUnknownDay = true;
+    });
+
+    const allocated = allocationStmt.get(emp.id, dateList[0], dateList[dateList.length - 1]).total;
+    const remainingHours = Math.max(0, availableHours - allocated);
+
+    // スキル一致
+    const empTags = (emp.skill_tags || '').split(',').map(t => t.trim()).filter(Boolean);
+    const matchedTags = requiredTags.filter(t => empTags.includes(t));
+    const skillScore = requiredTags.length === 0 ? 1 : matchedTags.length / requiredTags.length;
+
+    // 加工種別ごとの生産性(units_per_hour)から所要時間を算出する。
+    // SILK_SCREEN_PRINT はプリント箇所ごとに色数に応じた生産性で計算し合算、それ以外は color_count=1 で計算する
+    let requiredHours = 0;
+    let canHandleAll = true;
+    const processDetails = [];
+
+    if (processTypes.includes('SILK_SCREEN_PRINT')) {
+      if (printLocations.length === 0) {
+        canHandleAll = false;
+        processDetails.push({ process_type: 'SILK_SCREEN_PRINT', note: 'プリント箇所が未登録' });
+      } else {
+        for (const loc of printLocations) {
+          const rate = rateStmt.get(emp.id, 'SILK_SCREEN_PRINT', loc.color_count);
+          if (!rate || rate.units_per_hour <= 0) {
+            canHandleAll = false;
+            processDetails.push({ process_type: 'SILK_SCREEN_PRINT', location_name: loc.location_name, color_count: loc.color_count, units_per_hour: null });
+            continue;
+          }
+          const hours = quantity / rate.units_per_hour;
+          requiredHours += hours;
+          processDetails.push({ process_type: 'SILK_SCREEN_PRINT', location_name: loc.location_name, color_count: loc.color_count, units_per_hour: rate.units_per_hour, hours: Math.round(hours * 10) / 10 });
+        }
+      }
+    }
+
+    for (const pt of processTypes) {
+      if (pt === 'SILK_SCREEN_PRINT') continue;
+      const rate = rateStmt.get(emp.id, pt, 1);
+      if (!rate || rate.units_per_hour <= 0) {
+        canHandleAll = false;
+        processDetails.push({ process_type: pt, units_per_hour: null });
+        continue;
+      }
+      const hours = quantity / rate.units_per_hour;
+      requiredHours += hours;
+      processDetails.push({ process_type: pt, units_per_hour: rate.units_per_hour, hours: Math.round(hours * 10) / 10 });
+    }
+
+    // 空き時間スコア(必要工数に対する充足率、上限1.0)
+    const availabilityScore = requiredHours > 0
+      ? Math.min(1, remainingHours / requiredHours)
+      : Math.min(1, remainingHours / 8); // 生産性が未設定などで算出できない場合は1日分を基準に
+
+    const score = availabilityScore * 0.5 + skillScore * 0.5;
+
+    let reason;
+    if (requiredTags.length > 0 && matchedTags.length === 0) {
+      reason = '空き時間はあるがスキルタグ未一致';
+    } else if (!canHandleAll) {
+      reason = 'スキル一致だが一部作業の生産性が未設定';
+    } else if (remainingHours <= 0) {
+      reason = 'スキル一致だが空き時間が不足';
+    } else {
+      reason = 'スキル一致・空き時間十分';
+    }
+    if (hasUnknownDay) {
+      reason += '(勤務未確定の日を含む)';
+    }
+
+    return {
+      employee_id: emp.id,
+      employee_name: emp.name,
+      score: Math.round(score * 100) / 100,
+      available_hours: Math.round(remainingHours * 10) / 10,
+      required_hours: Math.round(requiredHours * 10) / 10,
+      can_handle_all: canHandleAll,
+      process_details: processDetails,
+      skill_match: matchedTags,
+      reason,
+      has_unknown_day: hasUnknownDay,
+    };
+  });
+
+  results.sort((a, b) => b.score - a.score);
+
+  return results;
+}
+
 app.get('/api/projects/:id/suggest-assignees', (req, res) => {
   try {
     const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(req.params.id);
@@ -315,158 +477,7 @@ app.get('/api/projects/:id/suggest-assignees', (req, res) => {
       return res.status(400).json({ error: '締切日が未設定、または過去の日付です' });
     }
 
-    // 今日から締切日までの日付リストを作成(最大60日でガード)
-    const dateList = [];
-    const cursor = new Date(today);
-    cursor.setHours(0, 0, 0, 0);
-    const endDate = new Date(deadline);
-    endDate.setHours(0, 0, 0, 0);
-    let guard = 0;
-    while (cursor <= endDate && guard < 60) {
-      dateList.push(cursor.toISOString().slice(0, 10)); // YYYY-MM-DD
-      cursor.setDate(cursor.getDate() + 1);
-      guard++;
-    }
-
-    const employees = db.prepare('SELECT * FROM employees WHERE is_active = 1').all();
-
-    const overrideStmt = db.prepare(
-      'SELECT * FROM schedule_overrides WHERE employee_id = ? AND work_date = ?'
-    );
-    const defaultStmt = db.prepare(
-      'SELECT * FROM employee_default_schedule WHERE employee_id = ? AND weekday = ?'
-    );
-    const allocationStmt = db.prepare(
-      'SELECT COALESCE(SUM(planned_hours), 0) as total FROM case_time_allocations WHERE employee_id = ? AND work_date BETWEEN ? AND ?'
-    );
-
-    function timeToHours(start, end, breakMinutes) {
-      if (!start || !end) return 0;
-      const [sh, sm] = start.split(':').map(Number);
-      const [eh, em] = end.split(':').map(Number);
-      const minutes = (eh * 60 + em) - (sh * 60 + sm) - (breakMinutes || 0);
-      return Math.max(0, minutes / 60);
-    }
-
-    const requiredTags = (project.required_skill_tags || '')
-      .split(',').map(t => t.trim()).filter(Boolean);
-
-    const processTypes = (project.process_type || '').split(',').map(t => t.trim()).filter(Boolean);
-    const quantity = project.quantity || 0;
-    const printLocations = db.prepare('SELECT * FROM case_print_locations WHERE case_id = ?').all(project.id);
-    const rateStmt = db.prepare(
-      'SELECT * FROM employee_process_rates WHERE employee_id = ? AND process_type = ? AND color_count = ?'
-    );
-
-    const results = employees.map(emp => {
-      let availableHours = 0;
-      let hasUnknownDay = false;
-
-      dateList.forEach(dateStr => {
-        const weekday = new Date(dateStr).getDay();
-        const override = overrideStmt.get(emp.id, dateStr);
-
-        if (override) {
-          if (!override.is_day_off) {
-            availableHours += timeToHours(override.start_time, override.end_time, override.break_minutes);
-          }
-          return;
-        }
-
-        const def = defaultStmt.get(emp.id, weekday);
-        if (def) {
-          if (def.is_working) {
-            availableHours += timeToHours(def.start_time, def.end_time, def.break_minutes);
-          }
-          return;
-        }
-
-        // schedule_overrides にも employee_default_schedule にも情報がない日
-        hasUnknownDay = true;
-      });
-
-      const allocated = allocationStmt.get(emp.id, dateList[0], dateList[dateList.length - 1]).total;
-      const remainingHours = Math.max(0, availableHours - allocated);
-
-      // スキル一致
-      const empTags = (emp.skill_tags || '').split(',').map(t => t.trim()).filter(Boolean);
-      const matchedTags = requiredTags.filter(t => empTags.includes(t));
-      const skillScore = requiredTags.length === 0 ? 1 : matchedTags.length / requiredTags.length;
-
-      // 加工種別ごとの生産性(units_per_hour)から所要時間を算出する。
-      // SILK_SCREEN_PRINT はプリント箇所ごとに色数に応じた生産性で計算し合算、それ以外は color_count=1 で計算する
-      let requiredHours = 0;
-      let canHandleAll = true;
-      const processDetails = [];
-
-      if (processTypes.includes('SILK_SCREEN_PRINT')) {
-        if (printLocations.length === 0) {
-          canHandleAll = false;
-          processDetails.push({ process_type: 'SILK_SCREEN_PRINT', note: 'プリント箇所が未登録' });
-        } else {
-          for (const loc of printLocations) {
-            const rate = rateStmt.get(emp.id, 'SILK_SCREEN_PRINT', loc.color_count);
-            if (!rate || rate.units_per_hour <= 0) {
-              canHandleAll = false;
-              processDetails.push({ process_type: 'SILK_SCREEN_PRINT', location_name: loc.location_name, color_count: loc.color_count, units_per_hour: null });
-              continue;
-            }
-            const hours = quantity / rate.units_per_hour;
-            requiredHours += hours;
-            processDetails.push({ process_type: 'SILK_SCREEN_PRINT', location_name: loc.location_name, color_count: loc.color_count, units_per_hour: rate.units_per_hour, hours: Math.round(hours * 10) / 10 });
-          }
-        }
-      }
-
-      for (const pt of processTypes) {
-        if (pt === 'SILK_SCREEN_PRINT') continue;
-        const rate = rateStmt.get(emp.id, pt, 1);
-        if (!rate || rate.units_per_hour <= 0) {
-          canHandleAll = false;
-          processDetails.push({ process_type: pt, units_per_hour: null });
-          continue;
-        }
-        const hours = quantity / rate.units_per_hour;
-        requiredHours += hours;
-        processDetails.push({ process_type: pt, units_per_hour: rate.units_per_hour, hours: Math.round(hours * 10) / 10 });
-      }
-
-      // 空き時間スコア(必要工数に対する充足率、上限1.0)
-      const availabilityScore = requiredHours > 0
-        ? Math.min(1, remainingHours / requiredHours)
-        : Math.min(1, remainingHours / 8); // 生産性が未設定などで算出できない場合は1日分を基準に
-
-      const score = availabilityScore * 0.5 + skillScore * 0.5;
-
-      let reason;
-      if (requiredTags.length > 0 && matchedTags.length === 0) {
-        reason = '空き時間はあるがスキルタグ未一致';
-      } else if (!canHandleAll) {
-        reason = 'スキル一致だが一部作業の生産性が未設定';
-      } else if (remainingHours <= 0) {
-        reason = 'スキル一致だが空き時間が不足';
-      } else {
-        reason = 'スキル一致・空き時間十分';
-      }
-      if (hasUnknownDay) {
-        reason += '(勤務未確定の日を含む)';
-      }
-
-      return {
-        employee_id: emp.id,
-        employee_name: emp.name,
-        score: Math.round(score * 100) / 100,
-        available_hours: Math.round(remainingHours * 10) / 10,
-        required_hours: Math.round(requiredHours * 10) / 10,
-        can_handle_all: canHandleAll,
-        process_details: processDetails,
-        skill_match: matchedTags,
-        reason,
-        has_unknown_day: hasUnknownDay,
-      };
-    });
-
-    results.sort((a, b) => b.score - a.score);
+    const results = calculateSuggestions(db, project);
 
     res.json({
       project_id: project.id,
@@ -474,6 +485,119 @@ app.get('/api/projects/:id/suggest-assignees', (req, res) => {
       deadline: project.deadline,
       suggestions: results.slice(0, 3),
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 案件1件に対して、最上位候補者を選び、受付日から順に空き時間へ割り振って
+// case_time_allocations に status:'提案' で登録する
+function autoProposeForProject(db, projectId) {
+  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
+  if (!project) return { error: '案件が見つかりません' };
+
+  const receivedDate = project.received_date ? new Date(project.received_date) : new Date();
+  const deadline = project.deadline ? new Date(project.deadline) : null;
+  if (!deadline) return { error: '締切日が未設定です' };
+
+  const suggestions = calculateSuggestions(db, project);
+  if (!suggestions.length || suggestions[0].score <= 0) {
+    return { error: '対応可能な担当者が見つかりませんでした' };
+  }
+
+  const best = suggestions[0];
+  const employeeId = best.employee_id;
+  let remainingHours = best.required_hours;
+
+  db.prepare(`DELETE FROM case_time_allocations WHERE case_id = ? AND status = '提案'`).run(projectId);
+
+  const insertStmt = db.prepare(`
+    INSERT INTO case_time_allocations (case_id, employee_id, work_date, planned_hours, status)
+    VALUES (?, ?, ?, ?, '提案')
+  `);
+
+  const overrideStmt = db.prepare('SELECT * FROM schedule_overrides WHERE employee_id = ? AND work_date = ?');
+  const defaultStmt = db.prepare('SELECT * FROM employee_default_schedule WHERE employee_id = ? AND weekday = ?');
+  const allocatedStmt = db.prepare(`SELECT COALESCE(SUM(planned_hours), 0) as total FROM case_time_allocations WHERE employee_id = ? AND work_date = ?`);
+
+  function timeToHours(start, end, breakMinutes) {
+    if (!start || !end) return 0;
+    const [sh, sm] = start.split(':').map(Number);
+    const [eh, em] = end.split(':').map(Number);
+    const minutes = (eh * 60 + em) - (sh * 60 + sm) - (breakMinutes || 0);
+    return Math.max(0, minutes / 60);
+  }
+
+  const cursor = new Date(receivedDate);
+  cursor.setDate(cursor.getDate() + 1);
+  cursor.setHours(0, 0, 0, 0);
+  const endDate = new Date(deadline);
+  endDate.setHours(0, 0, 0, 0);
+
+  const allocatedDates = [];
+  let guard = 0;
+
+  while (cursor <= endDate && remainingHours > 0.01 && guard < 60) {
+    const dateStr = cursor.toISOString().slice(0, 10);
+    const weekday = cursor.getDay();
+
+    let dayHours = 0;
+    let dayReserved = 0;
+    const override = overrideStmt.get(employeeId, dateStr);
+    if (override) {
+      if (!override.is_day_off) {
+        dayHours = timeToHours(override.start_time, override.end_time, override.break_minutes);
+        dayReserved = override.reserved_hours || 0;
+      }
+    } else {
+      const def = defaultStmt.get(employeeId, weekday);
+      if (def && def.is_working) {
+        dayHours = timeToHours(def.start_time, def.end_time, def.break_minutes);
+        dayReserved = def.reserved_hours || 0;
+      }
+    }
+
+    const alreadyAllocated = allocatedStmt.get(employeeId, dateStr).total;
+    const dayAvailable = Math.max(0, dayHours - dayReserved - alreadyAllocated);
+
+    if (dayAvailable > 0) {
+      const useHours = Math.min(dayAvailable, remainingHours);
+      insertStmt.run(projectId, employeeId, dateStr, Math.round(useHours * 10) / 10);
+      allocatedDates.push({ date: dateStr, hours: Math.round(useHours * 10) / 10 });
+      remainingHours -= useHours;
+    }
+
+    cursor.setDate(cursor.getDate() + 1);
+    guard++;
+  }
+
+  const fitsInDeadline = remainingHours <= 0.01;
+
+  return {
+    project_id: projectId,
+    employee_id: employeeId,
+    employee_name: best.employee_name,
+    allocated_dates: allocatedDates,
+    fits_in_deadline: fitsInDeadline,
+    remaining_hours: Math.round(remainingHours * 10) / 10,
+  };
+}
+
+app.post('/api/projects/:id/auto-propose', (req, res) => {
+  try {
+    const result = autoProposeForProject(db, req.params.id);
+    if (result.error) return res.status(400).json(result);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/projects/bulk-auto-propose', (req, res) => {
+  try {
+    const unassigned = db.prepare('SELECT id FROM projects WHERE assigned_employee_id IS NULL').all();
+    const results = unassigned.map(p => autoProposeForProject(db, p.id));
+    res.json({ results });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -539,6 +663,14 @@ function createProjectRecord(data) {
 app.post('/api/projects', (req, res) => {
   try {
     const id = createProjectRecord(req.body);
+    try {
+      const autoProposeResult = autoProposeForProject(db, id);
+      if (autoProposeResult.error) {
+        console.error(`自動提案に失敗しました(project_id=${id}): ${autoProposeResult.error}`);
+      }
+    } catch (autoProposeError) {
+      console.error(`自動提案に失敗しました(project_id=${id}):`, autoProposeError.message);
+    }
     res.status(201).json({ id, message: 'Project created successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
