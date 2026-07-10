@@ -77,6 +77,7 @@ const employeesApp = {
         <td><input type="time" class="ds-start-time" value="${existing?.start_time || ''}"></td>
         <td><input type="time" class="ds-end-time" value="${existing?.end_time || ''}"></td>
         <td><input type="number" class="ds-break-minutes" min="0" step="1" value="${existing?.break_minutes ?? 0}"></td>
+        <td><input type="number" class="ds-reserved" data-weekday="${weekday}" value="${existing?.reserved_hours || 0}" min="0" step="0.5"></td>
       `;
       tbody.appendChild(row);
     }
@@ -84,13 +85,17 @@ const employeesApp = {
 
   collectDefaultScheduleData() {
     const rows = document.querySelectorAll('#default-schedule-tbody tr');
-    return Array.from(rows).map(row => ({
-      weekday: Number(row.dataset.weekday),
-      is_working: row.querySelector('.ds-is-working').checked,
-      start_time: row.querySelector('.ds-start-time').value || null,
-      end_time: row.querySelector('.ds-end-time').value || null,
-      break_minutes: Number(row.querySelector('.ds-break-minutes').value) || 0
-    }));
+    return Array.from(rows).map(row => {
+      const weekday = Number(row.dataset.weekday);
+      return {
+        weekday,
+        is_working: row.querySelector('.ds-is-working').checked,
+        start_time: row.querySelector('.ds-start-time').value || null,
+        end_time: row.querySelector('.ds-end-time').value || null,
+        break_minutes: Number(row.querySelector('.ds-break-minutes').value) || 0,
+        reserved_hours: Number(document.querySelector(`.ds-reserved[data-weekday="${weekday}"]`).value) || 0
+      };
+    });
   },
 
   // ===== 追加・編集モーダル =====

@@ -1077,11 +1077,11 @@ app.get('/api/employees/:id/default-schedule', (req, res) => {
 const replaceEmployeeDefaultSchedule = db.transaction((employeeId, schedules) => {
   db.prepare('DELETE FROM employee_default_schedule WHERE employee_id = ?').run(employeeId);
   const insert = db.prepare(`
-    INSERT INTO employee_default_schedule (employee_id, weekday, is_working, start_time, end_time, break_minutes)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO employee_default_schedule (employee_id, weekday, is_working, start_time, end_time, break_minutes, reserved_hours)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
   for (const s of schedules) {
-    insert.run(employeeId, s.weekday, s.is_working ? 1 : 0, s.start_time || null, s.end_time || null, s.break_minutes || 0);
+    insert.run(employeeId, s.weekday, s.is_working ? 1 : 0, s.start_time || null, s.end_time || null, s.break_minutes || 0, s.reserved_hours || 0);
   }
 });
 
