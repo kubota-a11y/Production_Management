@@ -269,10 +269,11 @@ app.get('/api/projects', (req, res) => {
     // allocated_hours_total: 案件ごとにこれまで作業計画（case_time_allocations）へ割り振った予定時間の合計（時間単位・全期間）
     // 週間スケジュールボードで「案件の作業予定時間（分→時間換算）に対してすでに割り振り済みかどうか」を判定するために使用する
     const projects = db.prepare(`
-      SELECT p.*, s.name as assigned_staff_name,
+      SELECT p.*, s.name as assigned_staff_name, emp.name as assigned_employee_name,
         COALESCE(alloc.total_planned, 0) as allocated_hours_total
       FROM projects p
       LEFT JOIN staff s ON p.assigned_staff_id = s.id
+      LEFT JOIN employees emp ON p.assigned_employee_id = emp.id
       LEFT JOIN (
         SELECT case_id, SUM(planned_hours) as total_planned
         FROM case_time_allocations
@@ -289,9 +290,10 @@ app.get('/api/projects', (req, res) => {
 app.get('/api/projects/:id', (req, res) => {
   try {
     const project = db.prepare(`
-      SELECT p.*, s.name as assigned_staff_name
+      SELECT p.*, s.name as assigned_staff_name, emp.name as assigned_employee_name
       FROM projects p
       LEFT JOIN staff s ON p.assigned_staff_id = s.id
+      LEFT JOIN employees emp ON p.assigned_employee_id = emp.id
       WHERE p.id = ?
     `).get(req.params.id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
