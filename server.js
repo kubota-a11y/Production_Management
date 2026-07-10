@@ -494,18 +494,21 @@ app.get('/api/projects/:id/suggest-assignees', (req, res) => {
 // case_time_allocations に status:'提案' で登録する
 function autoProposeForProject(db, projectId) {
   const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
-  if (!project) return { error: '案件が見つかりません' };
+  if (!project) return { project_id: projectId, error: '案件が見つかりません' };
 
   const receivedDate = project.received_date ? new Date(project.received_date) : new Date();
   const deadline = project.deadline ? new Date(project.deadline) : null;
-  if (!deadline) return { error: '締切日が未設定です' };
+  if (!deadline) return { project_id: projectId, error: '締切日が未設定です' };
 
   const suggestions = calculateSuggestions(db, project);
-  if (!suggestions.length || suggestions[0].score <= 0) {
-    return { error: '対応可能な担当者が見つかりませんでした' };
+  // スコアは「空き時間・スキル一致」から算出されるが、必要スキルタグ未設定の案件では
+  // 空き時間が0でもskillScoreのみでscoreが0より大きくなるため、score単独では
+  // 「実際に割り振れる空き時間があるか」を判定できない。available_hoursも合わせて確認する
+  const best = suggestions.find(s => s.score > 0 && s.available_hours > 0);
+  if (!best) {
+    return { project_id: projectId, error: '対応可能な担当者が見つかりませんでした' };
   }
 
-  const best = suggestions[0];
   const employeeId = best.employee_id;
   let remainingHours = best.required_hours;
 
@@ -569,6 +572,13 @@ function autoProposeForProject(db, projectId) {
 
     cursor.setDate(cursor.getDate() + 1);
     guard++;
+  }
+
+  // calculateSuggestions の available_hours は「今日」起点、この割り振りループは
+  // 「受付日の翌日」起点で計算しており日数の基準がずれるため、スコア上は空きがあっても
+  // 実際には1日も割り振れないことがある。実際の割り振り結果が0件なら対応不可として扱う
+  if (allocatedDates.length === 0) {
+    return { project_id: projectId, error: '対応可能な担当者が見つかりませんでした' };
   }
 
   const fitsInDeadline = remainingHours <= 0.01;
