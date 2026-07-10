@@ -110,26 +110,41 @@ const employeesApp = {
   // ===== 作業別生産性 =====
   renderProcessRateRows(rates = []) {
     const tbody = document.getElementById('process-rate-tbody');
-    tbody.innerHTML = '';
+    let rowsHtml = '';
 
-    Object.keys(PROCESS_TYPE_LABELS).forEach(processType => {
-      const existing = rates.find(r => r.process_type === processType);
-      const row = document.createElement('tr');
-      row.dataset.processType = processType;
-      row.innerHTML = `
-        <td>${PROCESS_TYPE_LABELS[processType]}</td>
-        <td><input type="number" class="pr-units-per-hour" min="0" step="0.1" value="${existing?.units_per_hour || 0}"></td>
-      `;
-      tbody.appendChild(row);
+    Object.entries(PROCESS_TYPE_LABELS).forEach(([code, label]) => {
+      if (code === 'SILK_SCREEN_PRINT') {
+        for (let color = 1; color <= 4; color++) {
+          const existing = rates.find(r => r.process_type === code && r.color_count === color);
+          rowsHtml += `
+            <tr>
+              <td>${label}(${color}色)</td>
+              <td><input type="number" class="pr-rate" data-process-type="${code}" data-color-count="${color}" value="${existing?.units_per_hour || ''}" min="0" step="0.1" placeholder="未対応"></td>
+            </tr>
+          `;
+        }
+      } else {
+        const existing = rates.find(r => r.process_type === code);
+        rowsHtml += `
+          <tr>
+            <td>${label}</td>
+            <td><input type="number" class="pr-rate" data-process-type="${code}" data-color-count="1" value="${existing?.units_per_hour || ''}" min="0" step="0.1" placeholder="未対応"></td>
+          </tr>
+        `;
+      }
     });
+
+    tbody.innerHTML = rowsHtml;
   },
 
   collectProcessRateData() {
-    const rows = document.querySelectorAll('#process-rate-tbody tr');
-    return Array.from(rows).map(row => ({
-      process_type: row.dataset.processType,
-      units_per_hour: Number(row.querySelector('.pr-units-per-hour').value) || 0
-    }));
+    return Array.from(document.querySelectorAll('.pr-rate'))
+      .map(input => ({
+        process_type: input.dataset.processType,
+        color_count: Number(input.dataset.colorCount),
+        units_per_hour: Number(input.value) || 0
+      }))
+      .filter(r => r.units_per_hour > 0);
   },
 
   // ===== 追加・編集モーダル =====

@@ -349,6 +349,13 @@ app.get('/api/projects/:id/suggest-assignees', (req, res) => {
     const requiredTags = (project.required_skill_tags || '')
       .split(',').map(t => t.trim()).filter(Boolean);
 
+    const processTypes = (project.process_type || '').split(',').map(t => t.trim()).filter(Boolean);
+    const quantity = project.quantity || 0;
+    const printLocations = db.prepare('SELECT * FROM case_print_locations WHERE case_id = ?').all(project.id);
+    const rateStmt = db.prepare(
+      'SELECT * FROM employee_process_rates WHERE employee_id = ? AND process_type = ? AND color_count = ?'
+    );
+
     const results = employees.map(emp => {
       let availableHours = 0;
       let hasUnknownDay = false;
@@ -384,17 +391,56 @@ app.get('/api/projects/:id/suggest-assignees', (req, res) => {
       const matchedTags = requiredTags.filter(t => empTags.includes(t));
       const skillScore = requiredTags.length === 0 ? 1 : matchedTags.length / requiredTags.length;
 
+      // 加工種別ごとの生産性(units_per_hour)から所要時間を算出する。
+      // SILK_SCREEN_PRINT はプリント箇所ごとに色数に応じた生産性で計算し合算、それ以外は color_count=1 で計算する
+      let requiredHours = 0;
+      let canHandleAll = true;
+      const processDetails = [];
+
+      if (processTypes.includes('SILK_SCREEN_PRINT')) {
+        if (printLocations.length === 0) {
+          canHandleAll = false;
+          processDetails.push({ process_type: 'SILK_SCREEN_PRINT', note: 'プリント箇所が未登録' });
+        } else {
+          for (const loc of printLocations) {
+            const rate = rateStmt.get(emp.id, 'SILK_SCREEN_PRINT', loc.color_count);
+            if (!rate || rate.units_per_hour <= 0) {
+              canHandleAll = false;
+              processDetails.push({ process_type: 'SILK_SCREEN_PRINT', location_name: loc.location_name, color_count: loc.color_count, units_per_hour: null });
+              continue;
+            }
+            const hours = quantity / rate.units_per_hour;
+            requiredHours += hours;
+            processDetails.push({ process_type: 'SILK_SCREEN_PRINT', location_name: loc.location_name, color_count: loc.color_count, units_per_hour: rate.units_per_hour, hours: Math.round(hours * 10) / 10 });
+          }
+        }
+      }
+
+      for (const pt of processTypes) {
+        if (pt === 'SILK_SCREEN_PRINT') continue;
+        const rate = rateStmt.get(emp.id, pt, 1);
+        if (!rate || rate.units_per_hour <= 0) {
+          canHandleAll = false;
+          processDetails.push({ process_type: pt, units_per_hour: null });
+          continue;
+        }
+        const hours = quantity / rate.units_per_hour;
+        requiredHours += hours;
+        processDetails.push({ process_type: pt, units_per_hour: rate.units_per_hour, hours: Math.round(hours * 10) / 10 });
+      }
+
       // 空き時間スコア(必要工数に対する充足率、上限1.0)
-      const estimatedHours = project.estimated_hours || 0;
-      const availabilityScore = estimatedHours > 0
-        ? Math.min(1, remainingHours / estimatedHours)
-        : Math.min(1, remainingHours / 8); // 見積もり工数が未設定なら1日分を基準に
+      const availabilityScore = requiredHours > 0
+        ? Math.min(1, remainingHours / requiredHours)
+        : Math.min(1, remainingHours / 8); // 生産性が未設定などで算出できない場合は1日分を基準に
 
       const score = availabilityScore * 0.5 + skillScore * 0.5;
 
       let reason;
       if (requiredTags.length > 0 && matchedTags.length === 0) {
         reason = '空き時間はあるがスキルタグ未一致';
+      } else if (!canHandleAll) {
+        reason = 'スキル一致だが一部作業の生産性が未設定';
       } else if (remainingHours <= 0) {
         reason = 'スキル一致だが空き時間が不足';
       } else {
@@ -409,6 +455,9 @@ app.get('/api/projects/:id/suggest-assignees', (req, res) => {
         employee_name: emp.name,
         score: Math.round(score * 100) / 100,
         available_hours: Math.round(remainingHours * 10) / 10,
+        required_hours: Math.round(requiredHours * 10) / 10,
+        can_handle_all: canHandleAll,
+        process_details: processDetails,
         skill_match: matchedTags,
         reason,
         has_unknown_day: hasUnknownDay,
@@ -1146,12 +1195,13 @@ app.get('/api/employees/:id/process-rates', (req, res) => {
 const replaceEmployeeProcessRates = db.transaction((employeeId, rates) => {
   db.prepare('DELETE FROM employee_process_rates WHERE employee_id = ?').run(employeeId);
   const insert = db.prepare(`
-    INSERT INTO employee_process_rates (employee_id, process_type, units_per_hour)
-    VALUES (?, ?, ?)
+    INSERT INTO employee_process_rates (employee_id, process_type, color_count, units_per_hour)
+    VALUES (?, ?, ?, ?)
   `);
   for (const r of rates) {
-    if (!r.units_per_hour || r.units_per_hour <= 0) continue;
-    insert.run(employeeId, r.process_type, r.units_per_hour);
+    if (r.units_per_hour > 0) {
+      insert.run(employeeId, r.process_type, r.color_count || 1, r.units_per_hour);
+    }
   }
 });
 
