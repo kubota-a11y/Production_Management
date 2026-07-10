@@ -97,6 +97,28 @@ CREATE TABLE IF NOT EXISTS case_preparation_items (
   FOREIGN KEY (assigned_staff_id) REFERENCES employees(id)
 );
 
+-- LINEユーザー(Webhookで受信したuserIdごとのプロフィール)
+CREATE TABLE IF NOT EXISTS line_users (
+  line_user_id TEXT PRIMARY KEY,
+  display_name TEXT,
+  first_seen_at TEXT NOT NULL,
+  last_message_at TEXT NOT NULL
+);
+
+-- LINE Webhookで受信したメッセージ
+CREATE TABLE IF NOT EXISTS line_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  line_user_id TEXT NOT NULL,
+  line_message_id TEXT,
+  message_type TEXT NOT NULL,
+  text_content TEXT,
+  image_path TEXT,
+  received_at TEXT NOT NULL,
+  processed INTEGER NOT NULL DEFAULT 0,
+  case_id INTEGER,
+  FOREIGN KEY (line_user_id) REFERENCES line_users(line_user_id)
+);
+
 -- インデックス
 CREATE INDEX IF NOT EXISTS idx_projects_deadline ON projects(deadline);
 CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);
@@ -108,3 +130,5 @@ CREATE INDEX IF NOT EXISTS idx_case_time_allocations_work_date ON case_time_allo
 CREATE INDEX IF NOT EXISTS idx_schedule_overrides_employee_date ON schedule_overrides(employee_id, work_date);
 CREATE INDEX IF NOT EXISTS idx_case_preparation_items_case_id ON case_preparation_items(case_id);
 CREATE INDEX IF NOT EXISTS idx_case_preparation_items_scheduled_date ON case_preparation_items(scheduled_date);
+CREATE INDEX IF NOT EXISTS idx_line_messages_line_user_id ON line_messages(line_user_id);
+CREATE INDEX IF NOT EXISTS idx_line_messages_received_at ON line_messages(received_at);

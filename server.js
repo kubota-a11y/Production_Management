@@ -52,18 +52,114 @@ const lineConfig = {
   channelSecret: process.env.LINE_CHANNEL_SECRET,
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
 };
+const lineClient = new line.messagingApi.MessagingApiClient({
+  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
+});
+const lineBlobClient = new line.messagingApi.MessagingApiBlobClient({
+  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
+});
 
-app.post('/webhook', line.middleware(lineConfig), (req, res) => {
+const db = initDatabase();
+
+function streamToBuffer(stream) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    stream.on('data', (chunk) => chunks.push(chunk));
+    stream.on('end', () => resolve(Buffer.concat(chunks)));
+    stream.on('error', reject);
+  });
+}
+
+// line_usersを確認し、未登録なら getProfile で表示名を取得して新規登録、
+// 既存ならlast_message_atのみ更新する。getProfile失敗時もdisplay_name=nullで登録を続行する。
+async function upsertLineUser(userId) {
+  const now = new Date().toISOString();
+  const existing = db.prepare('SELECT line_user_id FROM line_users WHERE line_user_id = ?').get(userId);
+  if (existing) {
+    db.prepare('UPDATE line_users SET last_message_at = ? WHERE line_user_id = ?').run(now, userId);
+    return;
+  }
+  let displayName = null;
+  try {
+    const profile = await lineClient.getProfile(userId);
+    displayName = profile.displayName || null;
+  } catch (err) {
+    console.error(`[LINE Webhook] getProfile失敗 userId=${userId}:`, err.message);
+  }
+  db.prepare(`
+    INSERT INTO line_users (line_user_id, display_name, first_seen_at, last_message_at)
+    VALUES (?, ?, ?, ?)
+  `).run(userId, displayName, now, now);
+}
+
+function insertLineMessage({ lineUserId, lineMessageId, messageType, textContent, imagePath }) {
+  const now = new Date().toISOString();
+  db.prepare(`
+    INSERT INTO line_messages
+      (line_user_id, line_message_id, message_type, text_content, image_path, received_at, processed, case_id)
+    VALUES (?, ?, ?, ?, ?, ?, 0, NULL)
+  `).run(lineUserId, lineMessageId, messageType, textContent, imagePath, now);
+}
+
+// 画像を取得しNAS上に保存する。取得・保存いずれかが失敗した場合はエラーをログに出しnullを返す(処理は継続)。
+async function saveLineImage(userId, messageId) {
+  const dir = path.join(NAS_BASE_PATH, 'LINE_RECEIVED', userId);
+  const filePath = path.join(dir, `${messageId}.jpg`);
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    const stream = await lineBlobClient.getMessageContent(messageId);
+    const buffer = await streamToBuffer(stream);
+    fs.writeFileSync(filePath, buffer);
+    return filePath;
+  } catch (err) {
+    console.error(`[LINE Webhook] 画像保存失敗 messageId=${messageId}:`, err.message);
+    return null;
+  }
+}
+
+app.post('/webhook', line.middleware(lineConfig), async (req, res) => {
   const events = req.body.events || [];
   for (const event of events) {
-    const userId = event.source && event.source.userId;
-    console.log(`[LINE Webhook] type=${event.type} userId=${userId}`);
-    if (event.type === 'message') {
-      if (event.message.type === 'text') {
-        console.log(`[LINE Webhook] text: ${event.message.text}`);
-      } else if (event.message.type === 'image') {
-        console.log('[LINE Webhook] image message received');
+    try {
+      const userId = event.source && event.source.userId;
+      console.log(`[LINE Webhook] type=${event.type} userId=${userId}`);
+      if (!userId) continue;
+
+      await upsertLineUser(userId);
+
+      if (event.type === 'message') {
+        const message = event.message;
+        if (message.type === 'text') {
+          console.log(`[LINE Webhook] text: ${message.text}`);
+          insertLineMessage({
+            lineUserId: userId,
+            lineMessageId: message.id,
+            messageType: 'text',
+            textContent: message.text,
+            imagePath: null,
+          });
+        } else if (message.type === 'image') {
+          console.log('[LINE Webhook] image message received');
+          const imagePath = await saveLineImage(userId, message.id);
+          insertLineMessage({
+            lineUserId: userId,
+            lineMessageId: message.id,
+            messageType: 'image',
+            textContent: null,
+            imagePath,
+          });
+        } else {
+          insertLineMessage({
+            lineUserId: userId,
+            lineMessageId: message.id,
+            messageType: message.type,
+            textContent: null,
+            imagePath: null,
+          });
+        }
       }
+    } catch (err) {
+      console.error('[LINE Webhook] イベント処理でエラー:', err);
     }
   }
   res.sendStatus(200);
@@ -85,8 +181,6 @@ app.use('/webhook', (err, req, res, next) => {
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static('public'));
-
-const db = initDatabase();
 
 app.get('/api/nas/list', (req, res) => {
   try {
