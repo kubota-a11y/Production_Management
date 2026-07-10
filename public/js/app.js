@@ -1218,6 +1218,10 @@ const app = {
     const prepItemCodes = formData.getAll('prep_items');
     data.prep_items = prepItemCodes.join(',');
 
+    // 必要スキル（カンマ区切り・任意）・見積もり工数（任意）
+    data.required_skill_tags = data.required_skill_tags || '';
+    data.estimated_hours = data.estimated_hours ? parseFloat(data.estimated_hours) : null;
+
     // 数値変換
     data.quantity = parseInt(data.quantity);
     data.planned_hours = parseFloat(data.planned_hours);

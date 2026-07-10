@@ -433,18 +433,20 @@ app.get('/api/projects/:id/suggest-assignees', (req, res) => {
 function createProjectRecord(data) {
   const { project_name, received_date, deadline, customer_name, contact_method,
     work_content, process_type, quantity, planned_hours, assigned_staff_id,
-    status, priority, reference_link, memo, nas_folder_path, prep_items } = data;
+    status, priority, reference_link, memo, nas_folder_path, prep_items,
+    required_skill_tags, estimated_hours } = data;
   const now = new Date().toISOString();
   const result = db.prepare(`
     INSERT INTO projects (
       project_name, received_date, deadline, customer_name, contact_method,
       work_content, process_type, quantity, planned_hours, assigned_staff_id,
-      status, priority, reference_link, memo, nas_folder_path, prep_items, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      status, priority, reference_link, memo, nas_folder_path, prep_items,
+      required_skill_tags, estimated_hours, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(project_name, received_date, deadline, customer_name, contact_method,
     work_content || '', process_type, quantity, planned_hours, assigned_staff_id || null,
     status || 'PRE_ORDER', priority || 'MEDIUM', reference_link || '', memo || '',
-    nas_folder_path || '', prep_items || '', now, now);
+    nas_folder_path || '', prep_items || '', required_skill_tags || '', estimated_hours || null, now, now);
   return result.lastInsertRowid;
 }
 
@@ -461,17 +463,20 @@ app.put('/api/projects/:id', (req, res) => {
   try {
     const { project_name, received_date, deadline, customer_name, contact_method,
       work_content, process_type, quantity, planned_hours, assigned_staff_id,
-      status, priority, reference_link, memo, nas_folder_path, prep_items } = req.body;
+      status, priority, reference_link, memo, nas_folder_path, prep_items,
+      required_skill_tags, estimated_hours } = req.body;
     const now = new Date().toISOString();
     db.prepare(`
       UPDATE projects SET
         project_name=?, received_date=?, deadline=?, customer_name=?, contact_method=?,
         work_content=?, process_type=?, quantity=?, planned_hours=?, assigned_staff_id=?,
-        status=?, priority=?, reference_link=?, memo=?, nas_folder_path=?, prep_items=?, updated_at=?
+        status=?, priority=?, reference_link=?, memo=?, nas_folder_path=?, prep_items=?,
+        required_skill_tags=?, estimated_hours=?, updated_at=?
       WHERE id=?
     `).run(project_name, received_date, deadline, customer_name, contact_method,
       work_content || '', process_type, quantity, planned_hours, assigned_staff_id || null,
-      status, priority, reference_link || '', memo || '', nas_folder_path || '', prep_items || '', now, req.params.id);
+      status, priority, reference_link || '', memo || '', nas_folder_path || '', prep_items || '',
+      required_skill_tags || '', estimated_hours || null, now, req.params.id);
     res.json({ message: 'Project updated successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
