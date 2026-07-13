@@ -2,6 +2,18 @@
    週間作業スケジュールボード（このページ専用スタイル）
    ======================================== */
 
+/* ===== 2カラムレイアウト(左: ボード, 右: 提案確認サイドバー) ===== */
+.sb-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.sb-main-column {
+  flex: 1;
+  min-width: 0;
+}
+
 .sb-week-nav {
   display: flex;
   justify-content: space-between;
@@ -390,169 +402,127 @@
   text-align: center;
 }
 
-/* ===== 提案確認パネル ===== */
-.sb-proposals-section {
+/* ===== 提案確認サイドバー(右カラム、固定幅・独立スクロール) ===== */
+.sb-proposals-sidebar {
+  flex: 0 0 320px;
+  width: 320px;
   background: white;
-  padding: 20px;
+  padding: 16px;
   border-radius: var(--border-radius);
   box-shadow: var(--box-shadow);
-  margin-top: 20px;
+  position: sticky;
+  top: 20px;
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
 }
 
-.sb-section-toggle {
-  width: 100%;
+.sb-proposals-header {
+  margin-bottom: 12px;
+}
+
+.sb-proposals-header .sb-section-title {
+  margin-bottom: 0;
+  font-size: 15px;
+}
+
+.sb-proposals-badge {
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.sb-proposals-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.sb-proposals-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--gray-600);
+}
+
+.sb-proposals-filters select {
+  padding: 5px 6px;
+  border: 1px solid var(--gray-300);
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: inherit;
+}
+
+/* 【2】提案確認パネルはボードのスクロールと独立してスクロールする */
+.sb-proposals-cards {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sb-proposals-cards .sb-empty-notice {
+  padding: 16px 8px;
+  font-size: 12px;
+}
+
+/* 【1】コンパクトなカード形式・ドラッグ可能 */
+.sb-proposal-card {
+  border: 1px solid var(--gray-200);
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  background: white;
+  cursor: grab;
+  transition: background 0.1s ease, border-color 0.1s ease;
+}
+
+.sb-proposal-card:active {
+  cursor: grabbing;
+}
+
+.sb-proposal-card:hover,
+.sb-proposal-card.is-highlighted {
+  background: #eff6ff;
+  border-color: var(--primary-color);
+}
+
+.sb-proposal-card-name {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sb-proposal-card-customer {
+  color: var(--gray-600);
+  margin-bottom: 4px;
+}
+
+.sb-proposal-card-meta {
+  color: var(--gray-600);
+}
+
+.sb-proposal-card-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  font-family: inherit;
-  text-align: left;
+  margin-top: 8px;
 }
 
-.sb-section-toggle .sb-section-title {
-  margin-bottom: 0;
-}
-
-.sb-proposals-badge {
-  margin-left: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--primary-color);
-}
-
-.sb-toggle-icon {
-  color: var(--gray-500);
-  transition: transform 0.15s ease;
-}
-
-.sb-toggle-icon.is-collapsed {
-  transform: rotate(-90deg);
-}
-
-#sb-proposals-body {
-  margin-top: 12px;
-}
-
-#sb-proposals-body.is-collapsed {
-  display: none;
-}
-
-.sb-proposals-toolbar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 16px;
-  margin-bottom: 12px;
-}
-
-.sb-proposals-filter {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--gray-700);
-}
-
-.sb-proposals-filter select {
-  padding: 6px 8px;
-  border: 1px solid var(--gray-300);
-  border-radius: 4px;
-  font-size: 13px;
-  font-family: inherit;
-}
-
-.sb-proposals-bulk-btn {
-  margin-left: auto;
-}
-
-.sb-proposals-bulk-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* 【2】高さ固定・内部スクロール */
-.sb-proposals-table-wrap {
-  max-height: 500px;
-  overflow-y: auto;
-  border: 1px solid var(--gray-200);
-  border-radius: 6px;
-}
-
-.sb-proposals-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.sb-proposals-table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: var(--gray-100);
-  padding: 8px 10px;
-  text-align: left;
-  border-bottom: 2px solid var(--gray-200);
-  white-space: nowrap;
-  cursor: pointer;
-  user-select: none;
-}
-
-.sb-proposals-table thead th:hover {
-  background: var(--gray-200);
-}
-
-.sb-proposals-table thead th.sb-proposals-th-check,
-.sb-proposals-table thead th.sb-proposals-th-actions {
-  cursor: default;
-}
-
-.sb-proposals-table thead th.sb-proposals-th-check:hover,
-.sb-proposals-table thead th.sb-proposals-th-actions:hover {
-  background: var(--gray-100);
-}
-
-.sb-proposals-sort-arrow {
-  margin-left: 2px;
-  color: var(--primary-color);
-}
-
-.sb-proposals-table td {
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--gray-200);
-  white-space: nowrap;
-}
-
-.sb-proposals-table td.sb-proposals-col-name {
-  white-space: normal;
-  font-weight: 600;
-  min-width: 160px;
-}
-
-.sb-proposals-table tbody tr {
-  cursor: pointer;
-  transition: background 0.1s ease;
-}
-
-.sb-proposals-table tbody tr:hover,
-.sb-proposals-table tbody tr.is-highlighted {
-  background: #eff6ff;
-}
-
-.sb-proposals-table tbody tr.is-selected {
-  background: #fffbeb;
-}
-
-.sb-proposals-table tbody tr.is-selected.is-highlighted {
-  background: #fef3c7;
-}
-
-.sb-proposals-row-actions {
-  display: flex;
-  gap: 6px;
+.sb-proposal-card-hint {
+  color: var(--gray-400);
+  font-size: 10px;
 }
 
 /* ボード上の「提案」ブロック(未確定)は破線枠で区別する */
@@ -564,6 +534,13 @@
 .sb-bar-segment-proposed.is-highlighted {
   outline: 2px solid var(--primary-color);
   outline-offset: -1px;
+}
+
+/* 【2】提案カードのドラッグ中にドロップ先セルの上を通ったらハイライトする */
+.sb-cell.is-drop-target {
+  outline: 2px dashed var(--primary-color);
+  outline-offset: -2px;
+  background: #eff6ff;
 }
 
 @media (max-width: 768px) {
@@ -591,13 +568,17 @@
   .sb-add-prep-item-row select {
     flex: 1 1 100%;
   }
+}
 
-  .sb-proposal-row {
+@media (max-width: 1024px) {
+  .sb-layout {
     flex-direction: column;
-    align-items: stretch;
   }
 
-  .sb-proposal-actions {
-    justify-content: flex-end;
+  .sb-proposals-sidebar {
+    width: 100%;
+    flex: 1 1 auto;
+    position: static;
+    max-height: 400px;
   }
 }

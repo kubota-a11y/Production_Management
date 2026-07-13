@@ -22,44 +22,45 @@
 
     <!-- メインコンテンツ -->
     <main class="main-content">
-      <section class="sb-week-nav">
-        <button class="btn btn-secondary" onclick="scheduleBoard.prevWeek()">◀ 前週</button>
-        <h2 id="sb-week-label"></h2>
-        <button class="btn btn-secondary" onclick="scheduleBoard.nextWeek()">次週 ▶</button>
-      </section>
+      <div class="sb-layout">
+        <div class="sb-main-column">
+          <section class="sb-week-nav">
+            <button class="btn btn-secondary" onclick="scheduleBoard.prevWeek()">◀ 前週</button>
+            <h2 id="sb-week-label"></h2>
+            <button class="btn btn-secondary" onclick="scheduleBoard.nextWeek()">次週 ▶</button>
+          </section>
 
-      <div class="sb-legend" id="sb-legend"></div>
+          <div class="sb-legend" id="sb-legend"></div>
 
-      <div class="table-container">
-        <table class="projects-table sb-board-table" id="sb-board-table">
-          <thead>
-            <tr id="sb-board-head"></tr>
-          </thead>
-          <tbody id="sb-board-body"></tbody>
-        </table>
-      </div>
+          <div class="table-container">
+            <table class="projects-table sb-board-table" id="sb-board-table">
+              <thead>
+                <tr id="sb-board-head"></tr>
+              </thead>
+              <tbody id="sb-board-body"></tbody>
+            </table>
+          </div>
 
-      <section class="sb-progress-section">
-        <h2 class="sb-section-title">📈 案件別 消化率（実績時間 ÷ 作業予定時間）</h2>
-        <div id="sb-progress-list"></div>
-      </section>
+          <section class="sb-progress-section">
+            <h2 class="sb-section-title">📈 案件別 消化率（実績時間 ÷ 作業予定時間）</h2>
+            <div id="sb-progress-list"></div>
+          </section>
+        </div>
 
-      <section class="sb-proposals-section">
-        <button type="button" class="sb-section-toggle" onclick="scheduleBoard.toggleProposalsPanel()">
-          <h2 class="sb-section-title">📝 提案確認<span class="sb-proposals-badge" id="sb-proposals-badge"></span></h2>
-          <span class="sb-toggle-icon" id="sb-proposals-toggle-icon">▼</span>
-        </button>
+        <aside class="sb-proposals-sidebar">
+          <div class="sb-proposals-header">
+            <h2 class="sb-section-title">📝 提案確認<span class="sb-proposals-badge" id="sb-proposals-badge"></span></h2>
+          </div>
 
-        <div id="sb-proposals-body">
-          <div class="sb-proposals-toolbar">
-            <label class="sb-proposals-filter">
-              担当者:
+          <div class="sb-proposals-filters">
+            <label>
+              担当者
               <select id="sb-proposals-filter-employee" onchange="scheduleBoard.onProposalsFilterChange()">
                 <option value="">すべて</option>
               </select>
             </label>
-            <label class="sb-proposals-filter">
-              スコア:
+            <label>
+              スコア
               <select id="sb-proposals-filter-score" onchange="scheduleBoard.onProposalsFilterChange()">
                 <option value="">すべて</option>
                 <option value="100">100%のみ</option>
@@ -67,36 +68,11 @@
                 <option value="50">50%以上</option>
               </select>
             </label>
-            <button type="button" class="btn btn-primary btn-small sb-proposals-bulk-btn" id="sb-proposals-bulk-confirm-btn"
-                    onclick="scheduleBoard.bulkConfirmProposals()" disabled>
-              選択した提案をまとめて確定（<span id="sb-proposals-selected-count">0</span>件）
-            </button>
           </div>
 
-          <div class="sb-proposals-table-wrap">
-            <table class="sb-proposals-table">
-              <thead>
-                <tr>
-                  <th class="sb-proposals-th-check">
-                    <input type="checkbox" id="sb-proposals-select-all" onchange="scheduleBoard.toggleSelectAllProposals(this.checked)">
-                  </th>
-                  <th data-sort-key="project_name" onclick="scheduleBoard.sortProposals('project_name')">案件名</th>
-                  <th data-sort-key="customer_name" onclick="scheduleBoard.sortProposals('customer_name')">顧客名</th>
-                  <th data-sort-key="deadline" onclick="scheduleBoard.sortProposals('deadline')">納期</th>
-                  <th data-sort-key="quantity" onclick="scheduleBoard.sortProposals('quantity')">数量</th>
-                  <th data-sort-key="process_type" onclick="scheduleBoard.sortProposals('process_type')">加工種別</th>
-                  <th data-sort-key="employee_name" onclick="scheduleBoard.sortProposals('employee_name')">担当者</th>
-                  <th data-sort-key="score" onclick="scheduleBoard.sortProposals('score')">スコア</th>
-                  <th data-sort-key="available_hours" onclick="scheduleBoard.sortProposals('available_hours')">空き時間</th>
-                  <th data-sort-key="proposed_hours_total" onclick="scheduleBoard.sortProposals('proposed_hours_total')">提案時間合計</th>
-                  <th class="sb-proposals-th-actions">操作</th>
-                </tr>
-              </thead>
-              <tbody id="sb-proposals-tbody"></tbody>
-            </table>
-          </div>
-        </div>
-      </section>
+          <div class="sb-proposals-cards" id="sb-proposals-cards"></div>
+        </aside>
+      </div>
     </main>
   </div>
 

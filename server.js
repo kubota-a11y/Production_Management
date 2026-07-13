@@ -658,10 +658,10 @@ function timeToHours(start, end, breakMinutes) {
 // 指定した従業員に、必要時間を受付日の翌日から締切日まで、1日の空き時間の範囲内で
 // 日ごとに分割してcase_time_allocationsへ'提案'ステータスで登録する。
 // autoProposeForProject(自動選定)と、担当者候補モーダルからの手動割り当ての両方で使う
-function allocateHoursForEmployee(db, projectId, employeeId, employeeName, requiredHours, receivedDate, deadline) {
+function allocateHoursForEmployee(db, projectId, employeeId, employeeName, requiredHours, receivedDate, deadline, status = '提案') {
   const insertStmt = db.prepare(`
     INSERT INTO case_time_allocations (case_id, employee_id, work_date, planned_hours, status)
-    VALUES (?, ?, ?, ?, '提案')
+    VALUES (?, ?, ?, ?, ?)
   `);
   const overrideStmt = db.prepare('SELECT * FROM schedule_overrides WHERE employee_id = ? AND work_date = ?');
   const defaultStmt = db.prepare('SELECT * FROM employee_default_schedule WHERE employee_id = ? AND weekday = ?');
@@ -702,7 +702,7 @@ function allocateHoursForEmployee(db, projectId, employeeId, employeeName, requi
 
     if (dayAvailable > 0) {
       const useHours = Math.min(dayAvailable, remainingHours);
-      insertStmt.run(projectId, employeeId, dateStr, Math.round(useHours * 10) / 10);
+      insertStmt.run(projectId, employeeId, dateStr, Math.round(useHours * 10) / 10, status);
       allocatedDates.push({ date: dateStr, hours: Math.round(useHours * 10) / 10 });
       remainingHours -= useHours;
 
@@ -919,26 +919,6 @@ app.get('/api/proposals', (req, res) => {
   }
 });
 
-// 提案を確定する。case_time_allocationsのstatusを'提案'から'予定'に変更するのみ。
-// '提案'のみを対象にする自動再提案(autoProposeForProject等のDELETE)の対象から
-// 外れるため、以後この案件が自動提案で上書きされることもない
-app.post('/api/projects/:id/confirm-proposal', (req, res) => {
-  try {
-    const result = db.prepare(`
-      UPDATE case_time_allocations SET status = '予定' WHERE case_id = ? AND status = '提案'
-    `).run(req.params.id);
-
-    if (result.changes === 0) {
-      return res.status(404).json({ error: '確認待ちの提案が見つかりません' });
-    }
-
-    writeDebugLog(`[confirm-proposal] project=${req.params.id} ${result.changes}件を'提案'→'予定'に確定`);
-    res.json({ message: 'Proposal confirmed', updated: result.changes });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
 // 提案を却下する。提案分のcase_time_allocationsを削除し、担当者を未割り当てに戻す
 app.post('/api/projects/:id/reject-proposal', (req, res) => {
   try {
@@ -956,6 +936,75 @@ app.post('/api/projects/:id/reject-proposal', (req, res) => {
 
     writeDebugLog(`[reject-proposal] project=${req.params.id} ${result.changes}件の提案を却下し、未割り当てに戻しました`);
     res.json({ message: 'Proposal rejected', deleted: result.changes });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 提案確認パネルのカードをボード上の特定の従業員×日付セルへドラッグ&ドロップした際の確定。
+// AIが提案していた担当者・開始日とは無関係に、ドロップ先の従業員・日付を優先して
+// 割り振り直す(既存の提案は一旦削除し、ドロップ先を初日として再割り振りする)
+app.post('/api/projects/:id/confirm-proposal-at', (req, res) => {
+  try {
+    const employeeId = Number(req.body.employee_id);
+    const workDate = req.body.work_date;
+    if (!employeeId || !workDate) {
+      return res.status(400).json({ error: 'employee_id, work_date は必須です' });
+    }
+
+    const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(req.params.id);
+    if (!project) return res.status(404).json({ error: '案件が見つかりません' });
+    if (!project.deadline) return res.status(400).json({ error: '締切日が未設定です' });
+
+    const employee = db.prepare('SELECT * FROM employees WHERE id = ?').get(employeeId);
+    if (!employee) return res.status(404).json({ error: '従業員が見つかりません' });
+
+    // ドロップ先の従業員が生産性未登録などでrequired_hoursを計算できない場合は、
+    // 既存の提案(元の担当者向け)に積まれていた合計時間を代わりに使う
+    const existingProposalHours = db.prepare(`
+      SELECT COALESCE(SUM(planned_hours), 0) as total FROM case_time_allocations WHERE case_id = ? AND status = '提案'
+    `).get(project.id).total;
+
+    const { requiredHours, canHandleAll } = calculateRequiredHours(db, project, employeeId);
+    const finalRequiredHours = (canHandleAll && requiredHours > 0) ? requiredHours : existingProposalHours;
+
+    if (finalRequiredHours <= 0) {
+      return res.status(400).json({ error: 'この案件の必要時間を計算できませんでした(担当者の生産性が未登録で、既存の提案もありません)' });
+    }
+
+    db.prepare(`DELETE FROM case_time_allocations WHERE case_id = ? AND status = '提案'`).run(project.id);
+
+    // allocateHoursForEmployeeは「receivedDateの翌日」から割り振るため、
+    // ドロップした日を初日にするために1日前の日付を疑似receivedDateとして渡す
+    const pseudoReceivedDate = new Date(workDate);
+    pseudoReceivedDate.setDate(pseudoReceivedDate.getDate() - 1);
+    const deadline = new Date(project.deadline);
+
+    const { allocatedDates, remainingHours } = allocateHoursForEmployee(
+      db, project.id, employeeId, employee.name, finalRequiredHours, pseudoReceivedDate, deadline, '予定'
+    );
+
+    if (allocatedDates.length === 0) {
+      return res.status(400).json({ error: 'ドロップした日以降に割り振れる空き時間がありませんでした' });
+    }
+
+    const now = new Date().toISOString();
+    db.prepare('UPDATE projects SET assigned_employee_id = ?, updated_at = ? WHERE id = ?')
+      .run(employeeId, now, project.id);
+
+    writeDebugLog(
+      `[confirm-proposal-at] project=${project.id} employee=${employeeId}(${employee.name}) ` +
+      `ドラッグ&ドロップでwork_date=${workDate}を初日として確定 required=${Math.round(finalRequiredHours * 10) / 10} ` +
+      `allocated=${JSON.stringify(allocatedDates)} remainingHours=${Math.round(remainingHours * 10) / 10}`
+    );
+
+    res.json({
+      project_id: project.id,
+      employee_id: employeeId,
+      employee_name: employee.name,
+      allocated_dates: allocatedDates,
+      remaining_hours: Math.round(remainingHours * 10) / 10,
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
