@@ -825,6 +825,118 @@ app.post('/api/projects/bulk-auto-propose', (req, res) => {
   }
 });
 
+// autoProposeForProjectとほぼ同じ候補選定ロジックだが、割り振り期間を案件の締切日までではなく
+// 指定した日付範囲(rangeStart〜rangeEnd)だけに限定する。スケジュールボードの
+// 「この日を自動割り当て」「今週を自動割り当て」ボタン用。範囲内で必要時間を使い切れなくても、
+// 範囲内で割り振れた分だけを'提案'として登録する(残りは未割り当てのまま次回に持ち越せる)
+function autoProposeForProjectInRange(db, projectId, rangeStart, rangeEnd) {
+  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
+  if (!project) return { project_id: projectId, error: '案件が見つかりません' };
+
+  // 一覧表示など高頻度に複数案件へ呼ぶ場面でdebug.logが肥大化しないようquiet指定
+  const suggestions = calculateSuggestions(db, project, { quiet: true });
+  const candidates = suggestions
+    .filter(s => s.score > 0)
+    .slice()
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.allocated_hours - b.allocated_hours;
+    });
+  if (!candidates.length) {
+    return { project_id: projectId, error: '対応可能な担当者が見つかりませんでした' };
+  }
+
+  // allocateHoursForEmployeeは「receivedDateの翌日」から割り振るため、
+  // rangeStartを初日にするために1日前の日付を疑似receivedDateとして渡す
+  const pseudoReceivedDate = new Date(rangeStart);
+  pseudoReceivedDate.setDate(pseudoReceivedDate.getDate() - 1);
+  const rangeEndDate = new Date(rangeEnd);
+
+  for (const candidate of candidates) {
+    const employeeId = candidate.employee_id;
+    const { allocatedDates } = allocateHoursForEmployee(
+      db, projectId, employeeId, candidate.employee_name, candidate.required_hours, pseudoReceivedDate, rangeEndDate
+    );
+
+    if (allocatedDates.length === 0) continue;
+
+    return {
+      project_id: projectId,
+      employee_id: employeeId,
+      employee_name: candidate.employee_name,
+      allocated_dates: allocatedDates,
+    };
+  }
+
+  return { project_id: projectId, error: '指定期間内に割り振れる空き時間がありませんでした' };
+}
+
+// スケジュールボードの日次/週次自動割り当てボタンの共通処理。
+// 未割り当て、かつまだ'提案'が無い案件だけを対象にして重複提案を避ける。
+// 締切日が「今日」または「対象範囲の開始日」より前の案件は対象外とする
+app.post('/api/schedule-board/auto-propose-range', (req, res) => {
+  try {
+    const { start_date, end_date } = req.body;
+    if (!start_date || !end_date) {
+      return res.status(400).json({ error: 'start_date, end_date は必須です' });
+    }
+
+    const todayStr = formatLocalDate(new Date());
+    const cutoffDate = start_date > todayStr ? start_date : todayStr;
+
+    const alreadyProposedCaseIds = new Set(
+      db.prepare(`SELECT DISTINCT case_id FROM case_time_allocations WHERE status = '提案'`).all()
+        .map(r => r.case_id)
+    );
+
+    const candidateProjects = db.prepare('SELECT * FROM projects WHERE assigned_employee_id IS NULL').all()
+      .filter(p => !alreadyProposedCaseIds.has(p.id));
+
+    let proposedCount = 0;
+    let skippedExpiredCount = 0;
+    let failedCount = 0;
+    const proposedProjects = [];
+
+    for (const project of candidateProjects) {
+      if (!project.deadline || project.deadline < cutoffDate) {
+        skippedExpiredCount++;
+        continue;
+      }
+
+      const result = autoProposeForProjectInRange(db, project.id, start_date, end_date);
+      if (result.error) {
+        failedCount++;
+        continue;
+      }
+      proposedCount++;
+      proposedProjects.push({
+        project_id: project.id,
+        project_name: project.project_name,
+        employee_id: result.employee_id,
+        employee_name: result.employee_name,
+      });
+    }
+
+    writeDebugLog(
+      `[auto-propose-range] 対象期間=${start_date}〜${end_date} 対象案件数=${candidateProjects.length}件 ` +
+      `提案作成=${proposedCount}件 対象外(締切超過等)=${skippedExpiredCount}件 候補なし等で失敗=${failedCount}件 ` +
+      `提案先=${JSON.stringify(proposedProjects)}`
+    );
+
+    res.json({
+      start_date,
+      end_date,
+      target_count: candidateProjects.length,
+      proposed_count: proposedCount,
+      skipped_expired_count: skippedExpiredCount,
+      failed_count: failedCount,
+      proposed_projects: proposedProjects,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 担当者候補モーダルから特定の担当者を手動で選んで割り当てる。
 // 従来は projects.assigned_employee_id を更新するだけで、実際の作業時間を
 // case_time_allocations へ書き込んでいなかった(スケジュールボードに反映されない不具合)ため、

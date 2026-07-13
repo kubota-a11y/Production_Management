@@ -204,6 +204,62 @@ const scheduleBoard = {
     this.render();
   },
 
+  // ===== 自動スケジュール(日次/週次) =====
+  // 未割り当て・未提案の案件について、指定期間内で候補者を選定し'提案'状態で登録する。
+  // ボタンをローディング状態にし、完了後は結果を反映して再描画する
+  async runAutoProposeRange(startDate, endDate, buttonEl, loadingText) {
+    const originalHtml = buttonEl.innerHTML;
+    buttonEl.disabled = true;
+    buttonEl.innerHTML = loadingText;
+    try {
+      const res = await fetch('/api/schedule-board/auto-propose-range', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start_date: startDate, end_date: endDate }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || '自動割り当てに失敗しました');
+        return;
+      }
+
+      await this.loadProposals();
+      await this.loadWeekAllocations();
+      await this.loadProjectProgress();
+      await this.loadProjects();
+      this.renderBoard();
+      this.renderProgress();
+      this.renderProposals();
+
+      let message = `${data.proposed_count}件の提案を追加しました`;
+      if (data.skipped_expired_count > 0) {
+        message += `（納期超過等のため${data.skipped_expired_count}件は対象外）`;
+      }
+      alert(message);
+    } catch (error) {
+      console.error('自動割り当てエラー:', error);
+      alert('自動割り当てに失敗しました');
+    } finally {
+      buttonEl.disabled = false;
+      buttonEl.innerHTML = originalHtml;
+    }
+  },
+
+  async autoProposeDay(dateISO) {
+    const btn = document.getElementById(`sb-auto-propose-day-btn-${dateISO}`);
+    if (!btn) return;
+    await this.runAutoProposeRange(dateISO, dateISO, btn, '…');
+  },
+
+  async autoProposeWeek() {
+    const btn = document.getElementById('sb-auto-propose-week-btn');
+    if (!btn) return;
+    const dates = this.getWeekDates();
+    const startISO = this.toISODate(dates[0]);
+    const endISO = this.toISODate(dates[dates.length - 1]);
+    await this.runAutoProposeRange(startISO, endISO, btn, '🤖 実行中…');
+  },
+
   // ===== ヘルパー =====
   getOverrideFor(employeeId, dateISO) {
     return this.scheduleOverrides.find(o => o.employee_id === employeeId && o.work_date === dateISO);
@@ -280,11 +336,16 @@ const scheduleBoard = {
     const head = document.getElementById('sb-board-head');
     const body = document.getElementById('sb-board-body');
 
-    head.innerHTML = '<th>従業員</th>' + dates.map(d => `
+    head.innerHTML = '<th>従業員</th>' + dates.map(d => {
+      const dateISO = this.toISODate(d);
+      return `
       <th>${getDayOfWeekLabel(this.jsDayToOurDay(d.getDay()))}
         <span class="sb-day-header-date">${d.getMonth() + 1}/${d.getDate()}</span>
+        <button type="button" class="sb-auto-propose-day-btn" id="sb-auto-propose-day-btn-${dateISO}"
+                onclick="scheduleBoard.autoProposeDay('${dateISO}')" title="この日を自動割り当て">🤖 自動割当</button>
       </th>
-    `).join('');
+    `;
+    }).join('');
 
     body.innerHTML = '';
 

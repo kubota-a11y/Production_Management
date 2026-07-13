@@ -27,7 +27,11 @@
           <section class="sb-week-nav">
             <button class="btn btn-secondary" onclick="scheduleBoard.prevWeek()">◀ 前週</button>
             <h2 id="sb-week-label"></h2>
-            <button class="btn btn-secondary" onclick="scheduleBoard.nextWeek()">次週 ▶</button>
+            <div class="sb-week-nav-right">
+              <button type="button" class="btn btn-primary" id="sb-auto-propose-week-btn"
+                      onclick="scheduleBoard.autoProposeWeek()">🤖 今週を自動割り当て</button>
+              <button class="btn btn-secondary" onclick="scheduleBoard.nextWeek()">次週 ▶</button>
+            </div>
           </section>
 
           <div class="sb-legend" id="sb-legend"></div>
