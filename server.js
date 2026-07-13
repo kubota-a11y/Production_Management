@@ -314,6 +314,18 @@ function formatLocalDate(date) {
   return `${y}-${m}-${d}`;
 }
 
+// タスクスケジューラ等のバックグラウンド実行ではコンソールが見えないため、
+// 自動提案の診断ログはファイルに追記する(db/debug.log)
+const debugLogPath = path.join(__dirname, 'db', 'debug.log');
+function writeDebugLog(message) {
+  const line = `[${new Date().toISOString()}] ${message}\n`;
+  try {
+    fs.appendFileSync(debugLogPath, line);
+  } catch (error) {
+    console.error('デバッグログの書き込みに失敗しました:', error.message);
+  }
+}
+
 // 案件に対する担当者候補をスコアリングする(空き時間・スキル一致・生産性から算出)。
 // 締切日の妥当性チェックは呼び出し側の責務(この関数は project.deadline が有効な前提)
 function calculateSuggestions(db, project) {
@@ -457,7 +469,7 @@ function calculateSuggestions(db, project) {
       reason += '(勤務未確定の日を含む)';
     }
 
-    console.log(
+    writeDebugLog(
       `[calculateSuggestions] project=${project.id}(${project.process_type}) ` +
       `employee=${emp.id}(${emp.name}) availableHours=${Math.round(availableHours * 10) / 10} ` +
       `allocated=${Math.round(allocated * 10) / 10} remainingHours=${Math.round(remainingHours * 10) / 10} ` +
@@ -599,7 +611,7 @@ function autoProposeForProject(db, projectId) {
     // 「受付日の翌日」起点で計算しており日数の基準がずれるため、スコア上は空きがあっても
     // 実際には1日も割り振れないことがある。その場合はこの候補を諦めて次点を試す
     if (allocatedDates.length === 0) {
-      console.log(
+      writeDebugLog(
         `[autoProposeForProject] project=${projectId} candidate=${employeeId}(${candidate.employee_name}) ` +
         `score=${candidate.score} required=${candidate.required_hours} → 1時間も割り振れず次点へフォールバック`
       );
@@ -608,7 +620,7 @@ function autoProposeForProject(db, projectId) {
 
     const fitsInDeadline = remainingHours <= 0.01;
 
-    console.log(
+    writeDebugLog(
       `[autoProposeForProject] project=${projectId} candidate=${employeeId}(${candidate.employee_name}) ` +
       `score=${candidate.score} required=${candidate.required_hours} → 採用 ` +
       `allocated=${JSON.stringify(allocatedDates)} fitsInDeadline=${fitsInDeadline}`
