@@ -339,6 +339,51 @@ function writeDebugLog(message) {
   }
 }
 
+// 案件の実所要時間を、自動割り振り(calculateSuggestions/allocateHoursForEmployee)と
+// 同じ計算式(quantity ÷ 担当者の生産性 employee_process_rates)で算出する。
+// projects.planned_hours は手入力の見積もり参考値であり、実際の割り振りには使われないため、
+// 「実際にはどれだけ必要か」を表示する箇所(案件別消化率など)ではこちらを基準にする。
+// スキル不一致の判定はここでは行わない(表示用の目安値のため)。生産性が未登録の
+// 工程が1つでもあれば canHandleAll=false を返し、呼び出し側でフォールバックを判断させる
+function calculateRequiredHours(db, project, employeeId) {
+  const processTypes = (project.process_type || '').split(',').map(t => t.trim()).filter(Boolean);
+  const quantity = project.quantity || 0;
+  const printLocations = db.prepare('SELECT * FROM case_print_locations WHERE case_id = ?').all(project.id);
+  const rateStmt = db.prepare(
+    'SELECT * FROM employee_process_rates WHERE employee_id = ? AND process_type = ? AND color_count = ?'
+  );
+
+  let requiredHours = 0;
+  let canHandleAll = true;
+
+  if (processTypes.includes('SILK_SCREEN_PRINT')) {
+    if (printLocations.length === 0) {
+      canHandleAll = false;
+    } else {
+      for (const loc of printLocations) {
+        const rate = rateStmt.get(employeeId, 'SILK_SCREEN_PRINT', loc.color_count);
+        if (!rate || rate.units_per_hour <= 0) {
+          canHandleAll = false;
+          continue;
+        }
+        requiredHours += quantity / rate.units_per_hour;
+      }
+    }
+  }
+
+  for (const pt of processTypes) {
+    if (pt === 'SILK_SCREEN_PRINT') continue;
+    const rate = rateStmt.get(employeeId, pt, 1);
+    if (!rate || rate.units_per_hour <= 0) {
+      canHandleAll = false;
+      continue;
+    }
+    requiredHours += quantity / rate.units_per_hour;
+  }
+
+  return { requiredHours, canHandleAll };
+}
+
 // 案件に対する担当者候補をスコアリングする(空き時間・スキル一致・生産性から算出)。
 // 締切日の妥当性チェックは呼び出し側の責務(この関数は project.deadline が有効な前提)
 function calculateSuggestions(db, project) {
@@ -1363,7 +1408,7 @@ app.get('/api/time-allocations', (req, res) => {
 app.get('/api/stats/project-progress', (req, res) => {
   try {
     const rows = db.prepare(`
-      SELECT p.id, p.project_name, p.planned_hours,
+      SELECT p.id, p.project_name, p.planned_hours, p.process_type, p.quantity, p.assigned_employee_id,
         COALESCE(SUM(ta.actual_hours), 0) as actual_hours_total,
         MAX(ta.work_date) as last_work_date
       FROM projects p
@@ -1372,15 +1417,29 @@ app.get('/api/stats/project-progress', (req, res) => {
       ORDER BY last_work_date DESC
     `).all();
 
-    // projects.planned_hours は「分」単位、case_time_allocations の各hoursは「時間」単位のため
-    // 消化率を比較可能にするために作業予定時間を時間換算(÷60)してから割合を出す
+    // 必要合計時間は、実際の自動割り振り(allocateHoursForEmployee)が使うのと同じ
+    // required_hours(quantity ÷ 担当者の生産性)を基準にする。手入力のplanned_hours(分単位)を
+    // 使うと、生産性の登録値によっては実際の割り振り量と大きくズレて見えるため。
+    // 担当者未割り当て、または生産性が未登録で計算できない案件のみ、従来通り
+    // planned_hoursを時間換算(÷60)したものをフォールバックとして使う
     const result = rows.map(row => {
-      const plannedHoursTotal = row.planned_hours / 60;
-      const progressRatio = plannedHoursTotal > 0 ? row.actual_hours_total / plannedHoursTotal : 0;
+      let requiredHoursTotal = row.planned_hours / 60;
+      let requiredHoursSource = 'planned_hours';
+
+      if (row.assigned_employee_id) {
+        const { requiredHours, canHandleAll } = calculateRequiredHours(db, row, row.assigned_employee_id);
+        if (canHandleAll && requiredHours > 0) {
+          requiredHoursTotal = requiredHours;
+          requiredHoursSource = 'required_hours';
+        }
+      }
+
+      const progressRatio = requiredHoursTotal > 0 ? row.actual_hours_total / requiredHoursTotal : 0;
       return {
         id: row.id,
         project_name: row.project_name,
-        planned_hours_total: plannedHoursTotal,
+        planned_hours_total: requiredHoursTotal,
+        required_hours_source: requiredHoursSource,
         actual_hours_total: row.actual_hours_total,
         last_work_date: row.last_work_date,
         progress_ratio: progressRatio

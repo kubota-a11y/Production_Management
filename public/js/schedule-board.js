@@ -368,13 +368,16 @@ const scheduleBoard = {
       const pct = p.progress_ratio * 100;
       const barWidth = Math.min(pct, 100);
       const isOver = pct > 100;
+      // required_hours(数量÷担当者の生産性)が計算できた案件はそれを基準に表示し、
+      // 担当者未割り当て・生産性未登録でフォールバックした案件だけ「見積もり参考値」と明示する
+      const sourceNote = p.required_hours_source === 'planned_hours' ? '（見積もり参考値）' : '';
       return `
         <div class="sb-progress-item">
           <div class="sb-progress-name" title="${this.escapeHtml(p.project_name)}">${this.escapeHtml(p.project_name)}</div>
           <div class="sb-progress-bar-track">
             <div class="sb-progress-bar-fill ${isOver ? 'is-over' : ''}" style="width:${barWidth}%;"></div>
           </div>
-          <div class="sb-progress-numbers">${p.actual_hours_total}h / ${p.planned_hours_total.toFixed(1)}h（${pct.toFixed(0)}%）</div>
+          <div class="sb-progress-numbers">${p.actual_hours_total}h / ${p.planned_hours_total.toFixed(1)}h${sourceNote}（${pct.toFixed(0)}%）</div>
         </div>
       `;
     }).join('');
