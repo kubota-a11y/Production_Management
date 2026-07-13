@@ -410,6 +410,15 @@ function calculateSuggestions(db, project) {
     const matchedTags = requiredTags.filter(t => empTags.includes(t));
     const skillScore = requiredTags.length === 0 ? 1 : matchedTags.length / requiredTags.length;
 
+    // 加工種別ごとのスキル一致判定。employees.skill_tags(「得意スキル」欄、
+    // SILK_SCREEN_PRINT・DTF_PRINT等の加工種別名で運用)に、案件のprocess_typeが
+    // 含まれているかを確認する。skill_tagsが未登録(空)の従業員は判定材料が無いため
+    // 除外はせず、従来通り生産性データの有無のみで判定する(誤って全員を弾かないため)
+    const processTypeSkillMismatches = empTags.length > 0
+      ? processTypes.filter(pt => !empTags.includes(pt))
+      : [];
+    const hasSkillMismatch = processTypeSkillMismatches.length > 0;
+
     // 加工種別ごとの生産性(units_per_hour)から所要時間を算出する。
     // SILK_SCREEN_PRINT はプリント箇所ごとに色数に応じた生産性で計算し合算、それ以外は color_count=1 で計算する
     let requiredHours = 0;
@@ -417,7 +426,10 @@ function calculateSuggestions(db, project) {
     const processDetails = [];
 
     if (processTypes.includes('SILK_SCREEN_PRINT')) {
-      if (printLocations.length === 0) {
+      if (processTypeSkillMismatches.includes('SILK_SCREEN_PRINT')) {
+        canHandleAll = false;
+        processDetails.push({ process_type: 'SILK_SCREEN_PRINT', note: 'スキル未登録(対応不可)' });
+      } else if (printLocations.length === 0) {
         canHandleAll = false;
         processDetails.push({ process_type: 'SILK_SCREEN_PRINT', note: 'プリント箇所が未登録' });
       } else {
@@ -437,6 +449,11 @@ function calculateSuggestions(db, project) {
 
     for (const pt of processTypes) {
       if (pt === 'SILK_SCREEN_PRINT') continue;
+      if (processTypeSkillMismatches.includes(pt)) {
+        canHandleAll = false;
+        processDetails.push({ process_type: pt, note: 'スキル未登録(対応不可)' });
+        continue;
+      }
       const rate = rateStmt.get(emp.id, pt, 1);
       if (!rate || rate.units_per_hour <= 0) {
         canHandleAll = false;
@@ -449,19 +466,24 @@ function calculateSuggestions(db, project) {
     }
 
     // 空き時間スコア(必要工数に対する充足率、上限1.0)。
-    // canHandleAll=false(一部工程の生産性が未登録で対応不可)の場合、requiredHoursが0のまま
-    // 「必要工数がそもそも0時間」のケースと区別がつかなくなり、一般的な空き時間(8時間基準)
-    // だけで満点近いスコアが付いてしまう。実際には対応できないため空き時間スコアは0とする
+    // canHandleAll=false(スキル未登録、または一部工程の生産性が未登録で対応不可)の場合、
+    // requiredHoursが0のまま「必要工数がそもそも0時間」のケースと区別がつかなくなり、
+    // 一般的な空き時間(8時間基準)だけで満点近いスコアが付いてしまう。
+    // 実際には対応できないため空き時間スコアは0とする
     const availabilityScore = !canHandleAll
       ? 0
       : requiredHours > 0
         ? Math.min(1, remainingHours / requiredHours)
         : Math.min(1, remainingHours / 8); // 生産性設定済みで所要時間0時間の場合のみ、1日分を基準に
 
-    const score = availabilityScore * 0.5 + skillScore * 0.5;
+    // スキル不一致(=その加工を担当した実績・登録が無い)は「空き時間はあるが対応できない」
+    // 明確な対応不可であり、生産性未登録(単に単価を入れ忘れているだけ)とは区別してscoreを0にする
+    const score = hasSkillMismatch ? 0 : availabilityScore * 0.5 + skillScore * 0.5;
 
     let reason;
-    if (requiredTags.length > 0 && matchedTags.length === 0) {
+    if (hasSkillMismatch) {
+      reason = `スキル不一致(対応不可な工程: ${processTypeSkillMismatches.join(',')})`;
+    } else if (requiredTags.length > 0 && matchedTags.length === 0) {
       reason = '空き時間はあるがスキルタグ未一致';
     } else if (!canHandleAll) {
       reason = 'スキル一致だが一部作業の生産性が未設定';
@@ -479,6 +501,7 @@ function calculateSuggestions(db, project) {
       `employee=${emp.id}(${emp.name}) availableHours=${Math.round(availableHours * 10) / 10} ` +
       `allocated=${Math.round(allocated * 10) / 10} remainingHours=${Math.round(remainingHours * 10) / 10} ` +
       `requiredHours=${Math.round(requiredHours * 10) / 10} canHandleAll=${canHandleAll} ` +
+      `skillMismatch=${hasSkillMismatch}${hasSkillMismatch ? `(${processTypeSkillMismatches.join(',')})` : ''} ` +
       `score=${Math.round(score * 100) / 100} hasUnknownDay=${hasUnknownDay} ` +
       `processDetails=${JSON.stringify(processDetails)}`
     );
@@ -492,6 +515,7 @@ function calculateSuggestions(db, project) {
       // 同点スコア時のタイブレーク(autoProposeForProject)に使う、現在の割当時間
       allocated_hours: Math.round(allocated * 10) / 10,
       can_handle_all: canHandleAll,
+      skill_mismatch: hasSkillMismatch,
       process_details: processDetails,
       skill_match: matchedTags,
       reason,
