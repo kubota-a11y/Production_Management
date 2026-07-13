@@ -448,10 +448,15 @@ function calculateSuggestions(db, project) {
       processDetails.push({ process_type: pt, units_per_hour: rate.units_per_hour, hours: Math.round(hours * 10) / 10 });
     }
 
-    // 空き時間スコア(必要工数に対する充足率、上限1.0)
-    const availabilityScore = requiredHours > 0
-      ? Math.min(1, remainingHours / requiredHours)
-      : Math.min(1, remainingHours / 8); // 生産性が未設定などで算出できない場合は1日分を基準に
+    // 空き時間スコア(必要工数に対する充足率、上限1.0)。
+    // canHandleAll=false(一部工程の生産性が未登録で対応不可)の場合、requiredHoursが0のまま
+    // 「必要工数がそもそも0時間」のケースと区別がつかなくなり、一般的な空き時間(8時間基準)
+    // だけで満点近いスコアが付いてしまう。実際には対応できないため空き時間スコアは0とする
+    const availabilityScore = !canHandleAll
+      ? 0
+      : requiredHours > 0
+        ? Math.min(1, remainingHours / requiredHours)
+        : Math.min(1, remainingHours / 8); // 生産性設定済みで所要時間0時間の場合のみ、1日分を基準に
 
     const score = availabilityScore * 0.5 + skillScore * 0.5;
 
@@ -495,6 +500,14 @@ function calculateSuggestions(db, project) {
   });
 
   results.sort((a, b) => b.score - a.score);
+
+  // name/idとscoreの対応がソート前後でズレていないか一目で確認できるよう、
+  // 最終的な並び順をまとめて1行出力する(suggest-assigneesはこのうち上位3件のみ返す)
+  writeDebugLog(
+    `[calculateSuggestions] project=${project.id} 最終ソート結果(スコア降順): ` +
+    results.map(r => `${r.employee_name}(id=${r.employee_id},score=${r.score})`).join(' > ') +
+    ' ※suggest-assigneesは上位3件のみ返却'
+  );
 
   return results;
 }
