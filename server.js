@@ -1287,10 +1287,44 @@ app.put('/api/time-allocations/:id', (req, res) => {
   }
 });
 
+// 削除した行だけを消す(他の日の割り当てが残っていればそちらはそのまま)。
+// ただし、削除した結果その案件のcase_time_allocationsが0件になった場合は、
+// 「完全に手が離れて再割り当てできなくなる」のを避けるため、
+// projects.assigned_employee_idを未割り当てに戻し、可能であれば自動再提案して
+// 提案確認パネルに再表示されるようにする
 app.delete('/api/time-allocations/:id', (req, res) => {
   try {
+    const existing = db.prepare('SELECT * FROM case_time_allocations WHERE id = ?').get(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Time allocation not found' });
+
     db.prepare('DELETE FROM case_time_allocations WHERE id = ?').run(req.params.id);
-    res.json({ message: 'Time allocation deleted successfully' });
+
+    const remaining = db.prepare(
+      'SELECT COUNT(*) as cnt FROM case_time_allocations WHERE case_id = ?'
+    ).get(existing.case_id).cnt;
+
+    let unassigned = false;
+    let requeued = false;
+    if (remaining === 0) {
+      unassigned = true;
+      const now = new Date().toISOString();
+      db.prepare('UPDATE projects SET assigned_employee_id = NULL, updated_at = ? WHERE id = ?')
+        .run(now, existing.case_id);
+
+      try {
+        const autoProposeResult = autoProposeForProject(db, existing.case_id);
+        requeued = !autoProposeResult.error;
+      } catch (autoProposeError) {
+        console.error(`削除後の自動再提案に失敗しました(project_id=${existing.case_id}):`, autoProposeError.message);
+      }
+
+      writeDebugLog(
+        `[time-allocations DELETE] case_id=${existing.case_id} の割り当てが0件になったため未割り当てに戻しました ` +
+        `(自動再提案=${requeued ? '成功' : '失敗/対象外'})`
+      );
+    }
+
+    res.json({ message: 'Time allocation deleted successfully', unassigned, requeued });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

@@ -15,7 +15,9 @@ const scheduleBoard = {
   proposals: [],
   highlightedCaseId: null,
   proposalFilters: { employeeId: '', minScore: '' },
-  draggingCaseId: null,
+  // ドラッグ中の対象。提案カード({type:'proposal', caseId})か、
+  // ボード上の確定済みブロック({type:'allocation', allocationId, caseId})のいずれか
+  dragPayload: null,
   currentWeekStart: null,
   detailModalContext: null,
   overrideModalContext: null,
@@ -327,17 +329,22 @@ const scheduleBoard = {
     const referencePct = Math.min((referenceHours / scaleMax) * 100, 100);
     const isShort = plannedTotal < referenceHours;
 
+    // 提案中(未確定)・確定済みのどちらのブロックもドラッグしてボード上の別セルへ
+    // 移動できるようにする。ドラッグ元によって、ドロップ時の処理(確定 or 単純な移動)が変わる
     const segments = dayAllocations.map(a => {
       const widthPct = (a.planned_hours / scaleMax) * 100;
       const color = this.getProjectColor(a.case_id);
       const isProposed = a.status === '提案';
-      const title = `${a.project_name}: 予定${a.planned_hours}h${a.actual_hours != null ? ` / 実績${a.actual_hours}h` : ''}${isProposed ? '（提案中・未確定）' : ''}`;
+      const title = `${a.project_name}: 予定${a.planned_hours}h${a.actual_hours != null ? ` / 実績${a.actual_hours}h` : ''}${isProposed ? '（提案中・未確定・ドラッグで確定/移動可）' : '（ドラッグで移動可）'}`;
       const proposedCls = isProposed ? ' sb-bar-segment-proposed' : '';
       const highlightCls = isProposed && this.highlightedCaseId === a.case_id ? ' is-highlighted' : '';
       const proposedClick = isProposed
         ? ` onclick="event.stopPropagation(); scheduleBoard.highlightFromBoard(${a.case_id})"`
         : '';
-      return `<div class="sb-bar-segment${proposedCls}${highlightCls}" data-case-id="${a.case_id}" style="width:${widthPct}%; background:${color};" title="${this.escapeHtml(title)}"${proposedClick}>${this.escapeHtml(a.project_name)}</div>`;
+      const dragStart = isProposed
+        ? `scheduleBoard.onProposalDragStart(event, ${a.case_id})`
+        : `scheduleBoard.onAllocationDragStart(event, ${a.id})`;
+      return `<div class="sb-bar-segment${proposedCls}${highlightCls}" data-case-id="${a.case_id}" data-allocation-id="${a.id}" draggable="true" ondragstart="event.stopPropagation(); ${dragStart}" ondragend="scheduleBoard.onDragEnd()" style="width:${widthPct}%; background:${color};" title="${this.escapeHtml(title)}"${proposedClick}>${this.escapeHtml(a.project_name)}</div>`;
     }).join('');
 
     // 準備項目タスクは案件の作業と区別できるよう【準備】ラベル・専用スタイルで表示する
@@ -462,7 +469,7 @@ const scheduleBoard = {
       return `
         <div class="sb-proposal-card${highlightCls}" data-case-id="${p.case_id}" draggable="true"
              ondragstart="scheduleBoard.onProposalDragStart(event, ${p.case_id})"
-             ondragend="scheduleBoard.onProposalDragEnd(event)"
+             ondragend="scheduleBoard.onDragEnd()"
              onmouseenter="scheduleBoard.highlightProposal(${p.case_id})"
              onmouseleave="scheduleBoard.clearHighlight()">
           <div class="sb-proposal-card-name">${this.escapeHtml(p.project_name)}</div>
@@ -528,20 +535,27 @@ const scheduleBoard = {
     }
   },
 
-  // ===== 提案カードのドラッグ&ドロップによる確定 =====
+  // ===== ドラッグ&ドロップ(提案カードの確定 / 確定済みブロックの移動) =====
   onProposalDragStart(event, caseId) {
-    this.draggingCaseId = caseId;
-    event.dataTransfer.setData('text/plain', String(caseId));
+    this.dragPayload = { type: 'proposal', caseId };
+    event.dataTransfer.setData('text/plain', JSON.stringify(this.dragPayload));
     event.dataTransfer.effectAllowed = 'move';
   },
 
-  onProposalDragEnd() {
-    this.draggingCaseId = null;
+  // 確定済み(提案中以外)のブロックをドラッグして別セルへ移動する
+  onAllocationDragStart(event, allocationId) {
+    this.dragPayload = { type: 'allocation', allocationId };
+    event.dataTransfer.setData('text/plain', JSON.stringify(this.dragPayload));
+    event.dataTransfer.effectAllowed = 'move';
+  },
+
+  onDragEnd() {
+    this.dragPayload = null;
     document.querySelectorAll('.sb-cell.is-drop-target').forEach(el => el.classList.remove('is-drop-target'));
   },
 
   onCellDragOver(event) {
-    if (this.draggingCaseId == null) return;
+    if (!this.dragPayload) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
     event.currentTarget.classList.add('is-drop-target');
@@ -554,10 +568,19 @@ const scheduleBoard = {
   async onCellDrop(event, employeeId, dateISO) {
     event.preventDefault();
     event.currentTarget.classList.remove('is-drop-target');
-    const caseId = Number(event.dataTransfer.getData('text/plain')) || this.draggingCaseId;
-    this.draggingCaseId = null;
-    if (!caseId) return;
-    await this.confirmProposalAt(caseId, employeeId, dateISO);
+
+    let payload = this.dragPayload;
+    if (!payload) {
+      try { payload = JSON.parse(event.dataTransfer.getData('text/plain')); } catch (error) { payload = null; }
+    }
+    this.dragPayload = null;
+    if (!payload) return;
+
+    if (payload.type === 'proposal') {
+      await this.confirmProposalAt(payload.caseId, employeeId, dateISO);
+    } else if (payload.type === 'allocation') {
+      await this.moveAllocation(payload.allocationId, employeeId, dateISO);
+    }
   },
 
   // ドロップ先の従業員・日付を優先して確定する(AIが提案していた担当者・開始日は上書きされる)
@@ -583,6 +606,31 @@ const scheduleBoard = {
     } catch (error) {
       console.error('ドラッグ&ドロップ確定エラー:', error);
       alert('確定に失敗しました');
+    }
+  },
+
+  // 確定済みブロックを別の従業員×日付へ移動する(配置ミスの修正用)。
+  // 既存のPUT /api/time-allocations/:id がemployee_id・work_dateの更新に対応済みのため、
+  // 新しいAPIは追加せずそのまま再利用する
+  async moveAllocation(allocationId, employeeId, dateISO) {
+    try {
+      const res = await fetch(`/api/time-allocations/${allocationId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employee_id: employeeId, work_date: dateISO }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || 'ブロックの移動に失敗しました');
+        return;
+      }
+      await this.loadWeekAllocations();
+      await this.loadProjectProgress();
+      this.renderBoard();
+      this.renderProgress();
+    } catch (error) {
+      console.error('ブロック移動エラー:', error);
+      alert('ブロックの移動に失敗しました');
     }
   },
 
