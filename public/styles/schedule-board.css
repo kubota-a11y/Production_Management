@@ -433,69 +433,126 @@
   transform: rotate(-90deg);
 }
 
-.sb-proposals-list {
+#sb-proposals-body {
   margin-top: 12px;
 }
 
-.sb-proposals-list.is-collapsed {
+#sb-proposals-body.is-collapsed {
   display: none;
 }
 
-.sb-proposal-row {
+.sb-proposals-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 16px;
-  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.sb-proposals-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--gray-700);
+}
+
+.sb-proposals-filter select {
+  padding: 6px 8px;
+  border: 1px solid var(--gray-300);
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.sb-proposals-bulk-btn {
+  margin-left: auto;
+}
+
+.sb-proposals-bulk-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 【2】高さ固定・内部スクロール */
+.sb-proposals-table-wrap {
+  max-height: 500px;
+  overflow-y: auto;
   border: 1px solid var(--gray-200);
   border-radius: 6px;
-  margin-bottom: 8px;
+}
+
+.sb-proposals-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.sb-proposals-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--gray-100);
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 2px solid var(--gray-200);
+  white-space: nowrap;
   cursor: pointer;
-  transition: background 0.1s ease, border-color 0.1s ease;
+  user-select: none;
 }
 
-.sb-proposal-row:last-child {
-  margin-bottom: 0;
+.sb-proposals-table thead th:hover {
+  background: var(--gray-200);
 }
 
-.sb-proposal-row:hover,
-.sb-proposal-row.is-highlighted {
-  background: #eff6ff;
-  border-color: var(--primary-color);
+.sb-proposals-table thead th.sb-proposals-th-check,
+.sb-proposals-table thead th.sb-proposals-th-actions {
+  cursor: default;
 }
 
-.sb-proposal-main {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  flex-wrap: wrap;
+.sb-proposals-table thead th.sb-proposals-th-check:hover,
+.sb-proposals-table thead th.sb-proposals-th-actions:hover {
+  background: var(--gray-100);
 }
 
-.sb-proposal-name {
+.sb-proposals-sort-arrow {
+  margin-left: 2px;
+  color: var(--primary-color);
+}
+
+.sb-proposals-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--gray-200);
+  white-space: nowrap;
+}
+
+.sb-proposals-table td.sb-proposals-col-name {
+  white-space: normal;
   font-weight: 600;
+  min-width: 160px;
 }
 
-.sb-proposal-customer {
-  font-size: 12px;
-  color: var(--gray-600);
+.sb-proposals-table tbody tr {
+  cursor: pointer;
+  transition: background 0.1s ease;
 }
 
-.sb-proposal-meta {
-  font-size: 12px;
-  color: var(--gray-600);
-  margin-top: 4px;
-  line-height: 1.6;
+.sb-proposals-table tbody tr:hover,
+.sb-proposals-table tbody tr.is-highlighted {
+  background: #eff6ff;
 }
 
-.sb-proposal-body {
-  flex: 1;
-  min-width: 0;
+.sb-proposals-table tbody tr.is-selected {
+  background: #fffbeb;
 }
 
-.sb-proposal-actions {
+.sb-proposals-table tbody tr.is-selected.is-highlighted {
+  background: #fef3c7;
+}
+
+.sb-proposals-row-actions {
   display: flex;
-  gap: 8px;
-  flex-shrink: 0;
+  gap: 6px;
 }
 
 /* ボード上の「提案」ブロック(未確定)は破線枠で区別する */
