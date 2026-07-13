@@ -69,6 +69,8 @@ CREATE TABLE IF NOT EXISTS case_time_allocations (
   actual_hours REAL,
   carried_over_from TEXT,
   status TEXT DEFAULT '予定',
+  setup_minutes INTEGER NOT NULL DEFAULT 0,
+  cleanup_minutes INTEGER NOT NULL DEFAULT 0,
   FOREIGN KEY (case_id) REFERENCES projects(id),
   FOREIGN KEY (employee_id) REFERENCES employees(id)
 );

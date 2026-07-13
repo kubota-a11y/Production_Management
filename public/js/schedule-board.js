@@ -383,7 +383,10 @@ const scheduleBoard = {
 
     const dayAllocations = this.getAllocationsFor(employee.id, dateISO);
     const dayPrepItems = this.getPrepItemsFor(employee.id, dateISO);
-    const allocationHours = dayAllocations.reduce((sum, a) => sum + a.planned_hours, 0);
+    // 自動割当ボタン(日次/週次)専用の前準備・後片付け(setup_minutes/cleanup_minutes)も
+    // その日の消費時間としてカウントする。通常の割り当て(setup/cleanup=0)には影響しない
+    const overheadHoursOf = (a) => ((a.setup_minutes || 0) + (a.cleanup_minutes || 0)) / 60;
+    const allocationHours = dayAllocations.reduce((sum, a) => sum + a.planned_hours + overheadHoursOf(a), 0);
     const prepHours = dayPrepItems.reduce((sum, i) => sum + (i.estimated_hours || 0), 0);
     const plannedTotal = allocationHours + prepHours;
     const scaleMax = Math.max(referenceHours, plannedTotal, 0.1);
@@ -391,12 +394,17 @@ const scheduleBoard = {
     const isShort = plannedTotal < referenceHours;
 
     // 提案中(未確定)・確定済みのどちらのブロックもドラッグしてボード上の別セルへ
-    // 移動できるようにする。ドラッグ元によって、ドロップ時の処理(確定 or 単純な移動)が変わる
+    // 移動できるようにする。ドラッグ元によって、ドロップ時の処理(確定 or 単純な移動)が変わる。
+    // 前準備・後片付けがある行は、既存の【準備】ブロックとは別物と分かるよう、
+    // 作業ブロックの前後に薄いグレーの小ブロックとして表示する
     const segments = dayAllocations.map(a => {
       const widthPct = (a.planned_hours / scaleMax) * 100;
       const color = this.getProjectColor(a.case_id);
       const isProposed = a.status === '提案';
-      const title = `${a.project_name}: 予定${a.planned_hours}h${a.actual_hours != null ? ` / 実績${a.actual_hours}h` : ''}${isProposed ? '（提案中・未確定・ドラッグで確定/移動可）' : '（ドラッグで移動可）'}`;
+      const setupMin = a.setup_minutes || 0;
+      const cleanupMin = a.cleanup_minutes || 0;
+      const overheadNote = (setupMin > 0 || cleanupMin > 0) ? `（準備${setupMin}分+片付け${cleanupMin}分込み）` : '';
+      const title = `${a.project_name}: 実作業${a.planned_hours}h${overheadNote}${a.actual_hours != null ? ` / 実績${a.actual_hours}h` : ''}${isProposed ? '（提案中・未確定・ドラッグで確定/移動可）' : '（ドラッグで移動可）'}`;
       const proposedCls = isProposed ? ' sb-bar-segment-proposed' : '';
       const highlightCls = isProposed && this.highlightedCaseId === a.case_id ? ' is-highlighted' : '';
       const proposedClick = isProposed
@@ -405,7 +413,15 @@ const scheduleBoard = {
       const dragStart = isProposed
         ? `scheduleBoard.onProposalDragStart(event, ${a.case_id})`
         : `scheduleBoard.onAllocationDragStart(event, ${a.id})`;
-      return `<div class="sb-bar-segment${proposedCls}${highlightCls}" data-case-id="${a.case_id}" data-allocation-id="${a.id}" draggable="true" ondragstart="event.stopPropagation(); ${dragStart}" ondragend="scheduleBoard.onDragEnd()" style="width:${widthPct}%; background:${color};" title="${this.escapeHtml(title)}"${proposedClick}>${this.escapeHtml(a.project_name)}</div>`;
+      const workHtml = `<div class="sb-bar-segment${proposedCls}${highlightCls}" data-case-id="${a.case_id}" data-allocation-id="${a.id}" draggable="true" ondragstart="event.stopPropagation(); ${dragStart}" ondragend="scheduleBoard.onDragEnd()" style="width:${widthPct}%; background:${color};" title="${this.escapeHtml(title)}"${proposedClick}>${this.escapeHtml(a.project_name)}</div>`;
+
+      const setupHtml = setupMin > 0
+        ? `<div class="sb-bar-segment sb-bar-segment-overhead" style="width:${(setupMin / 60 / scaleMax) * 100}%;" title="${this.escapeHtml(a.project_name)}: 前準備 ${setupMin}分">準備</div>`
+        : '';
+      const cleanupHtml = cleanupMin > 0
+        ? `<div class="sb-bar-segment sb-bar-segment-overhead" style="width:${(cleanupMin / 60 / scaleMax) * 100}%;" title="${this.escapeHtml(a.project_name)}: 後片付け ${cleanupMin}分">片付</div>`
+        : '';
+      return setupHtml + workHtml + cleanupHtml;
     }).join('');
 
     // 準備項目タスクは案件の作業と区別できるよう【準備】ラベル・専用スタイルで表示する

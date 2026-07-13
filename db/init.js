@@ -52,6 +52,16 @@ function initDatabase() {
     db.prepare(`ALTER TABLE employees ADD COLUMN skill_tags TEXT`).run();
   }
 
+  // 既存DBに case_time_allocations.setup_minutes / cleanup_minutes カラムがない場合は追加。
+  // スケジュールボードの自動割当ボタン(日次/週次)専用の前準備・後片付け時間を保持する
+  const caseTimeAllocationColumns = db.prepare(`PRAGMA table_info('case_time_allocations')`).all().map(col => col.name);
+  if (!caseTimeAllocationColumns.includes('setup_minutes')) {
+    db.prepare(`ALTER TABLE case_time_allocations ADD COLUMN setup_minutes INTEGER NOT NULL DEFAULT 0`).run();
+  }
+  if (!caseTimeAllocationColumns.includes('cleanup_minutes')) {
+    db.prepare(`ALTER TABLE case_time_allocations ADD COLUMN cleanup_minutes INTEGER NOT NULL DEFAULT 0`).run();
+  }
+
   // 従業員の曜日ごとの標準勤務パターン
   db.exec(`
     CREATE TABLE IF NOT EXISTS employee_default_schedule (

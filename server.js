@@ -414,8 +414,11 @@ function calculateSuggestions(db, project, options = {}) {
   const defaultStmt = db.prepare(
     'SELECT * FROM employee_default_schedule WHERE employee_id = ? AND weekday = ?'
   );
+  // 前準備・後片付け(setup_minutes/cleanup_minutes、自動割当ボタン専用)もその日の
+  // 空き時間を消費済みとして扱う。両方0の行では合計に影響しない
   const allocationStmt = db.prepare(
-    'SELECT COALESCE(SUM(planned_hours), 0) as total FROM case_time_allocations WHERE employee_id = ? AND work_date BETWEEN ? AND ?'
+    `SELECT COALESCE(SUM(planned_hours + (setup_minutes + cleanup_minutes) / 60.0), 0) as total
+     FROM case_time_allocations WHERE employee_id = ? AND work_date BETWEEN ? AND ?`
   );
 
   function timeToHours(start, end, breakMinutes) {
@@ -658,14 +661,26 @@ function timeToHours(start, end, breakMinutes) {
 // 指定した従業員に、必要時間を受付日の翌日から締切日まで、1日の空き時間の範囲内で
 // 日ごとに分割してcase_time_allocationsへ'提案'ステータスで登録する。
 // autoProposeForProject(自動選定)と、担当者候補モーダルからの手動割り当ての両方で使う
-function allocateHoursForEmployee(db, projectId, employeeId, employeeName, requiredHours, receivedDate, deadline, status = '提案') {
+// setupMinutes/cleanupMinutes は自動割当ボタン(日次/週次、autoProposeForProjectInRange)
+// 専用のパラメータ。0(デフォルト)であれば従来通りの挙動で、個別の「提案」ボタン
+// (autoProposeForProject/assign-employee)やbulk-auto-proposeの計算には一切影響しない。
+// 指定した場合、割り振る日ごとに「実作業時間 + 前準備 + 後片付け」を1セットとして
+// その日の空き時間を消費する(案件が複数日にまたがれば、日ごとに毎回発生する)
+function allocateHoursForEmployee(db, projectId, employeeId, employeeName, requiredHours, receivedDate, deadline, status = '提案', setupMinutes = 0, cleanupMinutes = 0) {
   const insertStmt = db.prepare(`
-    INSERT INTO case_time_allocations (case_id, employee_id, work_date, planned_hours, status)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO case_time_allocations (case_id, employee_id, work_date, planned_hours, status, setup_minutes, cleanup_minutes)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
   const overrideStmt = db.prepare('SELECT * FROM schedule_overrides WHERE employee_id = ? AND work_date = ?');
   const defaultStmt = db.prepare('SELECT * FROM employee_default_schedule WHERE employee_id = ? AND weekday = ?');
-  const allocatedStmt = db.prepare(`SELECT COALESCE(SUM(planned_hours), 0) as total FROM case_time_allocations WHERE employee_id = ? AND work_date = ?`);
+  // 前準備・後片付け時間も他の予定と同様に「その日の空き」を消費するため、
+  // 既存の割り当て済み時間の集計にも含めて二重予約を防ぐ(setup/cleanupが0の行は影響なし)
+  const allocatedStmt = db.prepare(`
+    SELECT COALESCE(SUM(planned_hours + (setup_minutes + cleanup_minutes) / 60.0), 0) as total
+    FROM case_time_allocations WHERE employee_id = ? AND work_date = ?
+  `);
+
+  const overheadHours = (setupMinutes + cleanupMinutes) / 60;
 
   let remainingHours = requiredHours;
   const cursor = new Date(receivedDate);
@@ -699,17 +714,23 @@ function allocateHoursForEmployee(db, projectId, employeeId, employeeName, requi
 
     const alreadyAllocated = allocatedStmt.get(employeeId, dateStr).total;
     const dayAvailable = Math.max(0, dayHours - dayReserved - alreadyAllocated);
+    // 前準備・後片付け分を差し引いた、実作業に使える時間
+    const usableForWork = Math.max(0, dayAvailable - overheadHours);
 
-    if (dayAvailable > 0) {
-      const useHours = Math.min(dayAvailable, remainingHours);
-      insertStmt.run(projectId, employeeId, dateStr, Math.round(useHours * 10) / 10, status);
-      allocatedDates.push({ date: dateStr, hours: Math.round(useHours * 10) / 10 });
+    if (usableForWork > 0) {
+      const useHours = Math.min(usableForWork, remainingHours);
+      const roundedHours = Math.round(useHours * 10) / 10;
+      insertStmt.run(projectId, employeeId, dateStr, roundedHours, status, setupMinutes, cleanupMinutes);
+      allocatedDates.push({ date: dateStr, hours: roundedHours, setup_minutes: setupMinutes, cleanup_minutes: cleanupMinutes });
       remainingHours -= useHours;
 
       const carriedOver = remainingHours > 0.01;
+      const overheadNote = overheadHours > 0
+        ? ` 前準備=${setupMinutes}分 後片付け=${cleanupMinutes}分 1日の合計消費時間=${Math.round((useHours + overheadHours) * 10) / 10}h`
+        : '';
       writeDebugLog(
         `[allocateHoursForEmployee] project=${projectId} employee=${employeeId}(${employeeName}) ` +
-        `${dateStr}: その日の空き=${Math.round(dayAvailable * 10) / 10}h → ${Math.round(useHours * 10) / 10}h割当, ` +
+        `${dateStr}: その日の空き=${Math.round(dayAvailable * 10) / 10}h → 実作業時間=${roundedHours}h割当,${overheadNote} ` +
         `残り必要時間=${Math.round(remainingHours * 10) / 10}h` +
         (carriedOver ? ' → 翌稼働日へ繰り越し' : ' → この案件は割り振り完了')
       );
@@ -829,6 +850,12 @@ app.post('/api/projects/bulk-auto-propose', (req, res) => {
 // 指定した日付範囲(rangeStart〜rangeEnd)だけに限定する。スケジュールボードの
 // 「この日を自動割り当て」「今週を自動割り当て」ボタン用。範囲内で必要時間を使い切れなくても、
 // 範囲内で割り振れた分だけを'提案'として登録する(残りは未割り当てのまま次回に持ち越せる)
+// 自動割当ボタン(日次/週次)専用: 1日あたり前準備10分・後片付け10分を毎回消費する。
+// 個別の「提案」ボタン(autoProposeForProject)やbulk-auto-propose、ドラッグ&ドロップ確定
+// (confirm-proposal-at)には一切適用しない
+const AUTO_PROPOSE_SETUP_MINUTES = 10;
+const AUTO_PROPOSE_CLEANUP_MINUTES = 10;
+
 function autoProposeForProjectInRange(db, projectId, rangeStart, rangeEnd) {
   const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
   if (!project) return { project_id: projectId, error: '案件が見つかりません' };
@@ -855,7 +882,8 @@ function autoProposeForProjectInRange(db, projectId, rangeStart, rangeEnd) {
   for (const candidate of candidates) {
     const employeeId = candidate.employee_id;
     const { allocatedDates } = allocateHoursForEmployee(
-      db, projectId, employeeId, candidate.employee_name, candidate.required_hours, pseudoReceivedDate, rangeEndDate
+      db, projectId, employeeId, candidate.employee_name, candidate.required_hours, pseudoReceivedDate, rangeEndDate,
+      '提案', AUTO_PROPOSE_SETUP_MINUTES, AUTO_PROPOSE_CLEANUP_MINUTES
     );
 
     if (allocatedDates.length === 0) continue;

@@ -177,6 +177,18 @@
   background: repeating-linear-gradient(135deg, #16a34a, #16a34a 6px, #15803d 6px, #15803d 12px);
 }
 
+/* 自動割当ボタン(日次/週次)専用の前準備・後片付け時間。既存の【準備】ブロック(紫の縞)や
+   案件本体のブロックとは違うと一目で分かるよう、細身のグレーの縞模様にする */
+.sb-bar-segment-overhead {
+  min-width: 26px;
+  max-width: 42px;
+  color: var(--gray-700);
+  font-size: 8px;
+  text-align: center;
+  padding: 0 2px;
+  background: repeating-linear-gradient(135deg, #d1d5db, #d1d5db 4px, #e5e7eb 4px, #e5e7eb 8px);
+}
+
 .sb-bar-reference-marker {
   position: absolute;
   top: 0;
