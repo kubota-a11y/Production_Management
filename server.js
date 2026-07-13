@@ -304,6 +304,16 @@ app.get('/api/projects/:id', (req, res) => {
 });
 
 // 案件に対する担当者候補を提案する
+// Dateをローカルタイムゾーンのまま YYYY-MM-DD 文字列に変換する。
+// toISOString()はUTCに変換するため、JST(UTC+9)ではローカル日付の0時が
+// 前日のUTC15時になり、日付が1日ずれてしまう(例: 7/13 0:00 JST → "2026-07-12")
+function formatLocalDate(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 // 案件に対する担当者候補をスコアリングする(空き時間・スキル一致・生産性から算出)。
 // 締切日の妥当性チェックは呼び出し側の責務(この関数は project.deadline が有効な前提)
 function calculateSuggestions(db, project) {
@@ -318,7 +328,7 @@ function calculateSuggestions(db, project) {
   endDate.setHours(0, 0, 0, 0);
   let guard = 0;
   while (cursor <= endDate && guard < 60) {
-    dateList.push(cursor.toISOString().slice(0, 10)); // YYYY-MM-DD
+    dateList.push(formatLocalDate(cursor)); // YYYY-MM-DD
     cursor.setDate(cursor.getDate() + 1);
     guard++;
   }
@@ -447,6 +457,15 @@ function calculateSuggestions(db, project) {
       reason += '(勤務未確定の日を含む)';
     }
 
+    console.log(
+      `[calculateSuggestions] project=${project.id}(${project.process_type}) ` +
+      `employee=${emp.id}(${emp.name}) availableHours=${Math.round(availableHours * 10) / 10} ` +
+      `allocated=${Math.round(allocated * 10) / 10} remainingHours=${Math.round(remainingHours * 10) / 10} ` +
+      `requiredHours=${Math.round(requiredHours * 10) / 10} canHandleAll=${canHandleAll} ` +
+      `score=${Math.round(score * 100) / 100} hasUnknownDay=${hasUnknownDay} ` +
+      `processDetails=${JSON.stringify(processDetails)}`
+    );
+
     return {
       employee_id: emp.id,
       employee_name: emp.name,
@@ -543,7 +562,7 @@ function autoProposeForProject(db, projectId) {
     let guard = 0;
 
     while (cursor <= endDate && remainingHours > 0.01 && guard < 60) {
-      const dateStr = cursor.toISOString().slice(0, 10);
+      const dateStr = formatLocalDate(cursor);
       const weekday = cursor.getDay();
 
       let dayHours = 0;
@@ -580,10 +599,20 @@ function autoProposeForProject(db, projectId) {
     // 「受付日の翌日」起点で計算しており日数の基準がずれるため、スコア上は空きがあっても
     // 実際には1日も割り振れないことがある。その場合はこの候補を諦めて次点を試す
     if (allocatedDates.length === 0) {
+      console.log(
+        `[autoProposeForProject] project=${projectId} candidate=${employeeId}(${candidate.employee_name}) ` +
+        `score=${candidate.score} required=${candidate.required_hours} → 1時間も割り振れず次点へフォールバック`
+      );
       continue;
     }
 
     const fitsInDeadline = remainingHours <= 0.01;
+
+    console.log(
+      `[autoProposeForProject] project=${projectId} candidate=${employeeId}(${candidate.employee_name}) ` +
+      `score=${candidate.score} required=${candidate.required_hours} → 採用 ` +
+      `allocated=${JSON.stringify(allocatedDates)} fitsInDeadline=${fitsInDeadline}`
+    );
 
     return {
       project_id: projectId,
