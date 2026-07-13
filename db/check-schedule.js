@@ -1,11 +1,14 @@
-// 西山工業 持込ポロ92枚の繰り越し不具合調査用の一時スクリプト。
+// 自動割り振りの繰り越し不具合調査用の一時スクリプト。
 // sqlite3 CLIが無い環境でも `node db/check-schedule.js` で同じ内容を確認できるように、
 // アプリ本体と同じ better-sqlite3 でDBを開いてクエリを実行する。
 // 調査が終わったら削除してよい。
 const path = require('path');
 const Database = require('better-sqlite3');
 
-const EMPLOYEE_ID = 3; // 渋川さん
+// 調査対象に合わせて書き換える
+const EMPLOYEE_ID = 3;
+const PROJECT_NAME_KEYWORD = '持込ポロ';
+
 const dbPath = path.join(__dirname, 'projects.db');
 const db = new Database(dbPath, { readonly: true });
 
@@ -23,8 +26,8 @@ const projects = db.prepare(`
   SELECT id, project_name, customer_name, received_date, deadline,
          quantity, planned_hours, estimated_hours, assigned_employee_id, status
   FROM projects
-  WHERE project_name LIKE '%持込ポロ%' OR customer_name LIKE '%西山%'
-`).all();
+  WHERE project_name LIKE ?
+`).all(`%${PROJECT_NAME_KEYWORD}%`);
 printTable('① 該当案件', projects);
 
 // ループの繰り越し対象期間(受付日翌日〜締切日)。案件が見つからない場合は
@@ -73,7 +76,7 @@ const defaults = db.prepare(`
 `).all(EMPLOYEE_ID);
 printTable('③-b employee_default_schedule 全件(weekday: 0=日,1=月,2=火,3=水,4=木,5=金,6=土)', defaults);
 
-// ④ case_time_allocations (同期間の渋川さんの割り当て状況)
+// ④ case_time_allocations (同期間の対象従業員の割り当て状況)
 const allocations = db.prepare(`
   SELECT * FROM case_time_allocations
   WHERE employee_id = ? AND work_date BETWEEN ? AND ?
