@@ -163,7 +163,7 @@ const employeesApp = {
         form.elements['name'].value = employee.name;
         form.elements['role'].value = employee.role;
         form.elements['is_active'].checked = !!employee.is_active;
-        form.elements['skill_tags'].value = employee.skill_tags || '';
+        this.setSkillTagsCheckboxes(form, employee.skill_tags);
         const schedules = await API.getEmployeeDefaultSchedule(employeeId);
         this.renderDefaultScheduleRows(schedules);
         const rates = await API.getEmployeeProcessRates(employeeId);
@@ -188,13 +188,24 @@ const employeesApp = {
     this.editingEmployeeId = null;
   },
 
+  // スキルタグ(得意な加工種別)のチェックボックス群に、カンマ区切りの値を反映する
+  setSkillTagsCheckboxes(form, csvValue) {
+    const values = (csvValue || '').split(',').map(v => v.trim()).filter(Boolean);
+    form.querySelectorAll('input[name="skill_tags"]').forEach(cb => {
+      cb.checked = values.includes(cb.value);
+    });
+  },
+
   async submitEmployeeForm(e) {
     e.preventDefault();
     const form = document.getElementById('employee-form');
     const formData = new FormData(form);
     const data = Object.fromEntries(formData);
     data.is_active = form.elements['is_active'].checked;
-    data.skill_tags = formData.get('skill_tags') || null;
+    // チェックボックス群(加工種別の英語定数)をカンマ区切りにまとめる。案件側のprocess_typeと
+    // 同じ選択肢・同じ表記で保存されるため、表記ゆれによるスキル不一致判定のズレが起きなくなる
+    const skillTags = formData.getAll('skill_tags');
+    data.skill_tags = skillTags.length ? skillTags.join(',') : null;
 
     try {
       let employeeId = this.editingEmployeeId;

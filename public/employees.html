@@ -77,8 +77,15 @@
         </div>
 
         <div class="form-group">
-          <label>得意スキル <span class="field-hint">(カンマ区切り、案件の加工種別と同じ表記で入力)</span></label>
-          <input type="text" name="skill_tags" placeholder="SILK_SCREEN_PRINT,DTF_PRINT">
+          <label>得意スキル <span class="field-hint">(対応可能な加工種別、複数選択可)</span></label>
+          <div class="checkbox-group">
+            <label class="checkbox-pill"><input type="checkbox" name="skill_tags" value="SILK_SCREEN_PRINT"> シルクスクリーンプリント</label>
+            <label class="checkbox-pill"><input type="checkbox" name="skill_tags" value="DTF_PRINT"> DTFプリント</label>
+            <label class="checkbox-pill"><input type="checkbox" name="skill_tags" value="RUBBER_TRANSFER_PRINT"> ラバー転写プリント</label>
+            <label class="checkbox-pill"><input type="checkbox" name="skill_tags" value="STANDARD_EMBROIDERY"> 通常刺繍</label>
+            <label class="checkbox-pill"><input type="checkbox" name="skill_tags" value="HAT_EMBROIDERY"> 帽子刺繍</label>
+            <label class="checkbox-pill"><input type="checkbox" name="skill_tags" value="PATCH_EMBROIDERY"> ワッペン刺繍</label>
+          </div>
         </div>
 
         <div class="form-group">
