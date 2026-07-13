@@ -484,6 +484,8 @@ function calculateSuggestions(db, project) {
       score: Math.round(score * 100) / 100,
       available_hours: Math.round(remainingHours * 10) / 10,
       required_hours: Math.round(requiredHours * 10) / 10,
+      // 同点スコア時のタイブレーク(autoProposeForProject)に使う、現在の割当時間
+      allocated_hours: Math.round(allocated * 10) / 10,
       can_handle_all: canHandleAll,
       process_details: processDetails,
       skill_match: matchedTags,
@@ -536,9 +538,25 @@ function autoProposeForProject(db, projectId) {
   // 空き時間が0でもskillScoreのみでscoreが0より大きくなるため、score単独では
   // 「実際に割り振れる空き時間があるか」を判定できない。そのためscore>0の候補をスコア順に
   // 実際に日程へ割り振れるか順番に試し、1人も割り振れなかった場合のみ対応不可とする
-  const candidates = suggestions.filter(s => s.score > 0);
+  //
+  // scoreが同点の場合、calculateSuggestions側のsort(安定ソート)だとemployee_id昇順の
+  // ままになり、常に同じ従業員(id最小)が優先されて負荷が偏る。そのため同点時は
+  // 現在の割当時間(allocated_hours)が少ない=手が空いている従業員を優先する
+  const candidates = suggestions
+    .filter(s => s.score > 0)
+    .slice()
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.allocated_hours - b.allocated_hours;
+    });
   if (!candidates.length) {
     return { project_id: projectId, error: '対応可能な担当者が見つかりませんでした' };
+  }
+  if (candidates.length > 1 && candidates[0].score === candidates[1].score) {
+    writeDebugLog(
+      `[autoProposeForProject] project=${projectId} 同点タイブレーク: score=${candidates[0].score} の候補が${candidates.filter(c => c.score === candidates[0].score).length}名 → ` +
+      `allocated_hoursが少ない順に採用試行 [${candidates.filter(c => c.score === candidates[0].score).map(c => `${c.employee_name}(id=${c.employee_id}, allocated=${c.allocated_hours}h)`).join(', ')}]`
+    );
   }
 
   db.prepare(`DELETE FROM case_time_allocations WHERE case_id = ? AND status = '提案'`).run(projectId);
