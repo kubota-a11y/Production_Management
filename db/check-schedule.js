@@ -24,7 +24,7 @@ function printTable(title, rows) {
 // ① 案件を特定
 const projects = db.prepare(`
   SELECT id, project_name, customer_name, received_date, deadline,
-         quantity, planned_hours, estimated_hours, assigned_employee_id, status
+         quantity, planned_hours, estimated_hours, assigned_employee_id, status, process_type
   FROM projects
   WHERE project_name LIKE ?
 `).all(`%${PROJECT_NAME_KEYWORD}%`);
@@ -83,6 +83,54 @@ const allocations = db.prepare(`
   ORDER BY work_date
 `).all(EMPLOYEE_ID, rangeStart, rangeEnd);
 printTable('④ case_time_allocations', allocations);
+
+// ⑤ 自動割り振りに実際に渡される required_hours の再計算
+// (calculateSuggestions と同じロジック: quantity ÷ employee_process_rates.units_per_hour)
+// UIの「案件別消化率」が参照する projects.planned_hours(分単位)とは別経路で
+// 計算されているため、ここが割り引かれていないか確認する
+if (projects.length === 1) {
+  const p = projects[0];
+  const processTypes = (p.process_type || '').split(',').map(t => t.trim()).filter(Boolean);
+  const printLocations = db.prepare('SELECT * FROM case_print_locations WHERE case_id = ?').all(p.id);
+  const rateStmt = db.prepare(
+    'SELECT * FROM employee_process_rates WHERE employee_id = ? AND process_type = ? AND color_count = ?'
+  );
+
+  console.log(`\n=== ⑤ required_hours 再計算 (process_type=${JSON.stringify(processTypes)}, quantity=${p.quantity}) ===`);
+
+  let requiredHours = 0;
+  for (const pt of processTypes) {
+    if (pt === 'SILK_SCREEN_PRINT') {
+      if (printLocations.length === 0) {
+        console.log('SILK_SCREEN_PRINT: プリント箇所が未登録のため計算不可');
+        continue;
+      }
+      for (const loc of printLocations) {
+        const rate = rateStmt.get(EMPLOYEE_ID, 'SILK_SCREEN_PRINT', loc.color_count);
+        console.log(`  location=${loc.location_name} color_count=${loc.color_count} rate=${rate ? rate.units_per_hour : '未登録'}`);
+        if (rate && rate.units_per_hour > 0) {
+          const hours = p.quantity / rate.units_per_hour;
+          requiredHours += hours;
+          console.log(`    → ${p.quantity} / ${rate.units_per_hour} = ${hours.toFixed(2)}h`);
+        }
+      }
+    } else {
+      const rate = rateStmt.get(EMPLOYEE_ID, pt, 1);
+      console.log(`  process_type=${pt} rate=${rate ? rate.units_per_hour : '未登録'}`);
+      if (rate && rate.units_per_hour > 0) {
+        const hours = p.quantity / rate.units_per_hour;
+        requiredHours += hours;
+        console.log(`    → ${p.quantity} / ${rate.units_per_hour} = ${hours.toFixed(2)}h`);
+      }
+    }
+  }
+
+  console.log(`\n  実際に割り振りループへ渡される required_hours 合計 = ${Math.round(requiredHours * 10) / 10}h`);
+  console.log(`  UI「案件別消化率」が表示する必要時間(planned_hours ÷ 60) = ${p.planned_hours / 60}h`);
+  if (Math.abs(requiredHours - p.planned_hours / 60) > 0.1) {
+    console.log('  ⚠️ 両者が一致していません。割り振りループは上の required_hours 合計の方を使っています。');
+  }
+}
 
 db.close();
 console.log('\n完了。上記の出力をそのまま共有してください。');
