@@ -314,6 +314,19 @@ function formatLocalDate(date) {
   return `${y}-${m}-${d}`;
 }
 
+// スキルタグ・加工種別の突き合わせ用に文字列を正規化する。
+// 全角英数字/アンダースコア/スペースを半角に変換し、前後空白除去・大文字化する
+// (IME入力で全角になりがちな箇所や大文字小文字の揺れを吸収するため)
+function normalizeTag(str) {
+  if (!str) return '';
+  return str
+    .trim()
+    .replace(/[Ａ-Ｚａ-ｚ０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+    .replace(/　/g, ' ')
+    .replace(/＿/g, '_')
+    .toUpperCase();
+}
+
 // タスクスケジューラ等のバックグラウンド実行ではコンソールが見えないため、
 // 自動提案の診断ログはファイルに追記する(db/debug.log)
 const debugLogPath = path.join(__dirname, 'db', 'debug.log');
@@ -406,16 +419,24 @@ function calculateSuggestions(db, project) {
     const remainingHours = Math.max(0, availableHours - allocated);
 
     // スキル一致
-    const empTags = (emp.skill_tags || '').split(',').map(t => t.trim()).filter(Boolean);
-    const matchedTags = requiredTags.filter(t => empTags.includes(t));
+    const empTagsRaw = (emp.skill_tags || '').split(',').map(t => t.trim()).filter(Boolean);
+    const empTags = empTagsRaw.map(normalizeTag);
+    const matchedTags = requiredTags.filter(t => empTags.includes(normalizeTag(t)));
     const skillScore = requiredTags.length === 0 ? 1 : matchedTags.length / requiredTags.length;
 
     // 加工種別ごとのスキル一致判定。employees.skill_tags(「得意スキル」欄、
     // SILK_SCREEN_PRINT・DTF_PRINT等の加工種別名で運用)に、案件のprocess_typeが
     // 含まれているかを確認する。skill_tagsが未登録(空)の従業員は判定材料が無いため
-    // 除外はせず、従来通り生産性データの有無のみで判定する(誤って全員を弾かないため)
+    // 除外はせず、従来通り生産性データの有無のみで判定する(誤って全員を弾かないため)。
+    // 全角/半角・大文字小文字はnormalizeTagで吸収し、さらに"SILK_SCREEN"のように
+    // 末尾を省略した略称でも前方一致でヒットするようにする(完全一致だけだと
+    // "SILK_SCREEN_PRINT"との表記ゆれで正しい候補まで弾いてしまうため)
+    function tagCoversProcessType(pt) {
+      const normPt = normalizeTag(pt);
+      return empTags.some(tag => normPt === tag || normPt.startsWith(tag));
+    }
     const processTypeSkillMismatches = empTags.length > 0
-      ? processTypes.filter(pt => !empTags.includes(pt))
+      ? processTypes.filter(pt => !tagCoversProcessType(pt))
       : [];
     const hasSkillMismatch = processTypeSkillMismatches.length > 0;
 
@@ -497,8 +518,9 @@ function calculateSuggestions(db, project) {
     }
 
     writeDebugLog(
-      `[calculateSuggestions] project=${project.id}(${project.process_type}) ` +
-      `employee=${emp.id}(${emp.name}) availableHours=${Math.round(availableHours * 10) / 10} ` +
+      `[calculateSuggestions] project=${project.id} process_type(raw)="${project.process_type}" processTypes=${JSON.stringify(processTypes)} ` +
+      `employee=${emp.id}(${emp.name}) skill_tags(raw)="${emp.skill_tags || ''}" empTags(normalized)=${JSON.stringify(empTags)} ` +
+      `availableHours=${Math.round(availableHours * 10) / 10} ` +
       `allocated=${Math.round(allocated * 10) / 10} remainingHours=${Math.round(remainingHours * 10) / 10} ` +
       `requiredHours=${Math.round(requiredHours * 10) / 10} canHandleAll=${canHandleAll} ` +
       `skillMismatch=${hasSkillMismatch}${hasSkillMismatch ? `(${processTypeSkillMismatches.join(',')})` : ''} ` +
@@ -573,6 +595,83 @@ app.get('/api/projects/:id/suggest-assignees', (req, res) => {
 
 // 案件1件に対して、最上位候補者を選び、受付日から順に空き時間へ割り振って
 // case_time_allocations に status:'提案' で登録する
+function timeToHours(start, end, breakMinutes) {
+  if (!start || !end) return 0;
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  const minutes = (eh * 60 + em) - (sh * 60 + sm) - (breakMinutes || 0);
+  return Math.max(0, minutes / 60);
+}
+
+// 指定した従業員に、必要時間を受付日の翌日から締切日まで、1日の空き時間の範囲内で
+// 日ごとに分割してcase_time_allocationsへ'提案'ステータスで登録する。
+// autoProposeForProject(自動選定)と、担当者候補モーダルからの手動割り当ての両方で使う
+function allocateHoursForEmployee(db, projectId, employeeId, employeeName, requiredHours, receivedDate, deadline) {
+  const insertStmt = db.prepare(`
+    INSERT INTO case_time_allocations (case_id, employee_id, work_date, planned_hours, status)
+    VALUES (?, ?, ?, ?, '提案')
+  `);
+  const overrideStmt = db.prepare('SELECT * FROM schedule_overrides WHERE employee_id = ? AND work_date = ?');
+  const defaultStmt = db.prepare('SELECT * FROM employee_default_schedule WHERE employee_id = ? AND weekday = ?');
+  const allocatedStmt = db.prepare(`SELECT COALESCE(SUM(planned_hours), 0) as total FROM case_time_allocations WHERE employee_id = ? AND work_date = ?`);
+
+  let remainingHours = requiredHours;
+  const cursor = new Date(receivedDate);
+  cursor.setDate(cursor.getDate() + 1);
+  cursor.setHours(0, 0, 0, 0);
+  const endDate = new Date(deadline);
+  endDate.setHours(0, 0, 0, 0);
+
+  const allocatedDates = [];
+  let guard = 0;
+
+  while (cursor <= endDate && remainingHours > 0.01 && guard < 60) {
+    const dateStr = formatLocalDate(cursor);
+    const weekday = cursor.getDay();
+
+    let dayHours = 0;
+    let dayReserved = 0;
+    const override = overrideStmt.get(employeeId, dateStr);
+    if (override) {
+      if (!override.is_day_off) {
+        dayHours = timeToHours(override.start_time, override.end_time, override.break_minutes);
+        dayReserved = override.reserved_hours || 0;
+      }
+    } else {
+      const def = defaultStmt.get(employeeId, weekday);
+      if (def && def.is_working) {
+        dayHours = timeToHours(def.start_time, def.end_time, def.break_minutes);
+        dayReserved = def.reserved_hours || 0;
+      }
+    }
+
+    const alreadyAllocated = allocatedStmt.get(employeeId, dateStr).total;
+    const dayAvailable = Math.max(0, dayHours - dayReserved - alreadyAllocated);
+
+    if (dayAvailable > 0) {
+      const useHours = Math.min(dayAvailable, remainingHours);
+      insertStmt.run(projectId, employeeId, dateStr, Math.round(useHours * 10) / 10);
+      allocatedDates.push({ date: dateStr, hours: Math.round(useHours * 10) / 10 });
+      remainingHours -= useHours;
+
+      const carriedOver = remainingHours > 0.01;
+      writeDebugLog(
+        `[allocateHoursForEmployee] project=${projectId} employee=${employeeId}(${employeeName}) ` +
+        `${dateStr}: その日の空き=${Math.round(dayAvailable * 10) / 10}h → ${Math.round(useHours * 10) / 10}h割当, ` +
+        `残り必要時間=${Math.round(remainingHours * 10) / 10}h` +
+        (carriedOver ? ' → 翌稼働日へ繰り越し' : ' → この案件は割り振り完了')
+      );
+    }
+
+    cursor.setDate(cursor.getDate() + 1);
+    guard++;
+  }
+
+  return { allocatedDates, remainingHours };
+}
+
+// 案件1件に対して、最上位担当者を選び、受付日から順に空き時間へ割り振って
+// case_time_allocations に status:'提案' で登録する
 function autoProposeForProject(db, projectId) {
   const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
   if (!project) return { project_id: projectId, error: '案件が見つかりません' };
@@ -609,77 +708,11 @@ function autoProposeForProject(db, projectId) {
 
   db.prepare(`DELETE FROM case_time_allocations WHERE case_id = ? AND status = '提案'`).run(projectId);
 
-  const insertStmt = db.prepare(`
-    INSERT INTO case_time_allocations (case_id, employee_id, work_date, planned_hours, status)
-    VALUES (?, ?, ?, ?, '提案')
-  `);
-
-  const overrideStmt = db.prepare('SELECT * FROM schedule_overrides WHERE employee_id = ? AND work_date = ?');
-  const defaultStmt = db.prepare('SELECT * FROM employee_default_schedule WHERE employee_id = ? AND weekday = ?');
-  const allocatedStmt = db.prepare(`SELECT COALESCE(SUM(planned_hours), 0) as total FROM case_time_allocations WHERE employee_id = ? AND work_date = ?`);
-
-  function timeToHours(start, end, breakMinutes) {
-    if (!start || !end) return 0;
-    const [sh, sm] = start.split(':').map(Number);
-    const [eh, em] = end.split(':').map(Number);
-    const minutes = (eh * 60 + em) - (sh * 60 + sm) - (breakMinutes || 0);
-    return Math.max(0, minutes / 60);
-  }
-
   for (const candidate of candidates) {
     const employeeId = candidate.employee_id;
-    let remainingHours = candidate.required_hours;
-
-    const cursor = new Date(receivedDate);
-    cursor.setDate(cursor.getDate() + 1);
-    cursor.setHours(0, 0, 0, 0);
-    const endDate = new Date(deadline);
-    endDate.setHours(0, 0, 0, 0);
-
-    const allocatedDates = [];
-    let guard = 0;
-
-    while (cursor <= endDate && remainingHours > 0.01 && guard < 60) {
-      const dateStr = formatLocalDate(cursor);
-      const weekday = cursor.getDay();
-
-      let dayHours = 0;
-      let dayReserved = 0;
-      const override = overrideStmt.get(employeeId, dateStr);
-      if (override) {
-        if (!override.is_day_off) {
-          dayHours = timeToHours(override.start_time, override.end_time, override.break_minutes);
-          dayReserved = override.reserved_hours || 0;
-        }
-      } else {
-        const def = defaultStmt.get(employeeId, weekday);
-        if (def && def.is_working) {
-          dayHours = timeToHours(def.start_time, def.end_time, def.break_minutes);
-          dayReserved = def.reserved_hours || 0;
-        }
-      }
-
-      const alreadyAllocated = allocatedStmt.get(employeeId, dateStr).total;
-      const dayAvailable = Math.max(0, dayHours - dayReserved - alreadyAllocated);
-
-      if (dayAvailable > 0) {
-        const useHours = Math.min(dayAvailable, remainingHours);
-        insertStmt.run(projectId, employeeId, dateStr, Math.round(useHours * 10) / 10);
-        allocatedDates.push({ date: dateStr, hours: Math.round(useHours * 10) / 10 });
-        remainingHours -= useHours;
-
-        const carriedOver = remainingHours > 0.01;
-        writeDebugLog(
-          `[autoProposeForProject] project=${projectId} candidate=${employeeId}(${candidate.employee_name}) ` +
-          `${dateStr}: その日の空き=${Math.round(dayAvailable * 10) / 10}h → ${Math.round(useHours * 10) / 10}h割当, ` +
-          `残り必要時間=${Math.round(remainingHours * 10) / 10}h` +
-          (carriedOver ? ' → 翌稼働日へ繰り越し' : ' → この案件は割り振り完了')
-        );
-      }
-
-      cursor.setDate(cursor.getDate() + 1);
-      guard++;
-    }
+    const { allocatedDates, remainingHours } = allocateHoursForEmployee(
+      db, projectId, employeeId, candidate.employee_name, candidate.required_hours, receivedDate, deadline
+    );
 
     // calculateSuggestions の available_hours は「今日」起点、この割り振りループは
     // 「受付日の翌日」起点で計算しており日数の基準がずれるため、スコア上は空きがあっても
@@ -735,6 +768,56 @@ app.post('/api/projects/bulk-auto-propose', (req, res) => {
     const unassigned = db.prepare('SELECT id FROM projects WHERE assigned_employee_id IS NULL').all();
     const results = unassigned.map(p => autoProposeForProject(db, p.id));
     res.json({ results });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 担当者候補モーダルから特定の担当者を手動で選んで割り当てる。
+// 従来は projects.assigned_employee_id を更新するだけで、実際の作業時間を
+// case_time_allocations へ書き込んでいなかった(スケジュールボードに反映されない不具合)ため、
+// autoProposeForProject と同じ日次割り振りロジック(allocateHoursForEmployee)を使って
+// 実際の作業時間も登録する
+app.post('/api/projects/:id/assign-employee', (req, res) => {
+  try {
+    const employeeId = Number(req.body.employee_id);
+    if (!employeeId) return res.status(400).json({ error: 'employee_id は必須です' });
+
+    const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(req.params.id);
+    if (!project) return res.status(404).json({ error: '案件が見つかりません' });
+
+    const receivedDate = project.received_date ? new Date(project.received_date) : new Date();
+    const deadline = project.deadline ? new Date(project.deadline) : null;
+    if (!deadline) return res.status(400).json({ error: '締切日が未設定です' });
+
+    const suggestions = calculateSuggestions(db, project);
+    const chosen = suggestions.find(s => s.employee_id === employeeId);
+    if (!chosen) return res.status(404).json({ error: '指定された担当者が見つかりませんでした' });
+
+    db.prepare(`DELETE FROM case_time_allocations WHERE case_id = ? AND status = '提案'`).run(project.id);
+
+    const { allocatedDates, remainingHours } = allocateHoursForEmployee(
+      db, project.id, chosen.employee_id, chosen.employee_name, chosen.required_hours, receivedDate, deadline
+    );
+    const fitsInDeadline = remainingHours <= 0.01;
+
+    writeDebugLog(
+      `[assign-employee] project=${project.id} employee=${chosen.employee_id}(${chosen.employee_name}) 手動割り当て ` +
+      `required=${chosen.required_hours} allocated=${JSON.stringify(allocatedDates)} fitsInDeadline=${fitsInDeadline}`
+    );
+
+    const now = new Date().toISOString();
+    db.prepare('UPDATE projects SET assigned_employee_id = ?, updated_at = ? WHERE id = ?')
+      .run(chosen.employee_id, now, project.id);
+
+    res.json({
+      project_id: project.id,
+      employee_id: chosen.employee_id,
+      employee_name: chosen.employee_name,
+      allocated_dates: allocatedDates,
+      fits_in_deadline: fitsInDeadline,
+      remaining_hours: Math.round(remainingHours * 10) / 10,
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

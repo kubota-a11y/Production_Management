@@ -7,6 +7,7 @@ const scheduleBoard = {
   employees: [],
   projects: [],
   scheduleOverrides: [],
+  defaultSchedules: [],
   allocations: [],
   preparationItems: [],
   unassignedPreparationItems: [],
@@ -27,6 +28,7 @@ const scheduleBoard = {
     await this.loadEmployees();
     await this.loadProjects();
     await this.loadScheduleOverrides();
+    await this.loadDefaultSchedules();
     await this.loadWeekAllocations();
     await this.loadWeekPreparationItems();
     await this.loadProjectProgress();
@@ -104,6 +106,25 @@ const scheduleBoard = {
     }
   },
 
+  // 曜日ごとの標準勤務パターン(schedule_overridesが無い日のフォールバックに使う)。
+  // バックエンド(autoProposeForProject等)は個別override→無ければdefault_scheduleの順で
+  // 空き時間を判定しているが、以前はこのボードがoverrideしか見ておらず、defaultのみで
+  // 勤務している従業員の割り当てが常に「休み」扱いで表示されない不具合があった
+  async loadDefaultSchedules() {
+    try {
+      const results = await Promise.all(
+        this.employees.map(async e => {
+          const schedules = await (await fetch(`/api/employees/${e.id}/default-schedule`)).json();
+          return schedules.map(s => ({ ...s, employee_id: e.id }));
+        })
+      );
+      this.defaultSchedules = results.flat();
+    } catch (error) {
+      console.error('標準勤務パターン取得エラー:', error);
+      this.defaultSchedules = [];
+    }
+  },
+
   async loadWeekAllocations() {
     try {
       const dates = this.getWeekDates();
@@ -176,18 +197,32 @@ const scheduleBoard = {
   },
 
   // その日の基準勤務時間（横棒グラフの100%幅・計画不足判定の基準）を決定する。
-  // schedule_overrides にその日のレコードがあり、かつ休みでない場合のみ勤務日として扱う
+  // schedule_overrides にその日のレコードがあればそれを優先し、無ければ
+  // employee_default_schedule(曜日ごとの標準勤務パターン)にフォールバックする。
+  // 以前はoverrideしか見ておらず、標準勤務パターンのみで勤務している従業員が
+  // 常に「休み」表示になり、割り当てた作業がボードに反映されない不具合があった
   getReferenceInfo(employeeId, dateISO) {
     const override = this.getOverrideFor(employeeId, dateISO);
 
-    if (!override || override.is_day_off) {
-      return { hours: 0, override: override || null };
+    if (override) {
+      if (override.is_day_off) return { hours: 0, override };
+      const hours = (override.start_time && override.end_time)
+        ? Math.max(this.timeToHours(override.end_time) - this.timeToHours(override.start_time) - (override.break_minutes || 0) / 60, 0)
+        : 0;
+      return { hours, override };
     }
 
-    const hours = (override.start_time && override.end_time)
-      ? Math.max(this.timeToHours(override.end_time) - this.timeToHours(override.start_time) - (override.break_minutes || 0) / 60, 0)
+    // タイムゾーンのずれを避けるため、日付文字列からローカル日付を直接組み立てる
+    const [y, m, d] = dateISO.split('-').map(Number);
+    const weekday = new Date(y, m - 1, d).getDay();
+    const def = this.defaultSchedules.find(s => s.employee_id === employeeId && s.weekday === weekday);
+    if (!def || !def.is_working) {
+      return { hours: 0, override: null };
+    }
+    const hours = (def.start_time && def.end_time)
+      ? Math.max(this.timeToHours(def.end_time) - this.timeToHours(def.start_time) - (def.break_minutes || 0) / 60, 0)
       : 0;
-    return { hours, override };
+    return { hours, override: null };
   },
 
   getAllocationsFor(employeeId, dateISO) {

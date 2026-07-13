@@ -1018,10 +1018,14 @@ const app = {
 
   async assignFromSuggestion(projectId, employeeId) {
     try {
-      // PUT /api/projects/:id は全項目を送る前提の更新のため、既存データに割り当て先だけ上書きして送信する
-      const project = this.projects.find(p => p.id === projectId);
-      if (!project) return;
-      await API.updateProject(projectId, { ...project, assigned_employee_id: employeeId });
+      // assigned_employee_id の更新だけでなく、実際の作業時間もcase_time_allocationsへ
+      // 日次分割で登録される(以前はPUT /api/projects/:idで割り当て先だけ更新しており、
+      // スケジュールボードに本体の作業時間が反映されない不具合があった)
+      const result = await API.assignEmployee(projectId, employeeId);
+      if (result.error) {
+        alert(result.error);
+        return;
+      }
       this.closeSuggestModal();
       await this.loadProjects();
       this.renderListView();

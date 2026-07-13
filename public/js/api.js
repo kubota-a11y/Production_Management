@@ -37,6 +37,16 @@ const API = {
     return response.json();
   },
 
+  // 担当者候補モーダルから特定の担当者を割り当てる(作業時間もcase_time_allocationsへ登録される)
+  async assignEmployee(id, employeeId) {
+    const response = await fetch(`/api/projects/${id}/assign-employee`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employee_id: employeeId })
+    });
+    return response.json();
+  },
+
   // 案件削除
   async deleteProject(id) {
     const response = await fetch(`/api/projects/${id}`, {
