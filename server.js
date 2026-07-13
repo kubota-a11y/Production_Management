@@ -499,14 +499,18 @@ function calculateSuggestions(db, project) {
     };
   });
 
-  results.sort((a, b) => b.score - a.score);
+  // スコア降順、同点時はemployee_id昇順(常に同じ人が優先される)ではなく、
+  // 空き時間(available_hours)が多い人を優先する
+  results.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return b.available_hours - a.available_hours;
+  });
 
   // name/idとscoreの対応がソート前後でズレていないか一目で確認できるよう、
-  // 最終的な並び順をまとめて1行出力する(suggest-assigneesはこのうち上位3件のみ返す)
+  // 最終的な並び順をまとめて1行出力する
   writeDebugLog(
-    `[calculateSuggestions] project=${project.id} 最終ソート結果(スコア降順): ` +
-    results.map(r => `${r.employee_name}(id=${r.employee_id},score=${r.score})`).join(' > ') +
-    ' ※suggest-assigneesは上位3件のみ返却'
+    `[calculateSuggestions] project=${project.id} 最終ソート結果(スコア降順、同点はavailable_hours降順): ` +
+    results.map(r => `${r.employee_name}(id=${r.employee_id},score=${r.score},available_hours=${r.available_hours})`).join(' > ')
   );
 
   return results;
@@ -524,12 +528,19 @@ app.get('/api/projects/:id/suggest-assignees', (req, res) => {
     }
 
     const results = calculateSuggestions(db, project);
+    // score<=0(スキル不一致・対応不可)は明らかに候補になり得ないため除外し、
+    // それ以外は全員を候補として返す(以前は上位3件のみだった)
+    const viableResults = results.filter(r => r.score > 0);
+
+    writeDebugLog(
+      `[suggest-assignees] project=${project.id} 候補者数=${viableResults.length}名(除外=${results.length - viableResults.length}名)`
+    );
 
     res.json({
       project_id: project.id,
       project_name: project.project_name,
       deadline: project.deadline,
-      suggestions: results.slice(0, 3),
+      suggestions: viableResults,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -632,6 +643,14 @@ function autoProposeForProject(db, projectId) {
         insertStmt.run(projectId, employeeId, dateStr, Math.round(useHours * 10) / 10);
         allocatedDates.push({ date: dateStr, hours: Math.round(useHours * 10) / 10 });
         remainingHours -= useHours;
+
+        const carriedOver = remainingHours > 0.01;
+        writeDebugLog(
+          `[autoProposeForProject] project=${projectId} candidate=${employeeId}(${candidate.employee_name}) ` +
+          `${dateStr}: その日の空き=${Math.round(dayAvailable * 10) / 10}h → ${Math.round(useHours * 10) / 10}h割当, ` +
+          `残り必要時間=${Math.round(remainingHours * 10) / 10}h` +
+          (carriedOver ? ' → 翌稼働日へ繰り越し' : ' → この案件は割り振り完了')
+        );
       }
 
       cursor.setDate(cursor.getDate() + 1);
@@ -656,6 +675,13 @@ function autoProposeForProject(db, projectId) {
       `score=${candidate.score} required=${candidate.required_hours} → 採用 ` +
       `allocated=${JSON.stringify(allocatedDates)} fitsInDeadline=${fitsInDeadline}`
     );
+
+    if (!fitsInDeadline) {
+      writeDebugLog(
+        `[autoProposeForProject] project=${projectId} candidate=${employeeId}(${candidate.employee_name}) ` +
+        `⚠️ 締切(${project.deadline})までに割り振りきれず、${Math.round(remainingHours * 10) / 10}h分が繰り越せませんでした(fitsInDeadline=false)`
+      );
+    }
 
     return {
       project_id: projectId,
