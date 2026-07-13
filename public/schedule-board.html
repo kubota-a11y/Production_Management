@@ -43,6 +43,14 @@
         <h2 class="sb-section-title">📈 案件別 消化率（実績時間 ÷ 作業予定時間）</h2>
         <div id="sb-progress-list"></div>
       </section>
+
+      <section class="sb-proposals-section">
+        <button type="button" class="sb-section-toggle" onclick="scheduleBoard.toggleProposalsPanel()">
+          <h2 class="sb-section-title">📝 提案確認<span class="sb-proposals-badge" id="sb-proposals-badge"></span></h2>
+          <span class="sb-toggle-icon" id="sb-proposals-toggle-icon">▼</span>
+        </button>
+        <div id="sb-proposals-list" class="sb-proposals-list"></div>
+      </section>
     </main>
   </div>
 

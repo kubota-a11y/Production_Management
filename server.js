@@ -386,7 +386,10 @@ function calculateRequiredHours(db, project, employeeId) {
 
 // 案件に対する担当者候補をスコアリングする(空き時間・スキル一致・生産性から算出)。
 // 締切日の妥当性チェックは呼び出し側の責務(この関数は project.deadline が有効な前提)
-function calculateSuggestions(db, project) {
+function calculateSuggestions(db, project, options = {}) {
+  // quiet: true の場合、診断ログの書き込みを抑制する。提案確認パネルの一覧表示など
+  // 高頻度・多案件でこの関数を呼ぶ場面でdebug.logが肥大化するのを防ぐため
+  const quiet = options.quiet === true;
   const today = new Date();
   const deadline = new Date(project.deadline);
 
@@ -562,16 +565,18 @@ function calculateSuggestions(db, project) {
       reason += '(勤務未確定の日を含む)';
     }
 
-    writeDebugLog(
-      `[calculateSuggestions] project=${project.id} process_type(raw)="${project.process_type}" processTypes=${JSON.stringify(processTypes)} ` +
-      `employee=${emp.id}(${emp.name}) skill_tags(raw)="${emp.skill_tags || ''}" empTags(normalized)=${JSON.stringify(empTags)} ` +
-      `availableHours=${Math.round(availableHours * 10) / 10} ` +
-      `allocated=${Math.round(allocated * 10) / 10} remainingHours=${Math.round(remainingHours * 10) / 10} ` +
-      `requiredHours=${Math.round(requiredHours * 10) / 10} canHandleAll=${canHandleAll} ` +
-      `skillMismatch=${hasSkillMismatch}${hasSkillMismatch ? `(${processTypeSkillMismatches.join(',')})` : ''} ` +
-      `score=${Math.round(score * 100) / 100} hasUnknownDay=${hasUnknownDay} ` +
-      `processDetails=${JSON.stringify(processDetails)}`
-    );
+    if (!quiet) {
+      writeDebugLog(
+        `[calculateSuggestions] project=${project.id} process_type(raw)="${project.process_type}" processTypes=${JSON.stringify(processTypes)} ` +
+        `employee=${emp.id}(${emp.name}) skill_tags(raw)="${emp.skill_tags || ''}" empTags(normalized)=${JSON.stringify(empTags)} ` +
+        `availableHours=${Math.round(availableHours * 10) / 10} ` +
+        `allocated=${Math.round(allocated * 10) / 10} remainingHours=${Math.round(remainingHours * 10) / 10} ` +
+        `requiredHours=${Math.round(requiredHours * 10) / 10} canHandleAll=${canHandleAll} ` +
+        `skillMismatch=${hasSkillMismatch}${hasSkillMismatch ? `(${processTypeSkillMismatches.join(',')})` : ''} ` +
+        `score=${Math.round(score * 100) / 100} hasUnknownDay=${hasUnknownDay} ` +
+        `processDetails=${JSON.stringify(processDetails)}`
+      );
+    }
 
     return {
       employee_id: emp.id,
@@ -599,10 +604,12 @@ function calculateSuggestions(db, project) {
 
   // name/idとscoreの対応がソート前後でズレていないか一目で確認できるよう、
   // 最終的な並び順をまとめて1行出力する
-  writeDebugLog(
-    `[calculateSuggestions] project=${project.id} 最終ソート結果(スコア降順、同点はavailable_hours降順): ` +
-    results.map(r => `${r.employee_name}(id=${r.employee_id},score=${r.score},available_hours=${r.available_hours})`).join(' > ')
-  );
+  if (!quiet) {
+    writeDebugLog(
+      `[calculateSuggestions] project=${project.id} 最終ソート結果(スコア降順、同点はavailable_hours降順): ` +
+      results.map(r => `${r.employee_name}(id=${r.employee_id},score=${r.score},available_hours=${r.available_hours})`).join(' > ')
+    );
+  }
 
   return results;
 }
@@ -863,6 +870,92 @@ app.post('/api/projects/:id/assign-employee', (req, res) => {
       fits_in_deadline: fitsInDeadline,
       remaining_hours: Math.round(remainingHours * 10) / 10,
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 確認待ちの提案(status='提案'のcase_time_allocations)を案件単位でまとめて返す。
+// スケジュールボードの「提案確認」パネル用。スコア・空き時間は担当者候補モーダルと
+// 同じcalculateSuggestionsから取得するが、一覧表示のたびに全案件分ログが出ると
+// debug.logが肥大化するため quiet:true でログ出力を抑制する
+app.get('/api/proposals', (req, res) => {
+  try {
+    const rows = db.prepare(`
+      SELECT ta.case_id, ta.employee_id, e.name as employee_name,
+        SUM(ta.planned_hours) as proposed_hours_total
+      FROM case_time_allocations ta
+      JOIN employees e ON e.id = ta.employee_id
+      WHERE ta.status = '提案'
+      GROUP BY ta.case_id, ta.employee_id
+      ORDER BY ta.case_id ASC
+    `).all();
+
+    const results = rows.map(row => {
+      const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(row.case_id);
+      if (!project) return null;
+
+      const suggestions = calculateSuggestions(db, project, { quiet: true });
+      const matched = suggestions.find(s => s.employee_id === row.employee_id);
+
+      return {
+        case_id: row.case_id,
+        project_name: project.project_name,
+        customer_name: project.customer_name,
+        deadline: project.deadline,
+        quantity: project.quantity,
+        process_type: project.process_type,
+        employee_id: row.employee_id,
+        employee_name: row.employee_name,
+        proposed_hours_total: Math.round(row.proposed_hours_total * 10) / 10,
+        score: matched ? matched.score : null,
+        available_hours: matched ? matched.available_hours : null,
+      };
+    }).filter(Boolean);
+
+    res.json(results);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 提案を確定する。case_time_allocationsのstatusを'提案'から'予定'に変更するのみ。
+// '提案'のみを対象にする自動再提案(autoProposeForProject等のDELETE)の対象から
+// 外れるため、以後この案件が自動提案で上書きされることもない
+app.post('/api/projects/:id/confirm-proposal', (req, res) => {
+  try {
+    const result = db.prepare(`
+      UPDATE case_time_allocations SET status = '予定' WHERE case_id = ? AND status = '提案'
+    `).run(req.params.id);
+
+    if (result.changes === 0) {
+      return res.status(404).json({ error: '確認待ちの提案が見つかりません' });
+    }
+
+    writeDebugLog(`[confirm-proposal] project=${req.params.id} ${result.changes}件を'提案'→'予定'に確定`);
+    res.json({ message: 'Proposal confirmed', updated: result.changes });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 提案を却下する。提案分のcase_time_allocationsを削除し、担当者を未割り当てに戻す
+app.post('/api/projects/:id/reject-proposal', (req, res) => {
+  try {
+    const result = db.prepare(`
+      DELETE FROM case_time_allocations WHERE case_id = ? AND status = '提案'
+    `).run(req.params.id);
+
+    if (result.changes === 0) {
+      return res.status(404).json({ error: '確認待ちの提案が見つかりません' });
+    }
+
+    const now = new Date().toISOString();
+    db.prepare('UPDATE projects SET assigned_employee_id = NULL, updated_at = ? WHERE id = ?')
+      .run(now, req.params.id);
+
+    writeDebugLog(`[reject-proposal] project=${req.params.id} ${result.changes}件の提案を却下し、未割り当てに戻しました`);
+    res.json({ message: 'Proposal rejected', deleted: result.changes });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

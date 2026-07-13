@@ -12,6 +12,9 @@ const scheduleBoard = {
   preparationItems: [],
   unassignedPreparationItems: [],
   projectProgress: [],
+  proposals: [],
+  proposalsCollapsed: false,
+  highlightedCaseId: null,
   currentWeekStart: null,
   detailModalContext: null,
   overrideModalContext: null,
@@ -32,6 +35,7 @@ const scheduleBoard = {
     await this.loadWeekAllocations();
     await this.loadWeekPreparationItems();
     await this.loadProjectProgress();
+    await this.loadProposals();
     this.render();
     console.log('✓ 初期化完了');
   },
@@ -172,6 +176,16 @@ const scheduleBoard = {
     }
   },
 
+  async loadProposals() {
+    try {
+      this.proposals = await (await fetch('/api/proposals')).json();
+    } catch (error) {
+      console.error('提案一覧取得エラー:', error);
+      alert('提案確認パネルの取得に失敗しました');
+      this.proposals = [];
+    }
+  },
+
   // ===== 週送り =====
   async prevWeek() {
     this.currentWeekStart.setDate(this.currentWeekStart.getDate() - 7);
@@ -249,6 +263,7 @@ const scheduleBoard = {
     this.renderBoard();
     this.renderLegend();
     this.renderProgress();
+    this.renderProposals();
   },
 
   renderWeekLabel() {
@@ -310,8 +325,14 @@ const scheduleBoard = {
     const segments = dayAllocations.map(a => {
       const widthPct = (a.planned_hours / scaleMax) * 100;
       const color = this.getProjectColor(a.case_id);
-      const title = `${a.project_name}: 予定${a.planned_hours}h${a.actual_hours != null ? ` / 実績${a.actual_hours}h` : ''}`;
-      return `<div class="sb-bar-segment" style="width:${widthPct}%; background:${color};" title="${this.escapeHtml(title)}">${this.escapeHtml(a.project_name)}</div>`;
+      const isProposed = a.status === '提案';
+      const title = `${a.project_name}: 予定${a.planned_hours}h${a.actual_hours != null ? ` / 実績${a.actual_hours}h` : ''}${isProposed ? '（提案中・未確定）' : ''}`;
+      const proposedCls = isProposed ? ' sb-bar-segment-proposed' : '';
+      const highlightCls = isProposed && this.highlightedCaseId === a.case_id ? ' is-highlighted' : '';
+      const proposedClick = isProposed
+        ? ` onclick="event.stopPropagation(); scheduleBoard.highlightFromBoard(${a.case_id})"`
+        : '';
+      return `<div class="sb-bar-segment${proposedCls}${highlightCls}" data-case-id="${a.case_id}" style="width:${widthPct}%; background:${color};" title="${this.escapeHtml(title)}"${proposedClick}>${this.escapeHtml(a.project_name)}</div>`;
     }).join('');
 
     // 準備項目タスクは案件の作業と区別できるよう【準備】ラベル・専用スタイルで表示する
@@ -381,6 +402,121 @@ const scheduleBoard = {
         </div>
       `;
     }).join('');
+  },
+
+  // ===== 提案確認パネル =====
+  toggleProposalsPanel() {
+    this.proposalsCollapsed = !this.proposalsCollapsed;
+    document.getElementById('sb-proposals-list').classList.toggle('is-collapsed', this.proposalsCollapsed);
+    document.getElementById('sb-proposals-toggle-icon').classList.toggle('is-collapsed', this.proposalsCollapsed);
+  },
+
+  renderProposals() {
+    const badge = document.getElementById('sb-proposals-badge');
+    badge.textContent = `（${this.proposals.length}件）`;
+
+    const list = document.getElementById('sb-proposals-list');
+    if (this.proposals.length === 0) {
+      list.innerHTML = '<p class="sb-empty-notice">確認待ちの提案はありません</p>';
+      return;
+    }
+
+    list.innerHTML = this.proposals.map(p => {
+      const scoreLabel = p.score != null ? `${(p.score * 100).toFixed(0)}%` : '-';
+      const availableLabel = p.available_hours != null ? `${p.available_hours}h` : '-';
+      const highlightCls = this.highlightedCaseId === p.case_id ? ' is-highlighted' : '';
+      return `
+        <div class="sb-proposal-row${highlightCls}" data-case-id="${p.case_id}"
+             onmouseenter="scheduleBoard.highlightProposal(${p.case_id})"
+             onmouseleave="scheduleBoard.clearHighlight()"
+             onclick="scheduleBoard.highlightProposal(${p.case_id})">
+          <div class="sb-proposal-body">
+            <div class="sb-proposal-main">
+              <span class="sb-proposal-name">${this.escapeHtml(p.project_name)}</span>
+              <span class="sb-proposal-customer">${this.escapeHtml(p.customer_name || '')}</span>
+            </div>
+            <div class="sb-proposal-meta">
+              納期: ${this.escapeHtml(p.deadline || '-')} / 数量: ${p.quantity ?? '-'} / 加工種別: ${this.escapeHtml(p.process_type || '-')}<br>
+              担当者: ${this.escapeHtml(p.employee_name)} / スコア: ${scoreLabel} / 空き時間: ${availableLabel} / 提案時間合計: ${p.proposed_hours_total}h
+            </div>
+          </div>
+          <div class="sb-proposal-actions">
+            <button type="button" class="btn btn-primary btn-small" onclick="event.stopPropagation(); scheduleBoard.confirmProposal(${p.case_id})">確定</button>
+            <button type="button" class="btn btn-danger btn-small" onclick="event.stopPropagation(); scheduleBoard.rejectProposal(${p.case_id})">却下</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  },
+
+  // パネル行のホバー/クリック、およびボード上の提案ブロックのクリックの両方から呼ばれる
+  // 共通のハイライト処理。両側に同じcase_idを持つ要素を探してハイライトクラスを付け替える
+  highlightProposal(caseId) {
+    this.highlightedCaseId = caseId;
+    this.applyHighlight();
+  },
+
+  highlightFromBoard(caseId) {
+    this.highlightedCaseId = caseId;
+    this.applyHighlight();
+    const row = document.querySelector(`.sb-proposal-row[data-case-id="${caseId}"]`);
+    if (row) row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  },
+
+  clearHighlight() {
+    this.highlightedCaseId = null;
+    this.applyHighlight();
+  },
+
+  applyHighlight() {
+    document.querySelectorAll('.sb-proposal-row').forEach(el => {
+      el.classList.toggle('is-highlighted', Number(el.dataset.caseId) === this.highlightedCaseId);
+    });
+    document.querySelectorAll('.sb-bar-segment-proposed').forEach(el => {
+      el.classList.toggle('is-highlighted', Number(el.dataset.caseId) === this.highlightedCaseId);
+    });
+  },
+
+  async confirmProposal(caseId) {
+    try {
+      const res = await fetch(`/api/projects/${caseId}/confirm-proposal`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || '提案の確定に失敗しました');
+        return;
+      }
+      await this.loadProposals();
+      await this.loadWeekAllocations();
+      await this.loadProjectProgress();
+      this.renderBoard();
+      this.renderProgress();
+      this.renderProposals();
+    } catch (error) {
+      console.error('提案確定エラー:', error);
+      alert('提案の確定に失敗しました');
+    }
+  },
+
+  async rejectProposal(caseId) {
+    if (!confirm('この提案を却下しますか？（提案分の割り当ては削除され、未割り当てに戻ります）')) return;
+    try {
+      const res = await fetch(`/api/projects/${caseId}/reject-proposal`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || '提案の却下に失敗しました');
+        return;
+      }
+      await this.loadProposals();
+      await this.loadWeekAllocations();
+      await this.loadProjectProgress();
+      await this.loadProjects();
+      this.renderBoard();
+      this.renderProgress();
+      this.renderProposals();
+    } catch (error) {
+      console.error('提案却下エラー:', error);
+      alert('提案の却下に失敗しました');
+    }
   },
 
   // ===== セル詳細モーダル =====
@@ -887,12 +1023,14 @@ const scheduleBoard = {
       await this.loadWeekAllocations();
       await this.loadWeekPreparationItems();
       await this.loadProjectProgress();
+      await this.loadProposals();
       // 案件ごとの割り当て済み時間(allocated_hours_total)を最新化し、次回モーダルを開いた時の
       // 案件割り当てプルダウンの絞り込みに反映させる
       await this.loadProjects();
       this.renderBoard();
       this.renderLegend();
       this.renderProgress();
+      this.renderProposals();
       this.closeOverrideModal();
       console.log(`✓ 勤務時間・案件割り当てを保存 (employee #${employeeId}, ${dateISO})`);
     } catch (error) {

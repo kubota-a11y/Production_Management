@@ -390,6 +390,125 @@
   text-align: center;
 }
 
+/* ===== 提案確認パネル ===== */
+.sb-proposals-section {
+  background: white;
+  padding: 20px;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  margin-top: 20px;
+}
+
+.sb-section-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+.sb-section-toggle .sb-section-title {
+  margin-bottom: 0;
+}
+
+.sb-proposals-badge {
+  margin-left: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.sb-toggle-icon {
+  color: var(--gray-500);
+  transition: transform 0.15s ease;
+}
+
+.sb-toggle-icon.is-collapsed {
+  transform: rotate(-90deg);
+}
+
+.sb-proposals-list {
+  margin-top: 12px;
+}
+
+.sb-proposals-list.is-collapsed {
+  display: none;
+}
+
+.sb-proposal-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: 6px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: background 0.1s ease, border-color 0.1s ease;
+}
+
+.sb-proposal-row:last-child {
+  margin-bottom: 0;
+}
+
+.sb-proposal-row:hover,
+.sb-proposal-row.is-highlighted {
+  background: #eff6ff;
+  border-color: var(--primary-color);
+}
+
+.sb-proposal-main {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sb-proposal-name {
+  font-weight: 600;
+}
+
+.sb-proposal-customer {
+  font-size: 12px;
+  color: var(--gray-600);
+}
+
+.sb-proposal-meta {
+  font-size: 12px;
+  color: var(--gray-600);
+  margin-top: 4px;
+  line-height: 1.6;
+}
+
+.sb-proposal-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.sb-proposal-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ボード上の「提案」ブロック(未確定)は破線枠で区別する */
+.sb-bar-segment-proposed {
+  border: 1px dashed rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+}
+
+.sb-bar-segment-proposed.is-highlighted {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -1px;
+}
+
 @media (max-width: 768px) {
   .sb-progress-item {
     grid-template-columns: 1fr;
@@ -414,5 +533,14 @@
 
   .sb-add-prep-item-row select {
     flex: 1 1 100%;
+  }
+
+  .sb-proposal-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sb-proposal-actions {
+    justify-content: flex-end;
   }
 }
