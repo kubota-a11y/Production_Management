@@ -1319,13 +1319,93 @@ html, body {
     display: flex;
   }
 
-  .projects-table {
-    font-size: 12px;
+  /* 案件一覧: 多列テーブルは横スクロール必須で見づらいため、カード形式に組み替える。
+     主要項目(案件名・納期・担当者・ステータス・操作)のみ表示し、残りは非表示にする */
+  .table-container {
+    max-height: none;
+    overflow: visible;
+    background: none;
+    box-shadow: none;
+    border-radius: 0;
   }
 
-  .projects-table th,
+  .projects-table {
+    font-size: 13px;
+  }
+
+  .projects-table thead {
+    display: none;
+  }
+
+  .projects-table,
+  .projects-table tbody,
+  .projects-table tr,
   .projects-table td {
-    padding: 8px;
+    display: block;
+    width: 100%;
+  }
+
+  .projects-table tbody tr {
+    margin-bottom: 12px;
+    padding: 12px;
+    background: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+  }
+
+  .projects-table td {
+    padding: 3px 0;
+    border-bottom: none;
+  }
+
+  /* 受付日・顧客名・加工種別・数量・作業担当者・優先度は非表示(主要項目のみ表示) */
+  .projects-table td:nth-child(2),
+  .projects-table td:nth-child(4),
+  .projects-table td:nth-child(5),
+  .projects-table td:nth-child(6),
+  .projects-table td:nth-child(8),
+  .projects-table td:nth-child(10) {
+    display: none;
+  }
+
+  .projects-table td.cell-project-name {
+    font-size: 16px;
+    padding-bottom: 6px;
+  }
+
+  .projects-table td.deadline-cell::before {
+    content: "納期: ";
+    color: var(--gray-500);
+    font-weight: 400;
+  }
+
+  .projects-table td:nth-child(7)::before {
+    content: "担当: ";
+    color: var(--gray-500);
+  }
+
+  .projects-table td:last-child {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--gray-200);
+  }
+
+  .projects-table td:last-child .btn-small {
+    flex: 1;
+  }
+
+  .projects-table tbody tr.group-header-row {
+    background: var(--gray-100);
+    box-shadow: none;
+    padding: 8px 10px;
+  }
+
+  .projects-table tbody tr.group-header-row td {
+    display: block;
+    font-weight: 700;
+    padding: 0;
   }
 
   .modal-content {

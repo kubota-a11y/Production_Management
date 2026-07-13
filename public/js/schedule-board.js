@@ -18,6 +18,10 @@ const scheduleBoard = {
   // ドラッグ中の対象。提案カード({type:'proposal', caseId})か、
   // ボード上の確定済みブロック({type:'allocation', allocationId, caseId})のいずれか
   dragPayload: null,
+  // スマホ幅でのタブ状態('schedule' | 'proposals')。デスクトップでは未使用
+  mobileTab: 'schedule',
+  // スマホ用ボードで表示中の従業員
+  mobileEmployeeId: null,
   currentWeekStart: null,
   detailModalContext: null,
   overrideModalContext: null,
@@ -228,6 +232,7 @@ const scheduleBoard = {
       await this.loadProjectProgress();
       await this.loadProjects();
       this.renderBoard();
+      this.renderMobileBoard();
       this.renderProgress();
       this.renderProposals();
 
@@ -245,8 +250,9 @@ const scheduleBoard = {
     }
   },
 
-  async autoProposeDay(dateISO) {
-    const btn = document.getElementById(`sb-auto-propose-day-btn-${dateISO}`);
+  // デスクトップの表とスマホの日別カードの両方に同じ日付のボタンが存在しうるため、
+  // idではなくクリックされたボタン要素自体を受け取ってローディング状態を出し分ける
+  async autoProposeDay(dateISO, btn) {
     if (!btn) return;
     await this.runAutoProposeRange(dateISO, dateISO, btn, '…');
   },
@@ -320,6 +326,7 @@ const scheduleBoard = {
   render() {
     this.renderWeekLabel();
     this.renderBoard();
+    this.renderMobileBoard();
     this.renderLegend();
     this.renderProgress();
     this.renderProposals();
@@ -341,8 +348,8 @@ const scheduleBoard = {
       return `
       <th>${getDayOfWeekLabel(this.jsDayToOurDay(d.getDay()))}
         <span class="sb-day-header-date">${d.getMonth() + 1}/${d.getDate()}</span>
-        <button type="button" class="sb-auto-propose-day-btn" id="sb-auto-propose-day-btn-${dateISO}"
-                onclick="scheduleBoard.autoProposeDay('${dateISO}')" title="この日を自動割り当て">🤖 自動割当</button>
+        <button type="button" class="sb-auto-propose-day-btn"
+                onclick="scheduleBoard.autoProposeDay('${dateISO}', this)" title="この日を自動割り当て">🤖 自動割当</button>
       </th>
     `;
     }).join('');
@@ -376,9 +383,15 @@ const scheduleBoard = {
     const dropHandlers = `ondragover="scheduleBoard.onCellDragOver(event)" ` +
       `ondragleave="scheduleBoard.onCellDragLeave(event)" ` +
       `ondrop="scheduleBoard.onCellDrop(event, ${employee.id}, '${dateISO}')"`;
+    const content = this.renderCellContent(employee, dateISO, referenceHours);
+    return `<td class="sb-cell" onclick="${cellOnclick}" ${dropHandlers}>${content}</td>`;
+  },
 
+  // デスクトップの<td>とスマホの縦積み日別カードの両方から使う、セル内側(空き時間バー等)の
+  // HTML組み立て。ドラッグ&ドロップのハンドラは各呼び出し元(セル/カード)側で付与する
+  renderCellContent(employee, dateISO, referenceHours) {
     if (referenceHours <= 0) {
-      return `<td class="sb-cell" onclick="${cellOnclick}" ${dropHandlers}><div class="sb-cell-off">休み</div></td>`;
+      return `<div class="sb-cell-off">休み</div>`;
     }
 
     const dayAllocations = this.getAllocationsFor(employee.id, dateISO);
@@ -434,16 +447,68 @@ const scheduleBoard = {
     }).join('');
 
     return `
-      <td class="sb-cell" onclick="${cellOnclick}" ${dropHandlers}>
-        ${isShort ? `<div class="sb-cell-warning" title="計画時間(${this.roundHours(plannedTotal)}h)が勤務時間(${this.roundHours(referenceHours)}h)に不足しています">⚠️ 計画不足</div>` : ''}
-        <div class="sb-cell-hours-label">${this.roundHours(plannedTotal)}h / ${this.roundHours(referenceHours)}h</div>
-        <div class="sb-bar-track" onclick="event.stopPropagation(); scheduleBoard.openDetailModal(${employee.id}, '${dateISO}')">
-          ${segments}
-          ${prepSegments}
-          <div class="sb-bar-reference-marker" style="left:${referencePct}%;"></div>
-        </div>
-      </td>
+      ${isShort ? `<div class="sb-cell-warning" title="計画時間(${this.roundHours(plannedTotal)}h)が勤務時間(${this.roundHours(referenceHours)}h)に不足しています">⚠️ 計画不足</div>` : ''}
+      <div class="sb-cell-hours-label">${this.roundHours(plannedTotal)}h / ${this.roundHours(referenceHours)}h</div>
+      <div class="sb-bar-track" onclick="event.stopPropagation(); scheduleBoard.openDetailModal(${employee.id}, '${dateISO}')">
+        ${segments}
+        ${prepSegments}
+        <div class="sb-bar-reference-marker" style="left:${referencePct}%;"></div>
+      </div>
     `;
+  },
+
+  // ===== スマホ用ボード(従業員を1人選び、その週を日ごとに縦積み表示) =====
+  renderMobileBoard() {
+    const select = document.getElementById('sb-mobile-employee-select');
+    const container = document.getElementById('sb-mobile-days');
+
+    if (this.employees.length === 0) {
+      select.innerHTML = '';
+      container.innerHTML = `<p class="sb-empty-notice">有効な従業員が登録されていません</p>`;
+      return;
+    }
+
+    if (!this.mobileEmployeeId || !this.employees.some(e => e.id === this.mobileEmployeeId)) {
+      this.mobileEmployeeId = this.employees[0].id;
+    }
+    select.innerHTML = this.employees.map(e =>
+      `<option value="${e.id}" ${e.id === this.mobileEmployeeId ? 'selected' : ''}>${this.escapeHtml(e.name)}</option>`
+    ).join('');
+
+    const employee = this.employees.find(e => e.id === this.mobileEmployeeId);
+    const dates = this.getWeekDates();
+    container.innerHTML = dates.map(date => this.renderMobileDayCell(employee, date)).join('');
+  },
+
+  onMobileEmployeeChange() {
+    this.mobileEmployeeId = Number(document.getElementById('sb-mobile-employee-select').value);
+    this.renderMobileBoard();
+  },
+
+  renderMobileDayCell(employee, date) {
+    const dateISO = this.toISODate(date);
+    const refInfo = this.getReferenceInfo(employee.id, dateISO);
+    const dayLabel = getDayOfWeekLabel(this.jsDayToOurDay(date.getDay()));
+    const content = this.renderCellContent(employee, dateISO, refInfo.hours);
+    return `
+      <div class="sb-mobile-day-cell" onclick="scheduleBoard.openOverrideModal(${employee.id}, '${dateISO}')">
+        <div class="sb-mobile-day-header">
+          ${dayLabel} <span class="sb-day-header-date">${date.getMonth() + 1}/${date.getDate()}</span>
+          <button type="button" class="sb-auto-propose-day-btn"
+                  onclick="event.stopPropagation(); scheduleBoard.autoProposeDay('${dateISO}', this)" title="この日を自動割り当て">🤖 自動割当</button>
+        </div>
+        ${content}
+      </div>
+    `;
+  },
+
+  // ===== スマホ用タブ切り替え(スケジュール ⇔ 提案確認) =====
+  switchMobileTab(tab) {
+    this.mobileTab = tab;
+    document.getElementById('sb-mobile-tab-schedule').classList.toggle('active', tab === 'schedule');
+    document.getElementById('sb-mobile-tab-proposals').classList.toggle('active', tab === 'proposals');
+    document.querySelector('.sb-main-column').classList.toggle('is-mobile-hidden', tab !== 'schedule');
+    document.querySelector('.sb-proposals-sidebar').classList.toggle('is-mobile-hidden', tab !== 'proposals');
   },
 
   renderLegend() {
@@ -519,6 +584,8 @@ const scheduleBoard = {
   renderProposals() {
     const badge = document.getElementById('sb-proposals-badge');
     badge.textContent = `（${this.proposals.length}件）`;
+    const mobileBadge = document.getElementById('sb-mobile-proposals-badge');
+    if (mobileBadge) mobileBadge.textContent = this.proposals.length > 0 ? `（${this.proposals.length}）` : '';
 
     // 担当者フィルタのプルダウンは、現在の提案一覧に登場する担当者だけを選択肢にする
     const employeeSelect = document.getElementById('sb-proposals-filter-employee');
@@ -539,10 +606,18 @@ const scheduleBoard = {
       return;
     }
 
+    // スマホではドラッグ操作の代わりに、担当者・日付を選んで確定するボタン操作を使う
+    // (却下はドラッグ不要のためデスクトップと共通のボタンのまま)。デフォルト日付は
+    // 表示中の週の月曜日にしておき、必要なら日付入力で変更してもらう
+    const defaultMobileDateISO = this.toISODate(this.getWeekDates()[0]);
+
     cards.innerHTML = visible.map(p => {
       const scoreLabel = p.score != null ? `${(p.score * 100).toFixed(0)}%` : '-';
       const availableLabel = p.available_hours != null ? `${p.available_hours}h` : '-';
       const highlightCls = this.highlightedCaseId === p.case_id ? ' is-highlighted' : '';
+      const employeeOptions = this.employees.map(e =>
+        `<option value="${e.id}" ${e.id === p.employee_id ? 'selected' : ''}>${this.escapeHtml(e.name)}</option>`
+      ).join('');
       return `
         <div class="sb-proposal-card${highlightCls}" data-case-id="${p.case_id}" draggable="true"
              ondragstart="scheduleBoard.onProposalDragStart(event, ${p.case_id})"
@@ -557,9 +632,25 @@ const scheduleBoard = {
             <span class="sb-proposal-card-hint">🖱️ ドラッグしてボードへ</span>
             <button type="button" class="btn btn-danger btn-small" onclick="scheduleBoard.rejectProposal(${p.case_id})">却下</button>
           </div>
+          <div class="sb-proposal-mobile-confirm">
+            <select class="sb-proposal-mobile-employee">${employeeOptions}</select>
+            <input type="date" class="sb-proposal-mobile-date" value="${defaultMobileDateISO}">
+            <button type="button" class="btn btn-primary btn-small" onclick="scheduleBoard.confirmProposalFromMobile(${p.case_id}, this)">この内容で確定</button>
+          </div>
         </div>
       `;
     }).join('');
+  },
+
+  confirmProposalFromMobile(caseId, buttonEl) {
+    const card = buttonEl.closest('.sb-proposal-card');
+    const employeeId = Number(card.querySelector('.sb-proposal-mobile-employee').value);
+    const dateISO = card.querySelector('.sb-proposal-mobile-date').value;
+    if (!employeeId || !dateISO) {
+      alert('担当者と日付を選択してください');
+      return;
+    }
+    this.confirmProposalAt(caseId, employeeId, dateISO);
   },
 
   // パネルカードのホバー、およびボード上の提案ブロックのクリックの両方から呼ばれる
@@ -604,6 +695,7 @@ const scheduleBoard = {
       await this.loadProjectProgress();
       await this.loadProjects();
       this.renderBoard();
+      this.renderMobileBoard();
       this.renderProgress();
       this.renderProposals();
     } catch (error) {
@@ -678,6 +770,7 @@ const scheduleBoard = {
       await this.loadProjectProgress();
       await this.loadProjects();
       this.renderBoard();
+      this.renderMobileBoard();
       this.renderProgress();
       this.renderProposals();
     } catch (error) {
@@ -704,6 +797,7 @@ const scheduleBoard = {
       await this.loadWeekAllocations();
       await this.loadProjectProgress();
       this.renderBoard();
+      this.renderMobileBoard();
       this.renderProgress();
     } catch (error) {
       console.error('ブロック移動エラー:', error);
@@ -785,6 +879,7 @@ const scheduleBoard = {
       await this.loadProjects();
       this.renderDetailModalBody();
       this.renderBoard();
+      this.renderMobileBoard();
       console.log(`✓ 準備項目タスクの完了状態を更新 (item #${itemId})`);
     } catch (error) {
       console.error('準備項目タスク完了状態更新エラー:', error);
@@ -820,6 +915,7 @@ const scheduleBoard = {
 
       await this.loadProjectProgress();
       this.renderBoard();
+      this.renderMobileBoard();
       this.renderProgress();
       console.log(`✓ 実績時間を更新 (allocation #${allocationId})`);
     } catch (error) {
@@ -1220,6 +1316,7 @@ const scheduleBoard = {
       // 案件割り当てプルダウンの絞り込みに反映させる
       await this.loadProjects();
       this.renderBoard();
+      this.renderMobileBoard();
       this.renderLegend();
       this.renderProgress();
       this.renderProposals();
@@ -1242,6 +1339,7 @@ const scheduleBoard = {
       await fetch(`/api/schedule-overrides/${this.overrideModalContext.overrideId}`, { method: 'DELETE' });
       await this.loadScheduleOverrides();
       this.renderBoard();
+      this.renderMobileBoard();
       this.closeOverrideModal();
       console.log('✓ 勤務時間の記録を削除しました');
     } catch (error) {

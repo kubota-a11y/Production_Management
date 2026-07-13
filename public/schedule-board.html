@@ -22,6 +22,14 @@
 
     <!-- メインコンテンツ -->
     <main class="main-content">
+      <!-- スマホ幅では「スケジュール」「提案確認」を1画面ずつタブ切り替えで表示する -->
+      <div class="sb-mobile-tabs">
+        <button type="button" class="sb-mobile-tab-btn active" id="sb-mobile-tab-schedule"
+                onclick="scheduleBoard.switchMobileTab('schedule')">📅 スケジュール</button>
+        <button type="button" class="sb-mobile-tab-btn" id="sb-mobile-tab-proposals"
+                onclick="scheduleBoard.switchMobileTab('proposals')">📝 提案確認<span class="sb-proposals-badge" id="sb-mobile-proposals-badge"></span></button>
+      </div>
+
       <div class="sb-layout">
         <div class="sb-main-column">
           <section class="sb-week-nav">
@@ -36,7 +44,8 @@
 
           <div class="sb-legend" id="sb-legend"></div>
 
-          <div class="table-container">
+          <!-- デスクトップ: 従業員×日付の表 -->
+          <div class="table-container sb-desktop-board">
             <table class="projects-table sb-board-table" id="sb-board-table">
               <thead>
                 <tr id="sb-board-head"></tr>
@@ -45,13 +54,24 @@
             </table>
           </div>
 
+          <!-- スマホ: 従業員を1人選び、その週を日ごとに縦積み表示 -->
+          <div class="sb-mobile-board">
+            <div class="sb-mobile-employee-select">
+              <label>
+                従業員
+                <select id="sb-mobile-employee-select" onchange="scheduleBoard.onMobileEmployeeChange()"></select>
+              </label>
+            </div>
+            <div id="sb-mobile-days"></div>
+          </div>
+
           <section class="sb-progress-section">
             <h2 class="sb-section-title">📈 案件別 消化率（実績時間 ÷ 作業予定時間）</h2>
             <div id="sb-progress-list"></div>
           </section>
         </div>
 
-        <aside class="sb-proposals-sidebar">
+        <aside class="sb-proposals-sidebar is-mobile-hidden">
           <div class="sb-proposals-header">
             <h2 class="sb-section-title">📝 提案確認<span class="sb-proposals-badge" id="sb-proposals-badge"></span></h2>
           </div>

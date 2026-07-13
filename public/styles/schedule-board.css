@@ -2,6 +2,16 @@
    週間作業スケジュールボード（このページ専用スタイル）
    ======================================== */
 
+/* スマホ用のタブ切り替え・従業員別の縦積みボードは、デスクトップでは非表示にしておく
+   (実体を出し分けせず常に両方描画し、CSSの表示/非表示だけで出し分ける) */
+.sb-mobile-tabs {
+  display: none;
+}
+
+.sb-mobile-board {
+  display: none;
+}
+
 /* ===== 2カラムレイアウト(左: ボード, 右: 提案確認サイドバー) ===== */
 .sb-layout {
   display: flex;
@@ -569,6 +579,11 @@
   font-size: 10px;
 }
 
+/* スマホ用: ドラッグの代わりに担当者・日付を選んで確定するボタン操作(768px以下でのみ表示) */
+.sb-proposal-mobile-confirm {
+  display: none;
+}
+
 /* ボード上の「提案」ブロック(未確定)は破線枠で区別する */
 .sb-bar-segment-proposed {
   border: 1px dashed rgba(255, 255, 255, 0.9);
@@ -624,5 +639,141 @@
     flex: 1 1 auto;
     position: static;
     max-height: 400px;
+  }
+}
+
+/* ========================================
+   スマホ幅(768px以下): タブ切り替え + 従業員別の縦積みボード
+   ======================================== */
+@media (max-width: 768px) {
+  .sb-mobile-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .sb-mobile-tab-btn {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 20px;
+    background: var(--gray-200);
+    color: var(--gray-700);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+  }
+
+  .sb-mobile-tab-btn.active {
+    background: var(--primary-color);
+    color: white;
+  }
+
+  .sb-mobile-tab-btn .sb-proposals-badge {
+    color: inherit;
+    opacity: 0.9;
+  }
+
+  /* タブで選ばれていない側は非表示にする(実体は常にレンダリングされたまま) */
+  .sb-main-column.is-mobile-hidden,
+  .sb-proposals-sidebar.is-mobile-hidden {
+    display: none;
+  }
+
+  .sb-proposals-sidebar {
+    max-height: none;
+  }
+
+  /* 週送りナビ: 4つのボタン+ラベルを1行に収めず、ラベルを上段、操作を下段に折り返す */
+  .sb-week-nav {
+    flex-wrap: wrap;
+  }
+
+  .sb-week-nav h2 {
+    order: -1;
+    flex: 1 1 100%;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+
+  .sb-week-nav-right {
+    flex: 1;
+    flex-wrap: wrap;
+  }
+
+  .sb-week-nav-right .btn {
+    flex: 1;
+  }
+
+  /* 従業員×日付の表は横スクロール必須で見づらいため、スマホでは非表示にし、
+     従業員を1人選んで日ごとに縦積み表示する専用ビューに切り替える */
+  .sb-desktop-board {
+    display: none;
+  }
+
+  .sb-mobile-board {
+    display: block;
+  }
+
+  .sb-mobile-employee-select {
+    margin-bottom: 12px;
+  }
+
+  .sb-mobile-employee-select select {
+    width: 100%;
+    padding: 10px;
+    font-size: 14px;
+    border: 1px solid var(--gray-300);
+    border-radius: 6px;
+    font-family: inherit;
+  }
+
+  .sb-mobile-day-cell {
+    background: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    padding: 12px;
+    margin-bottom: 10px;
+    cursor: pointer;
+  }
+
+  .sb-mobile-day-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .sb-mobile-day-header .sb-day-header-date {
+    display: inline;
+  }
+
+  .sb-mobile-day-header .sb-auto-propose-day-btn {
+    margin-left: auto;
+  }
+
+  /* 提案カード: ネイティブドラッグ操作が難しいスマホでは、担当者・日付を選んで
+     確定するボタン操作に置き換える(却下ボタンはそのまま) */
+  .sb-proposal-card-hint {
+    display: none;
+  }
+
+  .sb-proposal-mobile-confirm {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .sb-proposal-mobile-confirm select,
+  .sb-proposal-mobile-confirm input[type="date"] {
+    padding: 7px 8px;
+    font-size: 12px;
+    border: 1px solid var(--gray-300);
+    border-radius: 4px;
+    font-family: inherit;
   }
 }
