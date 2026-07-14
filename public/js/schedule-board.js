@@ -1492,3 +1492,77 @@ document.addEventListener('DOMContentLoaded', () => {
 
   scheduleBoard.init();
 });
+
+// ========================================================================
+// 【一時デバッグ】iPadでタブレット向けレイアウトが適用されない不具合の切り分け用。
+// 原因(画面幅がそもそも769-1024pxの範囲外なのか、matchMediaの判定は合っているのに
+// CSSクラスの切り替えがうまくいっていないのか等)を特定したら、この一時デバッグ表示
+// (この行から本ファイル末尾まで)は削除してよい。
+// index.html/employees.htmlには読み込んでいないため、スケジュールボード画面
+// (schedule-board.html)でのみ表示される
+// ========================================================================
+(function () {
+  function renderDebugOverlay() {
+    let el = document.getElementById('sb-debug-overlay');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'sb-debug-overlay';
+      // 調査対象のCSS(main.css/schedule-board.css)に依存すると、それ自体の
+      // 不具合でこの表示まで隠れてしまいかねないため、あえて全てインラインstyleで
+      // 指定し、外部CSSの影響を受けないようにする
+      el.style.cssText = [
+        'position: fixed',
+        'top: 4px',
+        'right: 4px',
+        'z-index: 2147483647',
+        'background: rgba(0, 0, 0, 0.85)',
+        'color: #00ff66',
+        'font-family: -apple-system, monospace',
+        'font-size: 10px',
+        'line-height: 1.5',
+        'padding: 6px 9px',
+        'border-radius: 6px',
+        'max-width: 220px',
+        'white-space: pre-wrap',
+        'word-break: break-all',
+        'pointer-events: none',
+        'box-shadow: 0 2px 8px rgba(0,0,0,0.4)'
+      ].join(';');
+      document.body.appendChild(el);
+    }
+
+    const isTablet = window.matchMedia('(min-width: 768px) and (max-width: 1024px)').matches;
+    const isMobile = window.matchMedia('(max-width: 767px)').matches;
+    const isPortrait = window.matchMedia('(orientation: portrait)').matches;
+    const desktopBoard = document.querySelector('.sb-desktop-board');
+    const mobileBoard = document.querySelector('.sb-mobile-board');
+    const sidebar = document.querySelector('.sb-proposals-sidebar');
+    const layout = document.querySelector('.sb-layout');
+
+    const lines = [
+      `[DEBUG] ${new Date().toLocaleTimeString('ja-JP')}`,
+      `innerWidth: ${window.innerWidth}`,
+      `innerHeight: ${window.innerHeight}`,
+      `devicePixelRatio: ${window.devicePixelRatio}`,
+      `orientation: ${isPortrait ? 'portrait' : 'landscape'}`,
+      `matchMedia tablet(768-1024): ${isTablet}`,
+      `matchMedia mobile(<=767): ${isMobile}`,
+      `body.class: "${document.body.className || '(なし)'}"`,
+      `.sb-layout flex-direction: ${layout ? getComputedStyle(layout).flexDirection : '(要素なし)'}`,
+      `.sb-desktop-board display: ${desktopBoard ? getComputedStyle(desktopBoard).display : '(要素なし)'}`,
+      `.sb-mobile-board display: ${mobileBoard ? getComputedStyle(mobileBoard).display : '(要素なし)'}`,
+      `.sb-proposals-sidebar class: "${sidebar ? sidebar.className : '(要素なし)'}"`,
+      `.sb-proposals-sidebar width: ${sidebar ? getComputedStyle(sidebar).width : '(要素なし)'}`
+    ];
+    el.textContent = lines.join('\n');
+  }
+
+  document.addEventListener('DOMContentLoaded', renderDebugOverlay);
+  window.addEventListener('resize', renderDebugOverlay);
+  window.addEventListener('orientationchange', () => setTimeout(renderDebugOverlay, 200));
+  // DOMContentLoadedが既に発火済みの場合(このスクリプトはbody末尾で読み込まれるため
+  // ほぼ発火前だが念のため)にも表示されるようにする
+  if (document.readyState !== 'loading') {
+    renderDebugOverlay();
+  }
+})();
