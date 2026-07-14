@@ -498,7 +498,7 @@
   font-size: 15px;
 }
 
-/* タブレット幅(768〜1024px)でのみ表示される、提案確認パネルの開閉ボタン */
+/* タブレット幅(768〜1180px)でのみ表示される、提案確認パネルの開閉ボタン */
 .sb-tablet-collapse-btn {
   display: none;
   flex-shrink: 0;
@@ -677,13 +677,17 @@
 }
 
 /* ========================================
-   タブレット幅(768px〜1024px、主にiPad縦持ち): PCと同じ2カラムの
+   タブレット幅(768px〜1180px、主にiPadの縦持ち・横持ち): PCと同じ2カラムの
    「従業員×日付」グリッドを維持しつつコンパクトにし、提案確認パネルは
    開閉ボタンで折りたためるようにして画面を圧迫しないようにする。
    下限を768pxにしているのは、無印iPad(9.7インチ)の縦持ちCSS幅が
-   ちょうど768pxのため、769px〜にすると実機で対象から漏れてしまうため
+   ちょうど768pxのため、769px〜にすると実機で対象から漏れてしまうため。
+   上限を1180pxにしているのは、iPadの横持ちCSS幅が機種により
+   1024px(iPad Pro 12.9インチ縦)を超え、1080〜1194px程度になるため。
+   デフォルトで提案確認パネルを折りたたみ状態にしておく(初期化時にJSで
+   is-tablet-collapsedを付与)ことで、ボード側によりスペースを確保する
    ======================================== */
-@media (min-width: 768px) and (max-width: 1024px) {
+@media (min-width: 768px) and (max-width: 1180px) {
   .sb-layout {
     flex-direction: row;
     align-items: flex-start;
@@ -694,8 +698,8 @@
        効かないことがあったため、タブレット幅ではstaticにして通常のフローに乗せる
        (画面を圧迫しないよう開閉できることを優先し、常時追従は諦める) */
     position: static;
-    flex: 0 0 260px;
-    width: 260px;
+    flex: 0 0 240px;
+    width: 240px;
     max-height: calc(100vh - 32px);
     transition: flex-basis 0.15s ease, width 0.15s ease, padding 0.15s ease;
   }
@@ -717,19 +721,23 @@
     display: inline-flex;
   }
 
-  /* 従業員×日付グリッドをタブレット幅に収まるようコンパクトにする */
+  /* 従業員×日付グリッドをタブレット幅に収まるようコンパクトにする。
+     .table-container(base)側でoverflow:autoが設定済みのため、これ以上
+     縮められない場合はボード部分だけが横スクロールする(ページ全体は縮まない) */
   .sb-cell {
-    min-width: 92px;
+    min-width: 78px;
+    padding: 4px 2px;
   }
 
   .sb-board-table th,
   .sb-board-table td {
-    padding: 4px;
+    padding: 3px;
   }
 
   .sb-employee-cell {
-    font-size: 12px;
+    font-size: 11px;
     white-space: normal;
+    max-width: 60px;
   }
 
   .sb-day-header-date {
@@ -738,20 +746,30 @@
 
   .sb-auto-propose-day-btn {
     font-size: 9px;
-    padding: 1px 5px;
+    padding: 1px 4px;
   }
 
   .sb-bar-segment {
-    min-width: 72px;
-    font-size: 9px;
-    height: 20px;
-    line-height: 20px;
-    padding: 0 3px;
+    min-width: 60px;
+    font-size: 8px;
+    height: 18px;
+    line-height: 18px;
+    padding: 0 2px;
+  }
+
+  .sb-bar-segment-overhead {
+    min-width: 20px;
+    max-width: 32px;
   }
 
   .sb-cell-hours-label,
   .sb-cell-warning {
-    font-size: 10px;
+    font-size: 9px;
+  }
+
+  .sb-legend,
+  .sb-progress-section {
+    font-size: 12px;
   }
 
   /* 週送りナビ: 幅が足りない場合は折り返して縦積みにする */

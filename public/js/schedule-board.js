@@ -27,6 +27,9 @@ const scheduleBoard = {
   currentWeekStart: null,
   detailModalContext: null,
   overrideModalContext: null,
+  // タブレット幅の判定条件。CSS側(main.css/schedule-board.css)の
+  // @media (min-width: 768px) and (max-width: 1180px) と必ず同じ値にすること
+  TABLET_MEDIA_QUERY: '(min-width: 768px) and (max-width: 1180px)',
 
   colorPalette: [
     '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899',
@@ -46,6 +49,13 @@ const scheduleBoard = {
     await this.loadProjectProgress();
     await this.loadProposals();
     this.render();
+    // タブレット幅では、提案確認パネルがボードの表示スペースを圧迫しないよう
+    // 初期状態で折りたたんでおく(必要な時だけ開閉ボタンで開く)
+    if (this.isTabletWidth()) {
+      document.querySelector('.sb-proposals-sidebar')?.classList.add('is-tablet-collapsed');
+      const btn = document.getElementById('sb-tablet-collapse-btn');
+      if (btn) btn.textContent = '▶';
+    }
     window.addEventListener('resize', () => this.resetTabletProposalsOnResize());
     console.log('✓ 初期化完了');
   },
@@ -519,7 +529,7 @@ const scheduleBoard = {
     document.querySelector('.sb-proposals-sidebar').classList.toggle('is-mobile-hidden', tab !== 'proposals');
   },
 
-  // ===== タブレット用: 提案確認パネルの開閉(769〜1024px) =====
+  // ===== タブレット用: 提案確認パネルの開閉(768〜1180px) =====
   toggleTabletProposals() {
     const sidebar = document.querySelector('.sb-proposals-sidebar');
     const collapsed = sidebar.classList.toggle('is-tablet-collapsed');
@@ -536,12 +546,16 @@ const scheduleBoard = {
     if (btn) btn.textContent = collapsed ? '▶' : '◀';
   },
 
+  isTabletWidth() {
+    return window.matchMedia(this.TABLET_MEDIA_QUERY).matches;
+  },
+
   // タブレット幅から抜けた場合(ウィンドウのリサイズ・iPadの回転等)、
   // 折りたたみ状態のインラインスタイルが残ってPC/スマホ表示に影響しないようにする
   resetTabletProposalsOnResize() {
     const sidebar = document.querySelector('.sb-proposals-sidebar');
     if (!sidebar) return;
-    const isTablet = window.matchMedia('(min-width: 768px) and (max-width: 1024px)').matches;
+    const isTablet = this.isTabletWidth();
     if (!isTablet && sidebar.classList.contains('is-tablet-collapsed')) {
       sidebar.classList.remove('is-tablet-collapsed');
       sidebar.style.flexBasis = '';
@@ -1495,7 +1509,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ========================================================================
 // 【一時デバッグ】iPadでタブレット向けレイアウトが適用されない不具合の切り分け用。
-// 原因(画面幅がそもそも769-1024pxの範囲外なのか、matchMediaの判定は合っているのに
+// 原因(画面幅がそもそも768-1180pxの範囲外なのか、matchMediaの判定は合っているのに
 // CSSクラスの切り替えがうまくいっていないのか等)を特定したら、この一時デバッグ表示
 // (この行から本ファイル末尾まで)は削除してよい。
 // index.html/employees.htmlには読み込んでいないため、スケジュールボード画面
@@ -1531,13 +1545,16 @@ document.addEventListener('DOMContentLoaded', () => {
       document.body.appendChild(el);
     }
 
-    const isTablet = window.matchMedia('(min-width: 768px) and (max-width: 1024px)').matches;
+    const isTablet = window.matchMedia('(min-width: 768px) and (max-width: 1180px)').matches;
     const isMobile = window.matchMedia('(max-width: 767px)').matches;
     const isPortrait = window.matchMedia('(orientation: portrait)').matches;
     const desktopBoard = document.querySelector('.sb-desktop-board');
     const mobileBoard = document.querySelector('.sb-mobile-board');
     const sidebar = document.querySelector('.sb-proposals-sidebar');
     const layout = document.querySelector('.sb-layout');
+    const collapseBtn = document.querySelector('.sb-tablet-collapse-btn');
+    const cell = document.querySelector('.sb-cell');
+    const barSegment = document.querySelector('.sb-bar-segment');
 
     const lines = [
       `[DEBUG] ${new Date().toLocaleTimeString('ja-JP')}`,
@@ -1545,14 +1562,17 @@ document.addEventListener('DOMContentLoaded', () => {
       `innerHeight: ${window.innerHeight}`,
       `devicePixelRatio: ${window.devicePixelRatio}`,
       `orientation: ${isPortrait ? 'portrait' : 'landscape'}`,
-      `matchMedia tablet(768-1024): ${isTablet}`,
+      `matchMedia tablet(768-1180): ${isTablet}`,
       `matchMedia mobile(<=767): ${isMobile}`,
       `body.class: "${document.body.className || '(なし)'}"`,
       `.sb-layout flex-direction: ${layout ? getComputedStyle(layout).flexDirection : '(要素なし)'}`,
       `.sb-desktop-board display: ${desktopBoard ? getComputedStyle(desktopBoard).display : '(要素なし)'}`,
       `.sb-mobile-board display: ${mobileBoard ? getComputedStyle(mobileBoard).display : '(要素なし)'}`,
       `.sb-proposals-sidebar class: "${sidebar ? sidebar.className : '(要素なし)'}"`,
-      `.sb-proposals-sidebar width: ${sidebar ? getComputedStyle(sidebar).width : '(要素なし)'}`
+      `.sb-proposals-sidebar width: ${sidebar ? getComputedStyle(sidebar).width : '(要素なし)'}`,
+      `.sb-tablet-collapse-btn display: ${collapseBtn ? getComputedStyle(collapseBtn).display : '(要素なし)'}`,
+      `.sb-cell width(実測1つ目): ${cell ? Math.round(cell.getBoundingClientRect().width) + 'px' : '(要素なし)'}`,
+      `.sb-bar-segment font-size(実測1つ目): ${barSegment ? getComputedStyle(barSegment).fontSize : '(要素なし・その日は割当なし)'}`
     ];
     el.textContent = lines.join('\n');
   }
@@ -1565,4 +1585,18 @@ document.addEventListener('DOMContentLoaded', () => {
   if (document.readyState !== 'loading') {
     renderDebugOverlay();
   }
+
+  // scheduleBoard.init()は従業員・案件・週の割り当てなどをfetchで非同期に
+  // 読み込んでから描画するため、DOMContentLoaded直後の1回目の表示だけだと
+  // .sb-cell/.sb-bar-segmentがまだ存在しない「読み込み中の一瞬」を
+  // 捉えてしまうことがある。init完了後にも必ず再表示し、念のため
+  // 少し時間を置いてからもう一度表示して読み込み後の実態を反映する
+  const originalInit = scheduleBoard.init.bind(scheduleBoard);
+  scheduleBoard.init = async function (...args) {
+    const result = await originalInit(...args);
+    renderDebugOverlay();
+    setTimeout(renderDebugOverlay, 800);
+    setTimeout(renderDebugOverlay, 2000);
+    return result;
+  };
 })();
