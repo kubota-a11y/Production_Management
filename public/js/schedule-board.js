@@ -57,6 +57,10 @@ const scheduleBoard = {
       if (btn) btn.textContent = '▶';
     }
     window.addEventListener('resize', () => this.resetTabletProposalsOnResize());
+    // 準備項目の完了状態は、日別詳細モーダルと準備項目リストの両方から更新されうる。
+    // どちらも togglePrepItemComplete() で同じAPIを叩き、更新後にこのイベントを発火するだけにし、
+    // 実際のデータ再取得・再描画はここに一本化することで両UIを同期させる
+    document.addEventListener('prepItemChanged', () => this.onPrepItemChanged());
     console.log('✓ 初期化完了');
   },
 
@@ -341,6 +345,7 @@ const scheduleBoard = {
     this.renderBoard();
     this.renderMobileBoard();
     this.renderLegend();
+    this.renderPrepList();
     this.renderProgress();
     this.renderProposals();
   },
@@ -585,6 +590,45 @@ const scheduleBoard = {
       <div class="sb-legend-item">
         <span class="sb-legend-swatch" style="background:${this.getProjectColor(caseId)};"></span>
         ${this.escapeHtml(name)}
+      </div>
+    `).join('');
+  },
+
+  // ===== 準備項目リスト(表示中の週・案件ごとにグループ化) =====
+  renderPrepList() {
+    const container = document.getElementById('sb-prep-list');
+
+    if (this.preparationItems.length === 0) {
+      container.innerHTML = '<p class="sb-empty-notice">この週に予定されている準備項目はありません</p>';
+      return;
+    }
+
+    const groups = new Map();
+    this.preparationItems.forEach(item => {
+      if (!groups.has(item.case_id)) {
+        groups.set(item.case_id, { projectName: item.project_name, items: [] });
+      }
+      groups.get(item.case_id).items.push(item);
+    });
+
+    const sortedGroups = [...groups.values()].sort((a, b) => a.projectName.localeCompare(b.projectName, 'ja'));
+
+    container.innerHTML = sortedGroups.map(group => `
+      <div class="sb-prep-list-group">
+        <div class="sb-prep-list-group-title">${this.escapeHtml(group.projectName)}</div>
+        ${group.items.map(i => {
+          const meta = [
+            i.scheduled_date ? formatDate(i.scheduled_date) : null,
+            i.assigned_staff_name || null,
+          ].filter(Boolean).join(' / ');
+          return `
+            <label class="sb-prep-complete-check sb-prep-list-item">
+              <input type="checkbox" ${i.status === '完了' ? 'checked' : ''} onchange="scheduleBoard.togglePrepItemComplete(${i.id}, this.checked)">
+              <span class="sb-prep-item-label">${this.escapeHtml(i.preparation_item_name)}</span>
+              ${meta ? `<span class="sb-detail-meta">${this.escapeHtml(meta)}</span>` : ''}
+            </label>
+          `;
+        }).join('')}
       </div>
     `).join('');
   },
@@ -1005,19 +1049,27 @@ const scheduleBoard = {
     body.innerHTML = allocationsHtml + prepItemsHtml;
   },
 
+  // 日別詳細モーダル・準備項目リストのどちらのチェックボックスからも呼ばれる共通処理。
+  // 同じAPIを叩いた後にprepItemChangedイベントを発火するだけにし、再描画はイベント
+  // ハンドラ(onPrepItemChanged)に一本化することで両UIの表示を同期させる
   async togglePrepItemComplete(itemId, isComplete) {
     try {
       await fetch(`/api/preparation-items/${itemId}/${isComplete ? 'complete' : 'incomplete'}`, { method: 'PUT' });
-      await this.loadWeekPreparationItems();
-      await this.loadProjects();
-      this.renderDetailModalBody();
-      this.renderBoard();
-      this.renderMobileBoard();
       console.log(`✓ 準備項目タスクの完了状態を更新 (item #${itemId})`);
+      document.dispatchEvent(new CustomEvent('prepItemChanged', { detail: { itemId, isComplete } }));
     } catch (error) {
       console.error('準備項目タスク完了状態更新エラー:', error);
       alert('完了状態の更新に失敗しました');
     }
+  },
+
+  async onPrepItemChanged() {
+    await this.loadWeekPreparationItems();
+    await this.loadProjects();
+    this.renderDetailModalBody();
+    this.renderBoard();
+    this.renderMobileBoard();
+    this.renderPrepList();
   },
 
   async saveActualHours(allocationId) {
