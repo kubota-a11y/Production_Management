@@ -1109,11 +1109,15 @@ app.post('/api/projects/:id/confirm-proposal-at', (req, res) => {
       ORDER BY work_date ASC, id ASC
     `).all(project.id);
     const existingProposalHours = existingProposalRows.reduce((sum, r) => sum + r.planned_hours, 0);
-    // 前準備・後片付け(自動割当ボタン専用のsetup_minutes/cleanup_minutes)は同一案件の
-    // 提案内で共通の値のため、既存の提案行から引き継ぐ。再割り振り時にここを渡し忘れると
-    // ドラッグ&ドロップで移動した瞬間に前準備・後片付けブロックが消えてしまう
-    const setupMinutes = existingProposalRows.length ? (existingProposalRows[0].setup_minutes || 0) : 0;
-    const cleanupMinutes = existingProposalRows.length ? (existingProposalRows[0].cleanup_minutes || 0) : 0;
+    // 前準備・後片付け(setup_minutes/cleanup_minutes)の扱い:
+    //  - 自動割当ボタン(日次/週次)由来の提案は既にsetup_minutes/cleanup_minutes>0で
+    //    積まれているため、その値をそのまま引き継ぐ(渡し忘れると移動した瞬間に消えるため)
+    //  - 個別の「提案」ボタン/bulk-auto-propose由来(setup_minutes/cleanup_minutes=0)の
+    //    提案をドラッグ&ドロップで確定する場合は、二重付与にはならないので確定のタイミングで
+    //    前準備・後片付けを新たに付与する
+    const hasExistingOverhead = existingProposalRows.some(r => (r.setup_minutes || 0) > 0 || (r.cleanup_minutes || 0) > 0);
+    const setupMinutes = hasExistingOverhead ? (existingProposalRows[0].setup_minutes || 0) : AUTO_PROPOSE_SETUP_MINUTES;
+    const cleanupMinutes = hasExistingOverhead ? (existingProposalRows[0].cleanup_minutes || 0) : AUTO_PROPOSE_CLEANUP_MINUTES;
 
     const { requiredHours, canHandleAll } = calculateRequiredHours(db, project, employeeId);
     const finalRequiredHours = (canHandleAll && requiredHours > 0) ? requiredHours : existingProposalHours;
@@ -1144,9 +1148,9 @@ app.post('/api/projects/:id/confirm-proposal-at', (req, res) => {
       .run(employeeId, now, project.id);
 
     writeDebugLog(
-      `[confirm-proposal-at] project=${project.id} employee=${employeeId}(${employee.name}) ` +
+      `[confirm-proposal-at/手動確定] project=${project.id} employee=${employeeId}(${employee.name}) ` +
       `ドラッグ&ドロップでwork_date=${workDate}を初日として確定 required=${Math.round(finalRequiredHours * 10) / 10} ` +
-      `前準備=${setupMinutes}分 後片付け=${cleanupMinutes}分 ` +
+      `前準備=${setupMinutes}分 後片付け=${cleanupMinutes}分(${hasExistingOverhead ? '自動割当由来を引き継ぎ' : '手動確定時に新規付与'}) ` +
       `移動前レコード=${JSON.stringify(existingProposalRows.map(r => ({ id: r.id, employee_id: r.employee_id, work_date: r.work_date })))} ` +
       `移動後レコード=${JSON.stringify(allocatedDates)} remainingHours=${Math.round(remainingHours * 10) / 10}`
     );
@@ -1400,15 +1404,29 @@ app.get('/api/projects/:projectId/time-allocations', (req, res) => {
   }
 });
 
+// apply_default_overhead: スケジュールボードの空きマスから手動登録する場合のみtrueで
+// 送られてくるフラグ。案件詳細ページの「作業計画」からの登録(app.js)はこのフラグを
+// 送らないため従来通りsetup_minutes/cleanup_minutes=0のままになる
 app.post('/api/projects/:projectId/time-allocations', (req, res) => {
   try {
-    const { employee_id, work_date, planned_hours, actual_hours, carried_over_from, status } = req.body;
+    const { employee_id, work_date, planned_hours, actual_hours, carried_over_from, status, apply_default_overhead } = req.body;
+    const setupMinutes = apply_default_overhead ? AUTO_PROPOSE_SETUP_MINUTES : 0;
+    const cleanupMinutes = apply_default_overhead ? AUTO_PROPOSE_CLEANUP_MINUTES : 0;
     const result = db.prepare(`
       INSERT INTO case_time_allocations
-        (case_id, employee_id, work_date, planned_hours, actual_hours, carried_over_from, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+        (case_id, employee_id, work_date, planned_hours, actual_hours, carried_over_from, status, setup_minutes, cleanup_minutes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(req.params.projectId, employee_id, work_date, planned_hours,
-      actual_hours || null, carried_over_from || null, status || '予定');
+      actual_hours || null, carried_over_from || null, status || '予定', setupMinutes, cleanupMinutes);
+
+    if (apply_default_overhead) {
+      writeDebugLog(
+        `[time-allocations CREATE/新規登録] id=${result.lastInsertRowid} case_id=${req.params.projectId} ` +
+        `employee_id=${employee_id} work_date=${work_date} ` +
+        `前準備=${setupMinutes}分 後片付け=${cleanupMinutes}分 をスケジュールボードの手動新規登録時に付与`
+      );
+    }
+
     res.status(201).json({ id: result.lastInsertRowid, message: 'Time allocation created successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });

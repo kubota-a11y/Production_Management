@@ -1399,10 +1399,12 @@ const scheduleBoard = {
             body: JSON.stringify(body)
           });
         } else {
+          // スケジュールボードの空きマスからの新規登録は、自動割当ボタンと同じ考え方で
+          // 前準備10分・後片付け10分を自動付与する(サーバー側がフラグを見て付与する)
           await fetch(`/api/projects/${row.caseId}/time-allocations`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
+            body: JSON.stringify({ ...body, apply_default_overhead: true })
           });
         }
       }
