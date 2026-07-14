@@ -467,6 +467,18 @@
   white-space: normal;
 }
 
+.sb-prep-card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--gray-200);
+}
+
+.sb-prep-card-actions .btn-small {
+  flex: 1;
+}
+
 .sb-progress-item {
   display: grid;
   grid-template-columns: 220px 1fr 140px;

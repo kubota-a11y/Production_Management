@@ -1329,6 +1329,29 @@ app.put('/api/projects/:id', (req, res) => {
   }
 });
 
+// 案件ステータスのみを変更する軽量エンドポイント。週間スケジュールボードの準備項目リストの
+// 「準備完了」「検品」ボタン専用で、case_preparation_itemsの完了状態には一切触れない
+// (未完了の準備項目が残っていても、ボタンを押した時点で強制的にステータスを変更する)。
+// 'COMPLETED'(納品済み)はPOST /api/projects/:id/deliverで納品記録とあわせて設定する
+// 専用の流れがあるため、ここでは受け付けない
+const PROJECT_STATUS_SET_ALLOWED_VALUES = ['PREP_COMPLETE', 'INSPECTION'];
+app.put('/api/projects/:id/status', (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!PROJECT_STATUS_SET_ALLOWED_VALUES.includes(status)) {
+      return res.status(400).json({ error: `status must be one of: ${PROJECT_STATUS_SET_ALLOWED_VALUES.join(', ')}` });
+    }
+    const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(req.params.id);
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+
+    const now = new Date().toISOString();
+    db.prepare(`UPDATE projects SET status=?, updated_at=? WHERE id=?`).run(status, now, req.params.id);
+    res.json({ message: 'Project status updated successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 案件を「納品済み」にする。納品日・発送方法・納品者をdelivery_recordsに記録した上で、
 // 物理削除ではなくprojects.statusを'COMPLETED'に変更するだけにする
 // (準備項目の「未着手に戻す」等と同じ、ステータス書き換えによるソフト削除の考え方)
@@ -1813,7 +1836,7 @@ app.get('/api/preparation-items', (req, res) => {
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     const items = db.prepare(`
-      SELECT cpi.*, pim.name as preparation_item_name, p.project_name, e.name as assigned_staff_name
+      SELECT cpi.*, pim.name as preparation_item_name, p.project_name, p.status as project_status, e.name as assigned_staff_name
       FROM case_preparation_items cpi
       JOIN preparation_item_master pim ON cpi.preparation_item_id = pim.id
       JOIN projects p ON cpi.case_id = p.id

@@ -594,19 +594,27 @@ const scheduleBoard = {
     `).join('');
   },
 
+  // 準備段階を終えた案件(PREP_COMPLETE/INSPECTION/DELIVERED/COMPLETED)は
+  // 準備項目リストに表示し続ける意味がないため、案件ステータスで非表示にする
+  PREP_LIST_HIDDEN_PROJECT_STATUSES: ['PREP_COMPLETE', 'INSPECTION', 'DELIVERED', 'COMPLETED'],
+
   // ===== 準備項目リスト(表示中の週・案件ごとにグループ化) =====
   renderPrepList() {
     const container = document.getElementById('sb-prep-list');
 
-    if (this.preparationItems.length === 0) {
+    const visibleItems = this.preparationItems.filter(
+      i => !this.PREP_LIST_HIDDEN_PROJECT_STATUSES.includes(i.project_status)
+    );
+
+    if (visibleItems.length === 0) {
       container.innerHTML = '<p class="sb-empty-notice">この週に予定されている準備項目はありません</p>';
       return;
     }
 
     const groups = new Map();
-    this.preparationItems.forEach(item => {
+    visibleItems.forEach(item => {
       if (!groups.has(item.case_id)) {
-        groups.set(item.case_id, { projectName: item.project_name, items: [] });
+        groups.set(item.case_id, { caseId: item.case_id, projectName: item.project_name, items: [] });
       }
       groups.get(item.case_id).items.push(item);
     });
@@ -624,8 +632,35 @@ const scheduleBoard = {
             </label>
           `).join('')}
         </div>
+        <div class="sb-prep-card-actions">
+          <button type="button" class="btn-small" onclick="scheduleBoard.setProjectStatus(${group.caseId}, 'PREP_COMPLETE')">準備完了</button>
+          <button type="button" class="btn-small" onclick="scheduleBoard.setProjectStatus(${group.caseId}, 'INSPECTION')">検品へ</button>
+        </div>
       </div>
     `).join('');
+  },
+
+  // 準備項目リストの「準備完了」「検品」ボタン。未完了の準備項目が残っていても、
+  // 押した時点で強制的に案件ステータスを変更する(case_preparation_itemsの
+  // チェック状態には触れない)。変更後はonPrepItemChanged()と同じ再取得・再描画で
+  // ボード/モーダル/リストを更新し、対象案件を準備項目リストから消す
+  async setProjectStatus(caseId, status) {
+    try {
+      const response = await fetch(`/api/projects/${caseId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        alert(data.error || 'ステータスの更新に失敗しました');
+        return;
+      }
+      await this.onPrepItemChanged();
+    } catch (error) {
+      console.error('案件ステータス更新エラー:', error);
+      alert('ステータスの更新に失敗しました');
+    }
   },
 
   renderProgress() {
