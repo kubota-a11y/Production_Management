@@ -1471,10 +1471,19 @@ app.put('/api/time-allocations/:id', (req, res) => {
 });
 
 // 削除した行だけを消す(他の日の割り当てが残っていればそちらはそのまま)。
-// ただし、削除した結果その案件のcase_time_allocationsが0件になった場合は、
-// 「完全に手が離れて再割り当てできなくなる」のを避けるため、
-// projects.assigned_employee_idを未割り当てに戻し、可能であれば自動再提案して
-// 提案確認パネルに再表示されるようにする
+// 削除した結果その案件のcase_time_allocationsが0件になった場合は、
+// projects.assigned_employee_idを未割り当てに戻す。
+//
+// 【重要】以前はここで自動再提案(autoProposeForProject)を呼び、削除直後に
+// 新しい'提案'行を裏側で作り直していたが、これが「繰り返し自動割当→手動で外す」を
+// 行うたびに空き時間を消費する幽霊予約として溜まり続けるバグの原因だった。
+// 自動割当ボタン(auto-propose-range)は「assigned_employee_id IS NULL かつ
+// 既存の'提案'が無い案件」だけを対象にするため、削除の度に裏で'提案'が
+// 再生成されると、その案件は二度と自動割当の対象に戻らないまま従業員の
+// 空き時間だけを埋め続け、これが積み重なって「提案確認に26件あるのに
+// 割り当て0件」という状態を引き起こしていた。
+// 再提案は自動では行わず、案件を完全に未割り当て・提案なしの状態に戻すことで、
+// 次回の自動割当ボタン実行時に候補として正しく再評価されるようにする
 app.delete('/api/time-allocations/:id', (req, res) => {
   try {
     const existing = db.prepare('SELECT * FROM case_time_allocations WHERE id = ?').get(req.params.id);
@@ -1485,8 +1494,8 @@ app.delete('/api/time-allocations/:id', (req, res) => {
     // 前準備・後片付けは実作業と同一レコード(setup_minutes/cleanup_minutes列)のため、
     // このDELETE一回で三者とも一緒に削除される
     writeDebugLog(
-      `[time-allocations DELETE] id=${req.params.id} case_id=${existing.case_id} ` +
-      `employee_id=${existing.employee_id} work_date=${existing.work_date} ` +
+      `[time-allocations DELETE] 削除対象レコード: id=${req.params.id} case_id=${existing.case_id} ` +
+      `employee_id=${existing.employee_id} work_date=${existing.work_date} planned_hours=${existing.planned_hours}h ` +
       `前準備=${existing.setup_minutes || 0}分 後片付け=${existing.cleanup_minutes || 0}分 を実作業と一緒に削除しました`
     );
 
@@ -1495,27 +1504,36 @@ app.delete('/api/time-allocations/:id', (req, res) => {
     ).get(existing.case_id).cnt;
 
     let unassigned = false;
-    let requeued = false;
     if (remaining === 0) {
       unassigned = true;
       const now = new Date().toISOString();
       db.prepare('UPDATE projects SET assigned_employee_id = NULL, updated_at = ? WHERE id = ?')
         .run(now, existing.case_id);
 
-      try {
-        const autoProposeResult = autoProposeForProject(db, existing.case_id);
-        requeued = !autoProposeResult.error;
-      } catch (autoProposeError) {
-        console.error(`削除後の自動再提案に失敗しました(project_id=${existing.case_id}):`, autoProposeError.message);
-      }
+      // 削除後、この従業員に本当に空き時間が戻っているかをcalculateSuggestions/
+      // allocateHoursForEmployeeと同じSUM条件(ステータス問わず合算)で再計算してログに残す。
+      // 幽霊'提案'が残っていればここに値が反映されるため、今後の調査でも再発を検知できる
+      const todayStr = formatLocalDate(new Date());
+      const horizon = new Date();
+      horizon.setDate(horizon.getDate() + 60);
+      const horizonStr = formatLocalDate(horizon);
+      const remainingRowsForCase = db.prepare(
+        `SELECT id, employee_id, work_date, status, setup_minutes, cleanup_minutes FROM case_time_allocations WHERE case_id = ?`
+      ).all(existing.case_id);
+      const employeeOccupiedAfter = db.prepare(`
+        SELECT COALESCE(SUM(planned_hours + (setup_minutes + cleanup_minutes) / 60.0), 0) as total
+        FROM case_time_allocations WHERE employee_id = ? AND work_date BETWEEN ? AND ?
+      `).get(existing.employee_id, todayStr, horizonStr).total;
 
       writeDebugLog(
         `[time-allocations DELETE] case_id=${existing.case_id} の割り当てが0件になったため未割り当てに戻しました ` +
-        `(自動再提案=${requeued ? '成功' : '失敗/対象外'})`
+        `(自動再提案はせず、次回の自動割当ボタン実行時に候補として再評価されます) ` +
+        `案件側の残存レコード(0件のはず)=${JSON.stringify(remainingRowsForCase)} ` +
+        `employee_id=${existing.employee_id}のavailableHours計算対象(${todayStr}〜${horizonStr})の合計占有時間=${Math.round(employeeOccupiedAfter * 10) / 10}h`
       );
     }
 
-    res.json({ message: 'Time allocation deleted successfully', unassigned, requeued });
+    res.json({ message: 'Time allocation deleted successfully', unassigned });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
