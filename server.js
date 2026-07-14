@@ -384,6 +384,27 @@ function calculateRequiredHours(db, project, employeeId) {
   return { requiredHours, canHandleAll };
 }
 
+// 案件の必要合計時間を算出する。実際の自動割り振り(allocateHoursForEmployee)が
+// 使うのと同じrequired_hours(quantity ÷ 担当者の生産性)を基準にし、
+// 担当者未割り当て・生産性未登録の場合は手入力のplanned_hours(分単位)を
+// 時間換算したものにフォールバックする。
+// /api/stats/project-progress と /api/projects/:id/actual-hours-check の
+// 両方から共通で使う
+function calculateProjectRequiredHoursTotal(db, project) {
+  let requiredHoursTotal = project.planned_hours / 60;
+  let requiredHoursSource = 'planned_hours';
+
+  if (project.assigned_employee_id) {
+    const { requiredHours, canHandleAll } = calculateRequiredHours(db, project, project.assigned_employee_id);
+    if (canHandleAll && requiredHours > 0) {
+      requiredHoursTotal = requiredHours;
+      requiredHoursSource = 'required_hours';
+    }
+  }
+
+  return { requiredHoursTotal, requiredHoursSource };
+}
+
 // 案件に対する担当者候補をスコアリングする(空き時間・スキル一致・生産性から算出)。
 // 締切日の妥当性チェックは呼び出し側の責務(この関数は project.deadline が有効な前提)
 function calculateSuggestions(db, project, options = {}) {
@@ -1076,41 +1097,51 @@ app.get('/api/proposals', (req, res) => {
   }
 });
 
-// 提案確認パネルの「検品へ」ボタン用。この案件はもうスケジュール調整が
-// 不要になった(生産が終わり検品工程に進んだ)ものとして扱い、
-// 提案中の割り当て(前準備・後片付けを含む、同一レコードのため一緒に削除される)を
-// 削除し、案件ステータスを「検品」に、担当者を未割り当てに変更する。
+// 案件を「検品」ステータスへ移す共通処理。以下の2箇所から呼ばれる:
+//  - 提案確認パネルの「検品へ」ボタン(この時点ではcase_time_allocationsは
+//    status='提案'の行のみ存在する)
+//  - 実績入力画面で実績時間の合計が計画時間(必要時間)に到達した際の
+//    「検品へ変更しますか?」確認ダイアログで「はい」を選んだ場合
+//    (この時点ではstatus='予定'や'実績確定'の行が存在する)
+// どちらの場合も、その案件に紐づくcase_time_allocations(前準備・後片付けを
+// 含む、同一レコードのため一緒に削除される)をステータス問わず全て削除し、
+// projects.statusを'INSPECTION'に、assigned_employee_idを未割り当てに変更する。
 // ステータスがSCHEDULABLE_PROJECT_STATUSESから外れるため、以後
 // 提案確認パネル・自動割当の対象からも自動的に外れる
+function moveProjectToInspection(db, projectId, source) {
+  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
+  if (!project) return { error: '案件が見つかりません' };
+
+  const deletedRows = db.prepare(`
+    SELECT id, employee_id, work_date, planned_hours, actual_hours, status, setup_minutes, cleanup_minutes
+    FROM case_time_allocations WHERE case_id = ?
+  `).all(projectId);
+
+  if (deletedRows.length === 0) {
+    return { error: 'スケジュール上の割り当てが見つかりません' };
+  }
+
+  const result = db.prepare('DELETE FROM case_time_allocations WHERE case_id = ?').run(projectId);
+
+  const statusBefore = project.status;
+  const now = new Date().toISOString();
+  db.prepare('UPDATE projects SET status = ?, assigned_employee_id = NULL, updated_at = ? WHERE id = ?')
+    .run('INSPECTION', now, projectId);
+
+  writeDebugLog(
+    `[move-to-inspection] source=${source} project=${projectId} ステータス: ${statusBefore} → INSPECTION(検品) ` +
+    `assigned_employee_id: ${project.assigned_employee_id} → null ` +
+    `削除したレコード(前準備・後片付け含む)=${JSON.stringify(deletedRows)}`
+  );
+
+  return { deleted: result.changes };
+}
+
 app.post('/api/projects/:id/move-to-inspection', (req, res) => {
   try {
-    const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(req.params.id);
-    if (!project) return res.status(404).json({ error: '案件が見つかりません' });
-
-    const deletedRows = db.prepare(`
-      SELECT id, employee_id, work_date, planned_hours, status, setup_minutes, cleanup_minutes
-      FROM case_time_allocations WHERE case_id = ? AND status = '提案'
-    `).all(req.params.id);
-
-    if (deletedRows.length === 0) {
-      return res.status(404).json({ error: '確認待ちの提案が見つかりません' });
-    }
-
-    const result = db.prepare(`
-      DELETE FROM case_time_allocations WHERE case_id = ? AND status = '提案'
-    `).run(req.params.id);
-
-    const statusBefore = project.status;
-    const now = new Date().toISOString();
-    db.prepare('UPDATE projects SET status = ?, assigned_employee_id = NULL, updated_at = ? WHERE id = ?')
-      .run('INSPECTION', now, req.params.id);
-
-    writeDebugLog(
-      `[move-to-inspection] project=${req.params.id} ステータス: ${statusBefore} → INSPECTION(検品) ` +
-      `assigned_employee_id: ${project.assigned_employee_id} → null ` +
-      `削除した提案レコード(前準備・後片付け含む)=${JSON.stringify(deletedRows)}`
-    );
-    res.json({ message: 'Project moved to inspection', deleted: result.changes });
+    const result = moveProjectToInspection(db, req.params.id, 'proposal-panel');
+    if (result.error) return res.status(404).json({ error: result.error });
+    res.json({ message: 'Project moved to inspection', deleted: result.deleted });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1497,7 +1528,64 @@ app.put('/api/time-allocations/:id', (req, res) => {
       );
     }
 
-    res.json({ message: 'Time allocation updated successfully' });
+    // 実績入力画面で「検品ステータスに変更しますか?」に「はい」と答えた場合のみ
+    // move_to_inspection=trueが送られてくる。実績を保存した直後にこの案件の
+    // スケジュール割り当てを全て削除し、ステータスを検品へ変更する
+    let movedToInspection = false;
+    if (req.body.move_to_inspection === true) {
+      const inspectionResult = moveProjectToInspection(db, case_id, 'actual-hours-input');
+      movedToInspection = !inspectionResult.error;
+    }
+
+    res.json({ message: 'Time allocation updated successfully', moved_to_inspection: movedToInspection });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 実績入力画面で、入力しようとしている実績時間を保存した場合に、その案件の
+// 実績合計が必要時間(required_hours、生産性未登録の案件はplanned_hours基準。
+// calculateProjectRequiredHoursTotal/api-stats-project-progressと同じ基準)に
+// 到達するかどうかを事前に判定する(実際の保存はまだ行わない)。
+// candidate_actual_hours: これから保存しようとしている実績時間(このallocationの分)
+// exclude_allocation_id: 実績合計を計算する際、このallocation自身の既存値は
+//   二重にカウントしないよう除外する
+app.get('/api/projects/:id/actual-hours-check', (req, res) => {
+  try {
+    const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(req.params.id);
+    if (!project) return res.status(404).json({ error: '案件が見つかりません' });
+
+    const candidateActualHours = parseFloat(req.query.candidate_actual_hours);
+    if (Number.isNaN(candidateActualHours)) {
+      return res.status(400).json({ error: 'candidate_actual_hours は数値で指定してください' });
+    }
+    const excludeAllocationId = req.query.exclude_allocation_id ? Number(req.query.exclude_allocation_id) : -1;
+
+    const otherRows = db.prepare(
+      `SELECT actual_hours FROM case_time_allocations WHERE case_id = ? AND id != ?`
+    ).all(project.id, excludeAllocationId);
+    const otherActualTotal = otherRows.reduce((sum, r) => sum + (r.actual_hours || 0), 0);
+    const projectedActualTotal = otherActualTotal + candidateActualHours;
+
+    const { requiredHoursTotal, requiredHoursSource } = calculateProjectRequiredHoursTotal(db, project);
+    const reached = requiredHoursTotal > 0 && projectedActualTotal >= requiredHoursTotal;
+
+    writeDebugLog(
+      `[actual-hours-check] project=${project.id} 入力された実績時間=${candidateActualHours}h ` +
+      `他の割り当ての実績合計=${Math.round(otherActualTotal * 100) / 100}h ` +
+      `保存後の実績合計(見込み)=${Math.round(projectedActualTotal * 100) / 100}h ` +
+      `必要時間(${requiredHoursSource})=${Math.round(requiredHoursTotal * 100) / 100}h ` +
+      `判定=${reached ? '到達(検品への変更を確認)' : '未到達(通常保存)'}`
+    );
+
+    res.json({
+      case_id: project.id,
+      candidate_actual_hours: candidateActualHours,
+      projected_actual_hours_total: Math.round(projectedActualTotal * 100) / 100,
+      required_hours_total: Math.round(requiredHoursTotal * 100) / 100,
+      required_hours_source: requiredHoursSource,
+      reached,
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1848,17 +1936,7 @@ app.get('/api/stats/project-progress', (req, res) => {
     // 担当者未割り当て、または生産性が未登録で計算できない案件のみ、従来通り
     // planned_hoursを時間換算(÷60)したものをフォールバックとして使う
     const result = rows.map(row => {
-      let requiredHoursTotal = row.planned_hours / 60;
-      let requiredHoursSource = 'planned_hours';
-
-      if (row.assigned_employee_id) {
-        const { requiredHours, canHandleAll } = calculateRequiredHours(db, row, row.assigned_employee_id);
-        if (canHandleAll && requiredHours > 0) {
-          requiredHoursTotal = requiredHours;
-          requiredHoursSource = 'required_hours';
-        }
-      }
-
+      const { requiredHoursTotal, requiredHoursSource } = calculateProjectRequiredHoursTotal(db, row);
       const progressRatio = requiredHoursTotal > 0 ? row.actual_hours_total / requiredHoursTotal : 0;
       return {
         id: row.id,

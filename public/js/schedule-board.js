@@ -1031,14 +1031,47 @@ const scheduleBoard = {
       return;
     }
 
+    const allocation = this.allocations.find(a => a.id === allocationId);
+
     try {
-      await fetch(`/api/time-allocations/${allocationId}`, {
+      // 保存前に、この値で実績合計が計画時間(必要時間)に到達するかを判定し、
+      // 到達する場合のみ「検品ステータスに変更しますか?」の確認ダイアログを出す
+      let moveToInspection = false;
+      if (allocation && actualHours != null) {
+        const checkRes = await fetch(
+          `/api/projects/${allocation.case_id}/actual-hours-check?candidate_actual_hours=${actualHours}&exclude_allocation_id=${allocationId}`
+        );
+        const checkData = await checkRes.json();
+        if (checkRes.ok && checkData.reached) {
+          moveToInspection = confirm('検品ステータスに変更しますか？');
+        }
+      }
+
+      const res = await fetch(`/api/time-allocations/${allocationId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ actual_hours: actualHours })
+        body: JSON.stringify({ actual_hours: actualHours, move_to_inspection: moveToInspection })
       });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || '実績時間の更新に失敗しました');
+        return;
+      }
 
-      const allocation = this.allocations.find(a => a.id === allocationId);
+      if (moveToInspection && data.moved_to_inspection) {
+        // この案件のスケジュール割り当ては全て削除されボードから消えるため、
+        // 詳細モーダルは閉じてボード全体を再読み込みする
+        this.closeDetailModal();
+        await this.loadWeekAllocations();
+        await this.loadProjects();
+        await this.loadProjectProgress();
+        this.renderBoard();
+        this.renderMobileBoard();
+        this.renderProgress();
+        console.log(`✓ 実績時間を保存し、検品ステータスへ変更しました (project #${allocation.case_id})`);
+        return;
+      }
+
       if (allocation) allocation.actual_hours = actualHours;
 
       if (statusEl) {
