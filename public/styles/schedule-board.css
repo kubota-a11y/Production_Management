@@ -791,6 +791,28 @@
     max-width: 60px;
   }
 
+  /* iPad等のタブレット幅では表が画面幅に収まらず横スクロールが必要になるため、
+     従業員氏名列(1列目)を画面左端に固定表示する。sticky要素は自前の背景色を
+     明示しないと、スクロールで下を通過する他の列の内容が透けて重なって見えるため、
+     th/tdともに背景色を明示する。ヘッダー行の左上角(th:first-child)は、既存の
+     .projects-table th による sticky top と両立させる必要があるため、
+     他のヘッダーセルより高いz-indexにして、横スクロール時に手前に表示され続けるようにする */
+  .sb-board-table th:first-child,
+  .sb-board-table td:first-child {
+    position: sticky;
+    left: 0;
+  }
+
+  .sb-board-table th:first-child {
+    z-index: 3;
+    background: var(--gray-100);
+  }
+
+  .sb-board-table td:first-child {
+    z-index: 1;
+    background: white;
+  }
+
   .sb-day-header-date {
     font-size: 10px;
   }
