@@ -541,7 +541,7 @@ const scheduleBoard = {
   resetTabletProposalsOnResize() {
     const sidebar = document.querySelector('.sb-proposals-sidebar');
     if (!sidebar) return;
-    const isTablet = window.matchMedia('(min-width: 769px) and (max-width: 1024px)').matches;
+    const isTablet = window.matchMedia('(min-width: 768px) and (max-width: 1024px)').matches;
     if (!isTablet && sidebar.classList.contains('is-tablet-collapsed')) {
       sidebar.classList.remove('is-tablet-collapsed');
       sidebar.style.flexBasis = '';

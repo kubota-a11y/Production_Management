@@ -498,7 +498,7 @@
   font-size: 15px;
 }
 
-/* タブレット幅(769〜1024px)でのみ表示される、提案確認パネルの開閉ボタン */
+/* タブレット幅(768〜1024px)でのみ表示される、提案確認パネルの開閉ボタン */
 .sb-tablet-collapse-btn {
   display: none;
   flex-shrink: 0;
@@ -626,7 +626,7 @@
   font-size: 10px;
 }
 
-/* スマホ用: ドラッグの代わりに担当者・日付を選んで確定するボタン操作(768px以下でのみ表示) */
+/* スマホ用: ドラッグの代わりに担当者・日付を選んで確定するボタン操作(767px以下でのみ表示) */
 .sb-proposal-mobile-confirm {
   display: none;
 }
@@ -649,7 +649,7 @@
   background: #eff6ff;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .sb-progress-item {
     grid-template-columns: 1fr;
     gap: 6px;
@@ -677,11 +677,13 @@
 }
 
 /* ========================================
-   タブレット幅(769px〜1024px、主にiPad縦持ち): PCと同じ2カラムの
+   タブレット幅(768px〜1024px、主にiPad縦持ち): PCと同じ2カラムの
    「従業員×日付」グリッドを維持しつつコンパクトにし、提案確認パネルは
-   開閉ボタンで折りたためるようにして画面を圧迫しないようにする
+   開閉ボタンで折りたためるようにして画面を圧迫しないようにする。
+   下限を768pxにしているのは、無印iPad(9.7インチ)の縦持ちCSS幅が
+   ちょうど768pxのため、769px〜にすると実機で対象から漏れてしまうため
    ======================================== */
-@media (min-width: 769px) and (max-width: 1024px) {
+@media (min-width: 768px) and (max-width: 1024px) {
   .sb-layout {
     flex-direction: row;
     align-items: flex-start;
@@ -767,9 +769,9 @@
 }
 
 /* ========================================
-   スマホ幅(768px以下): タブ切り替え + 従業員別の縦積みボード
+   スマホ幅(767px以下): タブ切り替え + 従業員別の縦積みボード
    ======================================== */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .sb-mobile-tabs {
     display: flex;
     gap: 8px;
