@@ -18,6 +18,8 @@ const scheduleBoard = {
   // ドラッグ中の対象。提案カード({type:'proposal', caseId})か、
   // ボード上の確定済みブロック({type:'allocation', allocationId, caseId})のいずれか
   dragPayload: null,
+  // タッチドラッグ(iPad等)中に指に追従させる複製要素
+  touchDragGhost: null,
   // スマホ幅でのタブ状態('schedule' | 'proposals')。デスクトップでは未使用
   mobileTab: 'schedule',
   // スマホ用ボードで表示中の従業員
@@ -44,6 +46,7 @@ const scheduleBoard = {
     await this.loadProjectProgress();
     await this.loadProposals();
     this.render();
+    window.addEventListener('resize', () => this.resetTabletProposalsOnResize());
     console.log('✓ 初期化完了');
   },
 
@@ -384,7 +387,8 @@ const scheduleBoard = {
       `ondragleave="scheduleBoard.onCellDragLeave(event)" ` +
       `ondrop="scheduleBoard.onCellDrop(event, ${employee.id}, '${dateISO}')"`;
     const content = this.renderCellContent(employee, dateISO, referenceHours);
-    return `<td class="sb-cell" onclick="${cellOnclick}" ${dropHandlers}>${content}</td>`;
+    // data-*属性はタッチドラッグ(iPad等)でドロップ先セルを特定するために使う
+    return `<td class="sb-cell" data-employee-id="${employee.id}" data-date-iso="${dateISO}" onclick="${cellOnclick}" ${dropHandlers}>${content}</td>`;
   },
 
   // デスクトップの<td>とスマホの縦積み日別カードの両方から使う、セル内側(空き時間バー等)の
@@ -426,7 +430,11 @@ const scheduleBoard = {
       const dragStart = isProposed
         ? `scheduleBoard.onProposalDragStart(event, ${a.case_id})`
         : `scheduleBoard.onAllocationDragStart(event, ${a.id})`;
-      const workHtml = `<div class="sb-bar-segment${proposedCls}${highlightCls}" data-case-id="${a.case_id}" data-allocation-id="${a.id}" draggable="true" ondragstart="event.stopPropagation(); ${dragStart}" ondragend="scheduleBoard.onDragEnd()" style="width:${widthPct}%; background:${color};" title="${this.escapeHtml(title)}"${proposedClick}>${this.escapeHtml(a.project_name)}</div>`;
+      // タッチドラッグ(iPad等)用。ネイティブHTML5 D&Dが効かないタッチ端末向けのフォールバック
+      const touchPayload = isProposed
+        ? `{type:'proposal', caseId:${a.case_id}}`
+        : `{type:'allocation', allocationId:${a.id}}`;
+      const workHtml = `<div class="sb-bar-segment${proposedCls}${highlightCls}" data-case-id="${a.case_id}" data-allocation-id="${a.id}" draggable="true" ondragstart="event.stopPropagation(); ${dragStart}" ondragend="scheduleBoard.onDragEnd()" ontouchstart="event.stopPropagation(); scheduleBoard.onDragTouchStart(event, ${touchPayload})" ontouchmove="scheduleBoard.onDragTouchMove(event)" ontouchend="scheduleBoard.onDragTouchEnd(event)" style="width:${widthPct}%; background:${color};" title="${this.escapeHtml(title)}"${proposedClick}>${this.escapeHtml(a.project_name)}</div>`;
 
       const setupHtml = setupMin > 0
         ? `<div class="sb-bar-segment sb-bar-segment-overhead" style="width:${(setupMin / 60 / scaleMax) * 100}%;" title="${this.escapeHtml(a.project_name)}: 前準備 ${setupMin}分">準備</div>`
@@ -491,7 +499,7 @@ const scheduleBoard = {
     const dayLabel = getDayOfWeekLabel(this.jsDayToOurDay(date.getDay()));
     const content = this.renderCellContent(employee, dateISO, refInfo.hours);
     return `
-      <div class="sb-mobile-day-cell" onclick="scheduleBoard.openOverrideModal(${employee.id}, '${dateISO}')">
+      <div class="sb-mobile-day-cell" data-employee-id="${employee.id}" data-date-iso="${dateISO}" onclick="scheduleBoard.openOverrideModal(${employee.id}, '${dateISO}')">
         <div class="sb-mobile-day-header">
           ${dayLabel} <span class="sb-day-header-date">${date.getMonth() + 1}/${date.getDate()}</span>
           <button type="button" class="sb-auto-propose-day-btn"
@@ -509,6 +517,42 @@ const scheduleBoard = {
     document.getElementById('sb-mobile-tab-proposals').classList.toggle('active', tab === 'proposals');
     document.querySelector('.sb-main-column').classList.toggle('is-mobile-hidden', tab !== 'schedule');
     document.querySelector('.sb-proposals-sidebar').classList.toggle('is-mobile-hidden', tab !== 'proposals');
+  },
+
+  // ===== タブレット用: 提案確認パネルの開閉(769〜1024px) =====
+  toggleTabletProposals() {
+    const sidebar = document.querySelector('.sb-proposals-sidebar');
+    const collapsed = sidebar.classList.toggle('is-tablet-collapsed');
+    // 一部環境でposition:sticky+flexの組み合わせだと、CSSクラス切り替えだけでは
+    // 幅の再計算が反映されないことがあったため、インラインスタイルでも明示し、
+    // displayの一時トグルで強制的にレイアウトを再計算させる
+    sidebar.style.flexBasis = collapsed ? '44px' : '';
+    sidebar.style.width = collapsed ? '44px' : '';
+    const originalDisplay = sidebar.style.display;
+    sidebar.style.display = 'none';
+    void sidebar.offsetHeight;
+    sidebar.style.display = originalDisplay;
+    const btn = document.getElementById('sb-tablet-collapse-btn');
+    if (btn) btn.textContent = collapsed ? '▶' : '◀';
+  },
+
+  // タブレット幅から抜けた場合(ウィンドウのリサイズ・iPadの回転等)、
+  // 折りたたみ状態のインラインスタイルが残ってPC/スマホ表示に影響しないようにする
+  resetTabletProposalsOnResize() {
+    const sidebar = document.querySelector('.sb-proposals-sidebar');
+    if (!sidebar) return;
+    const isTablet = window.matchMedia('(min-width: 769px) and (max-width: 1024px)').matches;
+    if (!isTablet && sidebar.classList.contains('is-tablet-collapsed')) {
+      sidebar.classList.remove('is-tablet-collapsed');
+      sidebar.style.flexBasis = '';
+      sidebar.style.width = '';
+      const originalDisplay = sidebar.style.display;
+      sidebar.style.display = 'none';
+      void sidebar.offsetHeight;
+      sidebar.style.display = originalDisplay;
+      const btn = document.getElementById('sb-tablet-collapse-btn');
+      if (btn) btn.textContent = '◀';
+    }
   },
 
   renderLegend() {
@@ -622,6 +666,9 @@ const scheduleBoard = {
         <div class="sb-proposal-card${highlightCls}" data-case-id="${p.case_id}" draggable="true"
              ondragstart="scheduleBoard.onProposalDragStart(event, ${p.case_id})"
              ondragend="scheduleBoard.onDragEnd()"
+             ontouchstart="scheduleBoard.onDragTouchStart(event, {type:'proposal', caseId:${p.case_id}})"
+             ontouchmove="scheduleBoard.onDragTouchMove(event)"
+             ontouchend="scheduleBoard.onDragTouchEnd(event)"
              onmouseenter="scheduleBoard.highlightProposal(${p.case_id})"
              onmouseleave="scheduleBoard.clearHighlight()">
           <div class="sb-proposal-card-name">${this.escapeHtml(p.project_name)}</div>
@@ -749,6 +796,78 @@ const scheduleBoard = {
       await this.confirmProposalAt(payload.caseId, employeeId, dateISO);
     } else if (payload.type === 'allocation') {
       await this.moveAllocation(payload.allocationId, employeeId, dateISO);
+    }
+  },
+
+  // ===== タッチドラッグ(iPad等) =====
+  // iOS/iPadOS SafariはネイティブのHTML5 Drag and Drop APIをタッチ操作では
+  // 発火しない(dragstartが起きない)ため、touchstart/touchmove/touchendで
+  // 同等の操作(指の下に「ドロップ先セル」を探す)を独自に実装する。
+  // 提案カードの確定・確定済みブロックの移動のどちらも、上のonCellDropと
+  // 同じdragPayload/confirmProposalAt/moveAllocationをそのまま使う
+  onDragTouchStart(event, payload) {
+    // 提案カード内のボタン・セレクト・日付入力(スマホ用の確定操作/却下ボタン)への
+    // タップまでドラッグ扱いにしてしまわないよう、それらの上で始まったタッチは無視する
+    if (event.target.closest('button, select, input, option')) return;
+    this.dragPayload = payload;
+    const touch = event.touches[0];
+    this.touchDragGhost = this.createDragGhost(event.currentTarget, touch);
+    // ドラッグ中はページのスクロールと衝突しないよう抑制する
+    event.preventDefault();
+  },
+
+  onDragTouchMove(event) {
+    if (!this.dragPayload || !this.touchDragGhost) return;
+    event.preventDefault();
+    const touch = event.touches[0];
+    this.touchDragGhost.style.left = `${touch.clientX + 14}px`;
+    this.touchDragGhost.style.top = `${touch.clientY + 14}px`;
+
+    document.querySelectorAll('.is-drop-target').forEach(el => el.classList.remove('is-drop-target'));
+    const target = this.findDropTargetAt(touch.clientX, touch.clientY);
+    if (target) target.classList.add('is-drop-target');
+  },
+
+  async onDragTouchEnd(event) {
+    if (!this.dragPayload) return;
+    const touch = event.changedTouches[0];
+    const target = this.findDropTargetAt(touch.clientX, touch.clientY);
+    this.removeDragGhost();
+    document.querySelectorAll('.is-drop-target').forEach(el => el.classList.remove('is-drop-target'));
+
+    const payload = this.dragPayload;
+    this.dragPayload = null;
+    if (!target) return;
+
+    const employeeId = Number(target.dataset.employeeId);
+    const dateISO = target.dataset.dateIso;
+    if (payload.type === 'proposal') {
+      await this.confirmProposalAt(payload.caseId, employeeId, dateISO);
+    } else if (payload.type === 'allocation') {
+      await this.moveAllocation(payload.allocationId, employeeId, dateISO);
+    }
+  },
+
+  findDropTargetAt(x, y) {
+    const el = document.elementFromPoint(x, y);
+    return el ? el.closest('.sb-cell, .sb-mobile-day-cell') : null;
+  },
+
+  createDragGhost(sourceEl, touch) {
+    const ghost = sourceEl.cloneNode(true);
+    ghost.classList.add('sb-drag-ghost');
+    ghost.style.position = 'fixed';
+    ghost.style.left = `${touch.clientX + 14}px`;
+    ghost.style.top = `${touch.clientY + 14}px`;
+    ghost.style.pointerEvents = 'none';
+    document.body.appendChild(ghost);
+    return ghost;
+  },
+
+  removeDragGhost() {
+    if (this.touchDragGhost) {
+      this.touchDragGhost.remove();
+      this.touchDragGhost = null;
     }
   },
 

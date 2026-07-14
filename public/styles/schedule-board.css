@@ -179,6 +179,20 @@
   border-right: 1px solid rgba(255, 255, 255, 0.5);
 }
 
+/* ドラッグ可能なブロックは、タッチドラッグ中にブラウザ標準のスクロール/パンと
+   競合しないようにする(iPad等でのタッチドラッグ操作用) */
+.sb-bar-segment[draggable="true"] {
+  touch-action: none;
+}
+
+/* タッチドラッグ中に指に追従する複製要素(iPad等) */
+.sb-drag-ghost {
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: 9999;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
 .sb-bar-segment-prep {
   background: repeating-linear-gradient(135deg, #7c3aed, #7c3aed 6px, #6d28d9 6px, #6d28d9 12px);
 }
@@ -473,11 +487,35 @@
 
 .sb-proposals-header {
   margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .sb-proposals-header .sb-section-title {
   margin-bottom: 0;
   font-size: 15px;
+}
+
+/* タブレット幅(769〜1024px)でのみ表示される、提案確認パネルの開閉ボタン */
+.sb-tablet-collapse-btn {
+  display: none;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  background: white;
+  color: var(--gray-600);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  font-family: inherit;
+}
+
+.sb-tablet-collapse-btn:hover {
+  background: var(--gray-100);
 }
 
 .sb-proposals-badge {
@@ -536,6 +574,15 @@
   background: white;
   cursor: grab;
   transition: background 0.1s ease, border-color 0.1s ease;
+  /* タッチドラッグ(iPad等)中にブラウザ標準のスクロールと競合しないようにする。
+     カード内のボタン・セレクト・日付入力は通常のタッチ操作に戻す */
+  touch-action: none;
+}
+
+.sb-proposal-card button,
+.sb-proposal-card select,
+.sb-proposal-card input {
+  touch-action: auto;
 }
 
 .sb-proposal-card:active {
@@ -629,16 +676,93 @@
   }
 }
 
-@media (max-width: 1024px) {
+/* ========================================
+   タブレット幅(769px〜1024px、主にiPad縦持ち): PCと同じ2カラムの
+   「従業員×日付」グリッドを維持しつつコンパクトにし、提案確認パネルは
+   開閉ボタンで折りたためるようにして画面を圧迫しないようにする
+   ======================================== */
+@media (min-width: 769px) and (max-width: 1024px) {
   .sb-layout {
-    flex-direction: column;
+    flex-direction: row;
+    align-items: flex-start;
   }
 
   .sb-proposals-sidebar {
-    width: 100%;
-    flex: 1 1 auto;
+    /* sticky+flexの組み合わせだと、開閉時の幅の再計算が一部環境で
+       効かないことがあったため、タブレット幅ではstaticにして通常のフローに乗せる
+       (画面を圧迫しないよう開閉できることを優先し、常時追従は諦める) */
     position: static;
-    max-height: 400px;
+    flex: 0 0 260px;
+    width: 260px;
+    max-height: calc(100vh - 32px);
+    transition: flex-basis 0.15s ease, width 0.15s ease, padding 0.15s ease;
+  }
+
+  .sb-proposals-sidebar.is-tablet-collapsed {
+    flex: 0 0 44px;
+    width: 44px;
+    padding: 12px 8px;
+    overflow: hidden;
+  }
+
+  .sb-proposals-sidebar.is-tablet-collapsed .sb-proposals-filters,
+  .sb-proposals-sidebar.is-tablet-collapsed .sb-proposals-cards,
+  .sb-proposals-sidebar.is-tablet-collapsed .sb-proposals-header .sb-section-title {
+    display: none;
+  }
+
+  .sb-tablet-collapse-btn {
+    display: inline-flex;
+  }
+
+  /* 従業員×日付グリッドをタブレット幅に収まるようコンパクトにする */
+  .sb-cell {
+    min-width: 92px;
+  }
+
+  .sb-board-table th,
+  .sb-board-table td {
+    padding: 4px;
+  }
+
+  .sb-employee-cell {
+    font-size: 12px;
+    white-space: normal;
+  }
+
+  .sb-day-header-date {
+    font-size: 10px;
+  }
+
+  .sb-auto-propose-day-btn {
+    font-size: 9px;
+    padding: 1px 5px;
+  }
+
+  .sb-bar-segment {
+    min-width: 72px;
+    font-size: 9px;
+    height: 20px;
+    line-height: 20px;
+    padding: 0 3px;
+  }
+
+  .sb-cell-hours-label,
+  .sb-cell-warning {
+    font-size: 10px;
+  }
+
+  /* 週送りナビ: 幅が足りない場合は折り返して縦積みにする */
+  .sb-week-nav {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .sb-week-nav h2 {
+    flex: 1 1 100%;
+    order: -1;
+    text-align: center;
+    font-size: 14px;
   }
 }
 

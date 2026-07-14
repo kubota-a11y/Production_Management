@@ -74,6 +74,9 @@
         <aside class="sb-proposals-sidebar is-mobile-hidden">
           <div class="sb-proposals-header">
             <h2 class="sb-section-title">📝 提案確認<span class="sb-proposals-badge" id="sb-proposals-badge"></span></h2>
+            <!-- タブレット幅(769〜1024px)でのみ表示される開閉ボタン -->
+            <button type="button" class="sb-tablet-collapse-btn" id="sb-tablet-collapse-btn"
+                    onclick="scheduleBoard.toggleTabletProposals()" title="提案確認パネルの開閉">◀</button>
           </div>
 
           <div class="sb-proposals-filters">

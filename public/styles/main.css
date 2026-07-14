@@ -1413,6 +1413,47 @@ html, body {
   }
 }
 
+/* ========================================
+   タブレット幅(769px〜1024px、主にiPad縦持ち): テーブル形式は維持しつつ、
+   列幅・フォントサイズを詰めて横スクロールが極力発生しないようにする。
+   受付日・作業担当者は優先度が低いため非表示にする
+   ======================================== */
+@media (min-width: 769px) and (max-width: 1024px) {
+  /* #projects-table(案件一覧)のIDセレクタに限定する。schedule-board.htmlの
+     ボード用テーブルも共通クラス.projects-tableを持っているため、クラス
+     セレクタのままだとそちらの列(月曜・日曜)まで意図せず非表示になってしまう */
+  #projects-table {
+    font-size: 12px;
+  }
+
+  #projects-table th,
+  #projects-table td {
+    padding: 6px 8px;
+  }
+
+  #projects-table th:nth-child(2),
+  #projects-table td:nth-child(2),
+  #projects-table th:nth-child(8),
+  #projects-table td:nth-child(8) {
+    display: none;
+  }
+
+  .status-badge,
+  .priority-badge {
+    font-size: 11px;
+    padding: 2px 6px;
+  }
+
+  #projects-table td:last-child {
+    white-space: nowrap;
+  }
+
+  #projects-table td:last-child .btn-small {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+}
+
 @media (max-width: 480px) {
   .main-content {
     padding: 12px;
