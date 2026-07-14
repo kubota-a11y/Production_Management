@@ -720,8 +720,8 @@ function allocateHoursForEmployee(db, projectId, employeeId, employeeName, requi
     if (usableForWork > 0) {
       const useHours = Math.min(usableForWork, remainingHours);
       const roundedHours = Math.round(useHours * 10) / 10;
-      insertStmt.run(projectId, employeeId, dateStr, roundedHours, status, setupMinutes, cleanupMinutes);
-      allocatedDates.push({ date: dateStr, hours: roundedHours, setup_minutes: setupMinutes, cleanup_minutes: cleanupMinutes });
+      const insertResult = insertStmt.run(projectId, employeeId, dateStr, roundedHours, status, setupMinutes, cleanupMinutes);
+      allocatedDates.push({ id: insertResult.lastInsertRowid, date: dateStr, hours: roundedHours, setup_minutes: setupMinutes, cleanup_minutes: cleanupMinutes });
       remainingHours -= useHours;
 
       const carriedOver = remainingHours > 0.01;
@@ -851,8 +851,10 @@ app.post('/api/projects/bulk-auto-propose', (req, res) => {
 // 「この日を自動割り当て」「今週を自動割り当て」ボタン用。範囲内で必要時間を使い切れなくても、
 // 範囲内で割り振れた分だけを'提案'として登録する(残りは未割り当てのまま次回に持ち越せる)
 // 自動割当ボタン(日次/週次)専用: 1日あたり前準備10分・後片付け10分を毎回消費する。
-// 個別の「提案」ボタン(autoProposeForProject)やbulk-auto-propose、ドラッグ&ドロップ確定
-// (confirm-proposal-at)には一切適用しない
+// 個別の「提案」ボタン(autoProposeForProject)やbulk-auto-proposeでは新規に付与しない。
+// ドラッグ&ドロップ確定(confirm-proposal-at)は新規には付与しないが、この値で作られた
+// 提案が既にある場合はそのsetup_minutes/cleanup_minutesを引き継いで再割り振りする
+// (引き継がないと移動した瞬間に前準備・後片付けブロックが消えてしまうため)
 const AUTO_PROPOSE_SETUP_MINUTES = 10;
 const AUTO_PROPOSE_CLEANUP_MINUTES = 10;
 
@@ -1101,9 +1103,17 @@ app.post('/api/projects/:id/confirm-proposal-at', (req, res) => {
 
     // ドロップ先の従業員が生産性未登録などでrequired_hoursを計算できない場合は、
     // 既存の提案(元の担当者向け)に積まれていた合計時間を代わりに使う
-    const existingProposalHours = db.prepare(`
-      SELECT COALESCE(SUM(planned_hours), 0) as total FROM case_time_allocations WHERE case_id = ? AND status = '提案'
-    `).get(project.id).total;
+    const existingProposalRows = db.prepare(`
+      SELECT id, employee_id, work_date, planned_hours, setup_minutes, cleanup_minutes
+      FROM case_time_allocations WHERE case_id = ? AND status = '提案'
+      ORDER BY work_date ASC, id ASC
+    `).all(project.id);
+    const existingProposalHours = existingProposalRows.reduce((sum, r) => sum + r.planned_hours, 0);
+    // 前準備・後片付け(自動割当ボタン専用のsetup_minutes/cleanup_minutes)は同一案件の
+    // 提案内で共通の値のため、既存の提案行から引き継ぐ。再割り振り時にここを渡し忘れると
+    // ドラッグ&ドロップで移動した瞬間に前準備・後片付けブロックが消えてしまう
+    const setupMinutes = existingProposalRows.length ? (existingProposalRows[0].setup_minutes || 0) : 0;
+    const cleanupMinutes = existingProposalRows.length ? (existingProposalRows[0].cleanup_minutes || 0) : 0;
 
     const { requiredHours, canHandleAll } = calculateRequiredHours(db, project, employeeId);
     const finalRequiredHours = (canHandleAll && requiredHours > 0) ? requiredHours : existingProposalHours;
@@ -1121,7 +1131,8 @@ app.post('/api/projects/:id/confirm-proposal-at', (req, res) => {
     const deadline = new Date(project.deadline);
 
     const { allocatedDates, remainingHours } = allocateHoursForEmployee(
-      db, project.id, employeeId, employee.name, finalRequiredHours, pseudoReceivedDate, deadline, '予定'
+      db, project.id, employeeId, employee.name, finalRequiredHours, pseudoReceivedDate, deadline, '予定',
+      setupMinutes, cleanupMinutes
     );
 
     if (allocatedDates.length === 0) {
@@ -1135,7 +1146,9 @@ app.post('/api/projects/:id/confirm-proposal-at', (req, res) => {
     writeDebugLog(
       `[confirm-proposal-at] project=${project.id} employee=${employeeId}(${employee.name}) ` +
       `ドラッグ&ドロップでwork_date=${workDate}を初日として確定 required=${Math.round(finalRequiredHours * 10) / 10} ` +
-      `allocated=${JSON.stringify(allocatedDates)} remainingHours=${Math.round(remainingHours * 10) / 10}`
+      `前準備=${setupMinutes}分 後片付け=${cleanupMinutes}分 ` +
+      `移動前レコード=${JSON.stringify(existingProposalRows.map(r => ({ id: r.id, employee_id: r.employee_id, work_date: r.work_date })))} ` +
+      `移動後レコード=${JSON.stringify(allocatedDates)} remainingHours=${Math.round(remainingHours * 10) / 10}`
     );
 
     res.json({
@@ -1421,6 +1434,18 @@ app.put('/api/time-allocations/:id', (req, res) => {
         case_id=?, employee_id=?, work_date=?, planned_hours=?, actual_hours=?, carried_over_from=?, status=?
       WHERE id=?
     `).run(case_id, employee_id, work_date, planned_hours, actual_hours, carried_over_from, status, req.params.id);
+
+    // setup_minutes/cleanup_minutesはSET句に含めていないため更新されず、
+    // 前準備・後片付け分は同じ行に紐づいたまま移動先へ引き継がれる(値はexisting基準でログに残す)
+    if (employee_id !== existing.employee_id || work_date !== existing.work_date) {
+      writeDebugLog(
+        `[time-allocations MOVE] id=${req.params.id} case_id=${existing.case_id} ` +
+        `移動元: employee_id=${existing.employee_id} work_date=${existing.work_date} → ` +
+        `移動先: employee_id=${employee_id} work_date=${work_date} ` +
+        `前準備=${existing.setup_minutes || 0}分 後片付け=${existing.cleanup_minutes || 0}分(同一レコードのため一緒に移動)`
+      );
+    }
+
     res.json({ message: 'Time allocation updated successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1438,6 +1463,14 @@ app.delete('/api/time-allocations/:id', (req, res) => {
     if (!existing) return res.status(404).json({ error: 'Time allocation not found' });
 
     db.prepare('DELETE FROM case_time_allocations WHERE id = ?').run(req.params.id);
+
+    // 前準備・後片付けは実作業と同一レコード(setup_minutes/cleanup_minutes列)のため、
+    // このDELETE一回で三者とも一緒に削除される
+    writeDebugLog(
+      `[time-allocations DELETE] id=${req.params.id} case_id=${existing.case_id} ` +
+      `employee_id=${existing.employee_id} work_date=${existing.work_date} ` +
+      `前準備=${existing.setup_minutes || 0}分 後片付け=${existing.cleanup_minutes || 0}分 を実作業と一緒に削除しました`
+    );
 
     const remaining = db.prepare(
       'SELECT COUNT(*) as cnt FROM case_time_allocations WHERE case_id = ?'
