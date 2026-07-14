@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>納品履歴 - Production Management</title>
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- ヘッダー -->
+    <header class="app-header">
+      <div class="header-content">
+        <h1 class="app-title">📦 納品履歴</h1>
+        <p class="app-subtitle">Delivery History</p>
+      </div>
+      <div class="header-buttons">
+        <a class="btn-staff-manage" href="/">📋 案件管理に戻る</a>
+      </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="main-content">
+      <section id="delivery-history-section">
+        <div class="table-container">
+          <table class="projects-table" id="delivery-history-table">
+            <thead>
+              <tr>
+                <th>案件名</th>
+                <th>納品日</th>
+                <th>発送方法</th>
+                <th>納品者</th>
+              </tr>
+            </thead>
+            <tbody id="delivery-history-tbody">
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- スクリプト -->
+  <script src="js/utils.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/delivery-history.js"></script>
+</body>
+</html>

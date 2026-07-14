@@ -425,6 +425,11 @@ html, body {
   color: #15803d;
 }
 
+.status-completed {
+  background: #d4d4d8;
+  color: #3f3f46;
+}
+
 /* ===== 優先度バッジ ===== */
 
 .priority-badge {

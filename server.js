@@ -1329,6 +1329,50 @@ app.put('/api/projects/:id', (req, res) => {
   }
 });
 
+// 案件を「納品済み」にする。納品日・発送方法・納品者をdelivery_recordsに記録した上で、
+// 物理削除ではなくprojects.statusを'COMPLETED'に変更するだけにする
+// (準備項目の「未着手に戻す」等と同じ、ステータス書き換えによるソフト削除の考え方)
+app.post('/api/projects/:id/deliver', (req, res) => {
+  try {
+    const { delivered_date, delivery_method, delivered_by_staff_id, delivered_by_employee_id } = req.body;
+    const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(req.params.id);
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+    if (!delivered_date || !delivery_method) {
+      return res.status(400).json({ error: 'delivered_date and delivery_method are required' });
+    }
+
+    const now = new Date().toISOString();
+    db.prepare(`
+      INSERT INTO delivery_records
+        (case_id, delivered_date, delivery_method, delivered_by_staff_id, delivered_by_employee_id, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(req.params.id, delivered_date, delivery_method, delivered_by_staff_id || null, delivered_by_employee_id || null, now);
+
+    db.prepare(`UPDATE projects SET status='COMPLETED', updated_at=? WHERE id=?`).run(now, req.params.id);
+    res.json({ message: 'Project marked as delivered' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 納品履歴一覧(新しい納品日順)
+app.get('/api/delivery-records', (req, res) => {
+  try {
+    const records = db.prepare(`
+      SELECT dr.*, p.project_name,
+        s.name as delivered_by_staff_name, emp.name as delivered_by_employee_name
+      FROM delivery_records dr
+      JOIN projects p ON dr.case_id = p.id
+      LEFT JOIN staff s ON dr.delivered_by_staff_id = s.id
+      LEFT JOIN employees emp ON dr.delivered_by_employee_id = emp.id
+      ORDER BY dr.delivered_date DESC, dr.id DESC
+    `).all();
+    res.json(records);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // case_time_allocations・case_preparation_items・case_print_locationsはprojects.idをFOREIGN KEYで参照しており、
 // (better-sqlite3はSQLite側でforeign_keys=ONがデフォルトのため)子レコードが残ったまま
 // projectsを削除するとFOREIGN KEY constraint failedになる。トランザクションで子→親の順に削除する
@@ -1926,6 +1970,7 @@ app.get('/api/stats/project-progress', (req, res) => {
         MAX(ta.work_date) as last_work_date
       FROM projects p
       JOIN case_time_allocations ta ON ta.case_id = p.id
+      WHERE p.status != 'COMPLETED'
       GROUP BY p.id
       ORDER BY last_work_date DESC
     `).all();
@@ -2004,6 +2049,10 @@ app.delete('/api/staff/:id', (req, res) => {
 
 app.get('/employees', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'employees.html'));
+});
+
+app.get('/delivery-history', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'delivery-history.html'));
 });
 
 app.get('/api/employees', (req, res) => {

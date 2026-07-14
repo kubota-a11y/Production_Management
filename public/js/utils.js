@@ -25,7 +25,8 @@ function getStatusLabel(status) {
     'PREP_COMPLETE': '準備完了',
     'IN_PROGRESS': '生産中',
     'INSPECTION': '検品',
-    'DELIVERED': '納品待ち'
+    'DELIVERED': '納品待ち',
+    'COMPLETED': '納品済み'
   };
   return statusMap[status] || status;
 }
@@ -39,7 +40,8 @@ function getStatusClass(status) {
     'PREP_COMPLETE': 'status-prep-complete',
     'IN_PROGRESS': 'status-in-progress',
     'INSPECTION': 'status-inspection',
-    'DELIVERED': 'status-delivered'
+    'DELIVERED': 'status-delivered',
+    'COMPLETED': 'status-completed'
   };
   return classMap[status] || '';
 }

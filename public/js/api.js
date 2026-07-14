@@ -55,6 +55,22 @@ const API = {
     return response.json();
   },
 
+  // 案件を納品済みにする(納品日・発送方法・納品者を記録し、statusをCOMPLETEDへ)
+  async deliverProject(id, data) {
+    const response = await fetch(`/api/projects/${id}/deliver`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return response.json();
+  },
+
+  // 納品履歴一覧取得
+  async getDeliveryRecords() {
+    const response = await fetch('/api/delivery-records');
+    return response.json();
+  },
+
   // 案件のプリント箇所を取得
   async getPrintLocations(id) {
     const response = await fetch(`/api/projects/${id}/print-locations`);

@@ -12,6 +12,7 @@ const app = {
   currentTab: 'list',
   editingProjectId: null,
   editingStaffId: null,
+  deliveringProjectId: null,
   currentMonth: new Date(),
   sortColumn: 'deadline',
   sortOrder: 'asc',
@@ -251,6 +252,9 @@ const app = {
         <button class="btn-small" onclick="app.openSuggestModal(${project.id})">
           🔎 提案
         </button>
+        <button class="btn-small" onclick="app.openDeliverModal(${project.id})">
+          📦 納品済み
+        </button>
       </td>
     `;
 
@@ -322,7 +326,8 @@ const app = {
     const staffFilter = document.getElementById('filter-staff').value;
     const priorityFilter = document.getElementById('filter-priority').value;
 
-    let filtered = this.projects;
+    // 納品済み(COMPLETED)の案件は、削除はせず記録を残したまま一覧ビューには表示しない
+    let filtered = this.projects.filter(p => p.status !== 'COMPLETED');
 
     if (statusFilter) {
       filtered = filtered.filter(p => p.status === statusFilter);
@@ -518,8 +523,8 @@ const app = {
           const currentDate = new Date(year, month, date);
           const dateStr = currentDate.toISOString().split('T')[0];
 
-          // この日付の案件を取得
-          const projectsOnDate = this.projects.filter(p => p.deadline === dateStr);
+          // この日付の案件を取得(納品済み(COMPLETED)は一覧ビューと同様に除外する)
+          const projectsOnDate = this.projects.filter(p => p.deadline === dateStr && p.status !== 'COMPLETED');
 
           cell.innerHTML = `<div class="date-number">${date}</div>`;
 
@@ -1033,6 +1038,67 @@ const app = {
     } catch (error) {
       console.error('担当者割り当てエラー:', error);
       alert('担当者の割り当てに失敗しました');
+    }
+  },
+
+  // ===== 納品済み登録 =====
+  openDeliverModal(projectId) {
+    this.deliveringProjectId = projectId;
+    const form = document.getElementById('deliver-form');
+    form.reset();
+    form.elements['delivered_date'].value = new Date().toISOString().split('T')[0];
+    this.populateDeliverStaffSelect();
+    document.getElementById('deliver-modal').style.display = 'flex';
+  },
+
+  closeDeliverModal() {
+    document.getElementById('deliver-modal').style.display = 'none';
+    this.deliveringProjectId = null;
+  },
+
+  // 納品者は staff(担当者マスタ)・employees(従業員マスタ)のどちらからも選べるよう、
+  // 1つのセレクトにoptgroupで両方の候補を並べる。値は "staff-<id>" / "employee-<id>" とし、
+  // 送信時にどちらのテーブルを参照する納品者かを判別する
+  populateDeliverStaffSelect() {
+    const select = document.getElementById('deliver-staff-select');
+    const staffOptions = this.staff.map(s => `<option value="staff-${s.id}">${this.escapeHtml(s.name)}</option>`).join('');
+    const employeeOptions = this.employees
+      .filter(e => e.is_active)
+      .map(e => `<option value="employee-${e.id}">${this.escapeHtml(e.name)}</option>`).join('');
+    select.innerHTML = `
+      <option value="">未選択</option>
+      <optgroup label="担当者">${staffOptions}</optgroup>
+      <optgroup label="従業員">${employeeOptions}</optgroup>
+    `;
+  },
+
+  async submitDeliverForm(event) {
+    event.preventDefault();
+    const form = event.target;
+    const deliveredBy = form.elements['delivered_by'].value;
+    const [deliveredByType, deliveredById] = deliveredBy ? deliveredBy.split('-') : [null, null];
+
+    const data = {
+      delivered_date: form.elements['delivered_date'].value,
+      delivery_method: form.elements['delivery_method'].value,
+      delivered_by_staff_id: deliveredByType === 'staff' ? deliveredById : null,
+      delivered_by_employee_id: deliveredByType === 'employee' ? deliveredById : null,
+    };
+
+    try {
+      const result = await API.deliverProject(this.deliveringProjectId, data);
+      if (result.error) {
+        alert(result.error);
+        return;
+      }
+      this.closeDeliverModal();
+      await this.loadProjects();
+      this.renderListView();
+      if (this.currentTab === 'kanban') this.renderKanbanView();
+      if (this.currentTab === 'calendar') this.renderCalendarView();
+    } catch (error) {
+      console.error('納品済み登録エラー:', error);
+      alert('納品済みへの更新に失敗しました');
     }
   },
 
@@ -1575,6 +1641,7 @@ const app = {
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('project-form')?.addEventListener('submit', (e) => app.submitProjectForm(e));
   document.getElementById('staff-form')?.addEventListener('submit', (e) => app.submitStaffForm(e));
+  document.getElementById('deliver-form')?.addEventListener('submit', (e) => app.submitDeliverForm(e));
   // ボタンはtype="button"でapp.submitAiIntakeConfirm()を直接呼ぶため、
   // フォーム内でEnterキー等により暗黙的にsubmitされた場合のページ遷移だけを防ぐ
   document.getElementById('ai-intake-form')?.addEventListener('submit', (e) => e.preventDefault());
@@ -1603,6 +1670,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (e.target.id === 'ai-intake-modal') {
       app.closeAiIntakeModal();
+    }
+    if (e.target.id === 'deliver-modal') {
+      app.closeDeliverModal();
     }
   });
 

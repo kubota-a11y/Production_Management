@@ -18,6 +18,7 @@
         <button class="btn-staff-manage" onclick="app.openStaffModal()">👥 担当者管理</button>
         <a class="btn-staff-manage" href="/employees">🧑‍🏭 従業員管理</a>
         <a class="btn-staff-manage" href="/schedule">🗓️ スケジュール</a>
+        <a class="btn-staff-manage" href="/delivery-history">📦 納品履歴</a>
       </div>
     </header>
 
@@ -672,6 +673,47 @@
       <div id="suggest-modal-body" style="padding: 20px;">
         <p>読み込み中...</p>
       </div>
+    </div>
+  </div>
+
+  <!-- ===== モーダル: 納品済み登録 ===== -->
+  <div id="deliver-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>納品済みにする</h2>
+        <button class="btn-close" onclick="app.closeDeliverModal()">✕</button>
+      </div>
+      <form id="deliver-form" class="project-form">
+        <div class="form-group">
+          <label>納品日 *</label>
+          <input type="date" name="delivered_date" required>
+        </div>
+
+        <div class="form-group">
+          <label>発送方法 *</label>
+          <select name="delivery_method" required>
+            <option value="来社納品">来社納品</option>
+            <option value="発送">発送</option>
+            <option value="持参納品">持参納品</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>納品者</label>
+          <select name="delivered_by" id="deliver-staff-select">
+            <option value="">未選択</option>
+          </select>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" onclick="app.closeDeliverModal()">
+            キャンセル
+          </button>
+          <button type="submit" class="btn btn-primary">
+            納品済みにする
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 

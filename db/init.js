@@ -133,6 +133,31 @@ function initDatabase() {
     db.prepare(`ALTER TABLE employee_default_schedule ADD COLUMN reserved_hours REAL DEFAULT 0`).run();
   }
 
+  // 案件の納品記録(納品日・発送方法・納品者)。納品済みにする操作は物理削除ではなく
+  // projects.status を 'COMPLETED' に変更するだけで、記録はここに残す。
+  // 納品者は staff(担当者マスタ)・employees(従業員マスタ)のどちらか一方を選べるようにするため、
+  // projects.assigned_staff_id / assigned_employee_id と同じく2列並べる構成にしている
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS delivery_records (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      case_id INTEGER NOT NULL,
+      delivered_date TEXT NOT NULL,
+      delivery_method TEXT NOT NULL,
+      delivered_by_staff_id INTEGER,
+      delivered_by_employee_id INTEGER,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (case_id) REFERENCES projects(id),
+      FOREIGN KEY (delivered_by_staff_id) REFERENCES staff(id),
+      FOREIGN KEY (delivered_by_employee_id) REFERENCES employees(id)
+    )
+  `);
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_delivery_records_case_id ON delivery_records(case_id)
+  `);
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_delivery_records_delivered_date ON delivery_records(delivered_date)
+  `);
+
   // 準備項目マスターの初期データ投入(未投入の場合のみ)。
   // code は案件新規登録画面(旧ハードコード)・既存projects.prep_itemsのCSVコードと一致させる
   const prepItemCount = db.prepare(`SELECT COUNT(*) as c FROM preparation_item_master`).get().c;
