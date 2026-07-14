@@ -665,7 +665,7 @@ const scheduleBoard = {
     }
 
     // スマホではドラッグ操作の代わりに、担当者・日付を選んで確定するボタン操作を使う
-    // (却下はドラッグ不要のためデスクトップと共通のボタンのまま)。デフォルト日付は
+    // (「検品へ」はドラッグ不要のためデスクトップと共通のボタンのまま)。デフォルト日付は
     // 表示中の週の月曜日にしておき、必要なら日付入力で変更してもらう
     const defaultMobileDateISO = this.toISODate(this.getWeekDates()[0]);
 
@@ -691,7 +691,7 @@ const scheduleBoard = {
           <div class="sb-proposal-card-meta">担当 ${this.escapeHtml(p.employee_name)} ・ スコア ${scoreLabel} ・ 空き ${availableLabel}</div>
           <div class="sb-proposal-card-actions">
             <span class="sb-proposal-card-hint">🖱️ ドラッグしてボードへ</span>
-            <button type="button" class="btn btn-danger btn-small" onclick="scheduleBoard.rejectProposal(${p.case_id})">却下</button>
+            <button type="button" class="btn btn-danger btn-small" onclick="scheduleBoard.moveToInspection(${p.case_id})">検品へ</button>
           </div>
           <div class="sb-proposal-mobile-confirm">
             <select class="sb-proposal-mobile-employee">${employeeOptions}</select>
@@ -742,13 +742,13 @@ const scheduleBoard = {
     });
   },
 
-  async rejectProposal(caseId) {
-    if (!confirm('この提案を却下しますか？（提案分の割り当ては削除され、未割り当てに戻ります）')) return;
+  async moveToInspection(caseId) {
+    if (!confirm('この案件を「検品」ステータスに変更しますか？（提案中の割り当ては削除され、スケジュール対象から外れます）')) return;
     try {
-      const res = await fetch(`/api/projects/${caseId}/reject-proposal`, { method: 'POST' });
+      const res = await fetch(`/api/projects/${caseId}/move-to-inspection`, { method: 'POST' });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || '提案の却下に失敗しました');
+        alert(data.error || '検品ステータスへの変更に失敗しました');
         return;
       }
       await this.loadProposals();
@@ -760,8 +760,8 @@ const scheduleBoard = {
       this.renderProgress();
       this.renderProposals();
     } catch (error) {
-      console.error('提案却下エラー:', error);
-      alert('提案の却下に失敗しました');
+      console.error('検品ステータスへの変更エラー:', error);
+      alert('検品ステータスへの変更に失敗しました');
     }
   },
 
@@ -820,7 +820,7 @@ const scheduleBoard = {
   // 提案カードの確定・確定済みブロックの移動のどちらも、上のonCellDropと
   // 同じdragPayload/confirmProposalAt/moveAllocationをそのまま使う
   onDragTouchStart(event, payload) {
-    // 提案カード内のボタン・セレクト・日付入力(スマホ用の確定操作/却下ボタン)への
+    // 提案カード内のボタン・セレクト・日付入力(スマホ用の確定操作/検品へボタン)への
     // タップまでドラッグ扱いにしてしまわないよう、それらの上で始まったタッチは無視する
     if (event.target.closest('button, select, input, option')) return;
     this.dragPayload = payload;

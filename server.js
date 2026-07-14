@@ -743,11 +743,19 @@ function allocateHoursForEmployee(db, projectId, employeeId, employeeName, requi
   return { allocatedDates, remainingHours };
 }
 
+// スケジュール(自動割当・提案確認パネル)の対象とする案件ステータス。
+// 受注前(まだ受注確定していない)・検品・納品待ち(生産が終わって
+// スケジュール調整が不要になった)案件は対象外とする
+const SCHEDULABLE_PROJECT_STATUSES = ['CONFIRMED', 'WAITING', 'PREP_COMPLETE', 'IN_PROGRESS'];
+
 // 案件1件に対して、最上位担当者を選び、受付日から順に空き時間へ割り振って
 // case_time_allocations に status:'提案' で登録する
 function autoProposeForProject(db, projectId) {
   const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
   if (!project) return { project_id: projectId, error: '案件が見つかりません' };
+  if (!SCHEDULABLE_PROJECT_STATUSES.includes(project.status)) {
+    return { project_id: projectId, error: `対象外のステータス(${project.status})のため自動割当できません` };
+  }
 
   const receivedDate = project.received_date ? new Date(project.received_date) : new Date();
   const deadline = project.deadline ? new Date(project.deadline) : null;
@@ -861,6 +869,9 @@ const AUTO_PROPOSE_CLEANUP_MINUTES = 10;
 function autoProposeForProjectInRange(db, projectId, rangeStart, rangeEnd) {
   const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
   if (!project) return { project_id: projectId, error: '案件が見つかりません' };
+  if (!SCHEDULABLE_PROJECT_STATUSES.includes(project.status)) {
+    return { project_id: projectId, error: `対象外のステータス(${project.status})のため自動割当できません` };
+  }
 
   // 一覧表示など高頻度に複数案件へ呼ぶ場面でdebug.logが肥大化しないようquiet指定
   const suggestions = calculateSuggestions(db, project, { quiet: true });
@@ -902,7 +913,8 @@ function autoProposeForProjectInRange(db, projectId, rangeStart, rangeEnd) {
 }
 
 // スケジュールボードの日次/週次自動割り当てボタンの共通処理。
-// 未割り当て、かつまだ'提案'が無い案件だけを対象にして重複提案を避ける。
+// 未割り当て、まだ'提案'が無い、かつステータスがスケジュール対象
+// (SCHEDULABLE_PROJECT_STATUSES)の案件だけを対象にして重複提案を避ける。
 // 締切日が「今日」または「対象範囲の開始日」より前の案件は対象外とする
 app.post('/api/schedule-board/auto-propose-range', (req, res) => {
   try {
@@ -920,7 +932,7 @@ app.post('/api/schedule-board/auto-propose-range', (req, res) => {
     );
 
     const candidateProjects = db.prepare('SELECT * FROM projects WHERE assigned_employee_id IS NULL').all()
-      .filter(p => !alreadyProposedCaseIds.has(p.id));
+      .filter(p => !alreadyProposedCaseIds.has(p.id) && SCHEDULABLE_PROJECT_STATUSES.includes(p.status));
 
     let proposedCount = 0;
     let skippedExpiredCount = 0;
@@ -1036,6 +1048,9 @@ app.get('/api/proposals', (req, res) => {
     const results = rows.map(row => {
       const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(row.case_id);
       if (!project) return null;
+      // 検品・納品待ち・受注前などスケジュール調整が不要なステータスの案件は、
+      // 提案確認パネルの対象外にする(SCHEDULABLE_PROJECT_STATUSES参照)
+      if (!SCHEDULABLE_PROJECT_STATUSES.includes(project.status)) return null;
 
       const suggestions = calculateSuggestions(db, project, { quiet: true });
       const matched = suggestions.find(s => s.employee_id === row.employee_id);
@@ -1061,23 +1076,41 @@ app.get('/api/proposals', (req, res) => {
   }
 });
 
-// 提案を却下する。提案分のcase_time_allocationsを削除し、担当者を未割り当てに戻す
-app.post('/api/projects/:id/reject-proposal', (req, res) => {
+// 提案確認パネルの「検品へ」ボタン用。この案件はもうスケジュール調整が
+// 不要になった(生産が終わり検品工程に進んだ)ものとして扱い、
+// 提案中の割り当て(前準備・後片付けを含む、同一レコードのため一緒に削除される)を
+// 削除し、案件ステータスを「検品」に、担当者を未割り当てに変更する。
+// ステータスがSCHEDULABLE_PROJECT_STATUSESから外れるため、以後
+// 提案確認パネル・自動割当の対象からも自動的に外れる
+app.post('/api/projects/:id/move-to-inspection', (req, res) => {
   try {
+    const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(req.params.id);
+    if (!project) return res.status(404).json({ error: '案件が見つかりません' });
+
+    const deletedRows = db.prepare(`
+      SELECT id, employee_id, work_date, planned_hours, status, setup_minutes, cleanup_minutes
+      FROM case_time_allocations WHERE case_id = ? AND status = '提案'
+    `).all(req.params.id);
+
+    if (deletedRows.length === 0) {
+      return res.status(404).json({ error: '確認待ちの提案が見つかりません' });
+    }
+
     const result = db.prepare(`
       DELETE FROM case_time_allocations WHERE case_id = ? AND status = '提案'
     `).run(req.params.id);
 
-    if (result.changes === 0) {
-      return res.status(404).json({ error: '確認待ちの提案が見つかりません' });
-    }
-
+    const statusBefore = project.status;
     const now = new Date().toISOString();
-    db.prepare('UPDATE projects SET assigned_employee_id = NULL, updated_at = ? WHERE id = ?')
-      .run(now, req.params.id);
+    db.prepare('UPDATE projects SET status = ?, assigned_employee_id = NULL, updated_at = ? WHERE id = ?')
+      .run('INSPECTION', now, req.params.id);
 
-    writeDebugLog(`[reject-proposal] project=${req.params.id} ${result.changes}件の提案を却下し、未割り当てに戻しました`);
-    res.json({ message: 'Proposal rejected', deleted: result.changes });
+    writeDebugLog(
+      `[move-to-inspection] project=${req.params.id} ステータス: ${statusBefore} → INSPECTION(検品) ` +
+      `assigned_employee_id: ${project.assigned_employee_id} → null ` +
+      `削除した提案レコード(前準備・後片付け含む)=${JSON.stringify(deletedRows)}`
+    );
+    res.json({ message: 'Project moved to inspection', deleted: result.changes });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
