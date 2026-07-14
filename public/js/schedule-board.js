@@ -614,21 +614,16 @@ const scheduleBoard = {
     const sortedGroups = [...groups.values()].sort((a, b) => a.projectName.localeCompare(b.projectName, 'ja'));
 
     container.innerHTML = sortedGroups.map(group => `
-      <div class="sb-prep-list-group">
-        <div class="sb-prep-list-group-title">${this.escapeHtml(group.projectName)}</div>
-        ${group.items.map(i => {
-          const meta = [
-            i.scheduled_date ? formatDate(i.scheduled_date) : null,
-            i.assigned_staff_name || null,
-          ].filter(Boolean).join(' / ');
-          return `
-            <label class="sb-prep-complete-check sb-prep-list-item">
+      <div class="sb-prep-card">
+        <div class="sb-prep-card-name" title="${this.escapeHtml(group.projectName)}">${this.escapeHtml(group.projectName)}</div>
+        <div class="sb-prep-card-items">
+          ${group.items.map(i => `
+            <label class="sb-prep-complete-check">
               <input type="checkbox" ${i.status === '完了' ? 'checked' : ''} onchange="scheduleBoard.togglePrepItemComplete(${i.id}, this.checked)">
               <span class="sb-prep-item-label">${this.escapeHtml(i.preparation_item_name)}</span>
-              ${meta ? `<span class="sb-detail-meta">${this.escapeHtml(meta)}</span>` : ''}
             </label>
-          `;
-        }).join('')}
+          `).join('')}
+        </div>
       </div>
     `).join('');
   },
