@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>お見積り・ご注文フォーム | HIYOSHI</title>
+  <link rel="stylesheet" href="/styles/order.css">
+  <script>
+    // サーバから注入される設定(Turnstileサイトキー・納期下限日数)
+    window.__ORDER_CONFIG__ = {
+      turnstileSiteKey: "{{TURNSTILE_SITEKEY}}",
+      minLeadDays: {{MIN_LEAD_DAYS}}
+    };
+  </script>
+</head>
+<body>
+  <main class="order-wrap">
+    <header class="order-head">
+      <h1>お見積り・ご注文フォーム</h1>
+      <p class="lead">プリント・刺繍加工のご依頼を承ります。まずは依頼種別をお選びください。</p>
+    </header>
+
+    <form id="orderForm" novalidate>
+      <!-- ハニーポット(人間には見えない。botが埋めると破棄される) -->
+      <div class="hp-field" aria-hidden="true">
+        <label>URL<input type="text" name="hp_url" tabindex="-1" autocomplete="off"></label>
+      </div>
+
+      <!-- 依頼種別 -->
+      <section class="card">
+        <h2>1. 依頼種別 <span class="req">必須</span></h2>
+        <div class="radio-row">
+          <label class="radio-card">
+            <input type="radio" name="request_type" value="quote" checked>
+            <span><strong>見積・イメージ依頼</strong><small>概算やデザインの相談から</small></span>
+          </label>
+          <label class="radio-card">
+            <input type="radio" name="request_type" value="order">
+            <span><strong>正式発注</strong><small>数量まで決まっている</small></span>
+          </label>
+        </div>
+      </section>
+
+      <!-- 注文者情報 -->
+      <section class="card">
+        <h2>2. ご注文者情報 <span class="req">必須</span></h2>
+        <div class="grid2">
+          <label class="field">会社/団体名 <span class="req">必須</span>
+            <input type="text" data-path="orderer.org_name" maxlength="200" required>
+          </label>
+          <label class="field">ご担当者名 <span class="req">必須</span>
+            <input type="text" data-path="orderer.contact_name" maxlength="200" required>
+          </label>
+          <label class="field">電話番号 <span class="req">必須</span>
+            <input type="tel" data-path="orderer.phone" maxlength="20" required>
+          </label>
+          <label class="field">メールアドレス <span class="req">必須</span>
+            <input type="email" data-path="orderer.email" maxlength="200" required>
+          </label>
+        </div>
+      </section>
+
+      <!-- アイテム指定 -->
+      <section class="card">
+        <h2>3. アイテム指定 <span class="req">①〜③のいずれか必須(併用可)</span></h2>
+
+        <div class="subblock">
+          <h3>① 品番で指定</h3>
+          <div id="catalogRows"></div>
+          <button type="button" class="btn-add" data-add="catalog">＋ 品番を追加</button>
+        </div>
+
+        <div class="subblock">
+          <h3>② 品番がわからない</h3>
+          <div class="grid2">
+            <label class="field">カテゴリ
+              <select data-path="item_spec.unknown_spec.category">
+                <option value="">選択してください</option>
+                <option value="tshirt">Tシャツ</option>
+                <option value="polo">ポロシャツ</option>
+                <option value="workwear">作業着</option>
+                <option value="other">その他</option>
+              </select>
+            </label>
+            <label class="field">ご予算感
+              <input type="text" data-path="item_spec.unknown_spec.budget" maxlength="200" placeholder="例: 1枚2,000円くらい">
+            </label>
+          </div>
+          <label class="field">用途
+            <input type="text" data-path="item_spec.unknown_spec.purpose" maxlength="500" placeholder="例: 夏の練習着">
+          </label>
+          <label class="field">希望の雰囲気
+            <input type="text" data-path="item_spec.unknown_spec.mood" maxlength="500" placeholder="例: シンプルで濃色">
+          </label>
+        </div>
+
+        <div class="subblock">
+          <h3>③ 参考画像を添付</h3>
+          <p class="hint">イメージに近い画像があれば添付してください（複数可）。</p>
+          <input type="file" id="referenceImages" accept=".jpg,.jpeg,.png,.pdf,.ai,.svg" multiple>
+        </div>
+      </section>
+
+      <!-- 加工内容 -->
+      <section class="card">
+        <h2>4. 加工内容 <span class="req">必須</span></h2>
+        <label class="field">加工方法 <span class="req">必須</span>
+          <select data-path="decoration.method" id="decoMethod" required>
+            <option value="print">プリント</option>
+            <option value="embroidery">刺繍</option>
+            <option value="both">プリント＋刺繍</option>
+          </select>
+        </label>
+        <div id="printLocBlock">
+          <h3>プリント位置 <span class="req">プリント時は必須</span></h3>
+          <div id="printLocRows"></div>
+          <button type="button" class="btn-add" data-add="printloc">＋ プリント位置を追加</button>
+        </div>
+      </section>
+
+      <!-- 数量 -->
+      <section class="card">
+        <h2>5. 数量</h2>
+        <!-- 見積: 概数 -->
+        <div id="qtyApprox" class="field">
+          <label>概数（おおよその枚数）
+            <input type="text" data-path="quantity.approximate" maxlength="500" placeholder="例: 30〜40枚 / サイズ未定">
+          </label>
+          <p class="hint">正式発注をお選びの場合は、下の内訳または概数のいずれかをご入力ください。</p>
+        </div>
+        <!-- 正式発注: サイズ×カラー×数量(任意アコーディオン) -->
+        <details id="qtyMatrix" class="accordion">
+          <summary>サイズ×カラー×数量の内訳を入力する（任意）</summary>
+          <div id="matrixRows"></div>
+          <button type="button" class="btn-add" data-add="matrix">＋ 行を追加</button>
+          <p class="matrix-total">合計: <span id="matrixTotal">0</span> 枚</p>
+        </details>
+      </section>
+
+      <!-- 名簿 -->
+      <section class="card">
+        <h2>6. 名簿（選手名・背番号）</h2>
+        <details class="accordion">
+          <summary>名簿を入力する（任意）</summary>
+          <div id="rosterRows"></div>
+          <button type="button" class="btn-add" data-add="roster">＋ 名簿行を追加</button>
+        </details>
+      </section>
+
+      <!-- 納期 -->
+      <section class="card">
+        <h2>7. 納期のご希望</h2>
+        <div class="grid2">
+          <label class="field">希望納期日
+            <input type="date" id="deadlineDate" data-path="deadline.date">
+          </label>
+          <label class="field">補足（自由記述）
+            <input type="text" data-path="deadline.note" maxlength="200" placeholder="例: 未定 / なる早 など">
+          </label>
+        </div>
+        <div class="notice">
+          <p>納期は目安として、お申し込みからおよそ2週間後以降でご指定ください。<br>
+          時期によってはより早くお届けできる場合もございます。<br>
+          お急ぎの場合は、公式LINEより別途ご相談ください。</p>
+          <a class="line-btn" href="https://lin.ee/OIX6jSZ" target="_blank" rel="noopener">公式LINEで相談する</a>
+        </div>
+      </section>
+
+      <!-- 画像アップロード -->
+      <section class="card">
+        <h2>8. デザイン・ロゴのアップロード</h2>
+        <p class="hint">ロゴやデザインデータがあれば添付してください（jpg / png / pdf / ai / svg・1ファイル15MBまで）。</p>
+        <input type="file" id="designImages" accept=".jpg,.jpeg,.png,.pdf,.ai,.svg" multiple>
+      </section>
+
+      <!-- 備考 -->
+      <section class="card">
+        <h2>9. 備考・ご要望</h2>
+        <textarea data-path="remarks" maxlength="3000" rows="4" placeholder="ご要望・ご質問など"></textarea>
+      </section>
+
+      <!-- Turnstile -->
+      <div id="turnstileContainer"></div>
+
+      <!-- エラーサマリ -->
+      <div id="formErrors" class="form-errors" hidden></div>
+
+      <div class="submit-row">
+        <button type="submit" id="submitBtn" class="btn-submit">送信する</button>
+      </div>
+    </form>
+
+    <!-- 送信完了 -->
+    <div id="donePanel" class="done-panel" hidden>
+      <h2>送信ありがとうございました</h2>
+      <p id="doneMessage"></p>
+      <p>内容を確認のうえ、担当者よりご連絡いたします。お急ぎの場合は
+        <a href="https://lin.ee/OIX6jSZ" target="_blank" rel="noopener">公式LINE</a> よりご相談ください。</p>
+    </div>
+  </main>
+
+  <script src="/js/order.js"></script>
+</body>
+</html>

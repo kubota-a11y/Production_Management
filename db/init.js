@@ -62,6 +62,13 @@ function initDatabase() {
     db.prepare(`ALTER TABLE case_time_allocations ADD COLUMN cleanup_minutes INTEGER NOT NULL DEFAULT 0`).run();
   }
 
+  // 既存DBの ai_extracted_intake に reference_link カラムがない場合は追加。
+  // Web注文フォーム(POST /order)経由の代表画像(NAS上のUNCパス)を保持する。
+  const aiIntakeColumns = db.prepare(`PRAGMA table_info('ai_extracted_intake')`).all().map(col => col.name);
+  if (aiIntakeColumns.length > 0 && !aiIntakeColumns.includes('reference_link')) {
+    db.prepare(`ALTER TABLE ai_extracted_intake ADD COLUMN reference_link TEXT`).run();
+  }
+
   // 従業員の曜日ごとの標準勤務パターン
   db.exec(`
     CREATE TABLE IF NOT EXISTS employee_default_schedule (
@@ -114,6 +121,23 @@ function initDatabase() {
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_case_print_locations_case_id
     ON case_print_locations(case_id)
+  `);
+
+  // 案件ごとの名簿(選手名・背番号・サイズ)。Web注文フォーム経由の確定時に引き継ぐ。
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS case_roster (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      case_id INTEGER NOT NULL,
+      row_no INTEGER,
+      player_name TEXT,
+      number TEXT,
+      size TEXT,
+      FOREIGN KEY (case_id) REFERENCES projects(id)
+    )
+  `);
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_case_roster_case_id
+    ON case_roster(case_id)
   `);
 
   // 既存DBの schedule_overrides に is_day_off カラムがない場合は追加

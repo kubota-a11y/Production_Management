@@ -8,3 +8,6 @@ build/
 .env.local
 db/backups/
 launchd/
+
+# 開発時のWeb注文画像フォールバック保存先
+web_order_received_dev/

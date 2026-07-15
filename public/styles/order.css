@@ -1,0 +1,113 @@
+/* 公開注文フォーム */
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Noto Sans JP", Meiryo, sans-serif;
+  background: #f4f6f8;
+  color: #1f2933;
+  line-height: 1.6;
+}
+.order-wrap { max-width: 760px; margin: 0 auto; padding: 20px 16px 64px; }
+.order-head h1 { font-size: 1.5rem; margin: 8px 0; }
+.order-head .lead { color: #52606d; margin: 0 0 8px; }
+
+.card {
+  background: #fff;
+  border: 1px solid #e4e7eb;
+  border-radius: 12px;
+  padding: 18px 16px;
+  margin: 16px 0;
+  box-shadow: 0 1px 2px rgba(0,0,0,.03);
+}
+.card h2 { font-size: 1.1rem; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.card h3 { font-size: .98rem; margin: 14px 0 8px; color: #334155; }
+.subblock { padding: 8px 0; border-top: 1px dashed #e4e7eb; margin-top: 8px; }
+.subblock:first-of-type { border-top: 0; margin-top: 0; }
+
+.req { font-size: .72rem; font-weight: 600; color: #b91c1c; background: #fee2e2; padding: 2px 8px; border-radius: 999px; }
+.hint { font-size: .82rem; color: #6b7280; margin: 4px 0 8px; }
+
+.field { display: block; margin: 10px 0; font-size: .9rem; font-weight: 600; color: #334155; }
+.field input, .field select, textarea, .row-line input, .row-line select {
+  width: 100%;
+  font-size: 1rem;
+  font-weight: 400;
+  padding: 10px 12px;
+  margin-top: 4px;
+  border: 1px solid #cbd2d9;
+  border-radius: 8px;
+  background: #fff;
+  color: #1f2933;
+}
+textarea { resize: vertical; }
+.field input:focus, .field select:focus, textarea:focus { outline: 2px solid #2563eb; outline-offset: 0; border-color: #2563eb; }
+
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+@media (max-width: 560px) { .grid2 { grid-template-columns: 1fr; } }
+
+.radio-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.radio-card {
+  flex: 1 1 200px; display: flex; align-items: center; gap: 10px;
+  border: 2px solid #d2d6dc; border-radius: 10px; padding: 12px 14px; cursor: pointer;
+}
+.radio-card input { width: 18px; height: 18px; }
+.radio-card span { display: flex; flex-direction: column; }
+.radio-card small { color: #6b7280; font-weight: 400; }
+.radio-card:has(input:checked) { border-color: #2563eb; background: #eff6ff; }
+
+.row-line { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 8px; margin-bottom: 8px; align-items: center; }
+.roster-row { grid-template-columns: 1fr .6fr .6fr auto; }
+.printloc-row { grid-template-columns: 1fr .8fr auto; }
+@media (max-width: 560px) {
+  .row-line, .roster-row, .printloc-row { grid-template-columns: 1fr 1fr auto; }
+}
+.row-line input { margin-top: 0; }
+.btn-del {
+  border: 0; background: #f1f5f9; color: #64748b; width: 34px; height: 34px;
+  border-radius: 8px; font-size: 1.1rem; cursor: pointer;
+}
+.btn-del:hover { background: #fee2e2; color: #b91c1c; }
+.btn-add {
+  border: 1px dashed #93c5fd; background: #eff6ff; color: #1d4ed8;
+  padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: .9rem;
+}
+
+.accordion { border: 1px solid #e4e7eb; border-radius: 8px; padding: 8px 12px; }
+.accordion summary { cursor: pointer; font-weight: 600; color: #334155; }
+.accordion[open] { padding-bottom: 12px; }
+.matrix-total { text-align: right; font-weight: 700; margin: 8px 0 0; }
+
+.notice {
+  margin-top: 12px; background: #f0fdf4; border: 1px solid #bbf7d0;
+  border-radius: 10px; padding: 14px;
+}
+.notice p { margin: 0 0 12px; font-size: .9rem; color: #166534; }
+.line-btn {
+  display: inline-block; background: #06c755; color: #fff; text-decoration: none;
+  font-weight: 700; padding: 10px 20px; border-radius: 999px;
+}
+.line-btn:hover { background: #05b34c; }
+
+.hp-field { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+#turnstileContainer { margin: 16px 0; }
+
+.form-errors {
+  background: #fef2f2; border: 1px solid #fecaca; color: #991b1b;
+  border-radius: 10px; padding: 12px 16px; margin: 12px 0;
+}
+.form-errors ul { margin: 6px 0 0; padding-left: 20px; }
+
+.submit-row { text-align: center; margin-top: 20px; }
+.btn-submit {
+  background: #2563eb; color: #fff; border: 0; font-size: 1.05rem; font-weight: 700;
+  padding: 14px 48px; border-radius: 999px; cursor: pointer;
+}
+.btn-submit:hover { background: #1d4ed8; }
+.btn-submit:disabled { background: #94a3b8; cursor: default; }
+
+.done-panel {
+  background: #fff; border: 1px solid #bbf7d0; border-radius: 12px;
+  padding: 28px 20px; text-align: center; margin-top: 24px;
+}
+.done-panel h2 { color: #166534; }

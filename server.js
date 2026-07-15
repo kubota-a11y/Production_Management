@@ -8,6 +8,7 @@ const { execFileSync } = require('child_process');
 const { initDatabase } = require('./db/init');
 const line = require('@line/bot-sdk');
 const { runExtractionCycle } = require('./lib/ai-extraction');
+const { registerOrderRoutes } = require('./lib/order-intake');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -1243,6 +1244,18 @@ app.get('/api/projects/:id/print-locations', (req, res) => {
   }
 });
 
+// 案件の名簿(選手名・背番号)を取得する。Web注文フォーム由来の確定時に case_roster へ引き継がれる。
+app.get('/api/projects/:id/roster', (req, res) => {
+  try {
+    const roster = db.prepare(`
+      SELECT * FROM case_roster WHERE case_id = ? ORDER BY row_no ASC, id ASC
+    `).all(req.params.id);
+    res.json(roster);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // プリント箇所を一括で置き換える（既存分をDELETEしてから渡された分をINSERT）
 const replaceCasePrintLocations = db.transaction((caseId, locations) => {
   db.prepare('DELETE FROM case_print_locations WHERE case_id = ?').run(caseId);
@@ -1486,10 +1499,59 @@ app.get('/api/ai-intake/:id', (req, res) => {
   }
 });
 
+// 確定時に案件へ引き継ぐ構造化データ(プリント箇所・名簿)を取り出して正規化する。
+// 優先順位: 確定画面(req.body)が明示的に渡した値 > intakeのraw_ai_response(Web注文フォーム由来)。
+// LINE経由の候補はraw_ai_responseにこの構造を持たないため、返り値は空配列となり従来挙動は変わらない。
+function extractCarriedData(projectData, intakeRow) {
+  let printLocations = Array.isArray(projectData.print_locations) ? projectData.print_locations : null;
+  let roster = Array.isArray(projectData.roster) ? projectData.roster : null;
+
+  if ((printLocations === null || roster === null) && intakeRow && intakeRow.raw_ai_response) {
+    try {
+      const raw = JSON.parse(intakeRow.raw_ai_response);
+      if (raw && raw.source === 'web_order_form') {
+        if (printLocations === null) printLocations = (raw.decoration && raw.decoration.print_locations) || [];
+        if (roster === null) roster = raw.roster || [];
+      }
+    } catch (err) {
+      console.error('[確定] raw_ai_responseの解析に失敗:', err.message);
+    }
+  }
+
+  const normLocations = (printLocations || [])
+    .map(l => ({ location_name: String(l.location_name || '').trim(), color_count: parseInt(l.color_count, 10) }))
+    .filter(l => l.location_name && Number.isInteger(l.color_count) && l.color_count >= 1 && l.color_count <= 4);
+
+  const normRoster = (roster || [])
+    .map((r, i) => ({
+      row_no: Number.isInteger(r.row_no) ? r.row_no : i + 1,
+      player_name: String(r.player_name || '').trim(),
+      number: String(r.number || '').trim(),
+      size: String(r.size || '').trim(),
+    }))
+    .filter(r => r.player_name || r.number);
+
+  return { printLocations: normLocations, roster: normRoster };
+}
+
 // 確認登録: ai_extracted_intakeの内容(編集後)から正式な案件を1件作成し、
-// 候補側のstatusをconfirmedにしてcase_idを紐付ける。1トランザクションで実行する
+// 候補側のstatusをconfirmedにしてcase_idを紐付ける。1トランザクションで実行する。
+// Web注文フォーム由来の場合は、プリント箇所(case_print_locations)と名簿(case_roster)も同じ案件へ引き継ぐ。
 const confirmAiIntake = db.transaction((intakeId, projectData) => {
   const projectId = createProjectRecord(projectData);
+
+  const intakeRow = db.prepare(`SELECT raw_ai_response FROM ai_extracted_intake WHERE id = ?`).get(intakeId);
+  const carried = extractCarriedData(projectData, intakeRow);
+
+  if (carried.printLocations.length > 0) {
+    const insLoc = db.prepare(`INSERT INTO case_print_locations (case_id, location_name, color_count) VALUES (?, ?, ?)`);
+    for (const l of carried.printLocations) insLoc.run(projectId, l.location_name, l.color_count);
+  }
+  if (carried.roster.length > 0) {
+    const insRoster = db.prepare(`INSERT INTO case_roster (case_id, row_no, player_name, number, size) VALUES (?, ?, ?, ?, ?)`);
+    for (const r of carried.roster) insRoster.run(projectId, r.row_no, r.player_name, r.number, r.size);
+  }
+
   db.prepare(`UPDATE ai_extracted_intake SET status = 'confirmed', case_id = ? WHERE id = ?`).run(projectId, intakeId);
   return projectId;
 });
@@ -2231,6 +2293,10 @@ app.get('/api/stats/daily-workload', (req, res) => {
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
+// 公開注文フォーム(GET /order 表示 / POST /order 受付)。
+// 社内管理APIとは別系統。着地は ai_extracted_intake(status=pending)。
+registerOrderRoutes(app, db);
 
 // 5分ごとにLINEメッセージのAI構造化抽出を実行する。前回の実行が終わっていなければスキップする。
 let aiExtractionRunning = false;
