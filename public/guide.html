@@ -5,15 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex">
   <title>ご注文の流れ | HIYOSHI</title>
-  <link rel="stylesheet" href="/styles/order.css">
   <link rel="stylesheet" href="/styles/guide.css">
 </head>
 <body>
-  <main class="order-wrap">
-    <header class="order-head">
+  <main class="g-wrap">
+
+    <header class="g-hero">
+      <p class="g-overline">Order Guide</p>
       <h1>ご注文の流れ</h1>
-      <p class="lead">ご相談から納品まで、HIYOSHIのプリント・刺繍加工は以下のステップで進みます。<br>
-      はじめての方もこの通りに進めば大丈夫です。</p>
+      <div class="g-divider"></div>
+      <p class="g-lead">ご相談から納品まで、HIYOSHIのプリント・刺繍加工は<br class="pc-only">以下のステップで進みます。はじめての方もご安心ください。</p>
     </header>
 
     <!-- ステップタイムライン -->
@@ -27,8 +28,8 @@
           <strong>デザイン・アイテム(Tシャツ等)・数量</strong>をお伺いします。
           ラフなイメージや手描きのメモでも大丈夫です。</p>
           <div class="flow-cta">
-            <a class="line-btn" href="https://lin.ee/OIX6jSZ" target="_blank" rel="noopener">公式LINEで相談する</a>
-            <a class="form-btn" href="/order">フォームで見積依頼</a>
+            <a class="btn btn-line" href="https://lin.ee/OIX6jSZ" target="_blank" rel="noopener">公式LINEで相談する</a>
+            <a class="btn btn-dark" href="/order">フォームで見積依頼</a>
           </div>
         </div>
       </li>
@@ -49,7 +50,7 @@
         <div class="flow-body">
           <h2>ご了承・請求書の発行</h2>
           <p>内容にご了承いただけましたら、請求書を発行いたします。</p>
-          <div class="flow-note">⚠️ 請求書発行後は、<strong>デザイン・数量の変更はできません</strong>。</div>
+          <div class="flow-note">請求書発行後は、<strong>デザイン・数量の変更はできません</strong>。</div>
         </div>
       </li>
 
@@ -65,11 +66,11 @@
       <li class="flow-step">
         <div class="flow-num">5</div>
         <div class="flow-body">
-          <h2>仕上がり確認(位置・大きさ・インク色)<span class="flow-tag">お客様</span><span class="flow-tag flow-tag-us">HIYOSHI</span></h2>
+          <h2>仕上がり確認<span class="flow-tag">お客様</span><span class="flow-tag flow-tag-us">HIYOSHI</span></h2>
           <p>ボディーが届きましたら、デザインを<strong>実寸サイズで印刷した紙を実際の商品に当てた写真</strong>を公式LINEでお送りします。
           プリント位置や大きさを、写真を見ながら一緒に微調整していきます。</p>
           <p>位置・大きさが決まりましたら、最後に<strong>インク色</strong>をご確認いただきます。</p>
-          <div class="flow-note">⚠️ ここまでご確認いただいた時点で「校了」となり、<strong>以後の変更はできません</strong>。</div>
+          <div class="flow-note">ご確認いただいた時点で「校了」となり、<strong>以後の変更はできません</strong>。</div>
         </div>
       </li>
 
@@ -85,15 +86,17 @@
     </ol>
 
     <!-- 受付番号の説明 -->
-    <section class="card">
-      <h2>💡 受付番号(W-番号)について</h2>
-      <p>Webオーダーフォームから送信いただくと、<strong>受付番号(例: W-114)</strong>が発行されます。
+    <section class="g-section">
+      <p class="g-overline">Receipt Number</p>
+      <h2 class="g-section-title">受付番号(W-番号)について</h2>
+      <p class="g-section-body">Webオーダーフォームから送信いただくと、<strong>受付番号(例: W-114)</strong>が発行されます。
       お問い合わせの際にこの番号をお伝えいただくと、スムーズにご案内できます。</p>
     </section>
 
     <!-- よくある質問 -->
-    <section class="card">
-      <h2>❓ よくある質問</h2>
+    <section class="g-section">
+      <p class="g-overline">FAQ</p>
+      <h2 class="g-section-title">よくある質問</h2>
 
       <details class="faq">
         <summary>加工方法はどう選べばいいですか?</summary>
@@ -133,14 +136,17 @@
     </section>
 
     <!-- 最後のCTA -->
-    <section class="card guide-cta">
-      <h2>まずはお気軽にご相談ください</h2>
-      <p>「こんなものは作れる?」の段階で大丈夫です。お見積りは無料です。</p>
-      <div class="flow-cta">
-        <a class="line-btn" href="https://lin.ee/OIX6jSZ" target="_blank" rel="noopener">公式LINEで相談する</a>
-        <a class="form-btn" href="/order">フォームで見積依頼</a>
+    <section class="g-closing">
+      <p class="g-overline">Contact</p>
+      <h2 class="g-section-title"><span class="nb">まずはお気軽に</span><span class="nb">ご相談ください</span></h2>
+      <p class="g-section-body">「こんなものは作れる?」の段階で大丈夫です。お見積りは無料です。</p>
+      <div class="flow-cta g-closing-cta">
+        <a class="btn btn-line" href="https://lin.ee/OIX6jSZ" target="_blank" rel="noopener">公式LINEで相談する</a>
+        <a class="btn btn-dark" href="/order">フォームで見積依頼</a>
       </div>
     </section>
+
+    <footer class="g-footer">HIYOSHI — プリント・刺繍加工</footer>
   </main>
 </body>
 </html>
