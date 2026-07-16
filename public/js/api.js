@@ -71,6 +71,16 @@ const API = {
     return response.json();
   },
 
+  // 過去案件を複製して新規案件を作成(リピート注文用)
+  async duplicateProject(id, data) {
+    const response = await fetch(`/api/projects/${id}/duplicate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return response.json();
+  },
+
   // 案件のプリント箇所を取得
   async getPrintLocations(id) {
     const response = await fetch(`/api/projects/${id}/print-locations`);

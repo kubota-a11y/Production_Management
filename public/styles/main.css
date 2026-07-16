@@ -1504,3 +1504,29 @@ html, body {
     height: 100px;
   }
 }
+
+/* ===== 納品履歴: 過去案件検索・リピート注文 ===== */
+.delivery-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.delivery-search-bar input[type="search"] {
+  flex: 1;
+  max-width: 420px;
+  padding: 10px 14px;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--border-radius);
+  font-size: 0.95rem;
+}
+.delivery-search-count {
+  color: var(--gray-500);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.delivery-actions {
+  display: flex;
+  gap: 6px;
+  white-space: nowrap;
+}

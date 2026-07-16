@@ -1428,11 +1428,11 @@ app.post('/api/projects/:id/deliver', (req, res) => {
   }
 });
 
-// 納品履歴一覧(新しい納品日順)
+// 納品履歴一覧(新しい納品日順)。過去案件検索・リピート注文複製のため案件情報も返す
 app.get('/api/delivery-records', (req, res) => {
   try {
     const records = db.prepare(`
-      SELECT dr.*, p.project_name,
+      SELECT dr.*, p.project_name, p.customer_name, p.process_type, p.quantity, p.nas_folder_path,
         s.name as delivered_by_staff_name, emp.name as delivered_by_employee_name
       FROM delivery_records dr
       JOIN projects p ON dr.case_id = p.id
@@ -1441,6 +1441,84 @@ app.get('/api/delivery-records', (req, res) => {
       ORDER BY dr.delivered_date DESC, dr.id DESC
     `).all();
     res.json(records);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 過去案件をもとに新規案件を複製作成する(リピート注文用)。
+// 加工内容・NASフォルダパス・アイテム明細・プリント箇所を引き継ぎ、
+// 担当者割り当て・作業計画・名簿(選手名は年度で変わるため)は引き継がない。
+const duplicateProjectCascade = db.transaction((srcId, overrides) => {
+  const src = db.prepare('SELECT * FROM projects WHERE id = ?').get(srcId);
+  if (!src) return null;
+
+  const newId = createProjectRecord({
+    project_name: overrides.project_name || src.project_name,
+    received_date: new Date().toISOString().slice(0, 10),
+    deadline: overrides.deadline,
+    customer_name: src.customer_name,
+    contact_method: src.contact_method,
+    work_content: src.work_content,
+    process_type: src.process_type,
+    quantity: overrides.quantity ?? src.quantity,
+    planned_hours: src.planned_hours,
+    status: 'PRE_ORDER',
+    priority: 'MEDIUM',
+    reference_link: src.reference_link,
+    memo: `【リピート】過去案件#${srcId}「${src.project_name}」を複製して作成\n${src.memo || ''}`.trim(),
+    nas_folder_path: src.nas_folder_path,
+    prep_items: src.prep_items,
+    required_skill_tags: src.required_skill_tags,
+    estimated_hours: src.estimated_hours,
+  });
+
+  // アイテム明細をコピーし、旧アイテムID→新アイテムIDの対応を控える
+  const itemIdMap = new Map();
+  const items = db.prepare('SELECT * FROM case_items WHERE case_id = ? ORDER BY item_no').all(srcId);
+  const insertItem = db.prepare(`
+    INSERT INTO case_items (case_id, item_no, category, sub_category, catalog_json, method, quantity_total, matrix_json)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  for (const it of items) {
+    const r = insertItem.run(newId, it.item_no, it.category, it.sub_category, it.catalog_json, it.method, it.quantity_total, it.matrix_json);
+    itemIdMap.set(it.id, r.lastInsertRowid);
+  }
+
+  // プリント箇所をコピー(アイテム紐づけがあれば新IDに付け替える)
+  const locations = db.prepare('SELECT * FROM case_print_locations WHERE case_id = ?').all(srcId);
+  const insertLocation = db.prepare(
+    'INSERT INTO case_print_locations (case_id, location_name, color_count, case_item_id) VALUES (?, ?, ?, ?)'
+  );
+  for (const loc of locations) {
+    insertLocation.run(newId, loc.location_name, loc.color_count,
+      loc.case_item_id ? (itemIdMap.get(loc.case_item_id) || null) : null);
+  }
+
+  return newId;
+});
+
+app.post('/api/projects/:id/duplicate', (req, res) => {
+  try {
+    const { deadline, quantity, project_name } = req.body || {};
+    if (!deadline || !/^\d{4}-\d{2}-\d{2}$/.test(deadline)) {
+      return res.status(400).json({ error: '納期(deadline)をYYYY-MM-DD形式で指定してください' });
+    }
+    const parsedQuantity = quantity !== undefined && quantity !== null && quantity !== ''
+      ? parseInt(quantity, 10) : undefined;
+    if (parsedQuantity !== undefined && (!Number.isInteger(parsedQuantity) || parsedQuantity < 1)) {
+      return res.status(400).json({ error: '数量は1以上の整数で指定してください' });
+    }
+
+    const newId = duplicateProjectCascade(req.params.id, {
+      deadline,
+      quantity: parsedQuantity,
+      project_name: typeof project_name === 'string' && project_name.trim() ? project_name.trim() : undefined,
+    });
+    if (!newId) return res.status(404).json({ error: 'Project not found' });
+
+    console.log(`[複製] 案件#${req.params.id}を複製 → 新規案件#${newId}`);
+    res.status(201).json({ id: newId, message: 'Project duplicated successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

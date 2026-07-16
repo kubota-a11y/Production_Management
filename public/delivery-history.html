@@ -22,14 +22,24 @@
     <!-- メインコンテンツ -->
     <main class="main-content">
       <section id="delivery-history-section">
+        <!-- 過去案件検索 -->
+        <div class="delivery-search-bar">
+          <input type="search" id="delivery-search" placeholder="🔍 顧客名・案件名で検索(全期間)">
+          <span id="delivery-search-count" class="delivery-search-count"></span>
+        </div>
+
         <div class="table-container">
           <table class="projects-table" id="delivery-history-table">
             <thead>
               <tr>
                 <th>案件名</th>
+                <th>顧客名</th>
+                <th>加工</th>
+                <th>数量</th>
                 <th>納品日</th>
                 <th>発送方法</th>
                 <th>納品者</th>
+                <th>操作</th>
               </tr>
             </thead>
             <tbody id="delivery-history-tbody">
@@ -38,6 +48,38 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <!-- リピート注文(複製)モーダル -->
+  <div id="duplicate-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>↻ この案件をもとに新規作成</h2>
+        <button class="btn-close" onclick="deliveryHistoryApp.closeDuplicateModal()">✕</button>
+      </div>
+      <form id="duplicate-form" class="project-form">
+        <p class="folder-notice" id="duplicate-source-info"></p>
+        <div class="form-group">
+          <label>案件名 *</label>
+          <input type="text" name="project_name" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>納期 *</label>
+            <input type="date" name="deadline" required>
+          </div>
+          <div class="form-group">
+            <label>数量 *</label>
+            <input type="number" name="quantity" min="1" required>
+          </div>
+        </div>
+        <p class="folder-notice">顧客名・加工内容・プリント箇所・NASのデザインフォルダは元の案件から引き継がれます。担当者と作業計画は引き継がないため、登録後に案件管理画面で設定してください。</p>
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" onclick="deliveryHistoryApp.closeDuplicateModal()">キャンセル</button>
+          <button type="submit" class="btn-primary">複製して登録</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <!-- スクリプト -->
