@@ -199,10 +199,16 @@
     $('.i-qty-matrix', card).open = isOrder;
   }
   function applyTypeUI() {
-    const isOrder = currentType() === 'order';
-    // メールアドレス: 見積・正式発注とも任意
+    const type = currentType();
+    const isOrder = type === 'order';
+    const isConsult = type === 'consult';
+    // メールアドレス: 全種別で任意
     $('#emailReq').textContent = '任意';
     $('#ordererEmail').removeAttribute('required');
+    // かんたん相談: 相談内容セクションだけを出し、詳細入力(アイテム/名簿/納期/デザイン/備考)は隠す
+    $('#consultSection').hidden = !isConsult;
+    ['#itemsSection', '#rosterSection', '#deadlineSection', '#designSection', '#remarksSection']
+      .forEach(sel => { $(sel).style.display = isConsult ? 'none' : ''; });
     // アイテム: 見積は1件のみ(2件目以降は隠す)。正式発注は全件表示＋追加ボタン。
     itemCards().forEach((card, i) => {
       card.style.display = (isOrder || i === 0) ? '' : 'none';
@@ -352,23 +358,43 @@
   }
 
   function buildPayloadAndFiles() {
-    // 画像: 参考画像(role=reference) → デザイン(role=design) の順で append し、rolesを対応させる
+    const isConsult = currentType() === 'consult';
+    // 画像: 参考画像(role=reference) → デザイン(role=design) の順で append し、rolesを対応させる。
+    // かんたん相談ではデザイン欄が非表示のため、参考画像のみ送る(切り替え前に選択済みのファイル混入を防ぐ)
     const refFiles = Array.from($('#referenceImages').files || []);
-    const designFiles = Array.from($('#designImages').files || []);
+    const designFiles = isConsult ? [] : Array.from($('#designImages').files || []);
     const files = [];
     const imagesMeta = [];
     refFiles.forEach(f => { files.push(f); imagesMeta.push({ role: 'reference' }); });
     designFiles.forEach(f => { files.push(f); imagesMeta.push({ role: 'design' }); });
 
+    const orderer = {
+      org_name: val('orderer.org_name'),
+      contact_name: val('orderer.contact_name'),
+      phone: val('orderer.phone'),
+      email: val('orderer.email'),
+    };
+
+    if (isConsult) {
+      // かんたん相談: 最小構成(連絡先+希望時間帯+自由記述+参考画像)
+      return {
+        payload: {
+          request_type: 'consult',
+          orderer,
+          consult: {
+            preferred_time: $('#consultTime').value,
+            message: $('#consultMessage').value.trim(),
+          },
+          images: imagesMeta,
+        },
+        files,
+      };
+    }
+
     const isOrder = currentType() === 'order';
     const payload = {
       request_type: currentType(),
-      orderer: {
-        org_name: val('orderer.org_name'),
-        contact_name: val('orderer.contact_name'),
-        phone: val('orderer.phone'),
-        email: val('orderer.email'),
-      },
+      orderer,
       roster: collectRoster(),
       deadline: { date: $('#deadlineDate').value || '', note: val('deadline.note') },
       remarks: val('remarks'),
@@ -430,6 +456,8 @@
   }
   function clientValidate() {
     const errs = [];
+    // かんたん相談はアイテム指定不要(連絡先はHTMLのrequiredでチェックされる)
+    if (currentType() === 'consult') return errs;
     const isOrder = currentType() === 'order';
     const hasReference = (($('#referenceImages').files) || []).length > 0;
     if (isOrder) {
@@ -476,7 +504,9 @@
         done.hidden = false;
         $('#doneMessage').textContent = data.request_type === 'order'
           ? 'ご注文を受け付けました。'
-          : 'お見積り・イメージのご依頼を受け付けました。';
+          : data.request_type === 'consult'
+            ? 'かんたん相談を受け付けました。担当者よりお電話にてご連絡いたします。'
+            : 'お見積り・イメージのご依頼を受け付けました。';
         // 受付番号の表示(honeypot応答等でreceipt_noが無い場合は非表示のまま)
         if (data.receipt_no) {
           $('#doneReceiptNo').textContent = data.receipt_no;

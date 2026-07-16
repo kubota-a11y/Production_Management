@@ -40,6 +40,10 @@
             <input type="radio" name="request_type" value="order">
             <span><strong>正式発注</strong><small>数量まで決まっている</small></span>
           </label>
+          <label class="radio-card">
+            <input type="radio" name="request_type" value="consult">
+            <span><strong>かんたん相談</strong><small>1分で送信。詳細はお電話でお伺いします</small></span>
+          </label>
         </div>
       </section>
 
@@ -62,8 +66,27 @@
         </div>
       </section>
 
+      <!-- かんたん相談(consult選択時のみ表示) -->
+      <section class="card" id="consultSection" hidden>
+        <h2>3. ご相談内容</h2>
+        <div class="grid2">
+          <label class="field">ご希望の連絡時間帯
+            <select id="consultTime">
+              <option value="anytime">いつでも</option>
+              <option value="morning">午前(9時〜12時)</option>
+              <option value="afternoon">午後(12時〜17時)</option>
+              <option value="evening">夕方以降(17時〜)</option>
+            </select>
+          </label>
+        </div>
+        <label class="field">やりたいこと・ご相談内容 <span class="opt">任意</span>
+          <textarea id="consultMessage" maxlength="1000" rows="4" placeholder="例: チームTシャツを20枚くらい作りたい。ロゴは手描きのラフがあります。"></textarea>
+        </label>
+        <p class="hint">送信後、担当者よりお電話にて詳細をお伺いします。下の「参考画像」に写真やラフを添付いただくと、お話がスムーズです。</p>
+      </section>
+
       <!-- アイテム(指定・加工・数量を1単位に。正式発注時は複数追加可) -->
-      <section class="card">
+      <section class="card" id="itemsSection">
         <h2>3. アイテム指定・加工・数量 <span class="req">品番 または カテゴリ</span></h2>
         <p class="hint" id="itemsMultiHint" hidden>Tシャツ・帽子など、種類ごとにアイテムを分けて指定できます。</p>
         <div id="itemsContainer"></div>
@@ -78,7 +101,7 @@
       </section>
 
       <!-- 名簿 -->
-      <section class="card">
+      <section class="card" id="rosterSection">
         <h2>5. 名簿（選手名・背番号）</h2>
         <details class="accordion">
           <summary>名簿を入力する（任意）</summary>
@@ -88,7 +111,7 @@
       </section>
 
       <!-- 納期 -->
-      <section class="card">
+      <section class="card" id="deadlineSection">
         <h2>6. 納期のご希望</h2>
         <div class="grid2">
           <label class="field">希望納期日
@@ -107,14 +130,14 @@
       </section>
 
       <!-- 画像アップロード -->
-      <section class="card">
+      <section class="card" id="designSection">
         <h2>7. デザイン・ロゴのアップロード</h2>
         <p class="hint">ロゴやデザインデータがあれば添付してください（jpg / png / pdf / ai / svg・1ファイル15MBまで）。</p>
         <input type="file" id="designImages" accept=".jpg,.jpeg,.png,.pdf,.ai,.svg" multiple>
       </section>
 
       <!-- 備考 -->
-      <section class="card">
+      <section class="card" id="remarksSection">
         <h2>8. 備考・ご要望</h2>
         <textarea data-path="remarks" maxlength="3000" rows="4" placeholder="ご要望・ご質問など"></textarea>
       </section>
