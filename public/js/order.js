@@ -477,6 +477,14 @@
         $('#doneMessage').textContent = data.request_type === 'order'
           ? 'ご注文を受け付けました。'
           : 'お見積り・イメージのご依頼を受け付けました。';
+        // 受付番号の表示(honeypot応答等でreceipt_noが無い場合は非表示のまま)
+        if (data.receipt_no) {
+          $('#doneReceiptNo').textContent = data.receipt_no;
+          $('#doneReceipt').hidden = false;
+        }
+        if (data.receipt_mail) {
+          $('#doneMailNote').hidden = false;
+        }
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         showErrors(data.errors && data.errors.length ? data.errors

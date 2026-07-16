@@ -9,6 +9,7 @@ const { initDatabase } = require('./db/init');
 const line = require('@line/bot-sdk');
 const { runExtractionCycle } = require('./lib/ai-extraction');
 const { registerOrderRoutes } = require('./lib/order-intake');
+const { scheduleDailyBackup } = require('./lib/db-backup');
 const { extractCarriedData, extractCarriedItems } = require('./lib/intake-carry');
 
 const app = express();
@@ -183,7 +184,14 @@ app.use('/webhook', (err, req, res, next) => {
 
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
-app.use(express.static('public'));
+// no-cache = 「使う前に毎回サーバーへ更新確認」(キャッシュ全否定ではない)。
+// 未更新なら304で済むためLAN内では体感差なし。これにより本番反映後の
+// ハードリフレッシュ(Ctrl+Shift+R)が不要になり、古いJSを掴んだままの端末が出なくなる。
+app.use(express.static('public', {
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'no-cache');
+  }
+}));
 
 app.get('/api/nas/list', (req, res) => {
   try {
@@ -2326,6 +2334,7 @@ setInterval(async () => {
 }, 5 * 60 * 1000);
 
 app.listen(PORT, HOST, () => {
+  scheduleDailyBackup(db);
   const candidates = getLocalIPs();
   console.log(`サーバー起動:`);
   console.log(`  このMacから: http://localhost:${PORT}`);
