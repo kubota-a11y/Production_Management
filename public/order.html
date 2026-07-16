@@ -33,16 +33,16 @@
         <h2>1. 依頼種別 <span class="req">必須</span></h2>
         <div class="radio-row">
           <label class="radio-card">
-            <input type="radio" name="request_type" value="quote" checked>
+            <input type="radio" name="request_type" value="consult" checked>
+            <span><strong>かんたん相談</strong><small>1分で送信。詳細はお電話でお伺いします</small></span>
+          </label>
+          <label class="radio-card">
+            <input type="radio" name="request_type" value="quote">
             <span><strong>見積・イメージ依頼</strong><small>概算やデザインの相談から</small></span>
           </label>
           <label class="radio-card">
             <input type="radio" name="request_type" value="order">
             <span><strong>正式発注</strong><small>数量まで決まっている</small></span>
-          </label>
-          <label class="radio-card">
-            <input type="radio" name="request_type" value="consult">
-            <span><strong>かんたん相談</strong><small>1分で送信。詳細はお電話でお伺いします</small></span>
           </label>
         </div>
       </section>
@@ -51,8 +51,8 @@
       <section class="card">
         <h2>2. ご注文者情報 <span class="req">必須</span></h2>
         <div class="grid2">
-          <label class="field">会社/団体名 <span class="req">必須</span>
-            <input type="text" data-path="orderer.org_name" maxlength="200" required>
+          <label class="field">会社/団体名 <span class="opt">任意</span>
+            <input type="text" data-path="orderer.org_name" maxlength="200">
           </label>
           <label class="field">ご担当者名 <span class="req">必須</span>
             <input type="text" data-path="orderer.contact_name" maxlength="200" required>

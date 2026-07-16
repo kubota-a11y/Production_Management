@@ -146,7 +146,7 @@ const deliveryHistoryApp = {
         return;
       }
       this.closeDuplicateModal();
-      if (confirm('新規案件として登録しました。案件管理画面を開きますか?')) {
+      if (confirm('新規案件として登録しました。HiBoardの画面を開きますか?')) {
         window.location.href = '/';
       }
     } catch (error) {
