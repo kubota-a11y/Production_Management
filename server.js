@@ -184,6 +184,11 @@ app.use('/webhook', (err, req, res, next) => {
 
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+// お客様向け「ご注文の流れ」ページ(オーダーフォームと同じ公開ページ)
+app.get('/guide', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'guide.html'));
+});
+
 // no-cache = 「使う前に毎回サーバーへ更新確認」(キャッシュ全否定ではない)。
 // 未更新なら304で済むためLAN内では体感差なし。これにより本番反映後の
 // ハードリフレッシュ(Ctrl+Shift+R)が不要になり、古いJSを掴んだままの端末が出なくなる。

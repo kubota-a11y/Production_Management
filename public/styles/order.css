@@ -144,3 +144,10 @@ textarea { resize: vertical; }
 }
 .done-receipt strong { font-size: 1.3rem; color: #166534; letter-spacing: 0.05em; }
 .done-receipt small { color: #64748b; }
+
+/* ご注文の流れページへの誘導リンク */
+.guide-link {
+  background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;
+  padding: 10px 14px; font-size: .92rem; color: #1e40af;
+}
+.guide-link a { color: #1d4ed8; font-weight: 700; }
