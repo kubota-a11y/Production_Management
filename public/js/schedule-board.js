@@ -460,13 +460,16 @@ const scheduleBoard = {
       return setupHtml + workHtml + cleanupHtml;
     }).join('');
 
-    // 準備項目タスクは案件の作業と区別できるよう【準備】ラベル・専用スタイルで表示する
+    // 準備項目タスクは案件の作業と区別できるよう【準備】ラベル・専用スタイルで表示する。
+    // 案件ブロックと同様にドラッグ&ドロップ(PC: HTML5 D&D / タッチ端末: タッチドラッグ)で
+    // 別の従業員×日付へ移動できる
     const prepSegments = dayPrepItems.map(i => {
       const hours = i.estimated_hours || 0;
       const widthPct = (hours / scaleMax) * 100;
       const label = `【準備】${i.project_name} / ${i.preparation_item_name}`;
       const title = `${label}: 予定${hours}h（${i.status}）`;
-      return `<div class="sb-bar-segment sb-bar-segment-prep${i.status === '完了' ? ' is-completed' : ''}" style="width:${widthPct}%;" title="${this.escapeHtml(title)}">${this.escapeHtml(label)}</div>`;
+      const touchPayload = `{type:'prepItem', prepItemId:${i.id}}`;
+      return `<div class="sb-bar-segment sb-bar-segment-prep${i.status === '完了' ? ' is-completed' : ''}" draggable="true" ondragstart="event.stopPropagation(); scheduleBoard.onPrepItemDragStart(event, ${i.id})" ondragend="scheduleBoard.onDragEnd()" ontouchstart="event.stopPropagation(); scheduleBoard.onDragTouchStart(event, ${touchPayload})" ontouchmove="scheduleBoard.onDragTouchMove(event)" ontouchend="scheduleBoard.onDragTouchEnd(event)" style="width:${widthPct}%;" title="${this.escapeHtml(title)}">${this.escapeHtml(label)}</div>`;
     }).join('');
 
     return `
@@ -855,6 +858,13 @@ const scheduleBoard = {
     event.dataTransfer.effectAllowed = 'move';
   },
 
+  // 準備項目タスクのブロックをドラッグして別の従業員×日付へ移動する
+  onPrepItemDragStart(event, prepItemId) {
+    this.dragPayload = { type: 'prepItem', prepItemId };
+    event.dataTransfer.setData('text/plain', JSON.stringify(this.dragPayload));
+    event.dataTransfer.effectAllowed = 'move';
+  },
+
   onDragEnd() {
     this.dragPayload = null;
     document.querySelectorAll('.sb-cell.is-drop-target').forEach(el => el.classList.remove('is-drop-target'));
@@ -886,6 +896,8 @@ const scheduleBoard = {
       await this.confirmProposalAt(payload.caseId, employeeId, dateISO);
     } else if (payload.type === 'allocation') {
       await this.moveAllocation(payload.allocationId, employeeId, dateISO);
+    } else if (payload.type === 'prepItem') {
+      await this.movePrepItem(payload.prepItemId, employeeId, dateISO);
     }
   },
 
@@ -935,6 +947,8 @@ const scheduleBoard = {
       await this.confirmProposalAt(payload.caseId, employeeId, dateISO);
     } else if (payload.type === 'allocation') {
       await this.moveAllocation(payload.allocationId, employeeId, dateISO);
+    } else if (payload.type === 'prepItem') {
+      await this.movePrepItem(payload.prepItemId, employeeId, dateISO);
     }
   },
 
@@ -1011,6 +1025,30 @@ const scheduleBoard = {
     } catch (error) {
       console.error('ブロック移動エラー:', error);
       alert('ブロックの移動に失敗しました');
+    }
+  },
+
+  // 準備項目タスクを別の従業員×日付へ移動する(配置ミスの修正用)。
+  // 既存のPUT /api/preparation-items/:id が担当者・予定日の更新に対応済みのため、
+  // 新しいAPIは追加せずそのまま再利用する(工数・ステータスは変更しない)
+  async movePrepItem(prepItemId, employeeId, dateISO) {
+    try {
+      const res = await fetch(`/api/preparation-items/${prepItemId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assigned_staff_id: employeeId, scheduled_date: dateISO }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || '準備項目の移動に失敗しました');
+        return;
+      }
+      await this.loadWeekPreparationItems();
+      this.renderBoard();
+      this.renderMobileBoard();
+    } catch (error) {
+      console.error('準備項目移動エラー:', error);
+      alert('準備項目の移動に失敗しました');
     }
   },
 
