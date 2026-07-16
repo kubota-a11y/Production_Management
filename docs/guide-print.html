@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>ご注文の流れ(A4印刷用)</title>
+<style>
+  /* A4印刷用。Chromeのヘッドレス印刷でPDF化する(生成手順はdocs/README-pdf.md参照) */
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #1c1917;
+    --text: #44403c;
+    --muted: #78716c;
+    --hairline: #e7e2dc;
+    --caution-bg: #faf4f2;
+    --caution-line: #e8d5cf;
+    --caution-text: #8c4a3f;
+    --serif: "Hiragino Mincho ProN", "Yu Mincho", serif;
+    --sans: "Hiragino Sans", "Noto Sans JP", sans-serif;
+  }
+
+  body {
+    font-family: var(--sans);
+    color: var(--text);
+    line-height: 1.75;
+    font-size: 9.2pt;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .page {
+    width: 210mm; height: 297mm;
+    padding: 16mm 18mm 14mm;
+    page-break-after: always;
+    position: relative;
+    background: #fff;
+  }
+  .page:last-child { page-break-after: auto; }
+
+  /* ===== ヘッダー ===== */
+  .hero { text-align: center; margin-bottom: 9mm; }
+  .overline {
+    font-size: 7pt; letter-spacing: .32em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 2.5mm;
+  }
+  h1 {
+    font-family: var(--serif); font-size: 20pt; font-weight: 600;
+    letter-spacing: .14em; color: var(--ink);
+  }
+  .divider { width: 12mm; height: .35mm; background: var(--ink); margin: 4mm auto; }
+  .lead { color: var(--muted); font-size: 8.6pt; }
+
+  /* ===== ステップ ===== */
+  .flow { list-style: none; }
+  .flow-step { display: flex; gap: 5mm; position: relative; padding-bottom: 5.2mm; }
+  .flow-step::before {
+    content: ""; position: absolute; left: 4.4mm; top: 10.5mm; bottom: 1mm;
+    width: .3mm; background: var(--hairline);
+  }
+  .flow-step:last-child { padding-bottom: 0; }
+  .flow-step:last-child::before { display: none; }
+
+  .flow-num {
+    flex: 0 0 9mm; width: 9mm; height: 9mm; border-radius: 50%;
+    background: var(--ink); color: #fff;
+    font-family: var(--serif); font-size: 10.5pt;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .flow-body { flex: 1; padding-top: .8mm; }
+  .flow-body h2 {
+    font-family: var(--serif); font-size: 11.5pt; font-weight: 600;
+    letter-spacing: .06em; color: var(--ink); margin-bottom: 1.2mm;
+    display: flex; align-items: center; gap: 2.5mm;
+  }
+  .flow-body p { margin: .8mm 0; }
+  .flow-body strong { color: var(--ink); font-weight: 600; }
+
+  .tag {
+    font-family: var(--sans); font-size: 6.3pt; font-weight: 500; letter-spacing: .08em;
+    color: var(--muted); border: .3mm solid var(--hairline);
+    border-radius: 99mm; padding: .2mm 2.6mm; background: #fff;
+  }
+  .tag-us { color: var(--ink); border-color: #cfc9c1; }
+
+  .note {
+    background: var(--caution-bg); border-left: .6mm solid var(--caution-line);
+    color: var(--caution-text); padding: 1.6mm 3mm; margin-top: 1.4mm;
+    font-size: 8.6pt;
+  }
+  .note strong { color: var(--caution-text); }
+
+  /* ===== 2ページ目 ===== */
+  .section { margin-top: 9mm; padding-top: 7mm; border-top: .3mm solid var(--hairline); text-align: center; }
+  .section:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+  .section-title {
+    font-family: var(--serif); font-size: 13.5pt; font-weight: 600;
+    letter-spacing: .1em; color: var(--ink); margin-bottom: 3mm;
+  }
+  .section-body { text-align: left; max-width: 150mm; margin: 0 auto; }
+  .section-body strong { color: var(--ink); }
+
+  .faq-item { text-align: left; max-width: 158mm; margin: 0 auto; padding: 2.8mm 0; border-bottom: .3mm solid var(--hairline); }
+  .faq-item:first-of-type { border-top: .3mm solid var(--hairline); }
+  .faq-q { font-weight: 600; color: var(--ink); margin-bottom: 1mm; }
+  .faq-q::before { content: "Q. "; font-family: var(--serif); }
+  .faq-a::before { content: "A. "; font-family: var(--serif); color: var(--muted); }
+  .faq-a ul { margin: 1mm 0 0 5mm; }
+  .faq-a li { margin: .6mm 0; }
+  .faq-a strong { color: var(--ink); }
+
+  /* 連絡先(QR) */
+  .contact { display: flex; justify-content: center; gap: 14mm; margin-top: 5mm; }
+  .qr-block { text-align: center; }
+  .qr-block img { width: 26mm; height: 26mm; border: .3mm solid var(--hairline); padding: 1.5mm; }
+  .qr-label { font-size: 8pt; font-weight: 600; color: var(--ink); margin-top: 1.5mm; }
+  .qr-url { font-size: 6.5pt; color: var(--muted); letter-spacing: .02em; }
+
+  .footer {
+    position: absolute; left: 0; right: 0; bottom: 9mm; text-align: center;
+    font-size: 6.8pt; letter-spacing: .22em; color: #a8a29e;
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== 1ページ目: 流れ ===== -->
+<div class="page">
+  <header class="hero">
+    <p class="overline">Order Guide</p>
+    <h1>ご注文の流れ</h1>
+    <div class="divider"></div>
+    <p class="lead">ご相談から納品まで、HIYOSHIのプリント・刺繍加工は以下のステップで進みます。</p>
+  </header>
+
+  <ol class="flow">
+    <li class="flow-step">
+      <div class="flow-num">1</div>
+      <div class="flow-body">
+        <h2>ご相談<span class="tag">お客様</span></h2>
+        <p>公式LINE または Webオーダーフォームから、作りたいもののイメージをお聞かせください。
+        <strong>デザイン・アイテム(Tシャツ等)・数量</strong>をお伺いします。ラフなイメージや手描きのメモでも大丈夫です。</p>
+      </div>
+    </li>
+    <li class="flow-step">
+      <div class="flow-num">2</div>
+      <div class="flow-body">
+        <h2>お見積り・仕上がりイメージのご提示<span class="tag tag-us">HIYOSHI</span></h2>
+        <p>いただいた内容をもとに、<strong>お見積りと仕上がりイメージ</strong>を作成してお送りします。<strong>目安: 当日〜翌営業日</strong>。</p>
+        <p>デザインの修正・数量の変更・加工方法の変更など、ご要望があればお聞かせください。ご納得いただけるまで作り直します。</p>
+      </div>
+    </li>
+    <li class="flow-step">
+      <div class="flow-num">3</div>
+      <div class="flow-body">
+        <h2>ご了承・請求書の発行</h2>
+        <p>内容にご了承いただけましたら、請求書を発行いたします。</p>
+        <div class="note">請求書発行後は、<strong>デザイン・数量の変更はできません</strong>。</div>
+      </div>
+    </li>
+    <li class="flow-step">
+      <div class="flow-num">4</div>
+      <div class="flow-body">
+        <h2>お支払い<span class="tag">お客様</span></h2>
+        <p>お支払いは<strong>先払い</strong>です。<strong>銀行振込 または 現金</strong>にてお願いいたします。</p>
+        <p>ご入金の確認が取れ次第、ボディー(Tシャツ等)の手配・デザインデータの作成・インク色の選定に入ります。</p>
+      </div>
+    </li>
+    <li class="flow-step">
+      <div class="flow-num">5</div>
+      <div class="flow-body">
+        <h2>仕上がり確認(位置・大きさ・インク色)<span class="tag">お客様</span><span class="tag tag-us">HIYOSHI</span></h2>
+        <p>デザインを<strong>実寸サイズで印刷した紙を実際の商品に当てた写真</strong>を公式LINEでお送りします。
+        プリント位置や大きさを写真を見ながら一緒に微調整し、最後に<strong>インク色</strong>をご確認いただきます。</p>
+        <div class="note">ご確認いただいた時点で「校了」となり、<strong>以後の変更はできません</strong>。</div>
+      </div>
+    </li>
+    <li class="flow-step">
+      <div class="flow-num">6</div>
+      <div class="flow-body">
+        <h2>製作・納品<span class="tag tag-us">HIYOSHI</span></h2>
+        <p>校了後、製作に入ります。<strong>お支払いから約2週間で納品</strong>です。
+        お渡しは<strong>弊社での直接お渡し</strong>、または<strong>発送</strong>をお選びいただけます。</p>
+      </div>
+    </li>
+  </ol>
+
+  <div class="footer">HIYOSHI — プリント・刺繍加工</div>
+</div>
+
+<!-- ===== 2ページ目: 受付番号・FAQ・連絡先 ===== -->
+<div class="page">
+  <div class="section">
+    <p class="overline">Receipt Number</p>
+    <h2 class="section-title">受付番号(W-番号)について</h2>
+    <p class="section-body">Webオーダーフォームから送信いただくと、<strong>受付番号(例: W-114)</strong>が発行されます。
+    お問い合わせの際にこの番号をお伝えいただくと、スムーズにご案内できます。</p>
+  </div>
+
+  <div class="section">
+    <p class="overline">FAQ</p>
+    <h2 class="section-title">よくある質問</h2>
+
+    <div class="faq-item">
+      <p class="faq-q">加工方法はどう選べばいいですか?</p>
+      <div class="faq-a">迷ったらLINEで用途をお伝えください。最適な方法をご提案します。
+        <ul>
+          <li><strong>シルクスクリーンプリント</strong> — 同じデザインを枚数多く(チームTシャツ等)。色数が少ないデザイン向き</li>
+          <li><strong>DTFプリント</strong> — 写真やグラデーションなどフルカラー、少量からの製作向き</li>
+          <li><strong>ラバー転写プリント</strong> — 背番号・個人名など、1枚ごとに内容が変わるものに</li>
+          <li><strong>刺繍</strong> — 高級感を出したいとき。帽子・ワッペン・作業着の社名刺繍など</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <p class="faq-q">最低何枚から注文できますか?</p>
+      <p class="faq-a">1枚から承ります。枚数が多いほど1枚あたりの単価はお安くなります。詳しくはお見積りにてご確認ください。</p>
+    </div>
+
+    <div class="faq-item">
+      <p class="faq-q">持ち込みの服に加工してもらえますか?</p>
+      <p class="faq-a">事前にご相談ください。素材や形状によっては加工できない場合があります。
+      お持ち込み品は万一の加工不良の際に代品のご用意ができないことを、あらかじめご了承ください。</p>
+    </div>
+
+    <div class="faq-item">
+      <p class="faq-q">デザインデータはどんな形式で渡せばいいですか?</p>
+      <p class="faq-a">Illustrator形式(.ai)推奨。jpg / png / pdf / svg も可(1ファイル15MBまで)。
+      データが無くても、手描きのラフや写真からデザインを作成できます。</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="overline">Contact</p>
+    <h2 class="section-title"><span class="nb">まずはお気軽に</span><span class="nb">ご相談ください</span></h2>
+    <p style="text-align:center;">「こんなものは作れる?」の段階で大丈夫です。お見積りは無料です。</p>
+    <div class="contact">
+      <div class="qr-block">
+        <img src="qr-line.png" alt="公式LINE QRコード">
+        <p class="qr-label">公式LINEで相談する</p>
+        <p class="qr-url">lin.ee/OIX6jSZ</p>
+      </div>
+      <div class="qr-block">
+        <img src="qr-form.png" alt="Webオーダーフォーム QRコード">
+        <p class="qr-label">Webフォームで見積依頼</p>
+        <p class="qr-url">order.kubota-tunnel.com/order</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">HIYOSHI — プリント・刺繍加工</div>
+</div>
+
+</body>
+</html>
