@@ -41,6 +41,7 @@ body {
 #addItemBtn { display: block; width: 100%; margin-top: 4px; padding: 12px; font-weight: 600; }
 
 .req { font-size: .72rem; font-weight: 600; color: #b91c1c; background: #fee2e2; padding: 2px 8px; border-radius: 999px; }
+.opt { font-size: .72rem; font-weight: 600; color: #6b7280; background: #f1f5f9; padding: 2px 8px; border-radius: 999px; }
 .hint { font-size: .82rem; color: #6b7280; margin: 4px 0 8px; }
 
 .field { display: block; margin: 10px 0; font-size: .9rem; font-weight: 600; color: #334155; }
@@ -75,7 +76,17 @@ textarea { resize: vertical; }
 .roster-row { grid-template-columns: 1fr .6fr .6fr auto; }
 .printloc-row { grid-template-columns: 1fr .8fr auto; }
 @media (max-width: 560px) {
-  .row-line, .roster-row, .printloc-row { grid-template-columns: 1fr 1fr auto; }
+  /* プリント位置行は子3個(位置/色数/削除)なので3カラムで一致 */
+  .printloc-row { grid-template-columns: 1fr 1fr auto; }
+  /* 品番/マトリクス/名簿行は子4個(入力3＋削除)。3カラムだと入力欄が潰れるため
+     2カラム折返しにして各入力に十分な幅を与える。削除ボタンは行末に配置。 */
+  .catalog-row, .matrix-row, .roster-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .catalog-row .btn-del, .matrix-row .btn-del, .roster-row .btn-del {
+    grid-column: 2; justify-self: end;
+  }
 }
 .row-line input { margin-top: 0; }
 .btn-del {

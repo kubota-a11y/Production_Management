@@ -200,10 +200,9 @@
   }
   function applyTypeUI() {
     const isOrder = currentType() === 'order';
-    // メールアドレス: 正式発注は任意、見積は必須(従来どおり)
-    $('#emailReq').textContent = isOrder ? '任意' : '必須';
-    if (isOrder) $('#ordererEmail').removeAttribute('required');
-    else $('#ordererEmail').setAttribute('required', '');
+    // メールアドレス: 見積・正式発注とも任意
+    $('#emailReq').textContent = '任意';
+    $('#ordererEmail').removeAttribute('required');
     // アイテム: 見積は1件のみ(2件目以降は隠す)。正式発注は全件表示＋追加ボタン。
     itemCards().forEach((card, i) => {
       card.style.display = (isOrder || i === 0) ? '' : 'none';
