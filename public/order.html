@@ -55,27 +55,21 @@
           <label class="field">電話番号 <span class="req">必須</span>
             <input type="tel" data-path="orderer.phone" maxlength="20" required>
           </label>
-          <label class="field">メールアドレス <span class="req">必須</span>
-            <input type="email" data-path="orderer.email" maxlength="200" required>
+          <label class="field">メールアドレス <span class="req" id="emailReq">必須</span>
+            <input type="email" id="ordererEmail" data-path="orderer.email" maxlength="200" required>
           </label>
         </div>
       </section>
 
       <!-- アイテム指定 -->
       <section class="card">
-        <h2>3. アイテム指定 <span class="req">①〜③のいずれか必須(併用可)</span></h2>
+        <h2>3. アイテム指定 <span class="req">品番 または カテゴリ のいずれか</span></h2>
 
         <div class="subblock">
-          <h3>① 品番で指定</h3>
-          <div id="catalogRows"></div>
-          <button type="button" class="btn-add" data-add="catalog">＋ 品番を追加</button>
-        </div>
-
-        <div class="subblock">
-          <h3>② 品番がわからない</h3>
+          <h3>① 品番がわからない</h3>
           <div class="grid2">
             <label class="field">カテゴリ
-              <select data-path="item_spec.unknown_spec.category">
+              <select id="catCategory" data-path="item_spec.unknown_spec.category">
                 <option value="">選択してください</option>
                 <option value="tshirt">Tシャツ</option>
                 <option value="polo">ポロシャツ</option>
@@ -83,16 +77,31 @@
                 <option value="other">その他</option>
               </select>
             </label>
-            <label class="field">ご予算感
-              <input type="text" data-path="item_spec.unknown_spec.budget" maxlength="200" placeholder="例: 1枚2,000円くらい">
+            <label class="field" id="subCatField" hidden>第2カテゴリ<small>（任意）</small>
+              <select id="catSubCategory" data-path="item_spec.unknown_spec.sub_category">
+                <option value="">選択してください</option>
+              </select>
             </label>
           </div>
-          <label class="field">用途
-            <input type="text" data-path="item_spec.unknown_spec.purpose" maxlength="500" placeholder="例: 夏の練習着">
-          </label>
-          <label class="field">希望の雰囲気
-            <input type="text" data-path="item_spec.unknown_spec.mood" maxlength="500" placeholder="例: シンプルで濃色">
-          </label>
+          <div id="estimateOnlyFields">
+            <div class="grid2">
+              <label class="field">ご予算感
+                <input type="text" data-path="item_spec.unknown_spec.budget" maxlength="200" placeholder="例: 1枚2,000円くらい">
+              </label>
+              <label class="field">用途
+                <input type="text" data-path="item_spec.unknown_spec.purpose" maxlength="500" placeholder="例: 夏の練習着">
+              </label>
+            </div>
+            <label class="field">希望の雰囲気
+              <input type="text" data-path="item_spec.unknown_spec.mood" maxlength="500" placeholder="例: シンプルで濃色">
+            </label>
+          </div>
+        </div>
+
+        <div class="subblock">
+          <h3>② 品番で指定</h3>
+          <div id="catalogRows"></div>
+          <button type="button" class="btn-add" data-add="catalog">＋ 品番を追加</button>
         </div>
 
         <div class="subblock">
@@ -122,12 +131,12 @@
       <!-- 数量 -->
       <section class="card">
         <h2>5. 数量</h2>
-        <!-- 見積: 概数 -->
+        <!-- 見積: 概数 / 正式発注: 数量 -->
         <div id="qtyApprox" class="field">
-          <label>概数（おおよその枚数）
+          <label><span id="qtyApproxLabel">概数（おおよその枚数）</span>
             <input type="text" data-path="quantity.approximate" maxlength="500" placeholder="例: 30〜40枚 / サイズ未定">
           </label>
-          <p class="hint">正式発注をお選びの場合は、下の内訳または概数のいずれかをご入力ください。</p>
+          <p class="hint" id="qtyApproxHint">正式発注をお選びの場合は、下の内訳または概数のいずれかをご入力ください。</p>
         </div>
         <!-- 正式発注: サイズ×カラー×数量(任意アコーディオン) -->
         <details id="qtyMatrix" class="accordion">

@@ -9,6 +9,26 @@
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
+  // 大カテゴリ→第2カテゴリ(任意)の連動マスタ。ここに無い大カテゴリは第2カテゴリを出さない。
+  // 値(value)はサーバ側 SUB_CATEGORIES と一致させること。
+  const SUB_CATEGORIES = {
+    tshirt: [
+      { value: 'cotton_regular', label: '綿素材(通常)' },
+      { value: 'cotton_heavy', label: '綿素材(厚手)' },
+      { value: 'dry', label: 'ドライ素材' },
+      { value: 'big_silhouette', label: 'ビッグシルエット' },
+      { value: 'import_other', label: '他(インポートブランドなど)' },
+    ],
+    polo: [
+      { value: 'cotton', label: '綿素材' },
+      { value: 'dry', label: 'ドライ素材' },
+    ],
+    workwear: [
+      { value: 'jacket', label: 'ジャケット' },
+      { value: 'pants', label: 'パンツ' },
+    ],
+  };
+
   // ===== 納期: 日付ピッカーの下限を「今日+minLeadDays」に =====
   function localDatePlus(days) {
     const d = new Date();
@@ -109,9 +129,41 @@
     const isOrder = currentType() === 'order';
     // 正式発注ではマトリクスのアコーディオンを開いた状態で促す(概数も併用可)
     $('#qtyMatrix').open = isOrder;
+    // メールアドレス: 正式発注は任意、見積は必須(従来どおり)
+    $('#emailReq').textContent = isOrder ? '任意' : '必須';
+    if (isOrder) $('#ordererEmail').removeAttribute('required');
+    else $('#ordererEmail').setAttribute('required', '');
+    // 見積専用フィールド(ご予算感/用途/希望の雰囲気)は正式発注では非表示
+    $('#estimateOnlyFields').style.display = isOrder ? 'none' : '';
+    // 数量ラベル: 正式発注は「数量」、見積は「概数」
+    $('#qtyApproxLabel').textContent = isOrder ? '数量' : '概数（おおよその枚数）';
+    $('#qtyApproxHint').style.display = isOrder ? 'none' : '';
   }
   $$('input[name="request_type"]').forEach(r => r.addEventListener('change', applyTypeUI));
   applyTypeUI();
+
+  // ===== カテゴリの2段階化(連動プルダウン) =====
+  const catCategory = $('#catCategory');
+  const catSubCategory = $('#catSubCategory');
+  const subCatField = $('#subCatField');
+  function applyCategoryUI() {
+    const subs = SUB_CATEGORIES[catCategory.value] || null;
+    // 大カテゴリ変更のたびに第2カテゴリを作り直す = 選択は自動リセットされる
+    catSubCategory.innerHTML = '<option value="">選択してください</option>';
+    if (subs) {
+      subs.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.value;
+        opt.textContent = o.label;
+        catSubCategory.appendChild(opt);
+      });
+      subCatField.hidden = false;
+    } else {
+      subCatField.hidden = true; // 未選択 or 第2カテゴリを持たない大カテゴリ
+    }
+  }
+  catCategory.addEventListener('change', applyCategoryUI);
+  applyCategoryUI();
 
   // ===== 加工方法によるプリント位置の要否表示 =====
   function applyMethodUI() {
@@ -134,12 +186,15 @@
     })).filter(x => x.catalog_number);
   }
   function collectUnknown() {
+    const isOrder = currentType() === 'order';
     const category = val('item_spec.unknown_spec.category');
-    const purpose = val('item_spec.unknown_spec.purpose');
-    const budget = val('item_spec.unknown_spec.budget');
-    const mood = val('item_spec.unknown_spec.mood');
-    if (!category && !purpose && !budget && !mood) return null;
-    return { category, purpose, budget, mood };
+    const sub_category = val('item_spec.unknown_spec.sub_category');
+    // 正式発注ではご予算感/用途/希望の雰囲気は非表示 → サーバへ送らない
+    const purpose = isOrder ? '' : val('item_spec.unknown_spec.purpose');
+    const budget = isOrder ? '' : val('item_spec.unknown_spec.budget');
+    const mood = isOrder ? '' : val('item_spec.unknown_spec.mood');
+    if (!category && !sub_category && !purpose && !budget && !mood) return null;
+    return { category, sub_category, purpose, budget, mood };
   }
   function collectPrintLocs() {
     return $$('.printloc-row').map(r => ({
@@ -239,10 +294,26 @@
   }
   initTurnstile();
 
+  // ===== フロント側バリデーション(アイテム指定の緩和条件) =====
+  // 送信可の条件: 品番あり または 大カテゴリ選択あり のいずれか(参考画像でも可)。
+  // ※第2カテゴリは任意なので条件に含めない。
+  function clientValidate() {
+    const errs = [];
+    const hasCatalog = $$('.catalog-row').some(r => $('.c-num', r).value.trim());
+    const hasCategory = !!catCategory.value;
+    const hasReference = (($('#referenceImages').files) || []).length > 0;
+    if (!hasCatalog && !hasCategory && !hasReference) {
+      errs.push({ message: 'アイテム指定: 品番 または カテゴリ を1つ以上ご入力ください(参考画像でも可)。' });
+    }
+    return errs;
+  }
+
   // ===== 送信 =====
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     showErrors(null);
+    const clientErrors = clientValidate();
+    if (clientErrors.length) { showErrors(clientErrors); return; }
     const btn = $('#submitBtn');
     btn.disabled = true;
     btn.textContent = '送信中...';
