@@ -722,7 +722,7 @@ const scheduleBoard = {
     // 担当者フィルタのプルダウンは、現在の提案一覧に登場する担当者だけを選択肢にする
     const employeeSelect = document.getElementById('sb-proposals-filter-employee');
     const uniqueEmployees = Array.from(
-      new Map(this.proposals.map(p => [p.employee_id, p.employee_name])).entries()
+      new Map(this.proposals.filter(p => p.employee_id != null).map(p => [p.employee_id, p.employee_name])).entries()
     );
     const prevEmployeeValue = employeeSelect.value;
     employeeSelect.innerHTML = '<option value="">すべて</option>' +
@@ -747,9 +747,11 @@ const scheduleBoard = {
       const scoreLabel = p.score != null ? `${(p.score * 100).toFixed(0)}%` : '-';
       const availableLabel = p.available_hours != null ? `${p.available_hours}h` : '-';
       const highlightCls = this.highlightedCaseId === p.case_id ? ' is-highlighted' : '';
-      const employeeOptions = this.employees.map(e =>
-        `<option value="${e.id}" ${e.id === p.employee_id ? 'selected' : ''}>${this.escapeHtml(e.name)}</option>`
-      ).join('');
+      const employeeOptions =
+        (p.employee_id == null ? '<option value="" selected>担当者を選択</option>' : '') +
+        this.employees.map(e =>
+          `<option value="${e.id}" ${e.id === p.employee_id ? 'selected' : ''}>${this.escapeHtml(e.name)}</option>`
+        ).join('');
       return `
         <div class="sb-proposal-card${highlightCls}" data-case-id="${p.case_id}" draggable="true"
              ondragstart="scheduleBoard.onProposalDragStart(event, ${p.case_id})"
@@ -762,7 +764,7 @@ const scheduleBoard = {
           <div class="sb-proposal-card-name">${this.escapeHtml(p.project_name)}</div>
           <div class="sb-proposal-card-customer">${this.escapeHtml(p.customer_name || '')}</div>
           <div class="sb-proposal-card-meta">納期 ${this.escapeHtml(p.deadline || '-')} ・ 数量 ${p.quantity ?? '-'} ・ ${this.escapeHtml(p.process_type || '-')}</div>
-          <div class="sb-proposal-card-meta">担当 ${this.escapeHtml(p.employee_name)} ・ スコア ${scoreLabel} ・ 空き ${availableLabel}</div>
+          <div class="sb-proposal-card-meta">担当 ${p.employee_name ? this.escapeHtml(p.employee_name) : '未定'} ・ スコア ${scoreLabel} ・ 空き ${availableLabel}</div>
           <div class="sb-proposal-card-actions">
             <span class="sb-proposal-card-hint">🖱️ ドラッグしてボードへ</span>
             <button type="button" class="btn btn-danger btn-small" onclick="scheduleBoard.moveToInspection(${p.case_id})">検品へ</button>

@@ -1093,7 +1093,35 @@ app.get('/api/proposals', (req, res) => {
       };
     }).filter(Boolean);
 
-    res.json(results);
+    // まだ担当者候補も予定も付いていない未着手案件(case_time_allocationsに行が1件も無い)も
+    // 「担当者未定」カードとして提案確認パネルに出す。これがないと、担当者を割り当てるまで
+    // 案件がボードのどこにも現れず埋もれてしまう。対象はスケジュール調整対象ステータス
+    // (SCHEDULABLE_PROJECT_STATUSES)に限る。status='提案'の案件は上のresultsに、
+    // status='予定'等の確定済み案件はcase_time_allocationsに行があるため、ここには含まれない
+    // (=既存カードと重複しない)
+    const schedulablePlaceholders = SCHEDULABLE_PROJECT_STATUSES.map(() => '?').join(', ');
+    const unassignedProjects = db.prepare(`
+      SELECT * FROM projects
+      WHERE status IN (${schedulablePlaceholders})
+        AND id NOT IN (SELECT DISTINCT case_id FROM case_time_allocations)
+      ORDER BY id ASC
+    `).all(...SCHEDULABLE_PROJECT_STATUSES);
+
+    const unassignedCards = unassignedProjects.map(project => ({
+      case_id: project.id,
+      project_name: project.project_name,
+      customer_name: project.customer_name,
+      deadline: project.deadline,
+      quantity: project.quantity,
+      process_type: project.process_type,
+      employee_id: null,
+      employee_name: null,
+      proposed_hours_total: null,
+      score: null,
+      available_hours: null,
+    }));
+
+    res.json([...results, ...unassignedCards]);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
