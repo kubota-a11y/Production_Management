@@ -1530,3 +1530,19 @@ html, body {
   gap: 6px;
   white-space: nowrap;
 }
+
+/* ===== 受付番号バッジ(Web注文フォーム由来の受注候補) ===== */
+.receipt-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 10px;
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+  border-radius: 999px;
+  font-size: 0.82em;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  vertical-align: middle;
+  white-space: nowrap;
+}

@@ -703,6 +703,14 @@ const app = {
       const sender = document.createElement('div');
       sender.className = 'ai-intake-card-sender';
       sender.textContent = intake.display_name || '不明な送信者';
+      // Web注文フォーム由来の候補には受付番号(W-取り込みID)を併記する。
+      // お客様の完了画面・受付控えメールに表示される番号と同一なので、問い合わせ対応時に突き合わせられる
+      if (intake.line_user_id === 'WEB') {
+        const receipt = document.createElement('span');
+        receipt.className = 'receipt-badge';
+        receipt.textContent = `W-${intake.id}`;
+        sender.appendChild(receipt);
+      }
       body.appendChild(sender);
 
       const items = document.createElement('div');
@@ -724,6 +732,7 @@ const app = {
     this.editingAiIntakeId = id;
     this.currentAiIntakeDetail = null;
 
+    document.getElementById('ai-intake-modal-title').textContent = 'AI受注候補の確認';
     document.getElementById('ai-intake-form').reset();
     document.getElementById('ai-intake-chat-transcript').innerHTML = '<p class="folder-notice">読み込み中…</p>';
     document.getElementById('ai-intake-deadline-hint').textContent = '';
@@ -739,6 +748,15 @@ const app = {
         return;
       }
       this.currentAiIntakeDetail = intake;
+      // Web注文フォーム由来なら、タイトルに受付番号バッジを表示する
+      if (intake.line_user_id === 'WEB') {
+        const title = document.getElementById('ai-intake-modal-title');
+        title.textContent = 'AI受注候補の確認 ';
+        const receipt = document.createElement('span');
+        receipt.className = 'receipt-badge';
+        receipt.textContent = `W-${intake.id}`;
+        title.appendChild(receipt);
+      }
       this.renderAiIntakeChatTranscript(intake.messages || []);
       this.prefillAiIntakeForm(intake);
     }).catch(error => {
