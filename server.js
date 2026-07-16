@@ -9,6 +9,7 @@ const { initDatabase } = require('./db/init');
 const line = require('@line/bot-sdk');
 const { runExtractionCycle } = require('./lib/ai-extraction');
 const { registerOrderRoutes } = require('./lib/order-intake');
+const { extractCarriedData, extractCarriedItems } = require('./lib/intake-carry');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -1499,54 +1500,38 @@ app.get('/api/ai-intake/:id', (req, res) => {
   }
 });
 
-// 確定時に案件へ引き継ぐ構造化データ(プリント箇所・名簿)を取り出して正規化する。
-// 優先順位: 確定画面(req.body)が明示的に渡した値 > intakeのraw_ai_response(Web注文フォーム由来)。
-// LINE経由の候補はraw_ai_responseにこの構造を持たないため、返り値は空配列となり従来挙動は変わらない。
-function extractCarriedData(projectData, intakeRow) {
-  let printLocations = Array.isArray(projectData.print_locations) ? projectData.print_locations : null;
-  let roster = Array.isArray(projectData.roster) ? projectData.roster : null;
-
-  if ((printLocations === null || roster === null) && intakeRow && intakeRow.raw_ai_response) {
-    try {
-      const raw = JSON.parse(intakeRow.raw_ai_response);
-      if (raw && raw.source === 'web_order_form') {
-        if (printLocations === null) printLocations = (raw.decoration && raw.decoration.print_locations) || [];
-        if (roster === null) roster = raw.roster || [];
-      }
-    } catch (err) {
-      console.error('[確定] raw_ai_responseの解析に失敗:', err.message);
-    }
-  }
-
-  const normLocations = (printLocations || [])
-    .map(l => ({ location_name: String(l.location_name || '').trim(), color_count: parseInt(l.color_count, 10) }))
-    .filter(l => l.location_name && Number.isInteger(l.color_count) && l.color_count >= 1 && l.color_count <= 4);
-
-  const normRoster = (roster || [])
-    .map((r, i) => ({
-      row_no: Number.isInteger(r.row_no) ? r.row_no : i + 1,
-      player_name: String(r.player_name || '').trim(),
-      number: String(r.number || '').trim(),
-      size: String(r.size || '').trim(),
-    }))
-    .filter(r => r.player_name || r.number);
-
-  return { printLocations: normLocations, roster: normRoster };
-}
-
 // 確認登録: ai_extracted_intakeの内容(編集後)から正式な案件を1件作成し、
 // 候補側のstatusをconfirmedにしてcase_idを紐付ける。1トランザクションで実行する。
-// Web注文フォーム由来の場合は、プリント箇所(case_print_locations)と名簿(case_roster)も同じ案件へ引き継ぐ。
+// Web注文フォーム由来の場合は、アイテム(case_items)・プリント箇所(case_print_locations)・名簿(case_roster)を引き継ぐ。
 const confirmAiIntake = db.transaction((intakeId, projectData) => {
   const projectId = createProjectRecord(projectData);
 
   const intakeRow = db.prepare(`SELECT raw_ai_response FROM ai_extracted_intake WHERE id = ?`).get(intakeId);
   const carried = extractCarriedData(projectData, intakeRow);
+  const carriedItems = extractCarriedItems(intakeRow);
 
-  if (carried.printLocations.length > 0) {
+  if (carriedItems) {
+    // Web注文フォーム由来: アイテムごとに case_items を作り、プリント箇所を各アイテムに紐づける。
+    const insItem = db.prepare(`
+      INSERT INTO case_items (case_id, item_no, category, sub_category, catalog_json, method, quantity_total, matrix_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const insLocItem = db.prepare(`INSERT INTO case_print_locations (case_id, case_item_id, location_name, color_count) VALUES (?, ?, ?, ?)`);
+    for (const it of carriedItems) {
+      const r = insItem.run(
+        projectId, it.item_no, it.category || null, it.sub_category || null,
+        JSON.stringify(it.catalog_items || []), it.method || null,
+        it.quantity_total || 0, it.matrix ? JSON.stringify(it.matrix) : null,
+      );
+      const caseItemId = r.lastInsertRowid;
+      for (const l of it.print_locations) insLocItem.run(projectId, caseItemId, l.location_name, l.color_count);
+    }
+  } else if (carried.printLocations.length > 0) {
+    // レガシー(LINE/手動): プリント箇所を案件直下(case_item_id=NULL)に保存(従来どおり)
     const insLoc = db.prepare(`INSERT INTO case_print_locations (case_id, location_name, color_count) VALUES (?, ?, ?)`);
     for (const l of carried.printLocations) insLoc.run(projectId, l.location_name, l.color_count);
   }
+
   if (carried.roster.length > 0) {
     const insRoster = db.prepare(`INSERT INTO case_roster (case_id, row_no, player_name, number, size) VALUES (?, ?, ?, ?, ?)`);
     for (const r of carried.roster) insRoster.run(projectId, r.row_no, r.player_name, r.number, r.size);

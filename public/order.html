@@ -61,95 +61,24 @@
         </div>
       </section>
 
-      <!-- アイテム指定 -->
+      <!-- アイテム(指定・加工・数量を1単位に。正式発注時は複数追加可) -->
       <section class="card">
-        <h2>3. アイテム指定 <span class="req">品番 または カテゴリ のいずれか</span></h2>
-
-        <div class="subblock">
-          <h3>① 品番がわからない</h3>
-          <div class="grid2">
-            <label class="field">カテゴリ
-              <select id="catCategory" data-path="item_spec.unknown_spec.category">
-                <option value="">選択してください</option>
-                <option value="tshirt">Tシャツ</option>
-                <option value="polo">ポロシャツ</option>
-                <option value="workwear">作業着</option>
-                <option value="other">その他</option>
-              </select>
-            </label>
-            <label class="field" id="subCatField" hidden>第2カテゴリ<small>（任意）</small>
-              <select id="catSubCategory" data-path="item_spec.unknown_spec.sub_category">
-                <option value="">選択してください</option>
-              </select>
-            </label>
-          </div>
-          <div id="estimateOnlyFields">
-            <div class="grid2">
-              <label class="field">ご予算感
-                <input type="text" data-path="item_spec.unknown_spec.budget" maxlength="200" placeholder="例: 1枚2,000円くらい">
-              </label>
-              <label class="field">用途
-                <input type="text" data-path="item_spec.unknown_spec.purpose" maxlength="500" placeholder="例: 夏の練習着">
-              </label>
-            </div>
-            <label class="field">希望の雰囲気
-              <input type="text" data-path="item_spec.unknown_spec.mood" maxlength="500" placeholder="例: シンプルで濃色">
-            </label>
-          </div>
-        </div>
-
-        <div class="subblock">
-          <h3>② 品番で指定</h3>
-          <div id="catalogRows"></div>
-          <button type="button" class="btn-add" data-add="catalog">＋ 品番を追加</button>
-        </div>
-
-        <div class="subblock">
-          <h3>③ 参考画像を添付</h3>
-          <p class="hint">イメージに近い画像があれば添付してください（複数可）。</p>
-          <input type="file" id="referenceImages" accept=".jpg,.jpeg,.png,.pdf,.ai,.svg" multiple>
-        </div>
+        <h2>3. アイテム指定・加工・数量 <span class="req">品番 または カテゴリ</span></h2>
+        <p class="hint" id="itemsMultiHint" hidden>Tシャツ・帽子など、種類ごとにアイテムを分けて指定できます。</p>
+        <div id="itemsContainer"></div>
+        <button type="button" class="btn-add" id="addItemBtn" hidden>＋ アイテムを追加</button>
       </section>
 
-      <!-- 加工内容 -->
+      <!-- 参考画像(案件全体) -->
       <section class="card">
-        <h2>4. 加工内容 <span class="req">必須</span></h2>
-        <label class="field">加工方法 <span class="req">必須</span>
-          <select data-path="decoration.method" id="decoMethod" required>
-            <option value="print">プリント</option>
-            <option value="embroidery">刺繍</option>
-            <option value="both">プリント＋刺繍</option>
-          </select>
-        </label>
-        <div id="printLocBlock">
-          <h3>プリント位置 <span class="req">プリント時は必須</span></h3>
-          <div id="printLocRows"></div>
-          <button type="button" class="btn-add" data-add="printloc">＋ プリント位置を追加</button>
-        </div>
-      </section>
-
-      <!-- 数量 -->
-      <section class="card">
-        <h2>5. 数量</h2>
-        <!-- 見積: 概数 / 正式発注: 数量 -->
-        <div id="qtyApprox" class="field">
-          <label><span id="qtyApproxLabel">概数（おおよその枚数）</span>
-            <input type="text" data-path="quantity.approximate" maxlength="500" placeholder="例: 30〜40枚 / サイズ未定">
-          </label>
-          <p class="hint" id="qtyApproxHint">正式発注をお選びの場合は、下の内訳または概数のいずれかをご入力ください。</p>
-        </div>
-        <!-- 正式発注: サイズ×カラー×数量(任意アコーディオン) -->
-        <details id="qtyMatrix" class="accordion">
-          <summary>サイズ×カラー×数量の内訳を入力する（任意）</summary>
-          <div id="matrixRows"></div>
-          <button type="button" class="btn-add" data-add="matrix">＋ 行を追加</button>
-          <p class="matrix-total">合計: <span id="matrixTotal">0</span> 枚</p>
-        </details>
+        <h2>4. 参考画像</h2>
+        <p class="hint">イメージに近い画像があれば添付してください（複数可）。品番・カテゴリが不明な場合の参考にします。</p>
+        <input type="file" id="referenceImages" accept=".jpg,.jpeg,.png,.pdf,.ai,.svg" multiple>
       </section>
 
       <!-- 名簿 -->
       <section class="card">
-        <h2>6. 名簿（選手名・背番号）</h2>
+        <h2>5. 名簿（選手名・背番号）</h2>
         <details class="accordion">
           <summary>名簿を入力する（任意）</summary>
           <div id="rosterRows"></div>
@@ -159,7 +88,7 @@
 
       <!-- 納期 -->
       <section class="card">
-        <h2>7. 納期のご希望</h2>
+        <h2>6. 納期のご希望</h2>
         <div class="grid2">
           <label class="field">希望納期日
             <input type="date" id="deadlineDate" data-path="deadline.date">
@@ -178,14 +107,14 @@
 
       <!-- 画像アップロード -->
       <section class="card">
-        <h2>8. デザイン・ロゴのアップロード</h2>
+        <h2>7. デザイン・ロゴのアップロード</h2>
         <p class="hint">ロゴやデザインデータがあれば添付してください（jpg / png / pdf / ai / svg・1ファイル15MBまで）。</p>
         <input type="file" id="designImages" accept=".jpg,.jpeg,.png,.pdf,.ai,.svg" multiple>
       </section>
 
       <!-- 備考 -->
       <section class="card">
-        <h2>9. 備考・ご要望</h2>
+        <h2>8. 備考・ご要望</h2>
         <textarea data-path="remarks" maxlength="3000" rows="4" placeholder="ご要望・ご質問など"></textarea>
       </section>
 

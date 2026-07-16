@@ -4,10 +4,11 @@ const path = require('path');
 
 const dbPath = path.join(__dirname, 'projects.db');
 
-function initDatabase() {
+// dbFile を渡すとそのパスで初期化(テスト用)。省略時は本番/開発の projects.db。
+function initDatabase(dbFile = dbPath) {
   // DBファイルが存在しない場合は新規作成
-  const dbExists = fs.existsSync(dbPath);
-  const db = new Database(dbPath);
+  const dbExists = fs.existsSync(dbFile);
+  const db = new Database(dbFile);
 
   // スキーマを読み込んで実行
   const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf-8');
@@ -139,6 +140,33 @@ function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_case_roster_case_id
     ON case_roster(case_id)
   `);
+
+  // 案件ごとのアイテム(Web注文フォームの複数アイテム対応)。1案件に複数アイテムをぶら下げる。
+  // print_locations は case_print_locations.case_item_id で各アイテムに紐づく。
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS case_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      case_id INTEGER NOT NULL,
+      item_no INTEGER NOT NULL,
+      category TEXT,
+      sub_category TEXT,
+      catalog_json TEXT,
+      method TEXT,
+      quantity_total INTEGER DEFAULT 0,
+      matrix_json TEXT,
+      FOREIGN KEY (case_id) REFERENCES projects(id)
+    )
+  `);
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_case_items_case_id
+    ON case_items(case_id)
+  `);
+
+  // 既存の case_print_locations にアイテム紐づけ用カラムが無ければ追加(NULL=案件直下=レガシー)
+  const printLocCols = db.prepare(`PRAGMA table_info('case_print_locations')`).all().map(c => c.name);
+  if (printLocCols.length > 0 && !printLocCols.includes('case_item_id')) {
+    db.prepare(`ALTER TABLE case_print_locations ADD COLUMN case_item_id INTEGER`).run();
+  }
 
   // 既存DBの schedule_overrides に is_day_off カラムがない場合は追加
   const scheduleOverrideColumns = db.prepare(`PRAGMA table_info('schedule_overrides')`).all().map(col => col.name);

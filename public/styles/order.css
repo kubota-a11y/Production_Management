@@ -23,6 +23,22 @@ body {
 .card h3 { font-size: .98rem; margin: 14px 0 8px; color: #334155; }
 .subblock { padding: 8px 0; border-top: 1px dashed #e4e7eb; margin-top: 8px; }
 .subblock:first-of-type { border-top: 0; margin-top: 0; }
+.card h4 { font-size: .95rem; margin: 4px 0 8px; color: #334155; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.card h5 { font-size: .88rem; margin: 12px 0 6px; color: #475569; }
+
+/* アイテムカード(1アイテム=指定/加工/数量の1単位) */
+.item-card {
+  border: 1px solid #d7dce2; border-left: 4px solid #2563eb; border-radius: 10px;
+  padding: 12px 14px; margin: 12px 0; background: #fbfcfe;
+}
+.item-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.item-title { font-size: 1rem; margin: 0; color: #1d4ed8; }
+.btn-del-item {
+  border: 1px solid #fecaca; background: #fef2f2; color: #b91c1c;
+  padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: .82rem; font-weight: 600;
+}
+.btn-del-item:hover { background: #fee2e2; }
+#addItemBtn { display: block; width: 100%; margin-top: 4px; padding: 12px; font-weight: 600; }
 
 .req { font-size: .72rem; font-weight: 600; color: #b91c1c; background: #fee2e2; padding: 2px 8px; border-radius: 999px; }
 .hint { font-size: .82rem; color: #6b7280; margin: 4px 0 8px; }
