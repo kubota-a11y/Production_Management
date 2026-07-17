@@ -21,6 +21,10 @@
     }
     .total-box { text-align: right; font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 4px 0 0; }
     .total-box small { display: block; font-size: .78rem; color: #6b7280; font-weight: 400; }
+    .quote-notice { text-align: center; font-size: .88rem; color: #334155; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; margin: 16px 0 0; }
+    .site-footer { border-top: 1px solid #e2e8f0; margin-top: 40px; padding: 20px 16px 8px; text-align: center; font-size: .82rem; color: #64748b; line-height: 1.9; }
+    .site-footer .company { font-size: .92rem; font-weight: 700; color: #334155; }
+    .site-footer a { color: #2563eb; text-decoration: none; }
   </style>
 </head>
 <body>
@@ -82,6 +86,8 @@
 
       <div class="form-errors" id="formErrors" hidden></div>
 
+      <p class="quote-notice">ご送信後、内容を確認のうえ、弊社より<strong>正式なお見積書</strong>を別途お送りいたします。</p>
+
       <div class="submit-row">
         <button type="submit" id="submitBtn" class="btn-submit">注文を送信する</button>
       </div>
@@ -94,8 +100,15 @@
         <small>お問い合わせの際にこの番号をお伝えいただくとスムーズです。</small></p>
       <p id="doneTotal" hidden></p>
       <p id="doneMailNote" hidden>ご記入いただいたメールアドレス宛に受付控えをお送りしました。届かない場合は迷惑メールフォルダをご確認ください。</p>
-      <p>内容を確認のうえ、担当者より正式な金額とあわせてご連絡いたします。</p>
+      <p>内容を確認のうえ、弊社より<strong>正式なお見積書</strong>を別途お送りいたします。今しばらくお待ちください。</p>
     </div>
+
+    <footer class="site-footer">
+      <p class="company">有限会社HiYOSHi</p>
+      <p>〒411-0945 静岡県駿東郡長泉町本宿166-1 2F<br>
+        TEL: <a href="tel:055-928-7609">055-928-7609</a> / MAIL: <a href="mailto:info@hiyoshi1954.com">info@hiyoshi1954.com</a><br>
+        営業時間 10:00〜17:00(土日祝休み)</p>
+    </footer>
   </main>
   <script src="/js/team-order.js"></script>
 </body>
