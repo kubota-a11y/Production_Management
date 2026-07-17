@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>チームリンク管理 - Production Management</title>
+  <link rel="stylesheet" href="styles/main.css">
+  <style>
+    /* チームリンク管理専用の差分スタイル */
+    .link-url { font-family: monospace; font-size: .8rem; color: #475569; word-break: break-all; }
+    .link-disabled-row td { opacity: .55; }
+    .status-pill { font-size: .75rem; font-weight: 700; padding: 2px 10px; border-radius: 999px; }
+    .status-pill.active { color: #166534; background: #dcfce7; }
+    .status-pill.disabled { color: #991b1b; background: #fee2e2; }
+    .item-edit-row td { padding: 4px 6px; }
+    .item-edit-row input { width: 100%; box-sizing: border-box; }
+    .copy-done { color: #166534; font-size: .78rem; margin-left: 6px; }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <!-- ヘッダー -->
+    <header class="app-header">
+      <div class="header-content">
+        <h1 class="app-title">🔗 チームリンク管理</h1>
+        <p class="app-subtitle">Team Order Links</p>
+      </div>
+      <div class="header-buttons">
+        <a class="btn-staff-manage" href="/">📋 HiBoardに戻る</a>
+      </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="main-content">
+      <section>
+        <div class="list-controls">
+          <button class="btn btn-primary" onclick="teamLinksApp.openModal()">➕ 新規リンク発行</button>
+          <p class="folder-notice">発行したURLをチームのLINEグループ等に共有すると、チームからいつでも追加注文が届きます。シーズン終了時などは「無効化」で即座にアクセスを止められます。</p>
+        </div>
+
+        <div class="table-container">
+          <table class="projects-table" id="links-table">
+            <thead>
+              <tr>
+                <th>チーム名</th>
+                <th>専用URL</th>
+                <th>アイテム</th>
+                <th>状態</th>
+                <th>発行日</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="links-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ===== モーダル: リンク発行・編集 ===== -->
+  <div id="link-modal" class="modal">
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <h2 id="link-modal-title">新規リンク発行</h2>
+        <button class="btn-close" onclick="teamLinksApp.closeModal()">✕</button>
+      </div>
+      <form id="link-form" class="project-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label>チーム名 *</label>
+            <input type="text" id="link-team-name" maxlength="200" required placeholder="例: ○○FC">
+          </div>
+          <div class="form-group">
+            <label>メモ <span class="field-hint">(社内用。お客様には表示されません)</span></label>
+            <input type="text" id="link-memo" maxlength="500" placeholder="例: 2026年度ユニフォーム一式">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>注文できるアイテム * <span class="field-hint">(参考単価は空欄可。サイズはカンマ区切りで入力)</span></label>
+          <table class="projects-table" id="link-items-table">
+            <thead>
+              <tr>
+                <th>アイテム名</th>
+                <th style="width:120px">参考単価(円)</th>
+                <th>サイズ選択肢</th>
+                <th style="width:48px"></th>
+              </tr>
+            </thead>
+            <tbody id="link-items-tbody"></tbody>
+          </table>
+          <button type="button" class="btn btn-secondary" onclick="teamLinksApp.addItemRow()">＋ アイテムを追加</button>
+        </div>
+
+        <div class="form-errors" id="link-form-errors" hidden style="color:#b91c1c"></div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" onclick="teamLinksApp.closeModal()">キャンセル</button>
+          <button type="submit" class="btn btn-primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/team-links.js"></script>
+</body>
+</html>

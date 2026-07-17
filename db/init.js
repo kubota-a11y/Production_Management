@@ -210,6 +210,35 @@ function initDatabase(dbFile = dbPath) {
     CREATE INDEX IF NOT EXISTS idx_delivery_records_delivered_date ON delivery_records(delivered_date)
   `);
 
+  // チーム追加注文の専用URL(トークン)。disabled_at が入っているリンクは公開ページで404になる。
+  // アイテム(名称・参考単価・サイズ選択肢)はリンクごとに team_order_link_items で持つ
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS team_order_links (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      token TEXT NOT NULL UNIQUE,
+      team_name TEXT NOT NULL,
+      memo TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      disabled_at TEXT
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS team_order_link_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      link_id INTEGER NOT NULL,
+      item_no INTEGER NOT NULL,
+      item_name TEXT NOT NULL,
+      unit_price INTEGER,
+      size_options TEXT,
+      FOREIGN KEY (link_id) REFERENCES team_order_links(id)
+    )
+  `);
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_team_order_link_items_link_id
+    ON team_order_link_items(link_id)
+  `);
+
   // 準備項目マスターの初期データ投入(未投入の場合のみ)。
   // code は案件新規登録画面(旧ハードコード)・既存projects.prep_itemsのCSVコードと一致させる
   const prepItemCount = db.prepare(`SELECT COUNT(*) as c FROM preparation_item_master`).get().c;

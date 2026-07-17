@@ -9,6 +9,7 @@ const { initDatabase } = require('./db/init');
 const line = require('@line/bot-sdk');
 const { runExtractionCycle } = require('./lib/ai-extraction');
 const { registerOrderRoutes } = require('./lib/order-intake');
+const { registerTeamOrderRoutes } = require('./lib/team-order');
 const { scheduleDailyBackup } = require('./lib/db-backup');
 const { extractCarriedData, extractCarriedItems } = require('./lib/intake-carry');
 
@@ -2401,6 +2402,10 @@ app.get('/', (req, res) => {
 // 公開注文フォーム(GET /order 表示 / POST /order 受付)。
 // 社内管理APIとは別系統。着地は ai_extracted_intake(status=pending)。
 registerOrderRoutes(app, db);
+
+// チーム追加注文(専用URL /team/{token} + 管理画面 /team-links)。
+// 着地は同じく ai_extracted_intake(line_user_id='TEAM'、受付番号 T-{id})。
+registerTeamOrderRoutes(app, db);
 
 // 5分ごとにLINEメッセージのAI構造化抽出を実行する。前回の実行が終わっていなければスキップする。
 let aiExtractionRunning = false;

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>追加ご注文フォーム | HIYOSHI</title>
+  <link rel="stylesheet" href="/styles/order.css">
+  <script>
+    window.MIN_LEAD_DAYS = Number('{{MIN_LEAD_DAYS}}') || 14;
+  </script>
+  <style>
+    /* チーム追加注文専用の差分スタイル(基本はorder.cssを流用) */
+    .team-badge { display: inline-block; font-size: .8rem; font-weight: 700; color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe; padding: 4px 12px; border-radius: 999px; margin-bottom: 6px; }
+    .item-price { font-size: .85rem; color: #475569; font-weight: 600; }
+    .team-row { grid-template-columns: 1fr .55fr .7fr .5fr auto; }
+    .team-row-head { display: grid; grid-template-columns: 1fr .55fr .7fr .5fr auto; gap: 8px; font-size: .78rem; color: #6b7280; font-weight: 600; margin-bottom: 4px; }
+    @media (max-width: 560px) {
+      .team-row { grid-template-columns: 1fr 1fr; }
+      .team-row-head { display: none; }
+    }
+    .total-box { text-align: right; font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 4px 0 0; }
+    .total-box small { display: block; font-size: .78rem; color: #6b7280; font-weight: 400; }
+  </style>
+</head>
+<body>
+  <main class="order-wrap">
+    <div class="order-head">
+      <span class="team-badge" id="teamBadge" hidden></span>
+      <h1>追加ご注文フォーム</h1>
+      <p class="lead" id="leadText">読み込み中…</p>
+    </div>
+
+    <!-- リンク無効時などのエラー表示 -->
+    <div class="form-errors" id="loadError" hidden></div>
+
+    <form id="teamOrderForm" novalidate hidden>
+      <!-- 注文内容(アイテムごとの行入力) -->
+      <section class="card">
+        <h2>1. ご注文内容 <span class="req">必須</span></h2>
+        <p class="hint">追加されるメンバーの分をアイテムごとにご入力ください。名前・背番号が不要なアイテムは空欄のままで大丈夫です。</p>
+        <div id="itemsContainer"></div>
+        <p class="total-box" id="totalBox" hidden></p>
+      </section>
+
+      <!-- 注文者情報 -->
+      <section class="card">
+        <h2>2. ご注文者情報 <span class="req">必須</span></h2>
+        <div class="grid2">
+          <label class="field">ご担当者名 <span class="req">必須</span>
+            <input type="text" id="contactName" maxlength="200" required>
+          </label>
+          <label class="field">電話番号 <span class="req">必須</span>
+            <input type="tel" id="contactPhone" maxlength="20" required>
+          </label>
+          <label class="field">メールアドレス <span class="opt">任意</span>
+            <input type="email" id="contactEmail" maxlength="200">
+          </label>
+        </div>
+      </section>
+
+      <!-- 納期・備考 -->
+      <section class="card">
+        <h2>3. ご希望納期・備考 <span class="opt">任意</span></h2>
+        <div class="grid2">
+          <label class="field">ご希望納期
+            <input type="date" id="deadlineDate">
+          </label>
+          <label class="field">納期に関する補足
+            <input type="text" id="deadlineNote" maxlength="500" placeholder="例: 次の大会が8月末です">
+          </label>
+        </div>
+        <label class="field">備考
+          <textarea id="remarks" maxlength="1000" rows="3" placeholder="例: 前回と同じ仕様でお願いします。"></textarea>
+        </label>
+      </section>
+
+      <!-- honeypot(botよけ。人間には見えない) -->
+      <div class="hp-field" aria-hidden="true">
+        <label>このフィールドは入力しないでください<input type="text" name="website" tabindex="-1" autocomplete="off"></label>
+      </div>
+
+      <div class="form-errors" id="formErrors" hidden></div>
+
+      <div class="submit-row">
+        <button type="submit" id="submitBtn" class="btn-submit">注文を送信する</button>
+      </div>
+    </form>
+
+    <!-- 送信完了 -->
+    <div id="donePanel" class="done-panel" hidden>
+      <h2>ご注文ありがとうございました</h2>
+      <p id="doneReceipt" class="done-receipt">受付番号: <strong id="doneReceiptNo"></strong><br>
+        <small>お問い合わせの際にこの番号をお伝えいただくとスムーズです。</small></p>
+      <p id="doneTotal" hidden></p>
+      <p id="doneMailNote" hidden>ご記入いただいたメールアドレス宛に受付控えをお送りしました。届かない場合は迷惑メールフォルダをご確認ください。</p>
+      <p>内容を確認のうえ、担当者より正式な金額とあわせてご連絡いたします。</p>
+    </div>
+  </main>
+  <script src="/js/team-order.js"></script>
+</body>
+</html>
