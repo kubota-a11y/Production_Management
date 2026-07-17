@@ -1,5 +1,9 @@
 // チームリンク管理画面(/team-links)。
 // 専用URLの発行・編集・無効化と、配布用URLのコピーを行う。
+
+// 標準サイズ。アイテムごとにチェックで選択可否を決める(例: 160が無いアイテムは外す)
+const STANDARD_SIZES = ['110', '120', '130', '140', '150', '160', 'S', 'M', 'L', 'XL', 'XXL'];
+
 const teamLinksApp = {
   links: [],
   publicBase: '',
@@ -161,11 +165,18 @@ const teamLinksApp = {
     tdPrice.appendChild(priceIn);
 
     const tdSizes = document.createElement('td');
-    const sizesIn = document.createElement('input');
-    sizesIn.type = 'text'; sizesIn.className = 'li-sizes';
-    sizesIn.placeholder = '例: 130,140,150,S,M,L,XL(空欄なら自由入力)';
-    sizesIn.value = item ? (item.size_options || []).join(',') : '';
-    tdSizes.appendChild(sizesIn);
+    const pills = document.createElement('div');
+    pills.className = 'size-pills li-sizes';
+    // 新規行は全サイズON。編集時は保存済みのサイズだけON
+    const selected = item ? new Set(item.size_options || []) : new Set(STANDARD_SIZES);
+    STANDARD_SIZES.forEach(sz => {
+      const label = document.createElement('label');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.value = sz; cb.checked = selected.has(sz);
+      label.append(cb, document.createTextNode(sz));
+      pills.appendChild(label);
+    });
+    tdSizes.appendChild(pills);
 
     const tdDel = document.createElement('td');
     const delBtn = document.createElement('button');
@@ -181,7 +192,7 @@ const teamLinksApp = {
     return Array.from(document.querySelectorAll('#link-items-tbody .item-edit-row')).map(tr => ({
       item_name: tr.querySelector('.li-name').value,
       unit_price: tr.querySelector('.li-price').value === '' ? null : Number(tr.querySelector('.li-price').value),
-      size_options: tr.querySelector('.li-sizes').value.split(',').map(v => v.trim()).filter(Boolean),
+      size_options: Array.from(tr.querySelectorAll('.li-sizes input:checked')).map(cb => cb.value),
     }));
   },
 
@@ -192,6 +203,13 @@ const teamLinksApp = {
       memo: document.getElementById('link-memo').value,
       items: this.collectItems(),
     };
+    const noSize = payload.items.find(it => it.item_name.trim() && it.size_options.length === 0);
+    if (noSize) {
+      const box = document.getElementById('link-form-errors');
+      box.textContent = `「${noSize.item_name}」のサイズを1つ以上選択してください`;
+      box.hidden = false;
+      return;
+    }
     const url = this.editingId ? `/api/team-links/${this.editingId}` : '/api/team-links';
     const method = this.editingId ? 'PUT' : 'POST';
     try {
