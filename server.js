@@ -190,6 +190,11 @@ app.get('/guide', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'guide.html'));
 });
 
+// 選手応援 特設ページ(2件目以降は /support/{slug} の汎用化を検討)
+app.get('/support/hayashi', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'support-hayashi.html'));
+});
+
 // no-cache = 「使う前に毎回サーバーへ更新確認」(キャッシュ全否定ではない)。
 // 未更新なら304で済むためLAN内では体感差なし。これにより本番反映後の
 // ハードリフレッシュ(Ctrl+Shift+R)が不要になり、古いJSを掴んだままの端末が出なくなる。
