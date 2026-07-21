@@ -16,8 +16,8 @@
     const CONFIG = {
       // 販売設定(※未確定。確定後にここだけ差し替える)
       baseUrl: null,              // BASE商品ページURL。nullの間はボタンがCOMING SOON表示
-      price: null,                // 税込価格(円)。null の間は「近日発表」表示
-      deadline: null,             // 注文締切。例: '2026年8月17日(月)'。nullの間は「近日発表」
+      price: 5500,                // 税込価格(円)。null の間は「近日発表」表示
+      deadline: '2026年8月25日(火)', // 注文締切。nullの間は「近日発表」
       sizes: 'S / M / L / XL / XXL(予定)',
 
       // 試合情報(※階級は確定後に要確認)
@@ -68,6 +68,7 @@
           <dt>デザイン</dt><dd>フロント胸ロゴ / バック大判ロゴ(ブラック × ホワイト)</dd>
           <dt>サイズ</dt><dd id="specSizes"></dd>
           <dt>価格</dt><dd id="specPrice"></dd>
+          <dt>特典</dt><dd>林源平選手オリジナルステッカー同梱</dd>
         </dl>
       </div>
     </section>
@@ -110,7 +111,7 @@
 
     const priceEl = document.getElementById('specPrice');
     if (CONFIG.price) {
-      priceEl.textContent = `¥${CONFIG.price.toLocaleString()}(税込)`;
+      priceEl.textContent = `¥${CONFIG.price.toLocaleString()}(税込・送料込み)`;
     } else {
       priceEl.innerHTML = '<span class="price-tbd">近日発表</span>';
     }
