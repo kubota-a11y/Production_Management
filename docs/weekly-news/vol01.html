@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>社内システムお知らせ Vol.1(A4印刷用)</title>
+<style>
+  /* A4印刷用。Chromeのヘッドレス印刷でPDF化する(生成手順はdocs/weekly-news/README.md参照) */
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #1c1917;
+    --text: #44403c;
+    --muted: #78716c;
+    --hairline: #e7e2dc;
+    --accent-bg: #f5f2ee;
+    --ask-bg: #f2f6f3;
+    --ask-line: #cfdfd4;
+    --ask-text: #3f6b50;
+    --serif: "Hiragino Mincho ProN", "Yu Mincho", serif;
+    --sans: "Hiragino Sans", "Noto Sans JP", sans-serif;
+  }
+
+  body {
+    font-family: var(--sans);
+    color: var(--text);
+    line-height: 1.7;
+    font-size: 9.2pt;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .page {
+    width: 210mm; height: 297mm;
+    padding: 15mm 18mm 13mm;
+    page-break-after: always;
+    position: relative;
+    background: #fff;
+  }
+  .page:last-child { page-break-after: auto; }
+
+  /* ===== ヘッダー ===== */
+  .hero { text-align: center; margin-bottom: 7mm; }
+  .overline {
+    font-size: 7pt; letter-spacing: .32em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 2.2mm;
+  }
+  h1 {
+    font-family: var(--serif); font-size: 19pt; font-weight: 600;
+    letter-spacing: .12em; color: var(--ink);
+  }
+  .divider { width: 12mm; height: .35mm; background: var(--ink); margin: 3.5mm auto; }
+  .lead { color: var(--muted); font-size: 8.4pt; }
+
+  .intro {
+    background: var(--accent-bg);
+    border-radius: 1.5mm;
+    padding: 3.4mm 5mm;
+    margin-bottom: 6.5mm;
+    font-size: 9pt;
+  }
+  .intro strong { color: var(--ink); }
+
+  /* ===== セクション ===== */
+  .sec { margin-bottom: 5.6mm; }
+  .sec-head {
+    display: flex; align-items: baseline; gap: 3mm;
+    border-bottom: .3mm solid var(--ink);
+    padding-bottom: 1.2mm; margin-bottom: 2.2mm;
+  }
+  .sec-num {
+    font-family: var(--serif); font-size: 13pt; color: var(--ink);
+  }
+  .sec-head h2 {
+    font-family: var(--serif); font-size: 12pt; font-weight: 600;
+    letter-spacing: .08em; color: var(--ink);
+  }
+  .sec-head .sub { margin-left: auto; font-size: 7.2pt; color: var(--muted); letter-spacing: .06em; }
+
+  ul.items { list-style: none; }
+  ul.items li {
+    position: relative;
+    padding-left: 4.2mm;
+    margin-bottom: 1.1mm;
+  }
+  ul.items li::before {
+    content: ""; position: absolute; left: .6mm; top: 2.1mm;
+    width: 1.5mm; height: 1.5mm; border-radius: 50%;
+    background: var(--ink);
+  }
+  ul.items strong { color: var(--ink); font-weight: 600; }
+  .note { color: var(--muted); font-size: 8.4pt; }
+
+  /* ===== 週次詳細のテーマ見出し ===== */
+  .theme {
+    display: inline-block;
+    font-size: 7pt; font-weight: 600; letter-spacing: .14em;
+    color: #fff; background: var(--ink);
+    padding: .4mm 2.6mm; border-radius: .8mm;
+    margin-right: 2mm; vertical-align: middle;
+  }
+
+  /* ===== お願いボックス ===== */
+  .ask {
+    background: var(--ask-bg);
+    border: .3mm solid var(--ask-line);
+    border-radius: 1.5mm;
+    padding: 3.4mm 5mm 3mm;
+    margin-top: 5.5mm;
+  }
+  .ask h3 {
+    font-family: var(--serif); font-size: 10.5pt; font-weight: 600;
+    letter-spacing: .1em; color: var(--ask-text); margin-bottom: 1.6mm;
+  }
+  .ask ul.items li::before { background: var(--ask-text); }
+
+  /* ===== フッター ===== */
+  .foot {
+    position: absolute; left: 18mm; right: 18mm; bottom: 9mm;
+    border-top: .3mm solid var(--hairline);
+    padding-top: 2mm;
+    display: flex; justify-content: space-between;
+    font-size: 7.2pt; color: var(--muted); letter-spacing: .06em;
+  }
+</style>
+</head>
+<body>
+
+<!-- ========== 1ページ目:全体ダイジェスト ========== -->
+<div class="page">
+  <header class="hero">
+    <div class="overline">HIYOSHI DX WEEKLY</div>
+    <h1>社内システムお知らせ</h1>
+    <div class="divider"></div>
+    <div class="lead">Vol.1 ─ 2026年7月22日発行 ─ 対象期間:6月24日〜7月21日</div>
+  </header>
+
+  <div class="intro">
+    社内の仕事の流れを支えるシステムづくりを、いま集中的に進めています。中心になるのが生産管理システム
+    <strong>「HiBoard(ハイボード)」</strong>です。変化のスピードが速いため、<strong>毎週月曜日にこの資料で「何が変わったか」「皆さんの作業がどう変わるか」</strong>をお知らせしていきます。
+    第1号の今回は、1ページ目で「いまHiBoardでできること」の全体像を、2ページ目で先週の変更点を説明します。
+  </div>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">一</span>
+      <h2>受注 ─ 注文がHiBoardに自動で集まる</h2>
+      <span class="sub">LINE / Webフォーム</span>
+    </div>
+    <ul class="items">
+      <li><strong>LINEの注文をAIが自動で読み取り</strong>、内容を整理して「受注候補」一覧に載せます。担当者は内容を確認して登録するだけです。</li>
+      <li><strong>Webオーダーフォーム</strong>から、お客様が直接注文・見積依頼できます。受付番号(W-番号)が自動で発行され、お客様には受付控えメール、会社には通知メールが届きます。</li>
+      <li>リピートのチーム様向けに<strong>「追加注文フォーム」(チームごとの専用URL)</strong>も用意しました。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">二</span>
+      <h2>スケジュール ─ 「誰が・いつ・何を」が一目で分かる</h2>
+      <span class="sub">週間スケジュールボード</span>
+    </div>
+    <ul class="items">
+      <li><strong>週間スケジュールボード</strong>で、案件ごとの作業を従業員別・日別に管理します。</li>
+      <li><strong>自動割り当てボタン(日次/週次)</strong>を押すと、各自の得意な作業・作業スピード・空き時間から割り振り案を自動作成。「提案確認」パネルで確認・確定するだけです。</li>
+      <li>作業の前準備10分・後片付け10分も<strong>自動で時間を確保</strong>します。</li>
+      <li>ブロックの<strong>ドラッグ&ドロップ</strong>で手直しでき、<strong>スマホ・iPadからも閲覧・操作</strong>できます。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">三</span>
+      <h2>現場作業 ─ 準備から納品までボタンで進捗管理</h2>
+      <span class="sub">準備 / 検品 / 納品</span>
+    </div>
+    <ul class="items">
+      <li><strong>準備項目リスト(カード形式)</strong>で、資材や版の準備状況を管理。<strong>「準備完了」「検品」ボタン</strong>を押すだけで進捗が全員に共有されます。</li>
+      <li>納品したら<strong>「納品済み」</strong>に。<strong>納品履歴ページ</strong>から過去案件を検索でき、同じ内容の<strong>リピート注文(複製)</strong>もワンクリックで作れます。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">四</span>
+      <h2>土台 ─ 名前と安心の仕組み</h2>
+      <span class="sub">名称 / バックアップ</span>
+    </div>
+    <ul class="items">
+      <li>アプリの正式名称を<strong>「HiBoard」</strong>に決めました。今後はこの名前で呼んでください。</li>
+      <li>データは<strong>毎日自動でバックアップ</strong>され、社内NASにも二重保存されます。安心して使ってください。</li>
+      <li>お客様向けに<strong>「ご注文の流れ」紹介ページとA4チラシ(PDF)</strong>を用意しました。店頭・商談でご活用ください。</li>
+    </ul>
+  </section>
+
+  <div class="foot">
+    <span>株式会社ヒヨシ ─ 社内システムお知らせ Vol.1</span>
+    <span>1 / 2</span>
+  </div>
+</div>
+
+<!-- ========== 2ページ目:先週の変更詳細 ========== -->
+<div class="page">
+  <header class="hero">
+    <div class="overline">WEEKLY UPDATE</div>
+    <h1>先週の変更点</h1>
+    <div class="divider"></div>
+    <div class="lead">2026年7月13日(月)〜 7月21日(火)</div>
+  </header>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">スケジュール</span>
+      <h2>自動割り当てが本格稼働</h2>
+      <span class="sub">7/13〜7/15</span>
+    </div>
+    <ul class="items">
+      <li>日次/週次の<strong>自動スケジュール機能</strong>を追加。提案確認パネルが画面右側に常時表示になり、ドラッグ&ドロップでそのまま確定できます。</li>
+      <li>自動割り当てに<strong>前準備10分・後片付け10分</strong>が自動で付くようになりました(手動で配置した場合も同様)。</li>
+      <li><strong>スマホ・iPad対応</strong>。現場や外出先からもボードを確認できます。</li>
+      <li>案件の消化率が「実際にかかる時間(数量÷担当者の作業スピード)」基準の表示になり、より実態に近くなりました。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">現場作業</span>
+      <h2>準備〜納品の流れがボタン操作に</h2>
+      <span class="sub">7/14〜7/16</span>
+    </div>
+    <ul class="items">
+      <li>準備項目リストがカード形式になり、<strong>「準備完了」「検品」ボタン</strong>を追加しました。</li>
+      <li><strong>「納品済み」ステータスと納品履歴ページ</strong>を追加。過去案件の検索と<strong>リピート注文(複製)</strong>ができます。</li>
+      <li>スケジュールボード上で準備項目ブロックをドラッグ&ドロップで動かせるようになりました。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">受注</span>
+      <h2>Web注文の受付体制が完成</h2>
+      <span class="sub">7/15〜7/17</span>
+    </div>
+    <ul class="items">
+      <li>Webオーダーフォームからの<strong>正式発注</strong>に対応(複数アイテム・プリント箇所・名簿も案件へ自動引き継ぎ)。</li>
+      <li><strong>受付番号(W-番号)</strong>を自動発行。お客様に受付控えメール、会社に通知メールが届きます。受注候補一覧にもW-番号が表示されます。</li>
+      <li>仕様が固まっていないお客様向けの<strong>「かんたん相談」モード</strong>を追加しました。</li>
+      <li>お客様向け<strong>「ご注文の流れ」ページとA4チラシ(PDF)</strong>を公開。</li>
+      <li><strong>チーム追加注文フォーム(専用URL方式)</strong>を追加。サイズは標準サイズのチェックボックスで簡単に入力できます。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">その他</span>
+      <h2>名称決定・通知・特設ページ</h2>
+      <span class="sub">7/17〜7/21</span>
+    </div>
+    <ul class="items">
+      <li>アプリ名を<strong>「HiBoard」</strong>に変更しました。</li>
+      <li>新しい受注候補が届くと、<strong>三浦さんのTODOリストに自動で通知</strong>が入ります。</li>
+      <li><strong>林源平選手 応援Tシャツの特設ページ</strong>を公開しました(価格・締切・ステッカー特典は確定済み)。注文が入ったら受注候補一覧に載ります。</li>
+      <li>データの毎日自動バックアップの運用を開始しました。</li>
+    </ul>
+  </section>
+
+  <div class="ask">
+    <h3>皆さんへのお願い(今週からの動き方)</h3>
+    <ul class="items">
+      <li><strong>受注候補一覧を1日1回確認</strong>してください(三浦さんにはTODO通知も届きます)。</li>
+      <li>作業が進んだら<strong>「準備完了」「検品」ボタンをその場で押す</strong>。納品したら<strong>「納品済み」</strong>に。</li>
+      <li>スケジュールは<strong>「自動割り当て → 提案確認で確定」</strong>が基本の流れです。手直しはドラッグ&ドロップで。</li>
+      <li>使いにくい点・欲しい機能があれば久保田まで。翌週にはたいてい直せます。</li>
+    </ul>
+  </div>
+
+  <div class="foot">
+    <span>次号は 7月27日(月)発行予定(対象:7/22〜7/26)─ 質問・要望は久保田まで</span>
+    <span>2 / 2</span>
+  </div>
+</div>
+
+</body>
+</html>
