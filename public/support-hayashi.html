@@ -5,129 +5,213 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>林源平 応援Tシャツ | PANCRASE 365 タイトルマッチ</title>
   <meta name="description" content="9月6日 PANCRASE 365 タイトルマッチに挑む林源平選手の応援Tシャツ特設ページ">
+  <meta property="og:title" content="林源平 応援Tシャツ | PANCRASE 365 タイトルマッチ">
+  <meta property="og:description" content="2026.9.6 タイトルマッチに挑む林源平選手を、同じ一枚で応援しよう。受注生産・選手ステッカー同梱。">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://order.kubota-tunnel.com/support/hayashi">
+  <meta property="og:image" content="https://order.kubota-tunnel.com/img/support/hayashi-tee.jpg">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="stylesheet" href="/styles/support.css">
 </head>
 <body>
   <!-- ============================================================
        選手ごとの設定はここに集約。次の選手ではこのCONFIGと
-       プロフィール表・写真の差し替えだけで展開できるようにする。
+       プロフィール・写真の差し替えだけで展開できるようにする。
        ============================================================ -->
   <script>
     const CONFIG = {
-      // 販売設定(※未確定。確定後にここだけ差し替える)
+      // 販売設定
       baseUrl: null,              // BASE商品ページURL。nullの間はボタンがCOMING SOON表示
       price: 5500,                // 税込価格(円)。null の間は「近日発表」表示
-      deadline: '2026年8月25日(火)', // 注文締切。nullの間は「近日発表」
+      deadline: '2026年8月25日(火)', // 注文締切(表示用)。nullの間は「近日発表」
+      deadlineISO: '2026-08-25T23:59:59+09:00', // カウントダウン用。締切超過で自動的に受付終了表示
       sizes: 'S / M / L / XL / XXL(予定)',
 
-      // 試合情報(※階級は確定後に要確認)
+      // 試合情報
       matchLabel: 'ミドル級 タイトルマッチ',
     };
   </script>
 
-  <main class="sp-wrap">
+  <!-- ヒーロー(選手写真 全面) -->
+  <header class="hero">
+    <img class="hero-photo" src="/img/support/hayashi-fighter.jpg" alt="林源平選手" onerror="this.remove()">
+    <div class="hero-scrim"></div>
+    <div class="hero-inner">
+      <p class="hero-kicker">Official Support Gear</p>
+      <p class="hero-event"><span>PANCRASE 365</span><span class="tick"></span><span>2026.9.6 SUN</span></p>
+      <h1 class="hero-name">林 源平</h1>
+      <p class="hero-name-en">Genpei Hayashi</p>
+      <br>
+      <span class="hero-match" id="matchLabel"></span>
+      <p class="hero-catch">挑戦の日を、同じ一枚で。</p>
+      <a class="hero-cta" href="#tee">応援Tシャツを見る</a>
+    </div>
+  </header>
 
-    <!-- ヒーロー -->
-    <header class="sp-hero">
-      <p class="en-label">Official Support Gear</p>
-      <p class="event-name">PANCRASE 365</p>
-      <p class="event-date">2026.9.6 SUN</p>
-      <h1 class="fighter-name">林 源平</h1>
-      <p class="fighter-name-en">Genpei Hayashi</p>
-      <p class="match-label" id="matchLabel"></p>
-      <img class="fighter-photo" src="/img/support/hayashi-fighter.jpg" alt="林源平選手"
-           onerror="this.remove()">
-      <p class="catch">挑戦の日を、同じ一枚で。</p>
-    </header>
+  <!-- マーキー帯 -->
+  <div class="marquee" aria-hidden="true">
+    <div class="marquee-track" id="marqueeTrack">
+      <span>Genpei Hayashi</span><span class="sep">/</span><span>Pancrase 365</span><span class="sep">/</span><span>2026.9.6</span><span class="sep">/</span><span>Title Match</span><span class="sep">/</span>
+    </div>
+  </div>
 
-    <!-- 選手プロフィール -->
-    <section class="sp-section">
-      <p class="sec-label">Profile</p>
-      <h2 class="sec-title">選手プロフィール</h2>
-      <table class="profile-table">
-        <tr><th>名前</th><td>林 源平(はやし・げんぺい)</td></tr>
-        <tr><th>所属</th><td>和術慧舟會 IggyHandsGym</td></tr>
-        <tr><th>出身</th><td>静岡県</td></tr>
-        <tr><th>身長</th><td>181cm</td></tr>
-        <tr><th>戦績</th><td>14勝 11敗</td></tr>
-        <tr><th>主なタイトル</th><td>第15代ウェルター級キング・オブ・パンクラシスト</td></tr>
-      </table>
+  <!-- 選手プロフィール -->
+  <section class="sec">
+    <div class="sec-inner">
+      <header class="sec-head">
+        <span class="sec-en">Fighter</span>
+        <h2 class="sec-ja">選手プロフィール</h2>
+      </header>
+      <div class="stats">
+        <div class="stat">
+          <span class="stat-label">戦績</span>
+          <span class="stat-value">14<small>勝</small>11<small>敗</small></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">身長</span>
+          <span class="stat-value">181<small>cm</small></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">出身</span>
+          <span class="stat-value"><small style="font-size:.7em">静岡県</small></span>
+        </div>
+        <div class="stat stat--wide">
+          <span class="stat-label">所属</span>
+          <span class="stat-value">和術慧舟會 IggyHandsGym</span>
+        </div>
+      </div>
+      <p class="belt-line">第15代ウェルター級キング・オブ・パンクラシスト</p>
       <p class="profile-note">※ パンクラス公式プロフィールより(2026年7月時点)</p>
-    </section>
+    </div>
+  </section>
 
-    <!-- 応援Tシャツ -->
-    <section class="sp-section">
-      <p class="sec-label">Support Tee</p>
-      <h2 class="sec-title">応援Tシャツ</h2>
-
+  <!-- 応援Tシャツ(白反転セクション) -->
+  <section class="sec sec-light" id="tee">
+    <div class="sec-inner">
+      <header class="sec-head">
+        <span class="sec-en">Support Tee</span>
+        <h2 class="sec-ja">応援Tシャツ</h2>
+      </header>
       <img class="tee-photo" src="/img/support/hayashi-tee.jpg" alt="林源平選手 応援Tシャツ(前面・背面)"
            onerror="this.outerHTML='<div class=&quot;tee-photo-placeholder&quot;>商品写真 準備中</div>'">
-
       <div class="tee-spec">
         <dl>
           <dt>デザイン</dt><dd>フロント胸ロゴ / バック大判ロゴ(ブラック × ホワイト)</dd>
           <dt>サイズ</dt><dd id="specSizes"></dd>
-          <dt>価格</dt><dd id="specPrice"></dd>
           <dt>特典</dt><dd>林源平選手オリジナルステッカー同梱</dd>
+          <div class="price-row" style="display:contents">
+            <dt>価格</dt><dd id="specPrice"></dd>
+          </div>
         </dl>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <!-- 購入 -->
-    <section class="sp-section">
-      <p class="sec-label">Order</p>
-      <h2 class="sec-title">ご購入</h2>
+  <!-- 購入 -->
+  <section class="sec" id="order">
+    <div class="sec-inner">
+      <header class="sec-head">
+        <span class="sec-en">Order</span>
+        <h2 class="sec-ja">ご購入</h2>
+      </header>
+      <div class="countdown" id="countdown" hidden>
+        <span class="cd-head">締切まで</span>
+        <span class="cd-num" id="cdDays">-</span><span class="cd-unit">日</span>
+        <span class="cd-num" id="cdHours">-</span><span class="cd-unit">時間</span>
+        <span class="cd-num" id="cdMins">-</span><span class="cd-unit">分</span>
+      </div>
       <div class="cta-block">
         <div class="deadline-box">注文締切：<strong id="deadlineText"></strong></div>
         <a class="cta-btn" id="ctaBtn"></a>
         <p class="cta-note">お支払い・お届け先のご入力は、公式オンラインストア(BASE)にて承ります。</p>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <!-- 注意事項 -->
-    <section class="sp-section">
-      <p class="sec-label">Notes</p>
-      <h2 class="sec-title">ご注文にあたって</h2>
+  <!-- 注意事項 -->
+  <section class="sec sec--notes">
+    <div class="sec-inner">
       <ul class="notes-list">
         <li>受注生産のため、締切後のキャンセル・サイズ変更はお受けできません。</li>
         <li>お届けは試合前を予定しています。詳細な発送時期は商品ページにてご案内します。</li>
         <li>売上の一部は林源平選手の活動支援に充てられます。</li>
       </ul>
-    </section>
+    </div>
+  </section>
 
-    <!-- 会社フッター -->
-    <footer class="sp-footer">
-      <p class="company">有限会社HiYOSHi</p>
-      <p>〒411-0945 静岡県駿東郡長泉町本宿166-1 2F<br>
-        TEL: <a href="tel:055-928-7609">055-928-7609</a> / MAIL: <a href="mailto:info@hiyoshi1954.com">info@hiyoshi1954.com</a><br>
-        営業時間 10:00〜17:00(土日祝休み)</p>
-    </footer>
-  </main>
+  <!-- 会社フッター -->
+  <footer class="sp-footer">
+    <p class="company">有限会社HiYOSHi</p>
+    <p>〒411-0945 静岡県駿東郡長泉町本宿166-1 2F<br>
+      TEL: <a href="tel:055-928-7609">055-928-7609</a> / MAIL: <a href="mailto:info@hiyoshi1954.com">info@hiyoshi1954.com</a><br>
+      営業時間 10:00〜17:00(土日祝休み)</p>
+  </footer>
+
+  <!-- 追従購入バー -->
+  <div class="sticky-cta" id="stickyCta">
+    <span class="sticky-price" id="stickyPrice"></span>
+    <a class="sticky-btn" id="stickyBtn"></a>
+  </div>
 
   <script>
-    // CONFIGの内容をページへ反映(未確定項目は「近日発表」系の表示に落とす)
+    // ---- CONFIGの内容をページへ反映(未確定項目は「近日発表」系の表示に落とす) ----
     document.getElementById('matchLabel').textContent = CONFIG.matchLabel;
     document.getElementById('specSizes').textContent = CONFIG.sizes;
+    document.getElementById('deadlineText').textContent = CONFIG.deadline || '近日発表';
 
     const priceEl = document.getElementById('specPrice');
     if (CONFIG.price) {
-      priceEl.textContent = `¥${CONFIG.price.toLocaleString()}(税込・送料込み)`;
+      priceEl.innerHTML = `¥${CONFIG.price.toLocaleString()}<span class="tax">税込・送料込み</span>`;
+      document.getElementById('stickyPrice').innerHTML =
+        `¥${CONFIG.price.toLocaleString()}<span class="tax">税込・送料込み</span>`;
     } else {
       priceEl.innerHTML = '<span class="price-tbd">近日発表</span>';
+      document.getElementById('stickyPrice').textContent = '';
     }
 
-    document.getElementById('deadlineText').textContent = CONFIG.deadline || '近日発表';
+    // 締切超過なら受付終了、baseUrl未設定ならCOMING SOON
+    const closed = CONFIG.deadlineISO && Date.now() > new Date(CONFIG.deadlineISO).getTime();
+    [document.getElementById('ctaBtn'), document.getElementById('stickyBtn')].forEach((btn) => {
+      if (closed) {
+        btn.classList.add('is-disabled');
+        btn.textContent = 'ご注文の受付は終了しました';
+      } else if (CONFIG.baseUrl) {
+        btn.href = CONFIG.baseUrl;
+        btn.target = '_blank';
+        btn.rel = 'noopener';
+        btn.textContent = '購入する';
+      } else {
+        btn.classList.add('is-disabled');
+        btn.textContent = 'COMING SOON';
+      }
+    });
 
-    const btn = document.getElementById('ctaBtn');
-    if (CONFIG.baseUrl) {
-      btn.href = CONFIG.baseUrl;
-      btn.target = '_blank';
-      btn.rel = 'noopener';
-      btn.textContent = '購入する';
-    } else {
-      btn.classList.add('is-disabled');
-      btn.textContent = 'COMING SOON';
+    // ---- カウントダウン ----
+    if (CONFIG.deadlineISO && !closed) {
+      const end = new Date(CONFIG.deadlineISO).getTime();
+      const cd = document.getElementById('countdown');
+      const tick = () => {
+        const ms = end - Date.now();
+        if (ms <= 0) { location.reload(); return; }
+        const mins = Math.floor(ms / 60000);
+        document.getElementById('cdDays').textContent = Math.floor(mins / 1440);
+        document.getElementById('cdHours').textContent = Math.floor((mins % 1440) / 60);
+        document.getElementById('cdMins').textContent = mins % 60;
+      };
+      tick();
+      cd.hidden = false;
+      setInterval(tick, 30000);
     }
+
+    // ---- マーキーの内容を2セットに複製(ループを継ぎ目なく) ----
+    const track = document.getElementById('marqueeTrack');
+    track.innerHTML = track.innerHTML.repeat(4);
+
+    // ---- ヒーローを過ぎたら追従購入バーを表示 ----
+    const sticky = document.getElementById('stickyCta');
+    new IntersectionObserver(([e]) => {
+      sticky.classList.toggle('is-visible', !e.isIntersecting);
+    }).observe(document.querySelector('.hero'));
   </script>
 </body>
 </html>
