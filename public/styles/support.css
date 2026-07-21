@@ -92,6 +92,23 @@ img { max-width: 100%; }
 }
 .hero-cta:hover { opacity: .82; }
 
+/* ワイド画面: 左=テキスト / 右=写真 の分割構図(顔と文字の重なり防止) */
+@media (min-width: 760px) {
+  .hero-photo {
+    left: auto; right: 0; width: 60%;
+    object-position: 50% 15%;
+  }
+  .hero-scrim {
+    background:
+      linear-gradient(90deg, #0a0a0a 0%, #0a0a0a 38%, rgba(10,10,10,.72) 50%, rgba(10,10,10,.12) 68%, rgba(10,10,10,.05) 100%),
+      linear-gradient(180deg, rgba(10,10,10,.3) 0%, rgba(10,10,10,0) 30%, rgba(10,10,10,0) 62%, #0a0a0a 97%);
+  }
+  .hero-inner {
+    max-width: none; padding-left: 6vw; padding-bottom: 10vh;
+  }
+  .hero-name { font-size: clamp(4rem, 7.5vw, 6.8rem); }
+}
+
 /* ============ マーキー帯 ============ */
 .marquee {
   border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
