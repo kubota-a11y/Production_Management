@@ -9,7 +9,7 @@
   <meta property="og:description" content="2026.9.6 タイトルマッチに挑む林源平選手を、同じ一枚で応援しよう。受注生産・選手ステッカー同梱。">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://order.kubota-tunnel.com/support/hayashi">
-  <meta property="og:image" content="https://order.kubota-tunnel.com/img/support/hayashi-tee.jpg">
+  <meta property="og:image" content="https://order.kubota-tunnel.com/img/support/tee-black-back.jpg">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="stylesheet" href="/styles/support.css">
 </head>
@@ -21,7 +21,7 @@
   <script>
     const CONFIG = {
       // 販売設定
-      baseUrl: null,              // BASE商品ページURL。nullの間はボタンがCOMING SOON表示
+      baseUrl: 'https://kratvs.base.shop/items/151383255', // BASE商品ページURL。nullの間はボタンがCOMING SOON表示
       price: 5500,                // 税込価格(円)。null の間は「近日発表」表示
       deadline: '2026年8月25日(火)', // 注文締切(表示用)。nullの間は「近日発表」
       deadlineISO: '2026-08-25T23:59:59+09:00', // カウントダウン用。締切超過で自動的に受付終了表示
@@ -92,11 +92,31 @@
         <span class="sec-en">Support Tee</span>
         <h2 class="sec-ja">応援Tシャツ</h2>
       </header>
-      <img class="tee-photo" src="/img/support/hayashi-tee.jpg" alt="林源平選手 応援Tシャツ(前面・背面)"
-           onerror="this.outerHTML='<div class=&quot;tee-photo-placeholder&quot;>商品写真 準備中</div>'">
+      <!-- カラー切替(2色展開) -->
+      <div class="color-tabs" role="tablist" aria-label="カラー">
+        <button class="color-tab is-active" role="tab" aria-selected="true" data-color="black">
+          <span class="swatch swatch--black"></span>BLACK
+        </button>
+        <button class="color-tab" role="tab" aria-selected="false" data-color="white">
+          <span class="swatch swatch--white"></span>WHITE
+        </button>
+      </div>
+
+      <div class="tee-gallery" id="teeGallery">
+        <figure class="tee-shot">
+          <img src="/img/support/tee-black-front.jpg" alt="応援Tシャツ ブラック フロント" id="shotFront">
+          <figcaption>FRONT</figcaption>
+        </figure>
+        <figure class="tee-shot">
+          <img src="/img/support/tee-black-back.jpg" alt="応援Tシャツ ブラック バック" id="shotBack">
+          <figcaption>BACK</figcaption>
+        </figure>
+      </div>
+
       <div class="tee-spec">
         <dl>
-          <dt>デザイン</dt><dd>フロント胸ロゴ / バック大判ロゴ(ブラック × ホワイト)</dd>
+          <dt>カラー</dt><dd>ブラック / ホワイト(全2色)</dd>
+          <dt>デザイン</dt><dd>フロント胸ロゴ / バック大判ロゴ</dd>
           <dt>サイズ</dt><dd id="specSizes"></dd>
           <dt>特典</dt><dd>林源平選手オリジナルステッカー同梱</dd>
           <div class="price-row" style="display:contents">
@@ -202,6 +222,25 @@
       cd.hidden = false;
       setInterval(tick, 30000);
     }
+
+    // ---- カラー切替 ----
+    const shotFront = document.getElementById('shotFront');
+    const shotBack = document.getElementById('shotBack');
+    const COLOR_JA = { black: 'ブラック', white: 'ホワイト' };
+    document.querySelectorAll('.color-tab').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const c = tab.dataset.color;
+        document.querySelectorAll('.color-tab').forEach((t) => {
+          const on = t === tab;
+          t.classList.toggle('is-active', on);
+          t.setAttribute('aria-selected', String(on));
+        });
+        shotFront.src = `/img/support/tee-${c}-front.jpg`;
+        shotFront.alt = `応援Tシャツ ${COLOR_JA[c]} フロント`;
+        shotBack.src = `/img/support/tee-${c}-back.jpg`;
+        shotBack.alt = `応援Tシャツ ${COLOR_JA[c]} バック`;
+      });
+    });
 
     // ---- マーキーの内容を2セットに複製(ループを継ぎ目なく) ----
     const track = document.getElementById('marqueeTrack');
