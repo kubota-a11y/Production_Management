@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<style>
+  :root {
+    --bg: #0a0a0a; --text: #f2f0ec; --sub: #9b968d; --red: #cf1b2b;
+    --light: #f1eee8; --dark: #141414;
+    --serif: "Hiragino Mincho ProN", serif;
+    --sans: "Hiragino Kaku Gothic ProN", sans-serif;
+    --cond: "Avenir Next Condensed", "Arial Narrow", sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1080px; height: 1350px; overflow: hidden; position: relative;
+    background: var(--bg); color: var(--text); font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  .frame {
+    position: absolute; inset: 30px; border: 1px solid rgba(242,240,236,.14);
+    pointer-events: none;
+  }
+  .top { position: absolute; left: 88px; top: 96px; right: 88px; }
+  .kicker {
+    font-family: var(--cond); font-weight: 600; font-size: 21px;
+    letter-spacing: .5em; color: var(--sub); text-transform: uppercase;
+  }
+  .event {
+    display: flex; align-items: center; gap: 18px; margin-top: 26px;
+    font-family: var(--cond); font-weight: 700; font-size: 36px; letter-spacing: .14em;
+  }
+  .event .tick { width: 30px; height: 3px; background: var(--red); }
+  .name { font-family: var(--serif); font-weight: 600; font-size: 148px; letter-spacing: .08em; line-height: 1.15; margin-top: 8px; }
+  .name-en {
+    font-family: var(--cond); font-weight: 700; font-size: 25px;
+    letter-spacing: .46em; color: var(--sub); text-transform: uppercase; margin-top: 6px;
+  }
+  .badge {
+    display: inline-block; margin-top: 34px; padding: 12px 28px;
+    border: 1px solid rgba(242,240,236,.75); border-left: 4px solid var(--red);
+    font-size: 27px; letter-spacing: .26em;
+  }
+  .tees {
+    position: absolute; left: 88px; right: 88px; top: 618px; height: 400px;
+    background: var(--light); display: flex; align-items: center; justify-content: center; gap: 48px;
+  }
+  .tee { text-align: center; }
+  .tee img { width: 360px; display: block; }
+  .tee figcaption {
+    font-family: var(--cond); font-weight: 700; font-size: 19px;
+    letter-spacing: .34em; color: #6b675f; margin-top: 2px;
+  }
+  .info { position: absolute; left: 88px; right: 88px; top: 1040px; }
+  .price-line { display: flex; align-items: baseline; gap: 22px; white-space: nowrap; }
+  .price-line > span { white-space: nowrap; }
+  .deadline { font-size: 25px; letter-spacing: .12em; color: var(--red); font-weight: 700; white-space: nowrap; }
+  .spec-row { display: flex; align-items: baseline; justify-content: space-between; margin-top: 14px; white-space: nowrap; }
+  .price-label { font-family: var(--serif); font-size: 40px; letter-spacing: .18em; }
+  .price { font-family: var(--cond); font-weight: 800; font-size: 66px; letter-spacing: .02em; }
+  .price-tax { font-size: 22px; color: var(--sub); letter-spacing: .1em; }
+  .spec-line { margin-top: 14px; font-size: 24px; letter-spacing: .14em; color: var(--sub); }
+  .spec-line strong { color: var(--text); font-weight: 600; }
+  .spec-line .dl { color: var(--red); font-weight: 700; }
+  .cta {
+    position: absolute; left: 88px; right: 88px; top: 1206px; height: 84px;
+    background: var(--text); color: #0a0a0a;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 29px; letter-spacing: .22em;
+  }
+  .foot {
+    position: absolute; left: 0; right: 0; top: 1305px; text-align: center;
+    font-size: 17px; letter-spacing: .18em; color: var(--sub);
+  }
+</style>
+</head>
+<body>
+  <div class="frame"></div>
+  <div class="top">
+    <p class="kicker">Official Support Gear</p>
+    <div class="event"><span>PANCRASE 365</span><span class="tick"></span><span>2026.9.6 SUN</span></div>
+    <h1 class="name">林 源平</h1>
+    <p class="name-en">Genpei Hayashi</p>
+    <br>
+    <span class="badge">ミドル級 タイトルマッチ</span>
+  </div>
+  <div class="tees">
+    <figure class="tee">
+      <img src="../../public/img/support/tee-black-front.jpg" alt="">
+      <figcaption>BLACK</figcaption>
+    </figure>
+    <figure class="tee">
+      <img src="../../public/img/support/tee-white-front.jpg" alt="">
+      <figcaption>WHITE</figcaption>
+    </figure>
+  </div>
+  <div class="info">
+    <div class="price-line">
+      <span class="price-label">応援Tシャツ</span>
+      <span class="price">¥5,500</span>
+      <span class="price-tax">税込・送料込み</span>
+    </div>
+    <div class="spec-row">
+      <span class="spec-line"><strong>全2色</strong>・S〜XXL・林選手ステッカー同梱</span>
+      <span class="deadline">注文締切 8.25(火)</span>
+    </div>
+  </div>
+  <div class="cta">ご購入はプロフィールのリンクから</div>
+  <p class="foot">林源平選手 公認｜売上の一部は選手の活動支援に充てられます</p>
+</body>
+</html>

@@ -267,6 +267,7 @@ img { max-width: 100%; }
   border: 1px solid var(--line); pointer-events: none; font-weight: 500;
 }
 .cta-note { margin-top: 20px; font-size: .84rem; color: var(--text-sub); }
+.official-note { margin-top: 10px; color: var(--text); letter-spacing: .06em; }
 
 /* ============ 注意事項 ============ */
 .sec--notes { padding-top: 0; }
