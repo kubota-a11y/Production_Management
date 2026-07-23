@@ -195,6 +195,33 @@ app.get('/support/hayashi', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'support-hayashi.html'));
 });
 
+// 選手専用ドメイン → トップ(/)で直接その特設ページを表示する対応表。
+// 新しい選手ドメインを増やすときはこの表に1行足すだけ。
+// .env の SUPPORT_DOMAINS で上書き可(例: "genpei-hayashi.com=support-hayashi.html,foo.com=support-foo.html")。
+const SUPPORT_DOMAIN_MAP = (() => {
+  const map = {
+    'genpei-hayashi.com': 'support-hayashi.html',
+    'www.genpei-hayashi.com': 'support-hayashi.html',
+  };
+  if (process.env.SUPPORT_DOMAINS) {
+    for (const pair of process.env.SUPPORT_DOMAINS.split(',')) {
+      const [host, file] = pair.split('=').map((s) => s && s.trim());
+      if (host && file) map[host.toLowerCase()] = file;
+    }
+  }
+  return map;
+})();
+
+// 選手専用ドメインのトップ(/)は特設ページを返す。
+// express.static が / に index.html を返す前に処理する必要があるため、静的配信より前に置く。
+app.get('/', (req, res, next) => {
+  const supportPage = SUPPORT_DOMAIN_MAP[(req.hostname || '').toLowerCase()];
+  if (supportPage) {
+    return res.sendFile(path.join(__dirname, 'public', supportPage));
+  }
+  next();
+});
+
 // no-cache = 「使う前に毎回サーバーへ更新確認」(キャッシュ全否定ではない)。
 // 未更新なら304で済むためLAN内では体感差なし。これにより本番反映後の
 // ハードリフレッシュ(Ctrl+Shift+R)が不要になり、古いJSを掴んだままの端末が出なくなる。
