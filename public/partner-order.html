@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>加工依頼フォーム | HIYOSHI</title>
+  <link rel="stylesheet" href="/styles/order.css">
+  <style>
+    /* 取引先 加工依頼フォーム専用の差分スタイル(基本はorder.cssを流用) */
+    .partner-badge { display: inline-block; font-size: .8rem; font-weight: 700; color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe; padding: 4px 12px; border-radius: 999px; margin-bottom: 6px; }
+    .proc-row { border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; margin-bottom: 10px; background: #fff; }
+    .proc-row .grid-proc { display: grid; grid-template-columns: 1.3fr .9fr; gap: 8px 10px; }
+    .proc-row .full { grid-column: 1 / -1; }
+    .proc-row .row-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .proc-row .row-no { font-weight: 700; color: #334155; font-size: .9rem; }
+    .btn-remove { border: none; background: #f1f5f9; color: #64748b; border-radius: 6px; width: 28px; height: 28px; cursor: pointer; font-size: .9rem; }
+    .btn-remove:hover { background: #fee2e2; color: #b91c1c; }
+    .proc-sub { border: 1px dashed #cbd5e1; border-radius: 8px; padding: 10px; margin: 4px 0 10px; background: #f8fafc; }
+    .proc-sub-label { font-size: .85rem; font-weight: 700; color: #334155; margin-bottom: 8px; }
+    .proc-item { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; margin-bottom: 8px; }
+    .proc-item-head { display: flex; justify-content: space-between; align-items: center; min-height: 20px; margin-bottom: 4px; }
+    .proc-item-no { font-size: .8rem; font-weight: 700; color: #64748b; }
+    .btn-add-proc { border: 1px solid #bfdbfe; background: #eff6ff; color: #1d4ed8; border-radius: 8px; padding: 6px 14px; font-size: .85rem; font-weight: 600; cursor: pointer; }
+    .btn-add-proc:hover { background: #dbeafe; }
+    .status-link { text-align: center; margin-top: 8px; }
+    .status-link a { color: #2563eb; text-decoration: none; font-size: .88rem; }
+    .file-hint { font-size: .78rem; color: #64748b; margin-top: 4px; }
+    .site-footer { border-top: 1px solid #e2e8f0; margin-top: 40px; padding: 20px 16px 8px; text-align: center; font-size: .82rem; color: #64748b; line-height: 1.9; }
+    .site-footer .company { font-size: .92rem; font-weight: 700; color: #334155; }
+    .site-footer a { color: #2563eb; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <main class="order-wrap">
+    <div class="order-head">
+      <span class="partner-badge" id="partnerBadge" hidden></span>
+      <h1>加工依頼フォーム</h1>
+      <p class="lead" id="leadText">読み込み中…</p>
+    </div>
+
+    <div class="form-errors" id="loadError" hidden></div>
+
+    <form id="partnerOrderForm" novalidate hidden>
+      <!-- 1. 持ち込み予定 -->
+      <section class="card">
+        <h2>1. 持ち込み予定 <span class="req">必須</span></h2>
+        <div class="grid2">
+          <label class="field">持ち込み予定日
+            <input type="date" id="dropoffDate">
+          </label>
+          <label class="field">指図書番号 <span class="opt">任意</span>
+            <input type="text" id="instructionNo" maxlength="100" placeholder="例: 2026-0123">
+          </label>
+          <label class="field">ご担当者名 <span class="req">必須</span>
+            <input type="text" id="contactName" maxlength="200" required>
+          </label>
+          <label class="field">電話番号 <span class="opt">任意</span>
+            <input type="tel" id="contactPhone" maxlength="20">
+          </label>
+        </div>
+      </section>
+
+      <!-- 2. 加工内容 -->
+      <section class="card">
+        <h2>2. 加工内容 <span class="req">必須</span></h2>
+        <p class="hint">品物ごとに、加工方法・箇所・内容をご入力ください。指図書の内容をそのまま転記いただければ大丈夫です。</p>
+        <div id="procContainer"></div>
+        <button type="button" class="btn-add" onclick="partnerOrder.addRow()">＋ 品物を追加</button>
+      </section>
+
+      <!-- 3. 納期・備考・画像 -->
+      <section class="card">
+        <h2>3. 希望納期・備考 <span class="opt">任意</span></h2>
+        <div class="grid2">
+          <label class="field">希望納期
+            <input type="date" id="deadlineDate">
+          </label>
+          <label class="field">納期に関する補足
+            <input type="text" id="deadlineNote" maxlength="200" placeholder="例: なる早でお願いします">
+          </label>
+        </div>
+        <label class="field">備考(Googleチャットで補足していた内容など)
+          <textarea id="remarks" maxlength="2000" rows="3" placeholder="例: 糸色は前回と同じ。左胸ネームは別紙参照。"></textarea>
+        </label>
+        <label class="field">画像添付(指図書・ロゴ・見本の写真) <span class="opt">任意</span>
+          <input type="file" id="images" accept=".jpg,.jpeg,.png,.pdf,.heic,.webp" multiple>
+          <span class="file-hint">最大10点・1点15MBまで(JPG / PNG / PDF など)</span>
+        </label>
+      </section>
+
+      <!-- honeypot(botよけ。人間には見えない) -->
+      <div class="hp-field" aria-hidden="true" style="position:absolute;left:-9999px">
+        <label>このフィールドは入力しないでください<input type="text" id="website" tabindex="-1" autocomplete="off"></label>
+      </div>
+
+      <div class="form-errors" id="formErrors" hidden></div>
+
+      <div class="submit-row">
+        <button type="submit" id="submitBtn" class="btn-submit">加工依頼を送信する</button>
+      </div>
+      <p class="status-link"><a id="statusLink" href="#">→ 進行状況・納期の確認ページを見る</a></p>
+    </form>
+
+    <!-- 送信完了 -->
+    <div id="donePanel" class="done-panel" hidden>
+      <h2>加工依頼を受け付けました</h2>
+      <p class="done-receipt">受付番号: <strong id="doneReceiptNo"></strong><br>
+        <small>お問い合わせの際にこの番号をお伝えいただくとスムーズです。</small></p>
+      <p>内容を確認のうえ、弊社にて作業指示書を作成し製作に入ります。進行状況は確認ページでご覧いただけます。</p>
+      <p class="status-link"><a id="doneStatusLink" href="#">→ 進行状況・納期の確認ページを見る</a></p>
+    </div>
+
+    <footer class="site-footer">
+      <p class="company">有限会社HiYOSHi</p>
+      <p>TEL: <a href="tel:055-928-7609">055-928-7609</a>(営業時間 10:00〜17:00 土日祝休み)</p>
+    </footer>
+  </main>
+  <script src="/js/partner-order.js"></script>
+</body>
+</html>

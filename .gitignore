@@ -11,3 +11,5 @@ launchd/
 
 # 開発時のWeb注文画像フォールバック保存先
 web_order_received_dev/
+# 開発時の取引先 加工依頼フォームの画像フォールバック保存先
+partner_order_received_dev/

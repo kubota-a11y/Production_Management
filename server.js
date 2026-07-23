@@ -10,6 +10,8 @@ const line = require('@line/bot-sdk');
 const { runExtractionCycle } = require('./lib/ai-extraction');
 const { registerOrderRoutes } = require('./lib/order-intake');
 const { registerTeamOrderRoutes } = require('./lib/team-order');
+const { registerPartnerPortalRoutes } = require('./lib/partner-portal');
+const { registerPartnerOrderRoutes } = require('./lib/partner-order');
 const { scheduleDailyBackup } = require('./lib/db-backup');
 const { extractCarriedData, extractCarriedItems } = require('./lib/intake-carry');
 
@@ -2438,6 +2440,14 @@ registerOrderRoutes(app, db);
 // チーム追加注文(専用URL /team/{token} + 管理画面 /team-links)。
 // 着地は同じく ai_extracted_intake(line_user_id='TEAM'、受付番号 T-{id})。
 registerTeamOrderRoutes(app, db);
+
+// 取引先向け 納期確認ページ(専用URL /partner/{token} + 管理画面 /partner-links)。
+// 閲覧専用。案件との紐付けは顧客名の部分一致パターンで自動判定。
+registerPartnerPortalRoutes(app, db);
+
+// 取引先向け 加工依頼フォーム(公開フォーム /partner/{token}/order)。
+// 着地は ai_extracted_intake(line_user_id='PARTNER'、受付番号 P-{id})。
+registerPartnerOrderRoutes(app, db);
 
 // 5分ごとにLINEメッセージのAI構造化抽出を実行する。前回の実行が終わっていなければスキップする。
 let aiExtractionRunning = false;

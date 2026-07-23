@@ -239,6 +239,22 @@ function initDatabase(dbFile = dbPath) {
     ON team_order_link_items(link_id)
   `);
 
+  // 取引先向け 納期確認ページの専用URL(トークン)。disabled_at が入っているリンクは公開ページで404になる。
+  // 案件との紐付けは customer_patterns(JSON配列)のいずれかが projects.customer_name に
+  // 部分一致するかで自動判定する(例: ["八木繊維"] → 顧客名に「八木繊維」を含む案件が対象)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS partner_links (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      token TEXT NOT NULL UNIQUE,
+      partner_name TEXT NOT NULL,
+      customer_patterns TEXT NOT NULL,
+      memo TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      disabled_at TEXT
+    )
+  `);
+
   // 準備項目マスターの初期データ投入(未投入の場合のみ)。
   // code は案件新規登録画面(旧ハードコード)・既存projects.prep_itemsのCSVコードと一致させる
   const prepItemCount = db.prepare(`SELECT COUNT(*) as c FROM preparation_item_master`).get().c;

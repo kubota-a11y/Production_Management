@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>納期確認ページ | HIYOSHI</title>
+  <style>
+    /* 取引先向け納期確認ページ(閲覧専用)。単体完結のスタイル */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
+      background: #f1f5f9; color: #0f172a; line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 20px 14px 40px; }
+
+    .page-head { text-align: center; padding: 18px 0 6px; }
+    .brand { font-size: .8rem; letter-spacing: .18em; color: #64748b; font-weight: 700; }
+    .page-head h1 { font-size: 1.35rem; margin-top: 2px; }
+    .partner-badge {
+      display: inline-block; margin-top: 10px; font-size: .95rem; font-weight: 700;
+      color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe;
+      padding: 5px 18px; border-radius: 999px;
+    }
+    .page-note { text-align: center; font-size: .8rem; color: #64748b; margin-top: 10px; }
+
+    .load-error {
+      background: #fef2f2; border: 1px solid #fecaca; color: #991b1b;
+      border-radius: 10px; padding: 14px 16px; margin-top: 20px; text-align: center;
+    }
+
+    section { margin-top: 26px; }
+    .sec-title { font-size: 1.02rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .sec-title .count {
+      font-size: .78rem; font-weight: 700; color: #1d4ed8; background: #dbeafe;
+      border-radius: 999px; padding: 1px 10px;
+    }
+    .sec-empty { margin-top: 10px; font-size: .88rem; color: #64748b; background: #fff; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 16px; text-align: center; }
+
+    /* 進行中カード */
+    .cards { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+    .card {
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+      padding: 14px 16px; box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+    }
+    .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+    .p-name { font-weight: 700; font-size: .98rem; }
+    .p-meta { font-size: .8rem; color: #64748b; margin-top: 2px; }
+    .stage-pill { font-size: .78rem; font-weight: 700; padding: 3px 12px; border-radius: 999px; white-space: nowrap; }
+    .stage-1 { color: #475569; background: #f1f5f9; border: 1px solid #cbd5e1; }
+    .stage-2 { color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe; }
+    .stage-3 { color: #b45309; background: #fffbeb; border: 1px solid #fde68a; }
+    .stage-4 { color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; }
+
+    .deadline-row { display: flex; align-items: baseline; gap: 8px; margin-top: 10px; }
+    .deadline-label { font-size: .78rem; color: #64748b; font-weight: 600; }
+    .deadline-date { font-size: 1.15rem; font-weight: 700; color: #0f172a; }
+    .deadline-soon { font-size: .72rem; font-weight: 700; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 999px; padding: 1px 8px; }
+
+    /* 4段階プログレスバー */
+    .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 10px; }
+    .step { text-align: center; }
+    .step .bar { height: 6px; border-radius: 999px; background: #e2e8f0; }
+    .step.done .bar { background: #2563eb; }
+    .step .lbl { font-size: .62rem; color: #94a3b8; margin-top: 3px; white-space: nowrap; }
+    .step.done .lbl { color: #1d4ed8; font-weight: 700; }
+
+    /* 納品済みテーブル */
+    .done-table { width: 100%; border-collapse: collapse; margin-top: 10px; background: #fff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; font-size: .88rem; }
+    .done-table th { background: #f8fafc; color: #64748b; font-size: .76rem; text-align: left; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; }
+    .done-table td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; }
+    .done-table tr:last-child td { border-bottom: none; }
+    .done-date { white-space: nowrap; font-weight: 600; }
+
+    .refresh-row { text-align: center; margin-top: 24px; }
+    .refresh-btn {
+      font-size: .85rem; font-weight: 600; color: #334155; background: #fff;
+      border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 22px; cursor: pointer;
+    }
+    .updated-at { font-size: .75rem; color: #94a3b8; margin-top: 6px; }
+
+    .site-footer { border-top: 1px solid #e2e8f0; margin-top: 36px; padding: 18px 10px 6px; text-align: center; font-size: .8rem; color: #64748b; line-height: 1.9; }
+    .site-footer .company { font-size: .9rem; font-weight: 700; color: #334155; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="page-head">
+      <div class="brand">HIYOSHI</div>
+      <h1>納期確認ページ</h1>
+      <div class="partner-badge" id="partnerBadge" hidden></div>
+      <p class="page-note">ご依頼いただいている加工の進行状況と納品予定日をご確認いただけます。<br>このページは貴社専用です。URLの共有にはご注意ください。</p>
+    </div>
+
+    <div class="load-error" id="loadError" hidden></div>
+
+    <section id="activeSection" hidden>
+      <h2 class="sec-title">▶ 進行中のご依頼 <span class="count" id="activeCount"></span></h2>
+      <div class="sec-empty" id="activeEmpty" hidden>現在進行中のご依頼はありません。</div>
+      <div class="cards" id="activeCards"></div>
+    </section>
+
+    <section id="doneSection" hidden>
+      <h2 class="sec-title">✓ 納品済み(直近)</h2>
+      <div class="sec-empty" id="doneEmpty" hidden>納品済みの記録はまだありません。</div>
+      <table class="done-table" id="doneTable" hidden>
+        <thead>
+          <tr><th style="width:110px">納品日</th><th>内容</th><th style="width:70px">数量</th></tr>
+        </thead>
+        <tbody id="doneTbody"></tbody>
+      </table>
+    </section>
+
+    <div class="refresh-row" id="refreshRow" hidden>
+      <button class="refresh-btn" onclick="loadStatus()">↻ 最新の状況に更新</button>
+      <div class="updated-at" id="updatedAt"></div>
+    </div>
+
+    <footer class="site-footer">
+      <div class="company">有限会社HiYOSHi</div>
+      TEL: <a href="tel:055-928-7609" style="color:#2563eb;text-decoration:none">055-928-7609</a>(営業時間 10:00〜17:00 土日祝休み)<br>
+      お急ぎのご用件・内容のご相談はお電話にてお問い合わせください。
+    </footer>
+  </div>
+
+  <script>
+    const STAGE_NAMES = ['受付済み', '製作中', '検品・出荷準備', '納品済み'];
+    const token = location.pathname.split('/').filter(Boolean).pop();
+
+    function fmtDate(iso) {
+      // 'YYYY-MM-DD' → 'M月D日(曜)'
+      if (!iso || !/^\d{4}-\d{2}-\d{2}/.test(iso)) return iso || '';
+      const d = new Date(iso.slice(0, 10) + 'T00:00:00');
+      if (Number.isNaN(d.getTime())) return iso;
+      const wd = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
+      return `${d.getMonth() + 1}月${d.getDate()}日(${wd})`;
+    }
+    function daysUntil(iso) {
+      const d = new Date(iso.slice(0, 10) + 'T00:00:00');
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      return Math.round((d - today) / 86400000);
+    }
+    function el(tag, cls, text) {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text !== undefined) e.textContent = text;
+      return e;
+    }
+
+    function renderActive(list) {
+      const cards = document.getElementById('activeCards');
+      cards.innerHTML = '';
+      document.getElementById('activeCount').textContent = `${list.length}件`;
+      document.getElementById('activeEmpty').hidden = list.length !== 0;
+      list.forEach(p => {
+        const card = el('div', 'card');
+
+        const top = el('div', 'card-top');
+        const left = el('div');
+        left.appendChild(el('div', 'p-name', p.project_name));
+        const meta = [];
+        if (p.received_date) meta.push(`受付日: ${fmtDate(p.received_date)}`);
+        if (p.quantity) meta.push(`数量: ${p.quantity}`);
+        left.appendChild(el('div', 'p-meta', meta.join(' ／ ')));
+        top.appendChild(left);
+        top.appendChild(el('span', `stage-pill stage-${p.stage}`, p.stage_label));
+        card.appendChild(top);
+
+        const dl = el('div', 'deadline-row');
+        dl.appendChild(el('span', 'deadline-label', '納品予定日'));
+        dl.appendChild(el('span', 'deadline-date', fmtDate(p.deadline)));
+        const remain = daysUntil(p.deadline);
+        if (remain >= 0 && remain <= 3) dl.appendChild(el('span', 'deadline-soon', remain === 0 ? '本日予定' : 'まもなく'));
+        card.appendChild(dl);
+
+        const steps = el('div', 'steps');
+        STAGE_NAMES.forEach((name, i) => {
+          const step = el('div', 'step' + (i < p.stage ? ' done' : ''));
+          step.appendChild(el('div', 'bar'));
+          step.appendChild(el('div', 'lbl', name));
+          steps.appendChild(step);
+        });
+        card.appendChild(steps);
+
+        cards.appendChild(card);
+      });
+    }
+
+    function renderDelivered(list) {
+      const table = document.getElementById('doneTable');
+      const tbody = document.getElementById('doneTbody');
+      tbody.innerHTML = '';
+      document.getElementById('doneEmpty').hidden = list.length !== 0;
+      table.hidden = list.length === 0;
+      list.forEach(r => {
+        const tr = document.createElement('tr');
+        const tdDate = el('td', 'done-date', fmtDate(r.delivered_date));
+        const tdName = el('td', null, r.project_name);
+        const tdQty = el('td', null, r.quantity ? String(r.quantity) : '-');
+        tr.append(tdDate, tdName, tdQty);
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function loadStatus() {
+      const err = document.getElementById('loadError');
+      err.hidden = true;
+      try {
+        const res = await fetch(`/api/partner-status/${encodeURIComponent(token)}`);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) {
+          err.textContent = data.error || 'ページの読み込みに失敗しました。時間をおいて再度お試しください。';
+          err.hidden = false;
+          return;
+        }
+        const badge = document.getElementById('partnerBadge');
+        badge.textContent = `${data.partner_name} 様`;
+        badge.hidden = false;
+        renderActive(data.active || []);
+        renderDelivered(data.delivered || []);
+        document.getElementById('activeSection').hidden = false;
+        document.getElementById('doneSection').hidden = false;
+        document.getElementById('refreshRow').hidden = false;
+        const now = new Date();
+        document.getElementById('updatedAt').textContent =
+          `表示更新: ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+      } catch (e) {
+        err.textContent = '通信に失敗しました。電波状況をご確認のうえ再度お試しください。';
+        err.hidden = false;
+      }
+    }
+    loadStatus();
+  </script>
+</body>
+</html>

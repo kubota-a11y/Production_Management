@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>取引先リンク管理 - Production Management</title>
+  <link rel="stylesheet" href="styles/main.css">
+  <style>
+    /* 取引先リンク管理専用の差分スタイル(チームリンク管理と同構成) */
+    .link-url { font-family: monospace; font-size: .8rem; color: #475569; word-break: break-all; }
+    .link-disabled-row td { opacity: .55; }
+    .status-pill { font-size: .75rem; font-weight: 700; padding: 2px 10px; border-radius: 999px; }
+    .status-pill.active { color: #166534; background: #dcfce7; }
+    .status-pill.disabled { color: #991b1b; background: #fee2e2; }
+    .pattern-pill { display: inline-block; font-size: .75rem; color: #334155; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 999px; padding: 1px 8px; margin: 1px 2px 1px 0; }
+    .count-badge { font-weight: 700; color: #1d4ed8; }
+    .copy-done { color: #166534; font-size: .78rem; margin-left: 6px; }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <!-- ヘッダー -->
+    <header class="app-header">
+      <div class="header-content">
+        <h1 class="app-title">🤝 取引先リンク管理</h1>
+        <p class="app-subtitle">Partner Status Links</p>
+      </div>
+      <div class="header-buttons">
+        <a class="btn-staff-manage" href="/">📋 HiBoardに戻る</a>
+      </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="main-content">
+      <section>
+        <div class="list-controls">
+          <button class="btn btn-primary" onclick="partnerLinksApp.openModal()">➕ 新規リンク発行</button>
+          <p class="folder-notice">発行したURLを取引先に共有すると、取引先がいつでも自社案件の進行状況・納品予定日を確認できます(閲覧専用)。案件は「一致パターン」が顧客名に含まれるものが自動で表示されます。</p>
+        </div>
+
+        <div class="table-container">
+          <table class="projects-table" id="links-table">
+            <thead>
+              <tr>
+                <th>取引先名</th>
+                <th>専用URL</th>
+                <th>一致パターン</th>
+                <th>進行中案件</th>
+                <th>状態</th>
+                <th>発行日</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="links-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ===== モーダル: リンク発行・編集 ===== -->
+  <div id="link-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="link-modal-title">新規リンク発行</h2>
+        <button class="btn-close" onclick="partnerLinksApp.closeModal()">✕</button>
+      </div>
+      <form id="link-form" class="project-form">
+        <div class="form-group">
+          <label>取引先名 * <span class="field-hint">(ページに「○○ 様」と表示されます)</span></label>
+          <input type="text" id="link-partner-name" maxlength="200" required placeholder="例: 株式会社八木繊維">
+        </div>
+        <div class="form-group">
+          <label>一致パターン <span class="field-hint">(顧客名にこの文字を含む案件が表示対象。読点「、」区切りで複数可。空欄なら取引先名で一致)</span></label>
+          <input type="text" id="link-patterns" maxlength="1000" placeholder="例: 八木繊維、八木せんい">
+        </div>
+        <div class="form-group">
+          <label>メモ <span class="field-hint">(社内用。取引先には表示されません)</span></label>
+          <input type="text" id="link-memo" maxlength="500" placeholder="例: 担当:○○さん">
+        </div>
+
+        <div class="form-errors" id="link-form-errors" hidden style="color:#b91c1c"></div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" onclick="partnerLinksApp.closeModal()">キャンセル</button>
+          <button type="submit" class="btn btn-primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/partner-links.js"></script>
+</body>
+</html>
