@@ -15,12 +15,12 @@ const partnerOrder = {
       const badge = document.getElementById('partnerBadge');
       badge.textContent = `${data.partner_name} 様 専用ページ`;
       badge.hidden = false;
-      document.getElementById('leadText').textContent = '持ち込み品の加工依頼をお送りいただけます。指図書の内容をご入力ください。';
+      document.getElementById('leadText').textContent = '持ち込み品の加工依頼をお送りいただけます。まずご依頼の種類をお選びください。';
       const statusHref = `/partner/${encodeURIComponent(this.token)}`;
       document.getElementById('statusLink').href = statusHref;
+      document.getElementById('a_statusLink').href = statusHref;
       document.getElementById('doneStatusLink').href = statusHref;
-      document.getElementById('partnerOrderForm').hidden = false;
-      this.addRow();
+      document.getElementById('typeChooser').hidden = false;
     } catch (e) {
       this.showLoadError('通信に失敗しました。電波状況をご確認のうえ再度お試しください。');
     }
@@ -30,6 +30,30 @@ const partnerOrder = {
     const el = document.getElementById('loadError');
     el.textContent = msg;
     el.hidden = false;
+  },
+
+  // 案件種別の選択 → 対応するフォームを表示
+  chooseType(type) {
+    document.getElementById('typeChooser').hidden = true;
+    if (type === 'additional') {
+      document.getElementById('additionalForm').hidden = false;
+      document.getElementById('a_contactName').focus();
+    } else {
+      const form = document.getElementById('partnerOrderForm');
+      form.hidden = false;
+      // 初回だけ品物行を1つ用意(戻る→新規で二重に増やさない)
+      if (!document.querySelector('.proc-row')) this.addRow();
+    }
+  },
+
+  // 種別の選択画面に戻る(入力はそのまま保持)
+  backToChooser() {
+    document.getElementById('additionalForm').hidden = true;
+    document.getElementById('partnerOrderForm').hidden = true;
+    document.getElementById('formErrors').hidden = true;
+    document.getElementById('a_formErrors').hidden = true;
+    document.getElementById('typeChooser').hidden = false;
+    window.scrollTo(0, 0);
   },
 
   addRow() {
@@ -150,6 +174,7 @@ const partnerOrder = {
     const btn = document.getElementById('submitBtn');
 
     const payload = {
+      order_type: 'new',
       website: document.getElementById('website').value,
       dropoff: {
         date: document.getElementById('dropoffDate').value,
@@ -193,7 +218,71 @@ const partnerOrder = {
       btn.textContent = '加工依頼を送信する';
     }
   },
+
+  // 追加案件(簡易版)の送信。指図書の添付と担当者名は必須。
+  async submitAdditional(ev) {
+    ev.preventDefault();
+    const errBox = document.getElementById('a_formErrors');
+    errBox.hidden = true;
+    const btn = document.getElementById('a_submitBtn');
+
+    // 送信前の軽いチェック(本チェックはサーバー側でも実施)
+    const contactName = document.getElementById('a_contactName').value.trim();
+    const files = document.getElementById('a_images').files;
+    const clientErrors = [];
+    if (!contactName) clientErrors.push('ご担当者名を入力してください');
+    if (!files.length) clientErrors.push('指図書の添付が必須です(写真またはPDF)');
+    if (clientErrors.length) {
+      errBox.innerHTML = clientErrors.join('<br>');
+      errBox.hidden = false;
+      errBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    const payload = {
+      order_type: 'additional',
+      website: document.getElementById('a_website').value,
+      dropoff: {
+        contact_name: contactName,
+        phone: document.getElementById('a_contactPhone').value,
+        instruction_no: document.getElementById('a_instructionNo').value,
+      },
+      deadline: {
+        date: document.getElementById('a_deadlineDate').value,
+        note: document.getElementById('a_deadlineNote').value,
+      },
+      remarks: document.getElementById('a_remarks').value,
+    };
+
+    const fd = new FormData();
+    fd.append('payload', JSON.stringify(payload));
+    for (const f of files) fd.append('images', f);
+
+    btn.disabled = true;
+    btn.textContent = '送信中…';
+    try {
+      const res = await fetch(`/api/partner-order/${encodeURIComponent(this.token)}`, { method: 'POST', body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        errBox.innerHTML = (data.errors || [{ message: '送信に失敗しました' }]).map(e => e.message).join('<br>');
+        errBox.hidden = false;
+        errBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+      document.getElementById('doneReceiptNo').textContent = data.receipt_no || '';
+      document.getElementById('additionalForm').hidden = true;
+      document.getElementById('donePanel').hidden = false;
+      window.scrollTo(0, 0);
+    } catch (e) {
+      errBox.textContent = '通信に失敗しました。時間をおいて再度お試しください。';
+      errBox.hidden = false;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '追加案件を送信する';
+    }
+  },
 };
 
 document.getElementById('partnerOrderForm').addEventListener('submit', ev => partnerOrder.submit(ev));
+document.getElementById('additionalForm').addEventListener('submit', ev => partnerOrder.submitAdditional(ev));
 partnerOrder.init();

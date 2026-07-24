@@ -26,6 +26,18 @@
     .status-link { text-align: center; margin-top: 8px; }
     .status-link a { color: #2563eb; text-decoration: none; font-size: .88rem; }
     .file-hint { font-size: .78rem; color: #64748b; margin-top: 4px; }
+    /* 案件種別の選択 */
+    /* :not([hidden]) にしないと display:flex が hidden属性(display:none)を上書きしてしまう */
+    .type-chooser:not([hidden]) { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+    .chooser-lead { font-weight: 600; color: #334155; margin-bottom: 4px; }
+    .type-card { text-align: left; border: 2px solid #e2e8f0; border-radius: 12px; padding: 16px 18px; background: #fff; cursor: pointer; display: flex; flex-direction: column; gap: 6px; transition: border-color .15s, background .15s; }
+    .type-card:hover { border-color: #3b82f6; background: #f8fbff; }
+    .type-title { font-size: 1.05rem; font-weight: 700; color: #1e293b; }
+    .type-desc { font-size: .85rem; color: #64748b; line-height: 1.6; }
+    .btn-back { border: 1px solid #cbd5e1; background: #fff; color: #475569; border-radius: 8px; padding: 10px 18px; font-size: .9rem; font-weight: 600; cursor: pointer; }
+    .btn-back:hover { background: #f1f5f9; }
+    .submit-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; align-items: center; }
+    .form-note { font-size: .85rem; color: #475569; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; line-height: 1.7; margin-bottom: 12px; }
     .site-footer { border-top: 1px solid #e2e8f0; margin-top: 40px; padding: 20px 16px 8px; text-align: center; font-size: .82rem; color: #64748b; line-height: 1.9; }
     .site-footer .company { font-size: .92rem; font-weight: 700; color: #334155; }
     .site-footer a { color: #2563eb; text-decoration: none; }
@@ -40,6 +52,64 @@
     </div>
 
     <div class="form-errors" id="loadError" hidden></div>
+
+    <!-- 案件種別の選択(リンク読み込み後に表示) -->
+    <div id="typeChooser" class="type-chooser" hidden>
+      <p class="chooser-lead">ご依頼の種類をお選びください。</p>
+      <button type="button" class="type-card" onclick="partnerOrder.chooseType('additional')">
+        <span class="type-title">🔁 追加案件(かんたん)</span>
+        <span class="type-desc">既存案件への追加・再注文。御社で発行済みの指図書を添付するだけで受け付けます。</span>
+      </button>
+      <button type="button" class="type-card" onclick="partnerOrder.chooseType('new')">
+        <span class="type-title">🆕 新規案件(詳細入力)</span>
+        <span class="type-desc">新しい案件。行き違いを防ぐため、加工内容を詳しくご入力いただきます。</span>
+      </button>
+    </div>
+
+    <!-- 追加案件(簡易版): 指図書の添付が主。加工内容の詳細入力は不要 -->
+    <form id="additionalForm" novalidate hidden>
+      <section class="card">
+        <h2>追加案件のご依頼</h2>
+        <p class="form-note">御社で発行された<strong>指図書を添付</strong>してください。加工内容の入力は不要です。ご担当者名と、あれば希望納期・備考をご記入のうえ送信してください。</p>
+        <div class="grid2">
+          <label class="field">ご担当者名 <span class="req">必須</span>
+            <input type="text" id="a_contactName" maxlength="200" required>
+          </label>
+          <label class="field">電話番号 <span class="opt">任意</span>
+            <input type="tel" id="a_contactPhone" maxlength="20">
+          </label>
+          <label class="field">指図書番号 <span class="opt">任意</span>
+            <input type="text" id="a_instructionNo" maxlength="100" placeholder="例: 2026-0123">
+          </label>
+          <label class="field">希望納期 <span class="opt">任意</span>
+            <input type="date" id="a_deadlineDate">
+          </label>
+        </div>
+        <label class="field">納期に関する補足 <span class="opt">任意</span>
+          <input type="text" id="a_deadlineNote" maxlength="200" placeholder="例: なる早でお願いします">
+        </label>
+        <label class="field">指図書の添付 <span class="req">必須</span>
+          <input type="file" id="a_images" accept=".jpg,.jpeg,.png,.pdf,.heic,.webp" multiple>
+          <span class="file-hint">写真 または PDF・最大10点・1点15MBまで</span>
+        </label>
+        <label class="field">備考 <span class="opt">任意</span>
+          <textarea id="a_remarks" maxlength="2000" rows="3" placeholder="例: 糸色は前回と同じ。左胸ネームは別紙参照。"></textarea>
+        </label>
+      </section>
+
+      <!-- honeypot(botよけ。人間には見えない) -->
+      <div class="hp-field" aria-hidden="true" style="position:absolute;left:-9999px">
+        <label>このフィールドは入力しないでください<input type="text" id="a_website" tabindex="-1" autocomplete="off"></label>
+      </div>
+
+      <div class="form-errors" id="a_formErrors" hidden></div>
+
+      <div class="submit-row">
+        <button type="button" class="btn-back" onclick="partnerOrder.backToChooser()">← 選択に戻る</button>
+        <button type="submit" id="a_submitBtn" class="btn-submit">追加案件を送信する</button>
+      </div>
+      <p class="status-link"><a id="a_statusLink" href="#">→ 進行状況・納期の確認ページを見る</a></p>
+    </form>
 
     <form id="partnerOrderForm" novalidate hidden>
       <!-- 1. 持ち込み予定 -->
@@ -97,6 +167,7 @@
       <div class="form-errors" id="formErrors" hidden></div>
 
       <div class="submit-row">
+        <button type="button" class="btn-back" onclick="partnerOrder.backToChooser()">← 選択に戻る</button>
         <button type="submit" id="submitBtn" class="btn-submit">加工依頼を送信する</button>
       </div>
       <p class="status-link"><a id="statusLink" href="#">→ 進行状況・納期の確認ページを見る</a></p>
