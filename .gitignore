@@ -8,6 +8,8 @@ build/
 .env.local
 db/backups/
 launchd/
+# Claude Code の個人ローカル設定(権限など。git共有しない)
+.claude/settings.local.json
 
 # 開発時のWeb注文画像フォールバック保存先
 web_order_received_dev/
