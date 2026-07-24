@@ -11,6 +11,9 @@ launchd/
 # Claude Code の個人ローカル設定(権限など。git共有しない)
 .claude/settings.local.json
 
+# API関連の資料・認証情報(git共有しない)
+公式LINE_API他/
+
 # 開発時のWeb注文画像フォールバック保存先
 web_order_received_dev/
 # 開発時の取引先 加工依頼フォームの画像フォールバック保存先
