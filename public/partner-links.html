@@ -15,6 +15,9 @@
     .pattern-pill { display: inline-block; font-size: .75rem; color: #334155; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 999px; padding: 1px 8px; margin: 1px 2px 1px 0; }
     .count-badge { font-weight: 700; color: #1d4ed8; }
     .copy-done { color: #166534; font-size: .78rem; margin-left: 6px; }
+    .base-warning { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; font-size: .82rem; line-height: 1.6; }
+    .url-label { color: #6b7280; font-size: .72rem; display: block; margin-top: 6px; }
+    .url-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   </style>
 </head>
 <body>
@@ -37,6 +40,9 @@
           <button class="btn btn-primary" onclick="partnerLinksApp.openModal()">➕ 新規リンク発行</button>
           <p class="folder-notice">発行したURLを取引先に共有すると、取引先がいつでも自社案件の進行状況・納品予定日を確認できます(閲覧専用)。案件は「一致パターン」が顧客名に含まれるものが自動で表示されます。</p>
         </div>
+
+        <!-- 配布URLの基準アドレスが未設定のときだけ表示(partner-links.js が制御) -->
+        <div id="base-warning" class="base-warning" style="display:none"></div>
 
         <div class="table-container">
           <table class="projects-table" id="links-table">

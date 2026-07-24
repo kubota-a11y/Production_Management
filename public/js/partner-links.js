@@ -5,6 +5,7 @@
 const partnerLinksApp = {
   links: [],
   publicBase: '',
+  baseIsFallback: false,
   editingId: null,
 
   async load() {
@@ -12,6 +13,9 @@ const partnerLinksApp = {
       const res = await fetch('/api/partner-links');
       const data = await res.json();
       this.links = data.links || [];
+      // .env の PUBLIC_ORDER_BASE_URL が正。未設定だと管理画面のホスト名(admin等)で
+      // URLを組んでしまい、社外の相手がCloudflare認証で弾かれるため警告を出す。
+      this.baseIsFallback = !data.public_base;
       this.publicBase = data.public_base || window.location.origin;
       this.render();
     } catch (e) {
@@ -24,7 +28,24 @@ const partnerLinksApp = {
     return `${this.publicBase.replace(/\/$/, '')}/partner/${link.token}`;
   },
 
+  // 加工依頼フォームのURL。納期確認URLと同じ公開ホストで組み立てる
+  // (相対パスにすると管理画面のホスト名が付き、社外から開けなくなる)
+  orderUrlFor(link) {
+    return `${this.urlFor(link)}/order`;
+  },
+
+  renderBaseWarning() {
+    const box = document.getElementById('base-warning');
+    if (!box) return;
+    if (!this.baseIsFallback) { box.style.display = 'none'; return; }
+    box.style.display = '';
+    box.textContent = `⚠️ 配布URLの基準アドレスが未設定です(.env の PUBLIC_ORDER_BASE_URL)。`
+      + `現在は表示中のアドレス(${window.location.origin})でURLを組み立てているため、`
+      + `そのまま取引先に渡すと社外から開けない可能性があります。`;
+  },
+
   render() {
+    this.renderBaseWarning();
     const tbody = document.getElementById('links-tbody');
     tbody.innerHTML = '';
     if (this.links.length === 0) {
@@ -47,15 +68,10 @@ const partnerLinksApp = {
       }
 
       const tdUrl = document.createElement('td');
-      const urlSpan = document.createElement('span');
-      urlSpan.className = 'link-url';
-      urlSpan.textContent = this.urlFor(link);
-      const copyBtn = document.createElement('button');
-      copyBtn.className = 'btn btn-secondary btn-sm';
-      copyBtn.textContent = '📋 コピー';
-      copyBtn.style.marginLeft = '6px';
-      copyBtn.onclick = () => this.copyUrl(link, copyBtn);
-      tdUrl.append(urlSpan, copyBtn);
+      tdUrl.append(
+        this.buildUrlRow('納期確認ページ', this.urlFor(link)),
+        this.buildUrlRow('加工依頼フォーム', this.orderUrlFor(link))
+      );
 
       const tdPatterns = document.createElement('td');
       (link.customer_patterns || []).forEach(p => {
@@ -84,13 +100,13 @@ const partnerLinksApp = {
       const previewBtn = document.createElement('a');
       previewBtn.className = 'btn btn-secondary btn-sm';
       previewBtn.textContent = '👀 確認';
-      previewBtn.href = `/partner/${link.token}`;
+      previewBtn.href = this.urlFor(link);
       previewBtn.target = '_blank';
       const formBtn = document.createElement('a');
       formBtn.className = 'btn btn-secondary btn-sm';
       formBtn.style.marginLeft = '4px';
       formBtn.textContent = '📝 依頼フォーム';
-      formBtn.href = `/partner/${link.token}/order`;
+      formBtn.href = this.orderUrlFor(link);
       formBtn.target = '_blank';
       const editBtn = document.createElement('button');
       editBtn.className = 'btn btn-secondary btn-sm';
@@ -109,8 +125,27 @@ const partnerLinksApp = {
     });
   },
 
-  async copyUrl(link, btn) {
-    const url = this.urlFor(link);
+  // ラベル付きのURL1行(URL文字列 + コピーボタン)を組み立てる
+  buildUrlRow(label, url) {
+    const wrap = document.createElement('div');
+    const labelEl = document.createElement('span');
+    labelEl.className = 'url-label';
+    labelEl.textContent = label;
+    const row = document.createElement('div');
+    row.className = 'url-row';
+    const urlSpan = document.createElement('span');
+    urlSpan.className = 'link-url';
+    urlSpan.textContent = url;
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'btn btn-secondary btn-sm';
+    copyBtn.textContent = '📋 コピー';
+    copyBtn.onclick = () => this.copyUrl(url, copyBtn);
+    row.append(urlSpan, copyBtn);
+    wrap.append(labelEl, row);
+    return wrap;
+  },
+
+  async copyUrl(url, btn) {
     let copied = false;
     try {
       await navigator.clipboard.writeText(url);
