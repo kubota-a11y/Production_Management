@@ -703,9 +703,9 @@ const app = {
       const sender = document.createElement('div');
       sender.className = 'ai-intake-card-sender';
       sender.textContent = intake.display_name || '不明な送信者';
-      // Web注文フォーム(W-)・チーム追加注文(T-)由来の候補には受付番号を併記する。
+      // Web注文フォーム(W-)・チーム追加注文(T-)・取引先加工依頼(P-)由来の候補には受付番号を併記する。
       // お客様の完了画面・受付控えメールに表示される番号と同一なので、問い合わせ対応時に突き合わせられる
-      const receiptPrefix = { WEB: 'W', TEAM: 'T' }[intake.line_user_id];
+      const receiptPrefix = { WEB: 'W', TEAM: 'T', PARTNER: 'P' }[intake.line_user_id];
       if (receiptPrefix) {
         const receipt = document.createElement('span');
         receipt.className = 'receipt-badge';
@@ -749,8 +749,8 @@ const app = {
         return;
       }
       this.currentAiIntakeDetail = intake;
-      // Web注文フォーム(W-)・チーム追加注文(T-)由来なら、タイトルに受付番号バッジを表示する
-      const modalReceiptPrefix = { WEB: 'W', TEAM: 'T' }[intake.line_user_id];
+      // Web注文フォーム(W-)・チーム追加注文(T-)・取引先加工依頼(P-)由来なら、タイトルに受付番号バッジを表示する
+      const modalReceiptPrefix = { WEB: 'W', TEAM: 'T', PARTNER: 'P' }[intake.line_user_id];
       if (modalReceiptPrefix) {
         const title = document.getElementById('ai-intake-modal-title');
         title.textContent = 'AI受注候補の確認 ';

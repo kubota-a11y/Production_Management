@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HiBoard 使い方ガイド</title>
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="stylesheet" href="styles/manual.css">
+</head>
+<body>
+  <div class="app-container">
+    <header class="app-header no-print">
+      <div class="header-content">
+        <h1 class="app-title">📖 HiBoard 使い方ガイド</h1>
+        <p class="app-subtitle">日々の業務の流れと、そのとき使う機能</p>
+      </div>
+      <div class="header-buttons">
+        <button class="btn-staff-manage" onclick="window.print()">🖨️ 印刷する</button>
+        <a class="btn-staff-manage" href="/">📋 HiBoardに戻る</a>
+      </div>
+    </header>
+
+    <main class="main-content manual">
+      <!-- 印刷時だけ出るタイトル -->
+      <div class="print-title print-only">
+        <h1>HiBoard 使い方ガイド</h1>
+        <p>有限会社HiYOSHi 生産管理システム</p>
+      </div>
+
+      <p class="manual-lead">
+        このガイドは<strong>毎日の仕事の流れの順番</strong>に並んでいます。
+        「今この作業をしている」というところを探して、そこだけ読めば大丈夫です。
+      </p>
+
+      <!-- 目次 -->
+      <nav class="manual-toc no-print">
+        <h2>もくじ</h2>
+        <ol>
+          <li><a href="#ch1">注文はどこから入ってくる?</a></li>
+          <li><a href="#ch2">朝いちばんにやること(注文の取り込み)</a></li>
+          <li><a href="#ch3">案件を進める(ステータスの切り替え)</a></li>
+          <li><a href="#ch4">今週の作業を割り振る(スケジュール)</a></li>
+          <li><a href="#ch5">納品したとき</a></li>
+          <li><a href="#ch6">同じチームから「また同じものを」と言われたら</a></li>
+          <li><a href="#ch7">困ったときのQ&amp;A</a></li>
+        </ol>
+      </nav>
+
+      <!-- ===== 第1章 ===== -->
+      <section class="manual-chapter" id="ch1">
+        <h2><span class="ch-num">1</span>注文はどこから入ってくる?</h2>
+        <p>HiBoardには<strong>5つの入り口</strong>から注文が入ってきます。どこから来ても、最終的には全部<strong>「📥 コピペ取り込み」タブ</strong>か「➕ 新規案件」に集まります。</p>
+
+        <table class="manual-table">
+          <thead>
+            <tr><th>入り口</th><th>どこに届く?</th><th>目印</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>LINE</strong><br><span class="muted">公式LINEのやりとり</span></td>
+              <td>「コピペ取り込み」タブに<br>AIが自動で読み取って並ぶ</td>
+              <td><span class="muted">お客様の名前</span></td>
+            </tr>
+            <tr>
+              <td><strong>Webのご注文フォーム</strong><br><span class="muted">ホームページから</span></td>
+              <td>同じく「コピペ取り込み」タブ</td>
+              <td><span class="badge-sample">W-12</span> のような番号</td>
+            </tr>
+            <tr>
+              <td><strong>チーム専用URL</strong><br><span class="muted">既存チームの追加注文</span></td>
+              <td>同じく「コピペ取り込み」タブ</td>
+              <td><span class="badge-sample">T-5</span> のような番号</td>
+            </tr>
+            <tr>
+              <td><strong>取引先の加工依頼フォーム</strong><br><span class="muted">八木繊維さんなどの取引先から</span></td>
+              <td>同じく「コピペ取り込み」タブ</td>
+              <td><span class="badge-sample">P-3</span> のような番号</td>
+            </tr>
+            <tr>
+              <td><strong>電話・口頭・メール</strong></td>
+              <td>自分で入力する<br>(第2章の③④を参照)</td>
+              <td>—</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="tip">
+          <strong>番号の頭文字で入り口が分かります。</strong>
+          <strong>W-</strong> はホームページのご注文フォーム、<strong>T-</strong> はチームの追加注文、<strong>P-</strong> は取引先からの加工依頼です。
+          お客様や取引先から「受付番号は W-12 です」と電話が来たら、「コピペ取り込み」タブでその番号を探せば内容が見られます。
+        </div>
+
+        <h3>取引先(P-)の依頼は2種類あります</h3>
+        <ul class="plain-list">
+          <li><strong>追加案件</strong> … 取引先が発行した<strong>指図書の写真・PDFが添付</strong>されています。加工の詳細はその指図書を見てください。</li>
+          <li><strong>新規案件</strong> … 加工内容が画面にひととおり入力されています。</li>
+        </ul>
+      </section>
+
+      <!-- ===== 第2章 ===== -->
+      <section class="manual-chapter" id="ch2">
+        <h2><span class="ch-num">2</span>朝いちばんにやること(注文の取り込み)</h2>
+        <p class="when">🕘 <strong>使うタイミング:</strong> 出社したとき、あとは午後にもう一度</p>
+
+        <h3>① 赤いバッジを確認する</h3>
+        <p>HiBoardを開いて、上のタブに<strong>「📥 コピペ取り込み <span class="badge-sample red">2</span>」</strong>のような赤い数字が出ていたら、<strong>まだ確認していない注文がその件数ある</strong>という意味です。まずここをクリックします。</p>
+        <p class="muted">※ 赤い数字が出ていなければ、新しい注文はありません。</p>
+
+        <div class="tip">
+          <strong>TODOリストにも自動で入ります。</strong> 新しい注文が届くと、社員用のTODOリスト(Googleスプレッドシート)にも「対応してください」というタスクが1件、自動で追加されます。
+          ただし<strong>お客様の名前が読み取れなかったLINEの問い合わせは、1日1行にまとめて</strong>入ります。まとめて入っていた日は、HiBoardのこの画面で中身を確認してください。
+        </div>
+
+        <h3>② 届いた注文を「案件」にする</h3>
+        <p>カードをクリックすると、内容の確認画面が開きます。やることは3つだけです。</p>
+        <ol class="steps">
+          <li>左側に<strong>お客様からの実際のやりとり・注文内容</strong>が表示されるので、目を通す</li>
+          <li>右側の入力欄(案件名・顧客名・納期・加工種別・数量など)を確認し、<strong>足りないところを埋める・間違いを直す</strong></li>
+          <li>下の<strong>「案件として登録」</strong>ボタンを押す → これで正式な案件になります</li>
+        </ol>
+        <div class="tip">
+          <strong>注文ではなかった場合は?</strong> 「ただの質問だった」「いたずら」など案件にする必要がないものは、<strong>「却下」</strong>ボタンを押してください。消えて、赤いバッジの数字も減ります。
+        </div>
+        <div class="warn">
+          <strong>注意:</strong> 「案件として登録」を押すまでは、<strong>まだ案件になっていません</strong>。カードのまま放置すると、スケジュールにも一覧にも出てきません。必ずその日のうちに登録か却下をしてください。
+        </div>
+
+        <h3>③ LINEやメールの文章から取り込む(コピペ)</h3>
+        <p>AIが自動で拾えなかったやりとりや、メールで来た注文は、こちらを使います。</p>
+        <ol class="steps">
+          <li>LINEやメールの本文を<strong>コピー</strong>する</li>
+          <li>「コピペ取り込み」タブの下半分にある<strong>「テキストから案件情報を抽出」</strong>の枠に<strong>貼り付け</strong>る</li>
+          <li><strong>「🔍 テキストから抽出」</strong>を押す → 案件名・顧客名・数量・納期などをAIが自動で読み取ります</li>
+          <li>読み取った内容を確認・修正して登録</li>
+        </ol>
+        <p class="muted">※ 長い雑談まじりの文章でも大丈夫です。うまく読み取れなかった項目は手で直してください。</p>
+
+        <h3>④ 電話・口頭で受けた注文</h3>
+        <p>一覧ビューの<strong>「➕ 新規案件」</strong>ボタンから手入力します。<strong>案件名・顧客名・受付日・納期・連絡経路・加工種別・数量</strong>が必須です。連絡経路は「電話」を選びます。</p>
+      </section>
+
+      <!-- ===== 第3章 ===== -->
+      <section class="manual-chapter" id="ch3">
+        <h2><span class="ch-num">3</span>案件を進める(ステータスの切り替え)</h2>
+        <p class="when">🕘 <strong>使うタイミング:</strong> 作業が一段階進むたび</p>
+
+        <p>案件には<strong>8つの状態(ステータス)</strong>があります。今どこまで進んでいるかを、みんなが見て分かるようにするためのものです。</p>
+
+        <table class="manual-table status-table">
+          <thead>
+            <tr><th>ステータス</th><th>どういう状態?</th><th>次に進めるタイミング</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="st st-pre">受注前</span></td><td>見積り中・お客様の返事待ち</td><td>正式に「お願いします」と言われたら</td></tr>
+            <tr><td><span class="st st-conf">受注確定</span></td><td>注文が確定した</td><td>生地・資材の手配が済んだら</td></tr>
+            <tr><td><span class="st st-wait">生産待ち</span></td><td>資材は揃った。作業の順番待ち</td><td>製版・データなど準備が終わったら</td></tr>
+            <tr><td><span class="st st-prep">準備完了</span></td><td>すぐ作業に入れる状態</td><td>実際に加工を始めたら</td></tr>
+            <tr><td><span class="st st-prog">生産中</span></td><td>プリント・刺繍の作業中</td><td>加工が終わったら</td></tr>
+            <tr><td><span class="st st-insp">検品</span></td><td>仕上がりをチェック中</td><td>検品OKで梱包まで済んだら</td></tr>
+            <tr><td><span class="st st-deliv">納品待ち</span></td><td>お渡し・発送を待つだけ</td><td>実際に納品したら → <strong>第5章へ</strong></td></tr>
+            <tr><td><span class="st st-comp">納品済み</span></td><td>完了。一覧からは消えます</td><td>—</td></tr>
+          </tbody>
+        </table>
+
+        <h3>ステータスの変え方(2通り)</h3>
+        <ul class="plain-list">
+          <li><strong>カンバンビューでドラッグ</strong> … 「🎯 カンバンビュー」タブを開き、案件カードを<strong>つかんで隣の列に動かす</strong>だけ。いちばん速いです。</li>
+          <li><strong>編集画面から変える</strong> … 一覧ビューの「✎ 編集」を押して、ステータス欄を選び直して保存。</li>
+        </ul>
+
+        <div class="tip">
+          <strong>なぜこまめに変えるの? 理由は2つあります。</strong>
+          <ol class="steps" style="margin-bottom:0">
+            <li>スケジュールボードは<strong>「受注確定・生産待ち・準備完了・生産中」の案件だけ</strong>を作業予定として拾います。ステータスが古いままだと、割り振りに出てこなかったり、終わった仕事が残り続けたりします。</li>
+            <li><strong>取引先(八木繊維さんなど)の納期確認ページに、そのまま反映されます。</strong>取引先は自分の案件が今どの段階かを専用ページで見ています。ここを更新しておけば「上がりはいつ?」の電話が減ります。</li>
+          </ol>
+        </div>
+        <p class="muted">※ 取引先側には社内の細かい工程はそのまま出ず、<strong>受付済み → 製作中 → 検品・出荷準備中 → 納品済み</strong>の4段階にまとめて表示されます。</p>
+      </section>
+
+      <!-- ===== 第4章 ===== -->
+      <section class="manual-chapter" id="ch4">
+        <h2><span class="ch-num">4</span>今週の作業を割り振る(スケジュール)</h2>
+        <p class="when">🕘 <strong>使うタイミング:</strong> 週のはじめ、あとは毎朝の確認で</p>
+
+        <p>ヘッダーの<strong>「🗓️ スケジュール」</strong>から開きます。縦に従業員、横に曜日が並んだ表です。</p>
+
+        <h3>① 自動で割り振ってもらう</h3>
+        <ol class="steps">
+          <li><strong>「🤖 今週を自動割り当て」</strong>ボタンを押す(1日分だけなら、その曜日の「🤖 自動割当」)</li>
+          <li>誰がどの作業をするか、AIが<strong>提案</strong>を出します</li>
+          <li>右側の<strong>「📝 提案確認」</strong>パネルに提案が並ぶので、内容を見て<strong>承認</strong>する</li>
+        </ol>
+        <div class="warn">
+          <strong>提案は自動では反映されません。</strong> 「提案確認」で承認して初めて予定になります。バッジに数字が出ていたら未確認の提案がある印です。
+        </div>
+
+        <h3>② 手で割り振る・直す</h3>
+        <p>表のマス目をクリックすると、その人のその日の予定を直接編集できます。自動割り当ての結果を微調整するときもここです。</p>
+
+        <h3>③ 一緒に見ておきたい2つの表</h3>
+        <ul class="plain-list">
+          <li><strong>🗂️ 準備項目リスト</strong> … その週にやっておくべき製版・データ作成などの一覧。作業当日に「版がない!」を防ぎます。</li>
+          <li><strong>📈 案件別 消化率</strong> … 予定した時間に対して実際どれだけ進んだか。遅れている案件が一目で分かります。</li>
+        </ul>
+      </section>
+
+      <!-- ===== 第5章 ===== -->
+      <section class="manual-chapter" id="ch5">
+        <h2><span class="ch-num">5</span>納品したとき</h2>
+        <p class="when">🕘 <strong>使うタイミング:</strong> お客様にお渡し・発送した日</p>
+
+        <ol class="steps">
+          <li>一覧ビューでその案件の<strong>「📦 納品済み」</strong>ボタンを押す</li>
+          <li><strong>納品日</strong>(今日の日付が最初から入っています)を確認</li>
+          <li><strong>発送方法</strong>を選ぶ … 来社納品 / 発送 / 持参納品</li>
+          <li><strong>納品者</strong>(担当した人)を選んで保存</li>
+        </ol>
+
+        <div class="tip">
+          <strong>一覧から消えても大丈夫です。</strong> 納品済みにすると案件一覧からは見えなくなりますが、<strong>データは消えていません</strong>。ヘッダーの「📦 納品履歴」からいつでも見返せますし、次章のリピート注文にも使います。
+        </div>
+      </section>
+
+      <!-- ===== 第6章 ===== -->
+      <section class="manual-chapter" id="ch6">
+        <h2><span class="ch-num">6</span>同じチームから「また同じものを」と言われたら</h2>
+        <p class="when">🕘 <strong>使うタイミング:</strong> 前と同じ内容の追加注文・リピート注文</p>
+
+        <p>ゼロから入力し直す必要はありません。<strong>「📦 納品履歴」</strong>から複製できます。</p>
+
+        <ol class="steps">
+          <li>ヘッダーの<strong>「📦 納品履歴」</strong>を開く</li>
+          <li>検索窓に<strong>顧客名や案件名</strong>を入れて、前回の案件を探す(過去すべてが対象です)</li>
+          <li><strong>「↻ 再注文」</strong>ボタンを押す</li>
+          <li>今回の<strong>納期</strong>と<strong>数量</strong>を入れて「複製して登録」</li>
+        </ol>
+
+        <table class="manual-table">
+          <thead><tr><th>引き継がれるもの ✅</th><th>引き継がれないもの ⚠️(入力し直し)</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>顧客名 / 加工内容 / プリント箇所 /<br>NASのデザインフォルダ</td>
+              <td>担当者 / 作業計画(スケジュール) /<br>名簿(選手名・背番号)</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="muted">複製した案件は「受注前」の状態で作られます。内容を確認して、担当者の割り当てなどを設定してください。</p>
+      </section>
+
+      <!-- ===== 第7章 ===== -->
+      <section class="manual-chapter" id="ch7">
+        <h2><span class="ch-num">7</span>困ったときのQ&amp;A</h2>
+
+        <dl class="faq">
+          <dt>お客様から「W-12」「T-5」「P-3」と番号を言われた</dt>
+          <dd>Webフォーム(W)・チーム追加注文(T)・取引先の加工依頼(P)の受付番号です。「コピペ取り込み」タブで該当のカードを探すと内容が確認できます。すでに案件登録済みの場合は、案件のメモ欄にも同じ番号が記録されています。</dd>
+
+          <dt>取引先から「あの案件、今どうなってる?」と聞かれた</dt>
+          <dd>取引先には進行状況を見られる専用ページをお渡ししています。HiBoardでステータスを最新にしておけば、そちらで確認していただけます。急ぎでなければ「専用ページでご確認いただけます」とご案内してください。</dd>
+
+          <dt>赤いバッジの数字が減らない</dt>
+          <dd>「案件として登録」か「却下」のどちらかを押すまで残ります。開いて閉じただけでは減りません。</dd>
+
+          <dt>画面が古いままの気がする</dt>
+          <dd>ブラウザを一度閉じて開き直してください。それでも直らないときは、パソコンの再起動をお試しください。</dd>
+
+          <dt>案件が一覧に見当たらない</dt>
+          <dd>納品済みにすると一覧から消えます。「📦 納品履歴」を確認してください。また、一覧上部の絞り込み(ステータス・担当者など)が効いている可能性もあります。</dd>
+
+          <dt>スケジュールに案件が出てこない</dt>
+          <dd>ステータスが「受注前」「検品」「納品待ち」の案件は、スケジュールの対象外です。作業が必要な段階なら、ステータスを「受注確定」以降に進めてください。</dd>
+
+          <dt>間違えて登録・却下してしまった</dt>
+          <dd>登録した案件は「✎ 編集」で直せます。却下してしまった場合は元に戻せないので、お客様とのやりとり(LINE等)を見ながら「➕ 新規案件」で入力し直してください。</dd>
+        </dl>
+      </section>
+
+      <footer class="manual-footer">
+        <p>分からないことがあれば、遠慮なく社長または担当者に聞いてください。</p>
+        <p class="muted">有限会社HiYOSHi / HiBoard 使い方ガイド</p>
+      </footer>
+    </main>
+  </div>
+</body>
+</html>

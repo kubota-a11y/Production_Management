@@ -1,0 +1,199 @@
+/* HiBoard 使い方ガイド専用スタイル。
+   画面では読み物として、印刷ではA4配布資料としてそのまま使えるようにする。 */
+
+.manual {
+  max-width: 860px;
+  margin: 0 auto;
+  line-height: 1.9;
+  color: #1f2937;
+}
+
+.manual-lead {
+  background: #eff6ff;
+  border-left: 4px solid #2563eb;
+  padding: 14px 18px;
+  border-radius: 6px;
+  margin: 0 0 24px;
+}
+
+/* ===== もくじ ===== */
+.manual-toc {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px 22px;
+  margin-bottom: 32px;
+}
+.manual-toc h2 { font-size: 1rem; margin: 0 0 8px; color: #334155; }
+.manual-toc ol { margin: 0; padding-left: 22px; }
+.manual-toc li { margin: 4px 0; }
+.manual-toc a { color: #2563eb; text-decoration: none; }
+.manual-toc a:hover { text-decoration: underline; }
+
+/* ===== 章 ===== */
+.manual-chapter {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 24px 28px;
+  margin-bottom: 24px;
+}
+.manual-chapter h2 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 1.3rem;
+  margin: 0 0 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #e5e7eb;
+  color: #111827;
+}
+.ch-num {
+  flex: none;
+  width: 34px; height: 34px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #2563eb; color: #fff;
+  border-radius: 50%;
+  font-size: 1rem; font-weight: 700;
+}
+.manual-chapter h3 {
+  font-size: 1.02rem;
+  margin: 22px 0 8px;
+  color: #1d4ed8;
+}
+.when {
+  display: inline-block;
+  background: #fef3c7;
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-size: .88rem;
+  margin: 0 0 14px;
+}
+
+/* ===== 手順リスト ===== */
+.steps { padding-left: 24px; margin: 8px 0 14px; }
+.steps li { margin: 8px 0; }
+.plain-list { padding-left: 22px; margin: 8px 0 14px; }
+.plain-list li { margin: 8px 0; }
+
+/* ===== 表 ===== */
+.manual-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0 16px;
+  font-size: .92rem;
+}
+.manual-table th, .manual-table td {
+  border: 1px solid #e5e7eb;
+  padding: 9px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+.manual-table th { background: #f1f5f9; font-weight: 700; color: #334155; }
+.status-table td:first-child { white-space: nowrap; }
+
+/* ===== 補足ボックス ===== */
+.tip, .warn {
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 14px 0;
+  font-size: .93rem;
+}
+.tip { background: #ecfdf5; border-left: 4px solid #10b981; }
+.warn { background: #fef2f2; border-left: 4px solid #ef4444; }
+
+/* ===== ステータスバッジ(見本) ===== */
+.st {
+  display: inline-block;
+  font-size: .8rem; font-weight: 700;
+  padding: 3px 10px; border-radius: 999px;
+  white-space: nowrap;
+}
+.st-pre   { background: #f1f5f9; color: #475569; }
+.st-conf  { background: #dcfce7; color: #166534; }
+.st-wait  { background: #dbeafe; color: #1e40af; }
+.st-prep  { background: #e0e7ff; color: #3730a3; }
+.st-prog  { background: #fef3c7; color: #92400e; }
+.st-insp  { background: #fae8ff; color: #86198f; }
+.st-deliv { background: #ffedd5; color: #9a3412; }
+.st-comp  { background: #e5e7eb; color: #374151; }
+
+.badge-sample {
+  display: inline-block;
+  background: #dcfce7; color: #166534;
+  font-size: .8rem; font-weight: 700;
+  padding: 2px 9px; border-radius: 999px;
+}
+.badge-sample.red { background: #ef4444; color: #fff; }
+
+/* ===== Q&A ===== */
+.faq dt {
+  font-weight: 700;
+  color: #1d4ed8;
+  margin: 16px 0 4px;
+  padding-left: 24px;
+  position: relative;
+}
+.faq dt::before {
+  content: "Q.";
+  position: absolute; left: 0;
+  color: #93c5fd;
+}
+.faq dd {
+  margin: 0 0 4px 24px;
+  padding-left: 0;
+}
+
+.muted { color: #6b7280; font-size: .88rem; }
+
+.manual-footer {
+  text-align: center;
+  color: #6b7280;
+  font-size: .9rem;
+  padding: 20px 0 8px;
+  border-top: 1px solid #e5e7eb;
+}
+.manual-footer p { margin: 4px 0; }
+
+/* 画面では印刷用タイトルを隠す */
+.print-only { display: none; }
+
+/* ===== 印刷(A4配布資料) ===== */
+@media print {
+  @page { size: A4; margin: 15mm 14mm; }
+
+  body { background: #fff; }
+  .no-print { display: none !important; }
+  .print-only { display: block; }
+
+  .app-container, .main-content { padding: 0; margin: 0; max-width: none; }
+  .manual { max-width: none; font-size: 10.5pt; line-height: 1.75; }
+
+  .print-title { text-align: center; margin-bottom: 14px; }
+  .print-title h1 { font-size: 16pt; margin: 0 0 4px; }
+  .print-title p { font-size: 9pt; color: #555; margin: 0; }
+
+  /* 章は途中で切れないように、なるべくまとめて改ページ */
+  .manual-chapter {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border: 1px solid #ccc;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    box-shadow: none;
+  }
+  .manual-chapter h2 { font-size: 12.5pt; margin-bottom: 10px; padding-bottom: 6px; }
+  .manual-chapter h3 { font-size: 10.8pt; margin: 12px 0 5px; }
+  .ch-num { width: 22px; height: 22px; font-size: 9pt; }
+
+  .manual-table { font-size: 9pt; }
+  .manual-table th, .manual-table td { padding: 5px 7px; }
+
+  .tip, .warn { padding: 8px 11px; margin: 9px 0; font-size: 9.2pt; }
+  .when { padding: 2px 9px; font-size: 9pt; margin-bottom: 9px; }
+  .steps li, .plain-list li { margin: 4px 0; }
+  .faq dt { margin: 10px 0 2px; }
+
+  /* リンクの下線は紙では不要 */
+  a { color: inherit; text-decoration: none; }
+}

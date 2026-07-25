@@ -2279,6 +2279,11 @@ app.get('/delivery-history', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'delivery-history.html'));
 });
 
+// 社員向けの使い方ガイド(業務フロー順のマニュアル。印刷でA4配布資料にもなる)
+app.get('/manual', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'manual.html'));
+});
+
 app.get('/api/employees', (req, res) => {
   try {
     const employees = db.prepare('SELECT * FROM employees ORDER BY id ASC').all();
