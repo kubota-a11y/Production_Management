@@ -43,8 +43,11 @@ CREATE TABLE IF NOT EXISTS employees (
   updated_at TEXT NOT NULL
 );
 
--- 曜日ごとの固定勤務パターンという仕組みは廃止。勤務時間の管理はすべて schedule_overrides に一本化した
-DROP TABLE IF EXISTS employee_fixed_schedule;
+-- 曜日ごとの固定勤務パターン(employee_fixed_schedule)は廃止済み。
+-- 勤務時間の管理はすべて schedule_overrides に一本化した。
+-- ※このファイルは毎起動時に実行されるため、DROP TABLE等の破壊的な文は置かないこと
+--   (一回きりの移行処理は db/init.js 側に「条件付きで実行」の形で書く)。
+--   旧 DROP TABLE IF EXISTS employee_fixed_schedule は本番・開発とも適用済みのため削除した(2026-07-27)
 
 -- 従業員の日ごとの勤務時間（この行がある日だけ勤務。is_day_off=1ならその日は休みとして記録）
 CREATE TABLE IF NOT EXISTS schedule_overrides (
@@ -146,7 +149,9 @@ CREATE INDEX IF NOT EXISTS idx_staff_is_active ON staff(is_active);
 CREATE INDEX IF NOT EXISTS idx_employees_is_active ON employees(is_active);
 CREATE INDEX IF NOT EXISTS idx_case_time_allocations_case_id ON case_time_allocations(case_id);
 CREATE INDEX IF NOT EXISTS idx_case_time_allocations_work_date ON case_time_allocations(work_date);
-CREATE INDEX IF NOT EXISTS idx_schedule_overrides_employee_date ON schedule_overrides(employee_id, work_date);
+-- 同一従業員×同一日の重複行を防ぐためUNIQUE(2026-07-27)。既存DBの非UNIQUE版からの
+-- 張り替えは db/init.js のマイグレーションが行う(このIF NOT EXISTSは既存DBでは無効)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_schedule_overrides_employee_date ON schedule_overrides(employee_id, work_date);
 CREATE INDEX IF NOT EXISTS idx_case_preparation_items_case_id ON case_preparation_items(case_id);
 CREATE INDEX IF NOT EXISTS idx_case_preparation_items_scheduled_date ON case_preparation_items(scheduled_date);
 CREATE INDEX IF NOT EXISTS idx_line_messages_line_user_id ON line_messages(line_user_id);

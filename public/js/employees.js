@@ -243,15 +243,32 @@ const employeesApp = {
 
     try {
       if (activating) {
-        await API.updateEmployee(employeeId, { name: employee.name, role: employee.role, is_active: true });
+        // is_activeのみ送信(サーバー側は未送信項目を既存値のまま維持するため、
+        // skill_tags等がここで消えることはない)
+        await API.updateEmployee(employeeId, { is_active: true });
       } else {
-        await API.deactivateEmployee(employeeId);
+        let result = await API.deactivateEmployee(employeeId);
+        if (result.status === 409) {
+          // 今後の予定が残っている場合は内容を示して確認し、了承されたら解放して無効化する
+          const d = result.details || {};
+          const message =
+            `「${employee.name}」には今後の予定が残っています。\n\n` +
+            `・今後の作業計画: ${d.future_allocations || 0}件\n` +
+            `・未完了の準備項目: ${d.assigned_prep_items || 0}件\n` +
+            `・担当中の案件: ${d.assigned_projects || 0}件\n\n` +
+            `無効化すると、これらは未割り当てに戻ります（提案パネルや自動割当で別の担当者に割り当て直せます）。続行しますか？`;
+          if (!confirm(message)) return;
+          result = await API.deactivateEmployee(employeeId, true);
+        }
+        if (!result.ok) {
+          throw new Error(result.error || `サーバーエラー (HTTP ${result.status})`);
+        }
       }
       await this.loadEmployees();
       this.renderEmployeesTable();
     } catch (error) {
       console.error('従業員ステータス更新エラー:', error);
-      alert('従業員ステータスの更新に失敗しました');
+      alert(`従業員ステータスの更新に失敗しました: ${error.message || ''}`);
     }
   }
 };

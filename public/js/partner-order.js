@@ -170,8 +170,17 @@ const partnerOrder = {
   // 新規案件: 送信ボタン押下 → 確認ウィンドウを出すところまで。実送信は sendNew()
   submit(ev) {
     ev.preventDefault();
-    document.getElementById('formErrors').hidden = true;
+    const errBox0 = document.getElementById('formErrors');
+    errBox0.hidden = true;
     const items = this.collectItems();
+    // サイズ超過はアップロード後にしか分からないと待ち時間が無駄になるため送信前に確認
+    const oversize = Array.from(document.getElementById('images').files).find(f => f.size > 15 * 1024 * 1024);
+    if (oversize) {
+      errBox0.textContent = `ファイル「${oversize.name}」が大きすぎます(上限15MB)。サイズを小さくして再度お試しください。`;
+      errBox0.hidden = false;
+      errBox0.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     const fileCount = document.getElementById('images').files.length;
     FormGuard.confirm([
       ['ご担当者名', document.getElementById('contactName').value || '(未入力)'],
@@ -216,7 +225,10 @@ const partnerOrder = {
       const res = await fetch(`/api/partner-order/${encodeURIComponent(this.token)}`, { method: 'POST', body: fd });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) {
-        errBox.innerHTML = (data.errors || [{ message: '送信に失敗しました' }]).map(e => e.message).join('<br>');
+        // サーバーのエラーメッセージにはアップロードファイル名等が入ることがあるため、
+        // innerHTMLではなくtextContentで表示する(改行はwhite-spaceで表現)
+        errBox.textContent = (data.errors || [{ message: '送信に失敗しました' }]).map(e => e.message).join('\n');
+        errBox.style.whiteSpace = 'pre-line';
         errBox.hidden = false;
         errBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
@@ -246,8 +258,12 @@ const partnerOrder = {
     const clientErrors = [];
     if (!contactName) clientErrors.push('ご担当者名を入力してください');
     if (!files.length) clientErrors.push('指図書の添付が必須です(写真またはPDF)');
+    const oversizeA = Array.from(files).find(f => f.size > 15 * 1024 * 1024);
+    if (oversizeA) clientErrors.push(`ファイル「${oversizeA.name}」が大きすぎます(上限15MB)`);
     if (clientErrors.length) {
-      errBox.innerHTML = clientErrors.join('<br>');
+      // ファイル名が混ざるためinnerHTMLではなくtextContentで表示
+      errBox.textContent = clientErrors.join('\n');
+      errBox.style.whiteSpace = 'pre-line';
       errBox.hidden = false;
       errBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
@@ -293,7 +309,10 @@ const partnerOrder = {
       const res = await fetch(`/api/partner-order/${encodeURIComponent(this.token)}`, { method: 'POST', body: fd });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) {
-        errBox.innerHTML = (data.errors || [{ message: '送信に失敗しました' }]).map(e => e.message).join('<br>');
+        // サーバーのエラーメッセージにはアップロードファイル名等が入ることがあるため、
+        // innerHTMLではなくtextContentで表示する(改行はwhite-spaceで表現)
+        errBox.textContent = (data.errors || [{ message: '送信に失敗しました' }]).map(e => e.message).join('\n');
+        errBox.style.whiteSpace = 'pre-line';
         errBox.hidden = false;
         errBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;

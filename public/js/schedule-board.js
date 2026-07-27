@@ -44,10 +44,65 @@ const scheduleBoard = {
     '#14b8a6', '#f97316', '#6366f1', '#84cc16', '#06b6d4'
   ],
 
+  // ===== 通信ヘルパー =====
+  // fetchはHTTPエラー(500等)でも例外を投げないため、保存系はこのヘルパーを通して
+  // res.okを必ず確認する。失敗時はサーバーのエラーメッセージ付きで例外にする
+  async fetchOk(url, options) {
+    const res = await fetch(url, options);
+    if (!res.ok) {
+      let message = '';
+      try { message = (await res.json()).error || ''; } catch (_) { /* JSONでない応答 */ }
+      throw new Error(message || `サーバーエラー (HTTP ${res.status})`);
+    }
+    return res;
+  },
+
+  // 全データを取得し直して再描画する(保存失敗後の復旧・定期自動更新の共通処理)
+  // 祝日一覧(YYYY-MM-DD → 祝日名)。取得失敗時は空のまま(祝日表示なしで通常動作)
+  async loadHolidays() {
+    try {
+      const res = await fetch('/api/holidays');
+      if (res.ok) this.holidays = await res.json();
+    } catch (_) { this.holidays = this.holidays || {}; }
+  },
+
+  async reloadAll() {
+    await this.loadHolidays();
+    await this.loadEmployees();
+    await this.loadProjects();
+    await this.loadScheduleOverrides();
+    await this.loadDefaultSchedules();
+    await this.loadWeekAllocations();
+    await this.loadWeekPreparationItems();
+    await this.loadDesignerDayModes();
+    await this.loadDesignerTodoPlans();
+    await this.loadProjectProgress();
+    await this.loadProposals();
+    this.render();
+  },
+
+  isModalOpen() {
+    return ['sb-detail-modal', 'sb-override-modal'].some(id => {
+      const el = document.getElementById(id);
+      return el && el.style.display === 'flex';
+    });
+  },
+
+  // 複数人で同時にボードを開いても互いの変更が見えるよう、60秒ごとに再読込する。
+  // モーダル操作中・ドラッグ中・別タブ表示中はスキップ(入力内容や操作を巻き込まないため)
+  startAutoRefresh() {
+    setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
+      if (this.isModalOpen() || this.dragPayload || this.touchDragGhost) return;
+      this.reloadAll().catch(err => console.error('自動更新に失敗しました:', err));
+    }, 60000);
+  },
+
   // ===== 初期化 =====
   async init() {
     console.log('🚀 週間作業スケジュールボード初期化中...');
     this.currentWeekStart = this.getMonday(new Date());
+    await this.loadHolidays();
     await this.loadEmployees();
     await this.loadProjects();
     await this.loadScheduleOverrides();
@@ -71,6 +126,7 @@ const scheduleBoard = {
     // どちらも togglePrepItemComplete() で同じAPIを叩き、更新後にこのイベントを発火するだけにし、
     // 実際のデータ再取得・再描画はここに一本化することで両UIを同期させる
     document.addEventListener('prepItemChanged', () => this.onPrepItemChanged());
+    this.startAutoRefresh();
     console.log('✓ 初期化完了');
   },
 
@@ -368,10 +424,20 @@ const scheduleBoard = {
 
     if (override) {
       if (override.is_day_off) return { hours: 0, override };
-      const hours = (override.start_time && override.end_time)
+      const gross = (override.start_time && override.end_time)
         ? Math.max(this.timeToHours(override.end_time) - this.timeToHours(override.start_time) - (override.break_minutes || 0) / 60, 0)
         : 0;
+      // サーバーの自動割当と同じく、確保時間(reserved_hours=別業務用に空けておく時間)を
+      // 差し引いた値を基準にする。以前は差し引いておらず、自動割当が正しく満杯まで
+      // 割り振った日にも常に「計画不足」警告が出続けていた
+      const hours = Math.max(gross - (override.reserved_hours || 0), 0);
       return { hours, override };
+    }
+
+    // 祝日は標準勤務パターンより優先して休み扱い(サーバーの自動割当と同じルール。
+    // 出勤する祝日は、その日の勤務時間を個別に登録すればoverride優先で出勤扱いになる)
+    if (this.holidays && this.holidays[dateISO]) {
+      return { hours: 0, override: null, holidayName: this.holidays[dateISO] };
     }
 
     // タイムゾーンのずれを避けるため、日付文字列からローカル日付を直接組み立てる
@@ -442,9 +508,11 @@ const scheduleBoard = {
 
     head.innerHTML = '<th>従業員</th>' + dates.map(d => {
       const dateISO = this.toISODate(d);
+      const holidayName = (this.holidays || {})[dateISO];
       return `
       <th>${getDayOfWeekLabel(this.jsDayToOurDay(d.getDay()))}
         <span class="sb-day-header-date">${d.getMonth() + 1}/${d.getDate()}</span>
+        ${holidayName ? `<span class="sb-day-holiday" title="${this.escapeHtml(holidayName)}">祝</span>` : ''}
         <button type="button" class="sb-auto-propose-day-btn"
                 onclick="scheduleBoard.autoProposeDay('${dateISO}', this)" title="この日を自動割り当て">🤖 自動割当</button>
       </th>
@@ -567,6 +635,7 @@ const scheduleBoard = {
     return `
       ${dayModeBadge}
       ${isShort ? `<div class="sb-cell-warning" title="計画時間(${this.roundHours(plannedTotal)}h)が勤務時間(${this.roundHours(referenceHours)}h)に不足しています">⚠️ 計画不足</div>` : ''}
+      ${plannedTotal > referenceHours + 0.01 ? `<div class="sb-cell-warning sb-cell-overload" title="計画時間(${this.roundHours(plannedTotal)}h)が勤務時間(${this.roundHours(referenceHours)}h)を超えています">🔥 過負荷</div>` : ''}
       <div class="sb-cell-hours-label">${this.roundHours(plannedTotal)}h / ${this.roundHours(referenceHours)}h</div>
       <div class="sb-bar-track" onclick="event.stopPropagation(); scheduleBoard.openDetailModal(${employee.id}, '${dateISO}')">
         ${segments}
@@ -614,6 +683,7 @@ const scheduleBoard = {
       <div class="sb-mobile-day-cell" data-employee-id="${employee.id}" data-date-iso="${dateISO}" onclick="scheduleBoard.openOverrideModal(${employee.id}, '${dateISO}')">
         <div class="sb-mobile-day-header">
           ${dayLabel} <span class="sb-day-header-date">${date.getMonth() + 1}/${date.getDate()}</span>
+          ${(this.holidays || {})[dateISO] ? `<span class="sb-day-holiday" title="${this.escapeHtml(this.holidays[dateISO])}">祝</span>` : ''}
           <button type="button" class="sb-auto-propose-day-btn"
                   onclick="event.stopPropagation(); scheduleBoard.autoProposeDay('${dateISO}', this)" title="この日を自動割り当て">🤖 自動割当</button>
         </div>
@@ -987,6 +1057,12 @@ const scheduleBoard = {
     event.currentTarget.classList.remove('is-drop-target');
   },
 
+  // 過去の日付へのドロップは誤操作の可能性が高いため確認を挟む(意図的な実績記録の付け直しは通せる)
+  confirmIfPastDate(dateISO) {
+    if (dateISO >= this.toISODate(new Date())) return true;
+    return confirm(`${formatDate(dateISO)} は過去の日付です。この日に配置してもよろしいですか？`);
+  },
+
   async onCellDrop(event, employeeId, dateISO) {
     event.preventDefault();
     event.currentTarget.classList.remove('is-drop-target');
@@ -997,6 +1073,7 @@ const scheduleBoard = {
     }
     this.dragPayload = null;
     if (!payload) return;
+    if (!this.confirmIfPastDate(dateISO)) return;
 
     if (payload.type === 'proposal') {
       await this.confirmProposalAt(payload.caseId, employeeId, dateISO);
@@ -1049,6 +1126,7 @@ const scheduleBoard = {
 
     const employeeId = Number(target.dataset.employeeId);
     const dateISO = target.dataset.dateIso;
+    if (!this.confirmIfPastDate(dateISO)) return;
     if (payload.type === 'proposal') {
       await this.confirmProposalAt(payload.caseId, employeeId, dateISO);
     } else if (payload.type === 'allocation') {
@@ -1230,12 +1308,15 @@ const scheduleBoard = {
   // ハンドラ(onPrepItemChanged)に一本化することで両UIの表示を同期させる
   async togglePrepItemComplete(itemId, isComplete) {
     try {
-      await fetch(`/api/preparation-items/${itemId}/${isComplete ? 'complete' : 'incomplete'}`, { method: 'PUT' });
+      await this.fetchOk(`/api/preparation-items/${itemId}/${isComplete ? 'complete' : 'incomplete'}`, { method: 'PUT' });
       console.log(`✓ 準備項目タスクの完了状態を更新 (item #${itemId})`);
-      document.dispatchEvent(new CustomEvent('prepItemChanged', { detail: { itemId, isComplete } }));
     } catch (error) {
       console.error('準備項目タスク完了状態更新エラー:', error);
-      alert('完了状態の更新に失敗しました');
+      alert(`完了状態の更新に失敗しました: ${error.message}`);
+    } finally {
+      // 失敗時もイベントを発火して再取得・再描画させ、チェックボックスの見た目と
+      // サーバー上の実際の状態がズレたままにならないようにする
+      document.dispatchEvent(new CustomEvent('prepItemChanged', { detail: { itemId, isComplete } }));
     }
   },
 
@@ -1552,7 +1633,9 @@ const scheduleBoard = {
     const end = document.getElementById('ov-end-time').value;
     const breakMinutes = parseInt(document.getElementById('ov-break-minutes').value, 10) || 0;
     if (!start || !end) return 0;
-    return Math.max(this.timeToHours(end) - this.timeToHours(start) - breakMinutes / 60, 0);
+    // 確保時間(reserved_hours)も差し引く(ボードの基準時間・サーバーの自動割当と同じ考え方)
+    const reserved = parseFloat(document.getElementById('ov-reserved-hours')?.value) || 0;
+    return Math.max(this.timeToHours(end) - this.timeToHours(start) - breakMinutes / 60 - reserved, 0);
   },
 
   updateOverrideSummary() {
@@ -1632,15 +1715,16 @@ const scheduleBoard = {
     };
 
     try {
-      // 勤務時間の保存
+      // 勤務時間の保存(サーバー側が同一従業員×同一日をUPSERTで受けるため、
+      // 別の端末が先に同じ日を登録していても重複行にはならない)
       if (overrideId) {
-        await fetch(`/api/schedule-overrides/${overrideId}`, {
+        await this.fetchOk(`/api/schedule-overrides/${overrideId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(overrideData)
         });
       } else {
-        await fetch('/api/schedule-overrides', {
+        await this.fetchOk('/api/schedule-overrides', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(overrideData)
@@ -1651,7 +1735,7 @@ const scheduleBoard = {
       const currentIds = currentRows.map(r => r.id).filter(Boolean);
       const deletedIds = allocationRows.map(r => r.id).filter(id => id && !currentIds.includes(id));
       for (const id of deletedIds) {
-        await fetch(`/api/time-allocations/${id}`, { method: 'DELETE' });
+        await this.fetchOk(`/api/time-allocations/${id}`, { method: 'DELETE' });
       }
 
       // 既存行の更新・新規行の作成（実績時間が入力された行はステータスを「実績確定」にする）
@@ -1668,7 +1752,7 @@ const scheduleBoard = {
         if (actual != null) body.status = '実績確定';
 
         if (row.id) {
-          await fetch(`/api/time-allocations/${row.id}`, {
+          await this.fetchOk(`/api/time-allocations/${row.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
@@ -1676,7 +1760,7 @@ const scheduleBoard = {
         } else {
           // スケジュールボードの空きマスからの新規登録は、自動割当ボタンと同じ考え方で
           // 前準備10分・後片付け10分を自動付与する(サーバー側がフラグを見て付与する)
-          await fetch(`/api/projects/${row.caseId}/time-allocations`, {
+          await this.fetchOk(`/api/projects/${row.caseId}/time-allocations`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...body, apply_default_overhead: true })
@@ -1687,7 +1771,7 @@ const scheduleBoard = {
       // 準備項目タスクの割り当て更新(担当者・予定日・工数)
       for (const row of currentPrepRows) {
         const hours = parseFloat(row.hoursRaw);
-        await fetch(`/api/preparation-items/${row.id}`, {
+        await this.fetchOk(`/api/preparation-items/${row.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ assigned_staff_id: employeeId, scheduled_date: dateISO, estimated_hours: hours })
@@ -1696,7 +1780,7 @@ const scheduleBoard = {
 
       // モーダル内で「解除」した準備項目タスクは担当者・予定日・工数をクリアして未割当に戻す
       for (const id of removedPrepItemIds) {
-        await fetch(`/api/preparation-items/${id}`, {
+        await this.fetchOk(`/api/preparation-items/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ assigned_staff_id: null, scheduled_date: null, estimated_hours: null })
@@ -1722,8 +1806,12 @@ const scheduleBoard = {
       this.closeOverrideModal();
       console.log(`✓ 勤務時間・案件割り当てを保存 (employee #${employeeId}, ${dateISO})`);
     } catch (error) {
+      // 複数APIを順に呼ぶため、途中で失敗すると一部だけ保存された状態になりうる。
+      // 誤って「保存できた」と思い込まないよう、必ず最新データを取得し直して画面に反映する
       console.error('勤務時間・案件割り当ての保存エラー:', error);
-      alert('保存に失敗しました');
+      alert(`保存に失敗しました: ${error.message}\n画面を最新の状態に更新します。内容を確認してやり直してください。`);
+      this.closeOverrideModal();
+      await this.reloadAll();
     }
   },
 
@@ -1735,7 +1823,7 @@ const scheduleBoard = {
     if (!confirm('この日の勤務時間の記録を削除してもよろしいですか？（削除すると「休み」表示になります）')) return;
 
     try {
-      await fetch(`/api/schedule-overrides/${this.overrideModalContext.overrideId}`, { method: 'DELETE' });
+      await this.fetchOk(`/api/schedule-overrides/${this.overrideModalContext.overrideId}`, { method: 'DELETE' });
       await this.loadScheduleOverrides();
       this.renderBoard();
       this.renderMobileBoard();
@@ -1743,7 +1831,9 @@ const scheduleBoard = {
       console.log('✓ 勤務時間の記録を削除しました');
     } catch (error) {
       console.error('勤務時間の記録削除エラー:', error);
-      alert('削除に失敗しました');
+      alert(`削除に失敗しました: ${error.message}`);
+      this.closeOverrideModal();
+      await this.reloadAll();
     }
   }
 };

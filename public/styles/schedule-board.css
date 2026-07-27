@@ -143,6 +143,23 @@
   cursor: default;
 }
 
+/* 勤務時間を超えて計画が積まれている日(計画不足と逆方向の警告) */
+.sb-cell-overload {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+/* 曜日ヘッダーの祝日マーク(hoverで祝日名を表示) */
+.sb-day-holiday {
+  display: inline-block;
+  font-size: 11px;
+  color: #b91c1c;
+  background: #fee2e2;
+  padding: 1px 5px;
+  border-radius: 4px;
+  margin-left: 4px;
+}
+
 /* デザイナーの日別モード申告バッジ(本人がマイスケジュールボードで設定・ここでは閲覧のみ) */
 .sb-day-mode-badge {
   display: inline-flex;

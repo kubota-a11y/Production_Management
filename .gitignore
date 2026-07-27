@@ -1,5 +1,8 @@
 node_modules/
 *.db
+# WALモードでSQLiteが作る作業ファイル(2026-07-27〜)
+*.db-wal
+*.db-shm
 *.log
 .DS_Store
 dist/

@@ -301,6 +301,101 @@
   // 種別UIを初期適用(初期アイテム生成後に呼ぶ)
   applyTypeUI();
 
+  // ===== 下書きの自動保存・復元(2026-07-27) =====
+  // スマホ(LINE内ブラウザ等)ではタブ破棄・誤リロードで長いフォーム入力が全消失しやすい。
+  // 入力のたびにlocalStorageへ自動保存し、次回表示時に復元する。送信成功時と24時間経過で破棄。
+  // ファイル添付はブラウザの制約上保存できない(復元後に選び直してもらう)。
+  const DRAFT_KEY = 'hiyoshiOrderDraft_v1';
+  const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
+
+  // 保存対象の入力欄をDOM順で列挙する。honeypot(hp_url)・hidden(Turnstile)・ファイル・
+  // ラジオ(request_typeは別途保存)は対象外。構成(行数)を同じに再現すれば復元時も同じ順序になる
+  function draftFields() {
+    return $$('input:not([type="file"]):not([type="radio"]):not([type="hidden"]):not([name="hp_url"]), select, textarea', form);
+  }
+
+  function collectDraft() {
+    return {
+      saved_at: Date.now(),
+      request_type: currentType(),
+      items: itemCards().map(card => ({
+        catalog: $$('.catalog-row', card).length,
+        printloc: $$('.printloc-row', card).length,
+        matrix: $$('.matrix-row', card).length,
+      })),
+      roster: $$('.roster-row').length,
+      values: draftFields().map(el => (el.type === 'checkbox' ? el.checked : el.value)),
+    };
+  }
+
+  let draftTimer = null;
+  function scheduleDraftSave() {
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(() => {
+      try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(collectDraft()));
+      } catch (_) { /* プライベートモード等で保存不可でも入力は続行できる */ }
+    }, 500);
+  }
+
+  function clearDraft() {
+    try { localStorage.removeItem(DRAFT_KEY); } catch (_) { /* 何もしない */ }
+  }
+
+  function showDraftNotice() {
+    const notice = document.createElement('div');
+    notice.className = 'draft-notice';
+    const span = document.createElement('span');
+    span.textContent = '前回の入力内容を復元しました(まだ送信はされていません)。添付ファイルは復元できないため、お手数ですが選び直してください。';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = '最初から入力し直す';
+    btn.addEventListener('click', () => { clearDraft(); location.reload(); });
+    notice.append(span, btn);
+    form.prepend(notice);
+  }
+
+  function restoreDraft() {
+    let d = null;
+    try { d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch (_) { return; }
+    if (!d || !Array.isArray(d.values)) return;
+    if (!d.saved_at || Date.now() - d.saved_at > DRAFT_TTL_MS) { clearDraft(); return; }
+    try {
+      const radio = $(`input[name="request_type"][value="${d.request_type}"]`);
+      if (radio) radio.checked = true;
+      // アイテムカード・各行・名簿行の数を保存時と同じ構成に再現する
+      (d.items || []).forEach((st, i) => {
+        const card = itemCards()[i] || addItem();
+        while ($$('.catalog-row', card).length < (st.catalog || 1)) addRow(card, 'catalog');
+        while ($$('.printloc-row', card).length < (st.printloc || 1)) addRow(card, 'printloc');
+        while ($$('.matrix-row', card).length < (st.matrix || 1)) addRow(card, 'matrix');
+      });
+      while ($$('.roster-row').length < (d.roster || 0)) addRosterRow();
+      applyTypeUI();
+      // 値の流し込みは2回行う: 1回目の後にカテゴリ連動UIを適用すると第2カテゴリの
+      // 選択肢が作り直される(=選択が消える)ため、もう一度流し込んで選択状態まで復元する
+      const assignValues = () => {
+        const fields = draftFields();
+        d.values.forEach((v, i) => {
+          const el = fields[i];
+          if (!el) return;
+          if (el.type === 'checkbox') el.checked = !!v; else el.value = v;
+        });
+      };
+      assignValues();
+      itemCards().forEach(card => { applyCategoryUI(card); applyMethodUI(card); });
+      assignValues();
+      itemCards().forEach(card => recalcMatrix(card));
+      showDraftNotice();
+    } catch (err) {
+      console.error('下書きの復元に失敗しました:', err);
+    }
+  }
+
+  form.addEventListener('input', scheduleDraftSave);
+  form.addEventListener('change', scheduleDraftSave);
+  restoreDraft();
+
   // ===== payload 収集 =====
   function collectCatalog(card) {
     return $$('.catalog-row', card).map(r => ({
@@ -504,6 +599,13 @@
 
     try {
       const { payload, files } = buildPayloadAndFiles();
+      // サイズ超過はアップロード完了後にサーバーで弾かれるため、モバイル回線だと
+      // 長い待ち時間の末にエラーになる。送信前にチェックして即座に知らせる
+      const oversize = files.find(f => f.size > 15 * 1024 * 1024);
+      if (oversize) {
+        showErrors([{ message: `ファイル「${oversize.name}」が大きすぎます(上限15MB)。サイズを小さくして再度お試しください。` }]);
+        return;
+      }
       const fd = new FormData();
       fd.append('payload', JSON.stringify(payload));
       fd.append('hp_url', form.hp_url.value || '');
@@ -514,6 +616,7 @@
       const data = await resp.json().catch(() => ({}));
 
       if (resp.ok && data.ok) {
+        clearDraft();
         form.hidden = true;
         const done = $('#donePanel');
         done.hidden = false;
@@ -529,6 +632,11 @@
         }
         if (data.receipt_mail) {
           $('#doneMailNote').hidden = false;
+        }
+        // 画像の保存に一部失敗した場合は「受付完了」と併せて必ず知らせる
+        // (黙っているとデザインデータ未着のまま進んでしまうため)
+        if (data.image_warning) {
+          $('#doneImageWarning').hidden = false;
         }
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {

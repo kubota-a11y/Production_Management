@@ -250,12 +250,14 @@ const API = {
     return response.json();
   },
 
-  // 従業員を無効化（論理削除）
-  async deactivateEmployee(id) {
-    const response = await fetch(`/api/employees/${id}`, {
+  // 従業員を無効化（論理削除）。今後の予定が残っている場合サーバーは409を返すので、
+  // 呼び出し側で確認のうえ force=true で再送する
+  async deactivateEmployee(id, force = false) {
+    const response = await fetch(`/api/employees/${id}${force ? '?force=1' : ''}`, {
       method: 'DELETE'
     });
-    return response.json();
+    const body = await response.json().catch(() => ({}));
+    return { ok: response.ok, status: response.status, ...body };
   },
 
   // 従業員の曜日ごとの標準勤務パターンを取得

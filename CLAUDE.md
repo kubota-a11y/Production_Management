@@ -27,7 +27,8 @@
 
 - `update.bat` は **Shift_JIS(CP932)+CRLF** で保存すること。UTF-8+chcpは日本語Windowsで即終了する不具合の原因になる(`.gitattributes` で `-text` 指定済み)
 - DBスキーマ変更は `db/init.js` の「カラムが無ければ追加」方式の後方互換マイグレーションで行う(本番DBはgit管理外のため)
-- DBの自動バックアップは `lib/db-backup.js`(サーバー起動中に日次、`db/backups/`、NAS二重保存は.envの`DB_BACKUP_EXTRA_DIR`)
+- DBの自動バックアップは `lib/db-backup.js`(サーバー起動中に日次、`db/backups/`、NAS二重保存は.envの`DB_BACKUP_EXTRA_DIR`)。update.batも更新前に手動バックアップを1つ作る。**復元手順はREADME「データベースが破損した場合」を参照**
+- 本番機のWindowsサービス化(クラッシュ時自動再起動)の手順は `docs/Windowsサービス化手順.md`。update.batはサービス(HiBoard)の有無を自動判定する
 - メール送信は `lib/order-mailer.js`(SMTP未設定環境では自動スキップされるので、開発機で気にしなくてよい)
 - 顧客名・受注情報などの顧客データをログや出力ファイルに書かない
 - 主要ファイル: `server.js`(全API)、`public/js/schedule-board.js`(週間スケジュールボード)、`lib/order-intake.js`(Web注文フォーム受付)

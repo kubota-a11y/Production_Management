@@ -30,7 +30,7 @@ npm -v
 
 `node_modules` フォルダは含めずに（Mac用のバイナリが入っており、Windowsでは動かないため）、プロジェクト一式をUSBメモリや共有フォルダ経由でWindows PCにコピーしてください。
 
-コピー先の例: `C:\ProductionManagement\`
+コピー先の例: `C:\Production_Management_v2\`(現在の本番機はこのパスで稼働中)
 
 **重要**: `db\projects.db` は既存の案件データが入っているファイルです。これは必ずコピーしてください（削除・上書きしないよう注意）。
 

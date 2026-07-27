@@ -10,6 +10,11 @@ function initDatabase(dbFile = dbPath) {
   const dbExists = fs.existsSync(dbFile);
   const db = new Database(dbFile);
 
+  // WALモード(2026-07-27): LAN内の複数端末から同時アクセスした際の書き込み待ちを緩和する。
+  // バックアップはbetter-sqlite3の.backup APIを使っているためWALとの相性問題はない。
+  // 一度設定するとDBファイル自体に永続化される(毎回実行しても害はない)
+  db.pragma('journal_mode = WAL');
+
   // スキーマを読み込んで実行
   const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf-8');
   db.exec(schema);
@@ -447,6 +452,34 @@ function initDatabase(dbFile = dbPath) {
         console.log(`✓ デザイン系の準備項目 ${backfilled.changes}件をデザイン担当(従業員#${designerLink.employee_id})へ割り当てました`);
       }
     }
+  }
+
+  // schedule_overrides の同一従業員×同一日の重複行を解消し、UNIQUE制約を追加(2026-07-27)。
+  // 以前は2人が同時に同じ日の勤務時間モーダルを開くと両方がPOSTして重複行が生まれ、
+  // 空き時間計算がどちらを使うか不定だった。重複がある場合は最後に保存された行(id最大)を残す。
+  // UNIQUE INDEX追加後はサーバー側がUPSERT(ON CONFLICT DO UPDATE)で受けるため再発しない。
+  // 注意: 既存DBには schema.sql 由来の「同名の非UNIQUEインデックス」が存在するため、
+  // IF NOT EXISTSでは張り替わらない。PRAGMAでunique属性を確認し、非UNIQUEなら作り直す。
+  const overrideIdx = db.prepare(`PRAGMA index_list('schedule_overrides')`).all()
+    .find(idx => idx.name === 'idx_schedule_overrides_employee_date');
+  if (!overrideIdx || !overrideIdx.unique) {
+    const dupOverrides = db.prepare(`
+      SELECT COUNT(*) AS c FROM schedule_overrides
+      WHERE id NOT IN (SELECT MAX(id) FROM schedule_overrides GROUP BY employee_id, work_date)
+    `).get();
+    if (dupOverrides.c > 0) {
+      db.prepare(`
+        DELETE FROM schedule_overrides
+        WHERE id NOT IN (SELECT MAX(id) FROM schedule_overrides GROUP BY employee_id, work_date)
+      `).run();
+      console.log(`✓ schedule_overrides の重複 ${dupOverrides.c}件を解消しました(最後に保存された行を残しています)`);
+    }
+    db.exec(`
+      DROP INDEX IF EXISTS idx_schedule_overrides_employee_date;
+      CREATE UNIQUE INDEX idx_schedule_overrides_employee_date
+        ON schedule_overrides (employee_id, work_date);
+    `);
+    console.log('✓ schedule_overrides のインデックスをUNIQUEに張り替えました');
   }
 
   // 初回のみサンプル担当者を挿入

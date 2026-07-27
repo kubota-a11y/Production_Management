@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
-const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const { execFileSync } = require('child_process');
@@ -15,10 +14,29 @@ const { registerPartnerOrderRoutes } = require('./lib/partner-order');
 const { registerDesignerBoardRoutes } = require('./lib/designer-board');
 const { scheduleDailyBackup } = require('./lib/db-backup');
 const { extractCarriedData, extractCarriedItems } = require('./lib/intake-carry');
+const { HOLIDAYS, isJpHoliday } = require('./lib/jp-holidays');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
+
+// ===== プロセスレベルの安全網(2026-07-27) =====
+// 想定外の例外でサーバーが黙って落ちると、社内の誰かが「画面が開かない」と気づくまで放置される。
+// 原因調査できるよう db/crash.log に詳細を残す(*.logはgitignore済み)。
+// - uncaughtException: プロセスの状態が保証できないため、記録して終了する
+//   (Windowsサービス化(NSSM)後は自動再起動される。docs/Windowsサービス化手順.md 参照)
+// - unhandledRejection: 即死はさせず記録のみ(取りこぼしたPromiseで全業務を止めないため)
+const crashLogPath = path.join(__dirname, 'db', 'crash.log');
+function logFatal(kind, err) {
+  const line = `[${new Date().toISOString()}] ${kind}: ${err && err.stack ? err.stack : err}\n`;
+  try { fs.appendFileSync(crashLogPath, line); } catch (_) { /* ログ失敗でさらに落とさない */ }
+  console.error(line);
+}
+process.on('unhandledRejection', (reason) => logFatal('unhandledRejection', reason));
+process.on('uncaughtException', (err) => {
+  logFatal('uncaughtException', err);
+  process.exit(1);
+});
 // NAS_BASE_PATH は .env で明示的に指定するのが基本。
 // 未設定時のデフォルトはOSごとに変える（Windowsではマップ済みドライブ文字 or UNCパスを想定）。
 const NAS_BASE_PATH = process.env.NAS_BASE_PATH
@@ -28,10 +46,38 @@ const NAS_BASE_PATH = process.env.NAS_BASE_PATH
 // セキュリティチェック(startsWith)がケース違いで誤ってブロックしないよう吸収する。
 function isWithinBase(resolvedPath, basePath) {
   const base = path.resolve(basePath);
-  if (process.platform === 'win32') {
-    return resolvedPath.toLowerCase().startsWith(base.toLowerCase());
-  }
-  return resolvedPath.startsWith(base);
+  // 前方一致だけだと「/Volumes/disk1/DESIGN_SECRET」のような兄弟ディレクトリも
+  // 通ってしまうため、完全一致 or「base + 区切り文字」で始まることを要求する
+  const target = process.platform === 'win32' ? resolvedPath.toLowerCase() : resolvedPath;
+  const baseCmp = process.platform === 'win32' ? base.toLowerCase() : base;
+  return target === baseCmp || target.startsWith(baseCmp + path.sep);
+}
+
+// 500応答は定型メッセージのみ返し、SQLite等の内部エラー文はサーバーログにだけ残す
+// (テーブル名・制約名などの内部構造を外部に漏らさないため)
+function sendServerError(res, req, error) {
+  console.error(`[API Error] ${req.method} ${req.path}:`, error);
+  res.status(500).json({ error: 'サーバーエラーが発生しました' });
+}
+
+// ---- 入力値の最小バリデーション(2026-07-27) ----
+// クライアントのバグや不正なリクエストがそのままDBを汚さないための共通ヘルパー
+const DATE_STR_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_STR_RE = /^([01]?\d|2[0-3]):[0-5]\d$/;
+function isValidDateStr(v) {
+  return typeof v === 'string' && DATE_STR_RE.test(v) && !Number.isNaN(new Date(`${v}T00:00:00`).getTime());
+}
+function isValidTimeStr(v) {
+  return typeof v === 'string' && TIME_STR_RE.test(v);
+}
+function asFiniteNumber(v) {
+  const n = typeof v === 'string' && v.trim() !== '' ? Number(v) : v;
+  return (typeof n === 'number' && Number.isFinite(n)) ? n : null;
+}
+// ローカル時刻基準の今日(YYYY-MM-DD)。toISOString()はUTC基準のため深夜0〜9時に日付がずれる
+function localTodayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 // OSのファイルマネージャでファイル/フォルダを開く（Finder/エクスプローラー/ファイルマネージャ）
@@ -52,7 +98,9 @@ function openInFileManager(targetPath) {
   }
 }
 
-app.use(cors());
+// CORSミドルウェアは廃止(2026-07-27)。公開フォーム・社内画面ともこのサーバー自身が
+// 配信する同一オリジンのページからしかAPIを呼ばないため、クロスオリジン許可は不要。
+// 全オリジン許可(cors())のままだと、公開ドメイン配下の無認証APIを任意サイトのJSから読めてしまう。
 
 // LINE Messaging APIのWebhook。line.middleware()が生のリクエストボディから
 // 署名検証を行うため、ボディをパースしてしまうbodyParserより前に登録する。
@@ -138,7 +186,8 @@ app.post('/webhook', line.middleware(lineConfig), async (req, res) => {
       if (event.type === 'message') {
         const message = event.message;
         if (message.type === 'text') {
-          console.log(`[LINE Webhook] text: ${message.text}`);
+          // 本文はお客様の送信内容そのもの(顧客データ)のため、ログにはIDと文字数のみ残す
+          console.log(`[LINE Webhook] text message received: id=${message.id} length=${(message.text || '').length}`);
           insertLineMessage({
             lineUserId: userId,
             lineMessageId: message.id,
@@ -186,8 +235,11 @@ app.use('/webhook', (err, req, res, next) => {
   res.status(500).end();
 });
 
-app.use(bodyParser.json({ limit: '50mb' }));
-app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+// JSONボディの上限は2MBに制限(2026-07-27。以前は50mb)。
+// 画像等の大きいデータはmulter(multipart)経路のみで受けるため、JSONが2MBを超える正当な用途はない。
+// 大きすぎる上限は、無認証エンドポイントへの巨大JSON連投によるメモリ・CPU消費攻撃の余地になる。
+app.use(bodyParser.json({ limit: '2mb' }));
+app.use(bodyParser.urlencoded({ limit: '2mb', extended: true }));
 // お客様向け「ご注文の流れ」ページ(オーダーフォームと同じ公開ページ)
 app.get('/guide', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'guide.html'));
@@ -214,6 +266,47 @@ const SUPPORT_DOMAIN_MAP = (() => {
   }
   return map;
 })();
+
+// ===== 外部公開ガード(2026-07-27) =====
+// 本番はCloudflare Tunnelで localhost:3000 全体が公開ドメイン(order.kubota-tunnel.com等)に
+// 紐づいているため、外部からのリクエストを公開ページ・公開APIだけに制限する。
+// 判定方法: Cloudflareを経由したリクエストにはエッジで cf-ray / cf-connecting-ip ヘッダが
+// 必ず付与される(クライアントが同名ヘッダを送ってもCloudflareが上書きする)。
+// LAN内から :3000 への直接アクセスにはこのヘッダが無いため、社内利用は従来どおり全機能使える。
+// ※LAN内でこのヘッダを偽装すると「ブロックされる」方向にしか働かない(フェイルセーフ)。
+// 緊急時は .env に EXTERNAL_GUARD=off を設定すると無効化できる。
+const EXTERNAL_GUARD_DISABLED = process.env.EXTERNAL_GUARD === 'off';
+const EXTERNAL_ALLOWED_PATTERNS = [
+  /^\/order$/,                       // Web注文フォーム(GET/POST)
+  /^\/guide$/,                       // ご注文の流れ
+  /^\/support\/[\w-]+$/,             // 選手応援 特設ページ
+  /^\/team\/[\w-]+$/,                // チーム追加注文フォーム
+  /^\/partner\/[\w-]+(\/order)?$/,   // 取引先ポータル・加工依頼フォーム
+  /^\/designer\/[\w-]+$/,            // デザイナー マイスケジュールボード
+  /^\/webhook$/,                     // LINE Webhook(署名検証あり)
+  /^\/api\/(team-order|partner-order|partner-status|designer)\//, // 公開フォーム用API
+  /^\/(styles|js|img)\//,            // 公開ページが参照する静的資産
+  /^\/favicon\.ico$/,
+];
+app.use((req, res, next) => {
+  if (EXTERNAL_GUARD_DISABLED) return next();
+  const viaCloudflare = req.headers['cf-ray'] || req.headers['cf-connecting-ip'];
+  if (!viaCloudflare) return next(); // LAN内・開発機からの直接アクセス
+  if (req.path === '/') {
+    // トップ(/)は選手専用ドメインのみ許可。order.kubota-tunnel.com/ で社内画面は出さない
+    if (SUPPORT_DOMAIN_MAP[(req.hostname || '').toLowerCase()]) return next();
+    return res.status(404).send('Not Found');
+  }
+  if (EXTERNAL_ALLOWED_PATTERNS.some((re) => re.test(req.path))) return next();
+  return res.status(404).send('Not Found');
+});
+
+// 公開フォームの静的HTMLファイル名への直アクセスは正規ルートへ逃がす(2026-07-27)。
+// /order.html はテンプレート未置換({{MIN_LEAD_DAYS}}等が残ったまま)の生HTMLが配信されて
+// しまい、Turnstile有効時はそのページから送信すると必ず403になる。
+// トークンが必要なページ(チーム注文等)は素のHTMLでは動作しないためトップへ逃がす。
+app.get('/order.html', (req, res) => res.redirect(301, '/order'));
+app.get(['/team-order.html', '/partner-order.html', '/partner-status.html', '/designer-board.html'], (req, res) => res.redirect(302, '/'));
 
 // 選手専用ドメインのトップ(/)は特設ページを返す。
 // express.static が / に index.html を返す前に処理する必要があるため、静的配信より前に置く。
@@ -273,7 +366,7 @@ app.get('/api/nas/list', (req, res) => {
 
     res.json({ path: resolved, exists: true, entries: enhanced });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -292,7 +385,7 @@ app.post('/api/nas/open', (req, res) => {
     openInFileManager(resolved);
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -311,7 +404,7 @@ app.get('/api/nas/download', (req, res) => {
     }
     res.sendFile(resolved);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -334,7 +427,7 @@ app.get('/api/projects', (req, res) => {
     `).all();
     res.json(projects);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -350,7 +443,7 @@ app.get('/api/projects/:id', (req, res) => {
     if (!project) return res.status(404).json({ error: 'Project not found' });
     res.json(project);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -384,6 +477,14 @@ const debugLogPath = path.join(__dirname, 'db', 'debug.log');
 function writeDebugLog(message) {
   const line = `[${new Date().toISOString()}] ${message}\n`;
   try {
+    // 5MBを超えたら1世代だけ退避して新規に書き始める(無限に肥大しないように)
+    try {
+      const stat = fs.statSync(debugLogPath);
+      if (stat.size > 5 * 1024 * 1024) {
+        // 退避先も *.log にして.gitignoreの対象に収める
+        fs.renameSync(debugLogPath, debugLogPath.replace(/\.log$/, '-old.log'));
+      }
+    } catch (_) { /* ファイル未作成なら何もしない */ }
     fs.appendFileSync(debugLogPath, line);
   } catch (error) {
     console.error('デバッグログの書き込みに失敗しました:', error.message);
@@ -528,7 +629,8 @@ function calculateSuggestions(db, project, options = {}) {
 
       const def = defaultStmt.get(emp.id, weekday);
       if (def) {
-        if (def.is_working) {
+        // 祝日は標準勤務パターンより優先して休み扱い(出勤する祝日はoverrideを登録する)
+        if (def.is_working && !isJpHoliday(dateStr)) {
           availableHours += timeToHours(def.start_time, def.end_time, def.break_minutes);
         }
         return;
@@ -716,7 +818,7 @@ app.get('/api/projects/:id/suggest-assignees', (req, res) => {
       suggestions: viableResults,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -778,7 +880,8 @@ function allocateHoursForEmployee(db, projectId, employeeId, employeeName, requi
       }
     } else {
       const def = defaultStmt.get(employeeId, weekday);
-      if (def && def.is_working) {
+      // 祝日は標準勤務パターンより優先して休み扱い(出勤する祝日はoverrideを登録する)
+      if (def && def.is_working && !isJpHoliday(dateStr)) {
         dayHours = timeToHours(def.start_time, def.end_time, def.break_minutes);
         dayReserved = def.reserved_hours || 0;
       }
@@ -920,7 +1023,7 @@ app.post('/api/projects/:id/auto-propose', (req, res) => {
     if (result.error) return res.status(400).json(result);
     res.json(result);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -930,7 +1033,7 @@ app.post('/api/projects/bulk-auto-propose', (req, res) => {
     const results = unassigned.map(p => autoProposeForProject(db, p.id));
     res.json({ results });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -1057,7 +1160,7 @@ app.post('/api/schedule-board/auto-propose-range', (req, res) => {
       proposed_projects: proposedProjects,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -1107,7 +1210,7 @@ app.post('/api/projects/:id/assign-employee', (req, res) => {
       remaining_hours: Math.round(remainingHours * 10) / 10,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -1187,7 +1290,7 @@ app.get('/api/proposals', (req, res) => {
 
     res.json([...results, ...unassignedCards]);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -1202,33 +1305,40 @@ app.get('/api/proposals', (req, res) => {
 // projects.statusを'INSPECTION'に、assigned_employee_idを未割り当てに変更する。
 // ステータスがSCHEDULABLE_PROJECT_STATUSESから外れるため、以後
 // 提案確認パネル・自動割当の対象からも自動的に外れる
-function moveProjectToInspection(db, projectId, source) {
-  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
-  if (!project) return { error: '案件が見つかりません' };
+function moveProjectToInspection(db, projectId, source, { requireAllocations = true } = {}) {
+  // 割り当て削除とステータス変更が中途半端に片方だけ残らないよう、全体を1トランザクションで行う
+  return db.transaction(() => {
+    const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
+    if (!project) return { error: '案件が見つかりません' };
 
-  const deletedRows = db.prepare(`
-    SELECT id, employee_id, work_date, planned_hours, actual_hours, status, setup_minutes, cleanup_minutes
-    FROM case_time_allocations WHERE case_id = ?
-  `).all(projectId);
+    const deletedRows = db.prepare(`
+      SELECT id, employee_id, work_date, planned_hours, actual_hours, status, setup_minutes, cleanup_minutes
+      FROM case_time_allocations WHERE case_id = ?
+    `).all(projectId);
 
-  if (deletedRows.length === 0) {
-    return { error: 'スケジュール上の割り当てが見つかりません' };
-  }
+    // requireAllocations=false は「割り当てが無くても検品に進めてよい」経路
+    // (準備項目リスト等のステータス変更ボタン)用。割り当てがあれば同様に削除する
+    if (deletedRows.length === 0 && requireAllocations) {
+      return { error: 'スケジュール上の割り当てが見つかりません' };
+    }
 
-  const result = db.prepare('DELETE FROM case_time_allocations WHERE case_id = ?').run(projectId);
+    const result = deletedRows.length > 0
+      ? db.prepare('DELETE FROM case_time_allocations WHERE case_id = ?').run(projectId)
+      : { changes: 0 };
 
-  const statusBefore = project.status;
-  const now = new Date().toISOString();
-  db.prepare('UPDATE projects SET status = ?, assigned_employee_id = NULL, updated_at = ? WHERE id = ?')
-    .run('INSPECTION', now, projectId);
+    const statusBefore = project.status;
+    const now = new Date().toISOString();
+    db.prepare('UPDATE projects SET status = ?, assigned_employee_id = NULL, updated_at = ? WHERE id = ?')
+      .run('INSPECTION', now, projectId);
 
-  writeDebugLog(
-    `[move-to-inspection] source=${source} project=${projectId} ステータス: ${statusBefore} → INSPECTION(検品) ` +
-    `assigned_employee_id: ${project.assigned_employee_id} → null ` +
-    `削除したレコード(前準備・後片付け含む)=${JSON.stringify(deletedRows)}`
-  );
+    writeDebugLog(
+      `[move-to-inspection] source=${source} project=${projectId} ステータス: ${statusBefore} → INSPECTION(検品) ` +
+      `assigned_employee_id: ${project.assigned_employee_id} → null ` +
+      `削除したレコード(前準備・後片付け含む)=${JSON.stringify(deletedRows)}`
+    );
 
-  return { deleted: result.changes };
+    return { deleted: result.changes };
+  })();
 }
 
 app.post('/api/projects/:id/move-to-inspection', (req, res) => {
@@ -1237,7 +1347,7 @@ app.post('/api/projects/:id/move-to-inspection', (req, res) => {
     if (result.error) return res.status(404).json({ error: result.error });
     res.json({ message: 'Project moved to inspection', deleted: result.deleted });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -1284,26 +1394,40 @@ app.post('/api/projects/:id/confirm-proposal-at', (req, res) => {
       return res.status(400).json({ error: 'この案件の必要時間を計算できませんでした(担当者の生産性が未登録で、既存の提案もありません)' });
     }
 
-    db.prepare(`DELETE FROM case_time_allocations WHERE case_id = ? AND status = '提案'`).run(project.id);
+    // 既存提案の削除→再割り振り→担当者更新を1トランザクションにまとめる。
+    // 以前は削除後に「割り振れる空きがない」で中断すると既存提案が消えたままになっていた
+    // (失敗時はロールバックされ、ドラッグ前の提案がそのまま残る)
+    let allocatedDates, remainingHours;
+    try {
+      ({ allocatedDates, remainingHours } = db.transaction(() => {
+        db.prepare(`DELETE FROM case_time_allocations WHERE case_id = ? AND status = '提案'`).run(project.id);
 
-    // allocateHoursForEmployeeは「receivedDateの翌日」から割り振るため、
-    // ドロップした日を初日にするために1日前の日付を疑似receivedDateとして渡す
-    const pseudoReceivedDate = new Date(workDate);
-    pseudoReceivedDate.setDate(pseudoReceivedDate.getDate() - 1);
-    const deadline = new Date(project.deadline);
+        // allocateHoursForEmployeeは「receivedDateの翌日」から割り振るため、
+        // ドロップした日を初日にするために1日前の日付を疑似receivedDateとして渡す
+        const pseudoReceivedDate = new Date(workDate);
+        pseudoReceivedDate.setDate(pseudoReceivedDate.getDate() - 1);
+        const deadline = new Date(project.deadline);
 
-    const { allocatedDates, remainingHours } = allocateHoursForEmployee(
-      db, project.id, employeeId, employee.name, finalRequiredHours, pseudoReceivedDate, deadline, '予定',
-      setupMinutes, cleanupMinutes
-    );
+        const allocResult = allocateHoursForEmployee(
+          db, project.id, employeeId, employee.name, finalRequiredHours, pseudoReceivedDate, deadline, '予定',
+          setupMinutes, cleanupMinutes
+        );
 
-    if (allocatedDates.length === 0) {
-      return res.status(400).json({ error: 'ドロップした日以降に割り振れる空き時間がありませんでした' });
+        if (allocResult.allocatedDates.length === 0) {
+          const err = new Error('ドロップした日以降に割り振れる空き時間がありませんでした');
+          err.userMessage = err.message;
+          throw err;
+        }
+
+        const now = new Date().toISOString();
+        db.prepare('UPDATE projects SET assigned_employee_id = ?, updated_at = ? WHERE id = ?')
+          .run(employeeId, now, project.id);
+        return allocResult;
+      })());
+    } catch (txError) {
+      if (txError.userMessage) return res.status(400).json({ error: txError.userMessage });
+      throw txError;
     }
-
-    const now = new Date().toISOString();
-    db.prepare('UPDATE projects SET assigned_employee_id = ?, updated_at = ? WHERE id = ?')
-      .run(employeeId, now, project.id);
 
     writeDebugLog(
       `[confirm-proposal-at/手動確定] project=${project.id} employee=${employeeId}(${employee.name}) ` +
@@ -1321,7 +1445,7 @@ app.post('/api/projects/:id/confirm-proposal-at', (req, res) => {
       remaining_hours: Math.round(remainingHours * 10) / 10,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -1333,7 +1457,7 @@ app.get('/api/projects/:id/print-locations', (req, res) => {
     `).all(req.params.id);
     res.json(locations);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -1345,7 +1469,7 @@ app.get('/api/projects/:id/roster', (req, res) => {
     `).all(req.params.id);
     res.json(roster);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -1367,7 +1491,7 @@ app.post('/api/projects/:id/print-locations', (req, res) => {
     replaceCasePrintLocations(req.params.id, locations);
     res.json({ message: 'Print locations updated successfully' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -1412,7 +1536,7 @@ app.post('/api/projects', (req, res) => {
     }
     res.status(201).json({ id, message: 'Project created successfully' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -1437,7 +1561,7 @@ app.put('/api/projects/:id', (req, res) => {
       required_skill_tags || '', estimated_hours || null, assigned_employee_id || null, kind, now, req.params.id);
     res.json({ message: 'Project updated successfully' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -1456,11 +1580,20 @@ app.put('/api/projects/:id/status', (req, res) => {
     const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(req.params.id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
+    // 検品への変更は、提案パネルの「検品へ」ボタン(move-to-inspection)と同じ削除処理を通す。
+    // 以前はこの経路(準備項目リストの「検品へ」等)がステータスだけ変えていたため、
+    // 検品済み案件の作業ブロックがスケジュールボードに残り、空き時間を食い続けていた
+    if (status === 'INSPECTION') {
+      const result = moveProjectToInspection(db, req.params.id, 'status-api', { requireAllocations: false });
+      if (result.error) return res.status(404).json({ error: result.error });
+      return res.json({ message: 'Project status updated successfully', deleted_allocations: result.deleted });
+    }
+
     const now = new Date().toISOString();
     db.prepare(`UPDATE projects SET status=?, updated_at=? WHERE id=?`).run(status, now, req.params.id);
     res.json({ message: 'Project status updated successfully' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -1477,16 +1610,20 @@ app.post('/api/projects/:id/deliver', (req, res) => {
     }
 
     const now = new Date().toISOString();
-    db.prepare(`
-      INSERT INTO delivery_records
-        (case_id, delivered_date, delivery_method, delivered_by_staff_id, delivered_by_employee_id, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(req.params.id, delivered_date, delivery_method, delivered_by_staff_id || null, delivered_by_employee_id || null, now);
-
-    db.prepare(`UPDATE projects SET status='COMPLETED', updated_at=? WHERE id=?`).run(now, req.params.id);
+    // 納品記録の作成・ステータス変更・残っている作業ブロックの削除を1トランザクションで行う。
+    // 検品を経由せず直接納品した案件の割り当てがボードに残り続けないよう、ここでも削除する
+    db.transaction(() => {
+      db.prepare('DELETE FROM case_time_allocations WHERE case_id = ?').run(req.params.id);
+      db.prepare(`
+        INSERT INTO delivery_records
+          (case_id, delivered_date, delivery_method, delivered_by_staff_id, delivered_by_employee_id, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(req.params.id, delivered_date, delivery_method, delivered_by_staff_id || null, delivered_by_employee_id || null, now);
+      db.prepare(`UPDATE projects SET status='COMPLETED', updated_at=? WHERE id=?`).run(now, req.params.id);
+    })();
     res.json({ message: 'Project marked as delivered' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -1504,7 +1641,7 @@ app.get('/api/delivery-records', (req, res) => {
     `).all();
     res.json(records);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -1582,7 +1719,7 @@ app.post('/api/projects/:id/duplicate', (req, res) => {
     console.log(`[複製] 案件#${req.params.id}を複製 → 新規案件#${newId}`);
     res.status(201).json({ id: newId, message: 'Project duplicated successfully' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -1601,7 +1738,7 @@ app.delete('/api/projects/:id', (req, res) => {
     deleteProjectCascade(req.params.id);
     res.json({ message: 'Project deleted successfully' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -1641,7 +1778,7 @@ app.get('/api/ai-intake', (req, res) => {
 
     res.json(withThumbnail);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -1672,7 +1809,7 @@ app.get('/api/ai-intake/:id', (req, res) => {
 
     res.json({ ...intake, messages });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -1725,7 +1862,7 @@ app.post('/api/ai-intake/:id/confirm', (req, res) => {
     const projectId = confirmAiIntake(req.params.id, req.body);
     res.status(201).json({ id: projectId, message: 'Project created from intake successfully' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -1737,7 +1874,7 @@ app.post('/api/ai-intake/:id/reject', (req, res) => {
     db.prepare(`UPDATE ai_extracted_intake SET status = 'rejected' WHERE id = ?`).run(req.params.id);
     res.json({ message: 'Intake rejected' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -1754,7 +1891,7 @@ app.get('/api/projects/:projectId/time-allocations', (req, res) => {
     `).all(req.params.projectId);
     res.json(allocations);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -1764,6 +1901,24 @@ app.get('/api/projects/:projectId/time-allocations', (req, res) => {
 app.post('/api/projects/:projectId/time-allocations', (req, res) => {
   try {
     const { employee_id, work_date, planned_hours, actual_hours, carried_over_from, status, apply_default_overhead } = req.body;
+
+    // 最小バリデーション(2026-07-27): クライアントのバグで負の時間・不正日付・
+    // 無効化済み従業員への割り当てがそのままDBに入るのを防ぐ
+    const employeeId = asFiniteNumber(employee_id);
+    if (!employeeId || !Number.isInteger(employeeId)) {
+      return res.status(400).json({ error: 'employee_id が不正です' });
+    }
+    const employee = db.prepare('SELECT id, is_active FROM employees WHERE id = ?').get(employeeId);
+    if (!employee) return res.status(404).json({ error: '従業員が見つかりません' });
+    if (!employee.is_active) return res.status(400).json({ error: '無効化された従業員には割り当てできません' });
+    if (!isValidDateStr(work_date)) {
+      return res.status(400).json({ error: 'work_date はYYYY-MM-DD形式で指定してください' });
+    }
+    const plannedNum = asFiniteNumber(planned_hours);
+    if (plannedNum === null || plannedNum <= 0 || plannedNum > 24) {
+      return res.status(400).json({ error: 'planned_hours には0より大きく24以下の数値を指定してください' });
+    }
+
     const setupMinutes = apply_default_overhead ? AUTO_PROPOSE_SETUP_MINUTES : 0;
     const cleanupMinutes = apply_default_overhead ? AUTO_PROPOSE_CLEANUP_MINUTES : 0;
     const result = db.prepare(`
@@ -1783,7 +1938,7 @@ app.post('/api/projects/:projectId/time-allocations', (req, res) => {
 
     res.status(201).json({ id: result.lastInsertRowid, message: 'Time allocation created successfully' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -1797,6 +1952,22 @@ app.put('/api/time-allocations/:id', (req, res) => {
     const employee_id = req.body.employee_id !== undefined ? req.body.employee_id : existing.employee_id;
     const work_date = req.body.work_date !== undefined ? req.body.work_date : existing.work_date;
     const planned_hours = req.body.planned_hours !== undefined ? req.body.planned_hours : existing.planned_hours;
+
+    // 最小バリデーション(2026-07-27): 送られてきた項目のみチェック(未送信は既存値維持のため対象外)
+    if (req.body.work_date !== undefined && !isValidDateStr(work_date)) {
+      return res.status(400).json({ error: 'work_date はYYYY-MM-DD形式で指定してください' });
+    }
+    if (req.body.planned_hours !== undefined) {
+      const plannedNum = asFiniteNumber(planned_hours);
+      if (plannedNum === null || plannedNum <= 0 || plannedNum > 24) {
+        return res.status(400).json({ error: 'planned_hours には0より大きく24以下の数値を指定してください' });
+      }
+    }
+    if (req.body.employee_id !== undefined && employee_id !== existing.employee_id) {
+      const targetEmployee = db.prepare('SELECT id, is_active FROM employees WHERE id = ?').get(employee_id);
+      if (!targetEmployee) return res.status(404).json({ error: '従業員が見つかりません' });
+      if (!targetEmployee.is_active) return res.status(400).json({ error: '無効化された従業員には割り当てできません' });
+    }
     const actual_hours = req.body.actual_hours !== undefined ? req.body.actual_hours : existing.actual_hours;
     const carried_over_from = req.body.carried_over_from !== undefined ? req.body.carried_over_from : existing.carried_over_from;
     const status = req.body.status !== undefined ? req.body.status : existing.status;
@@ -1829,7 +2000,7 @@ app.put('/api/time-allocations/:id', (req, res) => {
 
     res.json({ message: 'Time allocation updated successfully', moved_to_inspection: movedToInspection });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -1877,7 +2048,7 @@ app.get('/api/projects/:id/actual-hours-check', (req, res) => {
       reached,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -1953,7 +2124,7 @@ app.delete('/api/time-allocations/:id', (req, res) => {
 
     res.json({ message: 'Time allocation deleted successfully', unassigned, requeued });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -1997,7 +2168,7 @@ app.get('/api/preparation-items/master', (req, res) => {
     `).all();
     res.json(items);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -2055,7 +2226,7 @@ app.post('/api/projects/:projectId/preparation-items', (req, res) => {
     }
     res.status(201).json({ created: createdCount, message: 'Preparation items registered successfully' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -2070,7 +2241,7 @@ app.get('/api/designer-day-modes', (req, res) => {
     `).all(start, end);
     res.json(rows);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -2120,7 +2291,7 @@ app.get('/api/preparation-items', (req, res) => {
     `).all(...params);
     res.json(items);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -2149,7 +2320,7 @@ app.put('/api/preparation-items/:id', (req, res) => {
     }
     res.json({ message: 'Preparation item updated successfully' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -2164,7 +2335,7 @@ app.put('/api/preparation-items/:id/complete', (req, res) => {
     syncCaseStatusForPreparationItems(existing.case_id);
     res.json({ message: 'Preparation item marked as completed' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -2178,7 +2349,7 @@ app.put('/api/preparation-items/:id/incomplete', (req, res) => {
     syncCaseStatusForPreparationItems(existing.case_id);
     res.json({ message: 'Preparation item marked as incomplete' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -2193,39 +2364,89 @@ app.get('/schedule', (req, res) => {
 });
 
 // その日ごとの勤務時間（employee_fixed_scheduleは廃止し、勤務時間の管理はこのテーブルに一本化）を一括取得
+// 日本の祝日一覧(スケジュールボードの表示用)。データはlib/jp-holidays.jsの静的テーブル
+app.get('/api/holidays', (req, res) => {
+  res.json(HOLIDAYS);
+});
+
 app.get('/api/schedule-overrides', (req, res) => {
   try {
+    // start/end(YYYY-MM-DD)を渡すと期間で絞り込める。未指定時は従来どおり全件(後方互換)
+    const { start, end } = req.query;
+    if (isValidDateStr(start) && isValidDateStr(end)) {
+      const overrides = db.prepare(`
+        SELECT * FROM schedule_overrides WHERE work_date BETWEEN ? AND ?
+        ORDER BY employee_id ASC, work_date ASC
+      `).all(start, end);
+      return res.json(overrides);
+    }
     const overrides = db.prepare(`
       SELECT * FROM schedule_overrides ORDER BY employee_id ASC, work_date ASC
     `).all();
     res.json(overrides);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
+
+// 勤務時間(override)の入力チェック。POST/PUT共通。エラー文字列 or null を返す
+function validateOverridePayload({ work_date, start_time, end_time, break_minutes, is_day_off, reserved_hours }, { requireDate }) {
+  if (requireDate && !isValidDateStr(work_date)) return 'work_date はYYYY-MM-DD形式で指定してください';
+  if (start_time != null && !isValidTimeStr(start_time)) return 'start_time はHH:MM形式で指定してください';
+  if (end_time != null && !isValidTimeStr(end_time)) return 'end_time はHH:MM形式で指定してください';
+  if (!is_day_off && start_time && end_time && start_time >= end_time) return '終了時刻は開始時刻より後にしてください';
+  const bm = asFiniteNumber(break_minutes ?? 0);
+  if (bm === null || bm < 0 || bm > 24 * 60) return 'break_minutes が不正です';
+  const rh = asFiniteNumber(reserved_hours ?? 0);
+  if (rh === null || rh < 0 || rh > 24) return 'reserved_hours が不正です';
+  return null;
+}
 
 app.post('/api/schedule-overrides', (req, res) => {
   try {
     const { employee_id, work_date, start_time, end_time, break_minutes, is_day_off, reserved_hours } = req.body;
-    const result = db.prepare(`
+    const employeeId = asFiniteNumber(employee_id);
+    if (!employeeId || !Number.isInteger(employeeId)) {
+      return res.status(400).json({ error: 'employee_id が不正です' });
+    }
+    if (!db.prepare('SELECT id FROM employees WHERE id = ?').get(employeeId)) {
+      return res.status(404).json({ error: '従業員が見つかりません' });
+    }
+    const validationError = validateOverridePayload(req.body, { requireDate: true });
+    if (validationError) return res.status(400).json({ error: validationError });
+
+    // 同一従業員×同一日はUPSERT(2026-07-27)。以前は2人が同時に同じ日を開くと重複行が
+    // 生まれ、空き時間計算がどちらの勤務時間を使うか不定になっていた
+    db.prepare(`
       INSERT INTO schedule_overrides (employee_id, work_date, start_time, end_time, break_minutes, is_day_off, reserved_hours)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(employee_id, work_date, start_time || null, end_time || null, break_minutes || 0, is_day_off ? 1 : 0, reserved_hours || 0);
-    res.status(201).json({ id: result.lastInsertRowid, message: 'Schedule override created successfully' });
+      ON CONFLICT(employee_id, work_date) DO UPDATE SET
+        start_time = excluded.start_time,
+        end_time = excluded.end_time,
+        break_minutes = excluded.break_minutes,
+        is_day_off = excluded.is_day_off,
+        reserved_hours = excluded.reserved_hours
+    `).run(employeeId, work_date, start_time || null, end_time || null, break_minutes || 0, is_day_off ? 1 : 0, reserved_hours || 0);
+    const row = db.prepare('SELECT id FROM schedule_overrides WHERE employee_id = ? AND work_date = ?').get(employeeId, work_date);
+    res.status(201).json({ id: row.id, message: 'Schedule override created successfully' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
 app.put('/api/schedule-overrides/:id', (req, res) => {
   try {
+    const existing = db.prepare('SELECT id FROM schedule_overrides WHERE id = ?').get(req.params.id);
+    if (!existing) return res.status(404).json({ error: '勤務時間の記録が見つかりません(別の端末で削除された可能性があります)' });
     const { start_time, end_time, break_minutes, is_day_off, reserved_hours } = req.body;
+    const validationError = validateOverridePayload(req.body, { requireDate: false });
+    if (validationError) return res.status(400).json({ error: validationError });
     db.prepare(`
       UPDATE schedule_overrides SET start_time=?, end_time=?, break_minutes=?, is_day_off=?, reserved_hours=? WHERE id=?
     `).run(start_time || null, end_time || null, break_minutes || 0, is_day_off ? 1 : 0, reserved_hours || 0, req.params.id);
     res.json({ message: 'Schedule override updated successfully' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -2234,7 +2455,7 @@ app.delete('/api/schedule-overrides/:id', (req, res) => {
     db.prepare('DELETE FROM schedule_overrides WHERE id = ?').run(req.params.id);
     res.json({ message: 'Schedule override deleted successfully' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -2254,7 +2475,7 @@ app.get('/api/time-allocations', (req, res) => {
     `).all(start, end);
     res.json(allocations);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -2292,7 +2513,7 @@ app.get('/api/stats/project-progress', (req, res) => {
     });
     res.json(result);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -2301,7 +2522,7 @@ app.get('/api/staff', (req, res) => {
     const staff = db.prepare('SELECT * FROM staff WHERE is_active = 1 ORDER BY id ASC').all();
     res.json(staff);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -2315,7 +2536,7 @@ app.post('/api/staff', (req, res) => {
     `).run(name, role || 'FULL_TIME', capacity_minutes || 480, now, now);
     res.status(201).json({ id: result.lastInsertRowid, message: 'Staff created successfully' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -2328,7 +2549,7 @@ app.put('/api/staff/:id', (req, res) => {
     `).run(name, role, capacity_minutes || 480, now, req.params.id);
     res.json({ message: 'Staff updated successfully' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -2338,7 +2559,7 @@ app.delete('/api/staff/:id', (req, res) => {
     db.prepare('UPDATE staff SET is_active = 0, updated_at = ? WHERE id = ?').run(now, req.params.id);
     res.json({ message: 'Staff deleted successfully' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -2362,7 +2583,7 @@ app.get('/api/employees', (req, res) => {
     const employees = db.prepare('SELECT * FROM employees ORDER BY id ASC').all();
     res.json(employees);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -2372,44 +2593,119 @@ app.get('/api/employees/:id', (req, res) => {
     if (!employee) return res.status(404).json({ error: 'Employee not found' });
     res.json(employee);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
 app.post('/api/employees', (req, res) => {
   try {
     const { name, role, is_active, skill_tags } = req.body;
+    if (typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ error: '氏名を入力してください' });
+    }
     const now = new Date().toISOString();
     const result = db.prepare(`
       INSERT INTO employees (name, role, is_active, skill_tags, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?)
-    `).run(name, role, is_active === false ? 0 : 1, skill_tags || null, now, now);
+    `).run(name.trim(), role, is_active === false ? 0 : 1, skill_tags || null, now, now);
     res.status(201).json({ id: result.lastInsertRowid, message: 'Employee created successfully' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
 app.put('/api/employees/:id', (req, res) => {
   try {
-    const { name, role, is_active, skill_tags } = req.body;
+    const existing = db.prepare('SELECT * FROM employees WHERE id = ?').get(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Employee not found' });
+
+    // 送信されなかった項目は既存値を維持する(time-allocationsのPUTと同じ方式)。
+    // 以前は「有効にする」ボタンがname/role/is_activeしか送らないため、
+    // skill_tags(得意加工)がNULLで上書きされ、自動割当の候補から実質外れてしまっていた
+    const name = req.body.name !== undefined ? req.body.name : existing.name;
+    const role = req.body.role !== undefined ? req.body.role : existing.role;
+    const isActive = req.body.is_active !== undefined ? (req.body.is_active === false ? 0 : 1) : existing.is_active;
+    const skillTags = req.body.skill_tags !== undefined ? (req.body.skill_tags || null) : existing.skill_tags;
+    if (typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ error: '氏名を入力してください' });
+    }
     const now = new Date().toISOString();
     db.prepare(`
       UPDATE employees SET name=?, role=?, is_active=?, skill_tags=?, updated_at=? WHERE id=?
-    `).run(name, role, is_active === false ? 0 : 1, skill_tags || null, now, req.params.id);
+    `).run(name.trim(), role, isActive, skillTags, now, req.params.id);
     res.json({ message: 'Employee updated successfully' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
 app.delete('/api/employees/:id', (req, res) => {
   try {
+    const employeeId = Number(req.params.id);
+    const employee = db.prepare('SELECT * FROM employees WHERE id = ?').get(employeeId);
+    if (!employee) return res.status(404).json({ error: 'Employee not found' });
+
+    // 無効化前に、この従業員に紐づく「今後の予定」を確認する(2026-07-27)。
+    // 以前は無効化すると表示行ごとボードから消え、載っていた作業計画が誰の目にも
+    // 入らなくなっていた(DBには残る=事実上の孤児レコード)。
+    const today = localTodayStr();
+    const futureAllocations = db.prepare(`
+      SELECT COUNT(*) AS c FROM case_time_allocations
+      WHERE employee_id = ? AND work_date >= ? AND status != '実績確定'
+    `).get(employeeId, today).c;
+    const assignedPrepItems = db.prepare(`
+      SELECT COUNT(*) AS c FROM case_preparation_items
+      WHERE assigned_staff_id = ? AND status != '完了'
+    `).get(employeeId).c;
+    const assignedProjects = db.prepare(`
+      SELECT COUNT(*) AS c FROM projects
+      WHERE assigned_employee_id = ? AND status != 'COMPLETED'
+    `).get(employeeId).c;
+
+    const hasFutureWork = futureAllocations > 0 || assignedPrepItems > 0 || assignedProjects > 0;
+    if (hasFutureWork && req.query.force !== '1') {
+      // クライアントはこの409を受けて確認ダイアログを出し、了承されたら force=1 で再送する
+      return res.status(409).json({
+        error: 'この従業員には今後の予定が残っています',
+        details: {
+          future_allocations: futureAllocations,
+          assigned_prep_items: assignedPrepItems,
+          assigned_projects: assignedProjects,
+        },
+      });
+    }
+
     const now = new Date().toISOString();
-    db.prepare('UPDATE employees SET is_active = 0, updated_at = ? WHERE id = ?').run(now, req.params.id);
-    res.json({ message: 'Employee deactivated successfully' });
+    db.transaction(() => {
+      if (hasFutureWork) {
+        // 今後の作業計画は削除して案件を未割り当てに戻す(提案パネルに再表示され、
+        // 自動割当や手動で別の担当者に割り当て直せる)。過去の実績は履歴として残す
+        db.prepare(`
+          DELETE FROM case_time_allocations
+          WHERE employee_id = ? AND work_date >= ? AND status != '実績確定'
+        `).run(employeeId, today);
+        db.prepare(`
+          UPDATE projects SET assigned_employee_id = NULL, updated_at = ?
+          WHERE assigned_employee_id = ? AND status != 'COMPLETED'
+        `).run(now, employeeId);
+        db.prepare(`
+          UPDATE case_preparation_items SET assigned_staff_id = NULL, scheduled_date = NULL
+          WHERE assigned_staff_id = ? AND status != '完了'
+        `).run(employeeId);
+      }
+      db.prepare('UPDATE employees SET is_active = 0, updated_at = ? WHERE id = ?').run(now, employeeId);
+    })();
+
+    if (hasFutureWork) {
+      writeDebugLog(
+        `[employees DEACTIVATE] employee=${employeeId}(${employee.name}) を無効化。` +
+        `今後の作業計画${futureAllocations}件を削除、未完了準備項目${assignedPrepItems}件と` +
+        `担当中案件${assignedProjects}件を未割り当てに戻した`
+      );
+    }
+    res.json({ message: 'Employee deactivated successfully', released: hasFutureWork });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -2421,7 +2717,7 @@ app.get('/api/employees/:id/default-schedule', (req, res) => {
     `).all(req.params.id);
     res.json(schedules);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -2443,7 +2739,7 @@ app.post('/api/employees/:id/default-schedule', (req, res) => {
     replaceEmployeeDefaultSchedule(req.params.id, schedules);
     res.json({ message: 'Default schedule updated successfully' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -2455,7 +2751,7 @@ app.get('/api/employees/:id/process-rates', (req, res) => {
     `).all(req.params.id);
     res.json(rates);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -2479,7 +2775,7 @@ app.post('/api/employees/:id/process-rates', (req, res) => {
     replaceEmployeeProcessRates(req.params.id, rates);
     res.json({ message: 'Process rates updated successfully' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 
@@ -2503,7 +2799,7 @@ app.get('/api/stats/daily-workload', (req, res) => {
     `).all(date);
     res.json(workload);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, req, error);
   }
 });
 

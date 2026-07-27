@@ -177,7 +177,8 @@
         t.textContent = `参考合計金額: ${data.total_label} ※正式な金額は改めてご案内します`;
         t.hidden = false;
       }
-      if (payload.orderer.email.trim()) $('#doneMailNote').hidden = false;
+      // メール欄の入力有無ではなく、サーバーが実際に送信できたかどうかで表示する
+      if (data.receipt_mail) $('#doneMailNote').hidden = false;
       $('#donePanel').hidden = false;
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch {
@@ -208,10 +209,10 @@
       // 各アイテムに最初の1行を用意しておく
       document.querySelectorAll('#itemsContainer .item-card').forEach(card => addRow(card));
 
-      // 納期のカレンダー下限(本日+リードタイム)
+      // 納期のカレンダー下限(本日+リードタイム)。toISOString()はUTC基準で深夜に1日ずれるためローカル日付で組み立てる
       const min = new Date();
       min.setDate(min.getDate() + window.MIN_LEAD_DAYS);
-      $('#deadlineDate').min = min.toISOString().slice(0, 10);
+      $('#deadlineDate').min = `${min.getFullYear()}-${String(min.getMonth() + 1).padStart(2, '0')}-${String(min.getDate()).padStart(2, '0')}`;
 
       $('#teamOrderForm').hidden = false;
       $('#teamOrderForm').addEventListener('submit', submit);
