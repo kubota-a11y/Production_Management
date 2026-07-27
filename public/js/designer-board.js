@@ -4,9 +4,10 @@
 const board = {
   token: '',
   weekStart: null,   // Date(その週の月曜)
-  days: [],          // [{date, hours, is_day_off, source}]
+  days: [],          // [{date, hours, is_day_off, source, mode}]
   scheduled: [],
   unscheduled: [],
+  sheetTodos: null,  // 社員用TODOリスト(スプレッドシート)の本人分。null=連携なし
   designerName: '',
   selectedItemId: null,  // タップ移動用に選択中のタスクID
   draggingItemId: null,
@@ -51,6 +52,7 @@ const board = {
       this.days = data.days;
       this.scheduled = data.scheduled;
       this.unscheduled = data.unscheduled;
+      this.sheetTodos = data.sheet_todos ?? null;
       this.designerName = data.designer_name;
       this.selectedItemId = null;
       this.render();
@@ -92,6 +94,8 @@ const board = {
     document.getElementById('unscheduled-count').textContent = this.unscheduled.length;
     document.getElementById('unscheduled-empty').style.display = this.unscheduled.length ? 'none' : 'block';
 
+    this.renderSheetTodos();
+
     // 日カード
     const todayISO = this.toISO(new Date());
     document.getElementById('days').innerHTML = this.days.map(day => {
@@ -130,6 +134,44 @@ const board = {
         </div>
       `;
     }).join('');
+  },
+
+  // ===== TODOリスト(スプレッドシート連携)の表示 =====
+  // 社員用TODOリストの本人タブから「未着手」「進行中」を自動表示する(閲覧のみ)。
+  // sheetTodos が null のとき(連携未設定・取得失敗)はセクションごと隠す
+  renderSheetTodos() {
+    const section = document.getElementById('sheet-todos-section');
+    if (this.sheetTodos === null) {
+      section.style.display = 'none';
+      return;
+    }
+    section.style.display = 'block';
+    document.getElementById('sheet-todos-count').textContent = this.sheetTodos.length;
+    document.getElementById('sheet-todos-empty').style.display = this.sheetTodos.length ? 'none' : 'block';
+    document.getElementById('sheet-todos-chips').innerHTML = this.sheetTodos.map(t => {
+      const inProgress = t.status === '進行中';
+      const deadline = this.fmtSheetDate(t.deadline);
+      const metaParts = [];
+      if (deadline) metaParts.push(`期限 ${deadline}`);
+      if (t.memo) metaParts.push(this.esc(t.memo));
+      return `
+        <div class="todo-chip">
+          <span class="todo-status-badge ${inProgress ? 'todo-status-inprogress' : 'todo-status-notstarted'}">${inProgress ? '進行中' : '未着手'}</span>
+          <div class="chip-main">
+            <div class="chip-name">${this.esc(t.task)}</div>
+            ${metaParts.length ? `<div class="chip-meta">${metaParts.join(' ｜ ')}</div>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+  },
+
+  // シートの期限は "YYYY/MM/DD" 形式。表示用に M/D へ(不正な値はそのまま返す)
+  fmtSheetDate(v) {
+    if (!v) return '';
+    const m = String(v).match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+    if (!m) return String(v);
+    return `${Number(m[2])}/${Number(m[3])}`;
   },
 
   // ===== 日別モード申告(デザイン/デザイン関連業務) =====

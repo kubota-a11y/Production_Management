@@ -70,6 +70,16 @@
     .chip-done-label { display: flex; align-items: center; gap: 4px; font-size: .78rem; color: #334155; cursor: pointer; white-space: nowrap; }
     .chip-done-label input { width: 17px; height: 17px; }
 
+    /* TODOリスト(スプレッドシート連携)のチップ。ドラッグ対象ではないので通常カーソル */
+    .todo-chip {
+      background: #fff; border: 1px solid #e2e8f0; border-left: 4px solid #0d9488; border-radius: 10px;
+      padding: 9px 12px; box-shadow: 0 1px 2px rgba(15,23,42,.04);
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap; cursor: default;
+    }
+    .todo-status-badge { font-size: .72rem; font-weight: 700; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+    .todo-status-notstarted { color: #475569; background: #f1f5f9; border: 1px solid #cbd5e1; }
+    .todo-status-inprogress { color: #1d4ed8; background: #dbeafe; border: 1px solid #93c5fd; }
+
     /* 日カード */
     .days { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
     .day-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; }
@@ -159,6 +169,13 @@
       <div class="sec-hint">下の日付カードへドラッグ（タップ選択→日付タップでも可）で予定に入れられます</div>
       <div class="chips" id="unscheduled-chips"></div>
       <div class="sec-empty" id="unscheduled-empty" style="display:none;">未定のタスクはありません</div>
+    </section>
+
+    <section id="sheet-todos-section" style="display:none;">
+      <div class="sec-title">📝 TODOリスト <span class="count" id="sheet-todos-count">0</span></div>
+      <div class="sec-hint">社員用TODOリスト(スプレッドシート)の「未着手」「進行中」が自動で表示されます。内容の更新・完了はスプレッドシート側で行ってください(反映まで最大1分)</div>
+      <div class="chips" id="sheet-todos-chips"></div>
+      <div class="sec-empty" id="sheet-todos-empty" style="display:none;">未着手・進行中のTODOはありません</div>
     </section>
 
     <section id="week-section" style="display:none;">
