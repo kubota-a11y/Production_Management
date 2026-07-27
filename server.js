@@ -2068,7 +2068,7 @@ app.get('/api/designer-day-modes', (req, res) => {
 // クエリ: case_id / start+end / date / staff_id / unassigned=true をそれぞれ任意で組み合わせ可能
 app.get('/api/preparation-items', (req, res) => {
   try {
-    const { case_id, start, end, date, staff_id, unassigned } = req.query;
+    const { case_id, start, end, date, staff_id, unassigned, overdue_before } = req.query;
     const conditions = [];
     const params = [];
 
@@ -2089,6 +2089,13 @@ app.get('/api/preparation-items', (req, res) => {
     }
     if (unassigned === 'true') {
       conditions.push('cpi.scheduled_date IS NULL');
+    }
+    // 繰り越し: 指定日より前に予定されていて、まだ完了していない準備項目。
+    // 週間スケジュールボードは表示中の週のぶんしか取得しないため、前週までに終わらなかった
+    // 項目が準備項目リストから消えてしまっていた。その取りこぼしを拾うための条件
+    if (overdue_before) {
+      conditions.push(`cpi.scheduled_date IS NOT NULL AND cpi.scheduled_date < ? AND cpi.status != '完了'`);
+      params.push(overdue_before);
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';

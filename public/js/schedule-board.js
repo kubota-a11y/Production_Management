@@ -10,9 +10,15 @@ const scheduleBoard = {
   defaultSchedules: [],
   allocations: [],
   preparationItems: [],
+  // 前週までに予定されていたが、まだ完了していない準備項目(繰り越し分)。
+  // 表示中の週には入らないため preparationItems とは別に持ち、準備項目リストにだけ合流させる
+  // (週表の日別セルや工数集計には混ぜない)
+  carriedPrepItems: [],
   designerDayModes: [],
   designerTodoPlans: [],
-  unassignedPreparationItems: [],
+  // 日別詳細モーダルで「その日に割り当てられる」準備項目。
+  // 予定日が未定のもの + 繰り越し分(過去日で未完了)の両方を候補にする
+  assignablePrepItems: [],
   projectProgress: [],
   proposals: [],
   highlightedCaseId: null,
@@ -83,6 +89,13 @@ const scheduleBoard = {
     const m = String(date.getMonth() + 1).padStart(2, '0');
     const d = String(date.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
+  },
+
+  // 'YYYY-MM-DD' を '7/21' 形式に。繰り越しバッジなど省スペース表示用
+  formatMonthDay(iso) {
+    if (!iso) return '';
+    const [, m, d] = iso.split('-');
+    return `${Number(m)}/${Number(d)}`;
   },
 
   getWeekDates() {
@@ -175,11 +188,18 @@ const scheduleBoard = {
       const dates = this.getWeekDates();
       const start = this.toISODate(dates[0]);
       const end = this.toISODate(dates[6]);
-      this.preparationItems = await (await fetch(`/api/preparation-items?start=${start}&end=${end}`)).json();
+      // 表示中の週のぶんと、前週までにやり残した繰り越し分をあわせて取得する
+      const [weekItems, carried] = await Promise.all([
+        (await fetch(`/api/preparation-items?start=${start}&end=${end}`)).json(),
+        (await fetch(`/api/preparation-items?overdue_before=${start}`)).json(),
+      ]);
+      this.preparationItems = weekItems;
+      this.carriedPrepItems = carried;
     } catch (error) {
       console.error('準備項目タスク取得エラー:', error);
       alert('準備項目タスクの取得に失敗しました');
       this.preparationItems = [];
+      this.carriedPrepItems = [];
     }
   },
 
@@ -211,14 +231,24 @@ const scheduleBoard = {
     }
   },
 
-  async loadUnassignedPreparationItems() {
+  // 日別詳細モーダルで割り当て候補にする準備項目を読み込む。
+  // 予定日が未定のものに加え、前週までにやり残した繰り越し分も候補に入れることで、
+  // 「終わっていないのに過去日に取り残される」項目を今週の日付へ置き直せるようにする
+  async loadAssignablePrepItems() {
     try {
-      const all = await (await fetch('/api/preparation-items?unassigned=true')).json();
-      this.unassignedPreparationItems = all.filter(i => i.status !== '完了');
+      const weekStart = this.toISODate(this.getWeekDates()[0]);
+      const [undated, carried] = await Promise.all([
+        (await fetch('/api/preparation-items?unassigned=true')).json(),
+        (await fetch(`/api/preparation-items?overdue_before=${weekStart}`)).json(),
+      ]);
+      this.assignablePrepItems = [
+        ...undated.filter(i => i.status !== '完了').map(i => ({ ...i, carried: false })),
+        ...carried.map(i => ({ ...i, carried: true })),
+      ];
     } catch (error) {
-      console.error('未割当の準備項目タスク取得エラー:', error);
-      alert('未割当の準備項目タスクの取得に失敗しました');
-      this.unassignedPreparationItems = [];
+      console.error('準備項目タスクの取得エラー:', error);
+      alert('準備項目タスクの取得に失敗しました');
+      this.assignablePrepItems = [];
     }
   },
 
@@ -669,7 +699,16 @@ const scheduleBoard = {
   renderPrepList() {
     const container = document.getElementById('sb-prep-list');
 
-    const visibleItems = this.preparationItems.filter(
+    // 表示中の週のぶん + 前週までにやり残した繰り越し分。
+    // 繰り越し分は carried=true を付けて、いつの予定だったかが分かるようにする
+    const weekStart = this.toISODate(this.getWeekDates()[0]);
+    const merged = [
+      ...this.preparationItems.map(i => ({ ...i, carried: false })),
+      ...this.carriedPrepItems
+        .filter(i => i.scheduled_date < weekStart)
+        .map(i => ({ ...i, carried: true })),
+    ];
+    const visibleItems = merged.filter(
       i => !this.PREP_LIST_HIDDEN_PROJECT_STATUSES.includes(i.project_status)
     );
 
@@ -685,6 +724,8 @@ const scheduleBoard = {
       }
       groups.get(item.case_id).items.push(item);
     });
+    // 繰り越し(やり残し)を各案件の先頭に出して目立たせる
+    groups.forEach(g => g.items.sort((a, b) => (a.carried === b.carried ? 0 : a.carried ? -1 : 1)));
 
     const sortedGroups = [...groups.values()].sort((a, b) => a.projectName.localeCompare(b.projectName, 'ja'));
 
@@ -693,9 +734,10 @@ const scheduleBoard = {
         <div class="sb-prep-card-name" title="${this.escapeHtml(group.projectName)}">${this.escapeHtml(group.projectName)}</div>
         <div class="sb-prep-card-items">
           ${group.items.map(i => `
-            <label class="sb-prep-complete-check">
+            <label class="sb-prep-complete-check${i.carried ? ' is-carried' : ''}">
               <input type="checkbox" ${i.status === '完了' ? 'checked' : ''} onchange="scheduleBoard.togglePrepItemComplete(${i.id}, this.checked)">
               <span class="sb-prep-item-label">${this.escapeHtml(i.preparation_item_name)}</span>
+              ${i.carried ? `<span class="sb-prep-carried-badge" title="前の週までの予定です。まだ完了していないため繰り越して表示しています">繰越 ${this.formatMonthDay(i.scheduled_date)}</span>` : ''}
             </label>
           `).join('')}
         </div>
@@ -1289,7 +1331,7 @@ const scheduleBoard = {
     const dayAllocations = this.getAllocationsFor(employeeId, dateISO);
     const dayPrepItems = this.getPrepItemsFor(employeeId, dateISO);
 
-    await this.loadUnassignedPreparationItems();
+    await this.loadAssignablePrepItems();
 
     this.overrideModalContext = {
       employeeId,
@@ -1448,13 +1490,13 @@ const scheduleBoard = {
   renderPrepItemAddOptions() {
     const select = document.getElementById('sb-add-prep-item-select');
     if (!select) return;
-    if (this.unassignedPreparationItems.length === 0) {
-      select.innerHTML = '<option value="">未割当の準備項目タスクはありません</option>';
+    if (this.assignablePrepItems.length === 0) {
+      select.innerHTML = '<option value="">追加できる準備項目タスクはありません</option>';
       return;
     }
     select.innerHTML = '<option value="">準備項目タスクを選択...</option>' +
-      this.unassignedPreparationItems.map(i => `
-        <option value="${i.id}">${this.escapeHtml(i.project_name)} / ${this.escapeHtml(i.preparation_item_name)}</option>
+      this.assignablePrepItems.map(i => `
+        <option value="${i.id}">${i.carried ? `[繰越 ${this.formatMonthDay(i.scheduled_date)}] ` : ''}${this.escapeHtml(i.project_name)} / ${this.escapeHtml(i.preparation_item_name)}</option>
       `).join('');
   },
 
@@ -1473,7 +1515,7 @@ const scheduleBoard = {
       return;
     }
 
-    const item = this.unassignedPreparationItems.find(i => i.id === itemId);
+    const item = this.assignablePrepItems.find(i => i.id === itemId);
     if (!item) return;
 
     this.overrideModalContext.prepItemRows.push({
@@ -1483,7 +1525,7 @@ const scheduleBoard = {
       status: item.status
     });
     // 選択済みの項目は候補から外し、同一項目の二重追加を防ぐ
-    this.unassignedPreparationItems = this.unassignedPreparationItems.filter(i => i.id !== itemId);
+    this.assignablePrepItems = this.assignablePrepItems.filter(i => i.id !== itemId);
 
     this.renderPrepItemAddOptions();
     this.renderPrepItemRows();
@@ -1672,6 +1714,9 @@ const scheduleBoard = {
       this.renderBoard();
       this.renderMobileBoard();
       this.renderLegend();
+      // 準備項目の予定日をこのモーダルから動かせるため、準備項目リストも描き直す
+      // (これが無いと、繰り越し項目を今週に移しても「繰越」表示が残ってしまう)
+      this.renderPrepList();
       this.renderProgress();
       this.renderProposals();
       this.closeOverrideModal();

@@ -499,6 +499,24 @@
   white-space: normal;
 }
 
+/* 繰り越し(前週までにやり残した準備項目)。取りこぼしに気づけるよう色で区別する */
+.sb-prep-card-items .sb-prep-complete-check.is-carried {
+  background: #fff7ed;
+  border-left: 3px solid #f97316;
+}
+
+.sb-prep-carried-badge {
+  flex: none;
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 700;
+  color: #9a3412;
+  background: #ffedd5;
+  border-radius: 999px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+
 .sb-prep-card-actions {
   display: flex;
   gap: 6px;
