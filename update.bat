@@ -8,11 +8,17 @@ rem 順序は「バックアップ→取得→install→停止→起動」。取得やinstallに失敗しても
 rem サーバーは旧コードのまま動き続ける(以前の「先に停止」方式は失敗時に止まったままになった)。
 
 set SERVICE_NAME=HiBoard
+set TASK_NAME=HiBoard
 
 echo === 生産管理アプリ 更新スクリプト ===
 echo.
 
-rem Windowsサービス(NSSM)導入済みならサービスで停止・起動する(docs/Windowsサービス化手順.md)
+rem 常駐方式を自動判定する(docs\Windowsサービス化手順.md)。
+rem  USE_TASK=1    : タスクスケジューラ + run-server-loop.bat(方法A・推奨)
+rem  USE_SERVICE=1 : Windowsサービス / NSSM(方法B)
+rem  どちらも無ければ従来どおり別ウィンドウで npm start する
+schtasks /query /tn "%TASK_NAME%" >nul 2>&1
+if errorlevel 1 (set USE_TASK=0) else (set USE_TASK=1)
 sc query "%SERVICE_NAME%" >nul 2>&1
 if errorlevel 1 (set USE_SERVICE=0) else (set USE_SERVICE=1)
 
@@ -43,15 +49,23 @@ call :STOP_NODE
 if errorlevel 1 exit /b 1
 
 echo [5/5] サーバーを起動しています...
+if "%USE_TASK%"=="1" goto START_TASK
 if "%USE_SERVICE%"=="1" goto START_SERVICE
-start "生産管理サーバー" cmd /k npm start
+start "生産管理サーバー" cmd /k run-server-loop.bat
+goto DONE
+
+:START_TASK
+schtasks /run /tn "%TASK_NAME%" >nul 2>&1
+if not errorlevel 1 goto DONE
+echo   [注意] タスクの起動に失敗しました。念のため通常の方法で起動します...
+start "生産管理サーバー" cmd /k run-server-loop.bat
 goto DONE
 
 :START_SERVICE
 net start "%SERVICE_NAME%"
 if not errorlevel 1 goto DONE
 echo   [注意] サービスの起動に失敗しました。念のため通常の方法で起動します...
-start "生産管理サーバー" cmd /k npm start
+start "生産管理サーバー" cmd /k run-server-loop.bat
 goto DONE
 
 :DONE
@@ -72,8 +86,12 @@ pause
 exit /b 1
 
 :STOP_NODE
+rem 自動再起動の仕組みごと止めないと、node.exe を消しても数秒で起動し直してしまう
+if "%USE_TASK%"=="1" schtasks /end /tn "%TASK_NAME%" >nul 2>&1
 if "%USE_SERVICE%"=="1" net stop "%SERVICE_NAME%" >nul 2>&1
 taskkill /F /IM node.exe >nul 2>&1
+rem run-server-loop.bat を直接開いている場合の待機ループも閉じる
+taskkill /F /FI "WINDOWTITLE eq 生産管理サーバー*" >nul 2>&1
 timeout /t 2 /nobreak >nul
 tasklist | findstr /i "node.exe" >nul
 if errorlevel 1 exit /b 0
