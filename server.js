@@ -1752,13 +1752,25 @@ app.post('/api/projects/:id/duplicate', (req, res) => {
   }
 });
 
-// case_time_allocations・case_preparation_items・case_print_locationsはprojects.idをFOREIGN KEYで参照しており、
-// (better-sqlite3はSQLite側でforeign_keys=ONがデフォルトのため)子レコードが残ったまま
-// projectsを削除するとFOREIGN KEY constraint failedになる。トランザクションで子→親の順に削除する
+// projects.id をFOREIGN KEYで参照している子テーブルは、親より先に消す必要がある
+// (better-sqlite3はSQLite側でforeign_keys=ONがデフォルトのため、残っていると
+//  FOREIGN KEY constraint failed になる)。トランザクションで子→親の順に削除する。
+//
+// 2026-07-28: case_items / case_roster / delivery_records の削除が漏れており、
+// Web注文フォーム由来の案件(アイテム明細を持つ)や納品済みの案件を削除しようとすると
+// 「サーバーエラーが発生しました」で失敗していた。参照している全テーブルを対象にする。
+// ※ ai_extracted_intake.case_id はFOREIGN KEY宣言が無いため削除は妨げないが、
+//    案件が消えた後も受注候補に紐づけが残らないようNULLに戻す
+//    (お客様向け進捗確認ページが「受付済み」と表示できる状態にする)。
 const deleteProjectCascade = db.transaction((projectId) => {
   db.prepare('DELETE FROM case_preparation_items WHERE case_id = ?').run(projectId);
   db.prepare('DELETE FROM case_time_allocations WHERE case_id = ?').run(projectId);
+  // case_print_locations は case_item_id で case_items も参照するため、case_items より先に消す
   db.prepare('DELETE FROM case_print_locations WHERE case_id = ?').run(projectId);
+  db.prepare('DELETE FROM case_items WHERE case_id = ?').run(projectId);
+  db.prepare('DELETE FROM case_roster WHERE case_id = ?').run(projectId);
+  db.prepare('DELETE FROM delivery_records WHERE case_id = ?').run(projectId);
+  db.prepare('UPDATE ai_extracted_intake SET case_id = NULL WHERE case_id = ?').run(projectId);
   db.prepare('DELETE FROM projects WHERE id = ?').run(projectId);
 });
 
