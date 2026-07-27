@@ -66,6 +66,11 @@
     .chip-deadline-soon { color: #b45309; font-weight: 700; }
     .chip-controls { display: flex; align-items: center; gap: 8px; }
     .chip-hours { width: 60px; padding: 4px 6px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: .85rem; }
+    /* 日付プルダウン。長い画面をドラッグしなくても予定を入れられるようにするための操作 */
+    .chip-date {
+      padding: 4px 6px; border: 1px solid #cbd5e1; border-radius: 6px;
+      font-size: .82rem; background: #fff; color: #0f172a; font-family: inherit; max-width: 150px;
+    }
     .chip-hours-label { font-size: .74rem; color: #64748b; }
     .chip-done-label { display: flex; align-items: center; gap: 4px; font-size: .78rem; color: #334155; cursor: pointer; white-space: nowrap; }
     .chip-done-label input { width: 17px; height: 17px; }
@@ -79,11 +84,6 @@
     }
     .todo-chip.dragging { opacity: .5; }
     .todo-chip.selected { outline: 3px solid #5eead4; outline-offset: 1px; }
-    .btn-todo-unplan {
-      border: 1px solid #cbd5e1; background: #fff; color: #475569; border-radius: 6px;
-      padding: 2px 8px; font-size: .85rem; cursor: pointer; line-height: 1.4;
-    }
-    .btn-todo-unplan:hover { background: #f8fafc; }
     .todo-status-badge { font-size: .72rem; font-weight: 700; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
     .todo-status-notstarted { color: #475569; background: #f1f5f9; border: 1px solid #cbd5e1; }
     .todo-status-inprogress { color: #1d4ed8; background: #dbeafe; border: 1px solid #93c5fd; }
@@ -160,7 +160,7 @@
       <div class="brand">HiYOSHi</div>
       <h1>マイスケジュールボード</h1>
       <div class="designer-badge" id="designer-name">読み込み中…</div>
-      <div class="page-note">タスクをドラッグ（またはタップで選択→日付をタップ）して予定を組めます。変更は自動保存され、社内のスケジュールボードにも反映されます。</div>
+      <div class="page-note">各タスクの「日付を選ぶ」から予定に入れられます（ドラッグ＆ドロップでも可）。変更は自動保存され、社内のスケジュールボードにも反映されます。</div>
     </div>
 
     <div id="error-box" class="load-error" style="display:none;"></div>
@@ -179,14 +179,14 @@
 
     <section id="unscheduled-section" style="display:none;">
       <div class="sec-title">📥 日付が未定のタスク <span class="count" id="unscheduled-count">0</span></div>
-      <div class="sec-hint">上の日付カードへドラッグ（タップ選択→日付タップでも可）で予定に入れられます</div>
+      <div class="sec-hint">「日付を選ぶ」で予定に入れられます（上の日付カードへドラッグしてもOK）</div>
       <div class="chips" id="unscheduled-chips"></div>
       <div class="sec-empty" id="unscheduled-empty" style="display:none;">未定のタスクはありません</div>
     </section>
 
     <section id="sheet-todos-section" style="display:none;">
       <div class="sec-title">📝 TODOリスト <span class="count" id="sheet-todos-count">0</span></div>
-      <div class="sec-hint">社員用TODOリスト(スプレッドシート)の「進行中」が自動で表示されます。上の日付カードへドラッグすると予定に入れられます。内容の更新・完了はスプレッドシート側で行ってください(反映まで最大1分)</div>
+      <div class="sec-hint">社員用TODOリスト(スプレッドシート)の「進行中」が自動で表示されます。「日付を選ぶ」で予定に入れられます（上の日付カードへドラッグしてもOK）。内容の更新・完了はスプレッドシート側で行ってください(反映まで最大1分)</div>
       <div class="chips" id="sheet-todos-chips"></div>
       <div class="sec-empty" id="sheet-todos-empty" style="display:none;">進行中のTODOはありません</div>
     </section>

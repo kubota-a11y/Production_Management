@@ -182,11 +182,13 @@ const board = {
           ${metaParts.length ? `<div class="chip-meta">${metaParts.join(' ｜ ')}</div>` : ''}
         </div>
         <div class="chip-controls" onclick="event.stopPropagation()">
+          <select class="chip-date" onchange="board.onTodoDateChange('${encoded}', this.value)">
+            ${this.dateOptionsHtml(t.scheduled_date)}
+          </select>
           <input type="number" class="chip-hours" min="0" max="14" step="0.5"
                  value="${t.estimated_hours ?? ''}" placeholder="h"
                  onchange="board.onTodoHoursChange('${encoded}', this.value)">
           <span class="chip-hours-label">h</span>
-          ${inDayCard ? `<button type="button" class="btn-todo-unplan" onclick="board.unplanTodo('${encoded}')" title="TODOリストへ戻す">↩︎</button>` : ''}
         </div>
       </div>
     `;
@@ -230,11 +232,6 @@ const board = {
 
   async moveTodo(taskText, dateISO) {
     await this.saveTodoPlan(taskText, { scheduled_date: dateISO }, `${this.fmtDate(dateISO)} に移動しました`);
-  },
-
-  async unplanTodo(encodedTask) {
-    const task = decodeURIComponent(encodedTask);
-    await this.saveTodoPlan(task, { scheduled_date: null, estimated_hours: null }, 'TODOリストへ戻しました');
   },
 
   async onTodoHoursChange(encodedTask, value) {
@@ -296,6 +293,9 @@ const board = {
           <div class="chip-meta">${this.esc(i.preparation_item_name)} ｜ 納期 <span class="${soon ? 'chip-deadline-soon' : ''}">${deadline}</span></div>
         </div>
         <div class="chip-controls" onclick="event.stopPropagation()">
+          <select class="chip-date" onchange="board.onItemDateChange(${i.id}, this.value)">
+            ${this.dateOptionsHtml(i.scheduled_date)}
+          </select>
           <input type="number" class="chip-hours" min="0" max="14" step="0.5"
                  value="${i.estimated_hours ?? ''}" placeholder="h"
                  onchange="board.onHoursChange(${i.id}, this.value)">
@@ -306,6 +306,32 @@ const board = {
         </div>
       </div>
     `;
+  },
+
+  // 表示中の週の日付プルダウン。長い画面をドラッグしなくても日付を決められるようにする
+  // (ドラッグ&ドロップも従来どおり使える)
+  dateOptionsHtml(selectedDate) {
+    const options = [`<option value="" ${!selectedDate ? 'selected' : ''}>日付を選ぶ</option>`];
+    this.days.forEach(day => {
+      const label = `${this.dowLabel(day.date).text.replace('曜', '')} ${this.fmtDate(day.date)}${day.is_day_off ? '（稼働なし）' : ''}`;
+      options.push(`<option value="${day.date}" ${selectedDate === day.date ? 'selected' : ''}>${label}</option>`);
+    });
+    // 表示中の週の外に予定が入っている場合も、選択中の日付が分かるようにしておく
+    if (selectedDate && !this.days.some(d => d.date === selectedDate)) {
+      options.push(`<option value="${selectedDate}" selected>${this.fmtDate(selectedDate)}</option>`);
+    }
+    return options.join('');
+  },
+
+  async onItemDateChange(itemId, value) {
+    await this.updateItem(itemId, { scheduled_date: value || null },
+      value ? `${this.fmtDate(value)} に移動しました` : '日付を未定に戻しました');
+  },
+
+  async onTodoDateChange(encodedTask, value) {
+    const task = decodeURIComponent(encodedTask);
+    await this.saveTodoPlan(task, { scheduled_date: value || null },
+      value ? `${this.fmtDate(value)} に移動しました` : 'TODOリストへ戻しました');
   },
 
   // ===== D&D(PC) =====
