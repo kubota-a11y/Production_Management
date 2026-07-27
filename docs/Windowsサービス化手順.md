@@ -26,17 +26,32 @@ Windows標準の機能だけで完結する。**このアプリにはこちら�
 2. 次の1行を実行(`%USERNAME%` はそのままでよい。今ログインしているユーザーが対象になる)
 
 ```bat
-schtasks /create /tn "HiBoard" /tr "C:\Production_Management_v2\run-server-loop.bat" /sc onlogon /ru "%USERNAME%" /rl highest /f
+schtasks /create /tn "HiBoard" /tr "C:\Production_Management_v2\run-server-loop.bat" /sc onlogon /ru "%USERNAME%" /f
 ```
 
-3. 現在動いている node を止めて、タスクから起動し直す
+> **`/rl highest`(最上位の権限で実行)は付けないこと。**
+> 管理者権限で動くプロセスからは、通常ユーザーが割り当てたドライブ(`Z:` など)が
+> 見えなくなるWindowsの仕様があり、NASにアクセスできなくなる。
+> このアプリは管理者権限を必要としないため、通常の権限のままでよい。
+
+3. タスクが正しく作られたか確認する(「タスクの実行ユーザー」が普段使うアカウントであること)
+
+```bat
+schtasks /query /tn "HiBoard" /v /fo list
+```
+
+> 管理者として実行したときのアカウントが普段業務で使うアカウントと違う場合、
+> ログオン時の自動起動が働かない。その場合は `/ru` に普段のアカウント名を明記して作り直す。
+
+4. 現在動いている node を止めて、タスクから起動し直す
 
 ```bat
 taskkill /F /IM node.exe
 schtasks /run /tn "HiBoard"
 ```
 
-4. ブラウザで `http://localhost:3000` が開けば完了
+5. ブラウザで `http://localhost:3000` が開けば完了。
+   NASのデザインデータ一覧が今までどおり開けることも併せて確認する
 
 ### 動作確認(任意)
 
