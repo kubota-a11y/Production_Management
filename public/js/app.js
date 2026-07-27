@@ -573,7 +573,7 @@ const app = {
 
   // テキスト中のキーワードから加工種別を推測する(コピペ取り込み・AI受注候補の両方で使用)
   detectProcessType(text) {
-    return text.includes('刺繍') ? 'STANDARD_EMBROIDERY' : text.includes('帽子') ? 'HAT_EMBROIDERY' : text.includes('ワッペン') ? 'PATCH_EMBROIDERY' : text.includes('DTF') || text.includes('DTFプリント') ? 'DTF_PRINT' : text.includes('ラバー') ? 'RUBBER_TRANSFER_PRINT' : text.includes('シルク') ? 'SILK_SCREEN_PRINT' : 'STANDARD_EMBROIDERY';
+    return text.includes('刺繍') ? 'STANDARD_EMBROIDERY' : text.includes('帽子') ? 'HAT_EMBROIDERY' : text.includes('ワッペン') ? 'PATCH_EMBROIDERY' : text.includes('DTF') || text.includes('DTFプリント') ? 'DTF_PRINT' : text.includes('ラバー') ? 'RUBBER_TRANSFER_PRINT' : text.includes('昇華') ? 'SUBLIMATION_PRINT' : text.includes('シルク') ? 'SILK_SCREEN_PRINT' : 'STANDARD_EMBROIDERY';
   },
 
   // ===== UI: コピペ取り込み =====

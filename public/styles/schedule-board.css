@@ -499,6 +499,19 @@
   white-space: normal;
 }
 
+/* 受注前の案件バッジ。提案確認パネルに出るが自動割当の対象外であることを示す */
+.sb-preorder-badge {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #475569;
+  background: #e2e8f0;
+  border-radius: 999px;
+  padding: 1px 7px;
+  vertical-align: middle;
+}
+
 /* 繰り越し(前週までにやり残した準備項目)。取りこぼしに気づけるよう色で区別する */
 .sb-prep-card-items .sb-prep-complete-check.is-carried {
   background: #fff7ed;

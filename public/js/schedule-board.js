@@ -870,7 +870,7 @@ const scheduleBoard = {
              ontouchend="scheduleBoard.onDragTouchEnd(event)"
              onmouseenter="scheduleBoard.highlightProposal(${p.case_id})"
              onmouseleave="scheduleBoard.clearHighlight()">
-          <div class="sb-proposal-card-name">${this.escapeHtml(p.project_name)}</div>
+          <div class="sb-proposal-card-name">${this.escapeHtml(p.project_name)}${p.status === 'PRE_ORDER' ? '<span class="sb-preorder-badge" title="まだ受注確定していない案件です。自動割り当ての対象外ですが、ドラッグで予定に置けます">受注前</span>' : ''}</div>
           <div class="sb-proposal-card-customer">${this.escapeHtml(p.customer_name || '')}</div>
           <div class="sb-proposal-card-meta">納期 ${this.escapeHtml(p.deadline || '-')} ・ 数量 ${p.quantity ?? '-'} ・ ${this.escapeHtml(p.process_type || '-')}</div>
           <div class="sb-proposal-card-meta">担当 ${p.employee_name ? this.escapeHtml(p.employee_name) : '未定'} ・ スコア ${scoreLabel} ・ 空き ${availableLabel}</div>

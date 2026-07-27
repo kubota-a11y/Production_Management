@@ -820,6 +820,14 @@ function allocateHoursForEmployee(db, projectId, employeeId, employeeName, requi
 // スケジュール調整が不要になった)案件は対象外とする
 const SCHEDULABLE_PROJECT_STATUSES = ['CONFIRMED', 'WAITING', 'PREP_COMPLETE', 'IN_PROGRESS'];
 
+// 提案確認パネルに載せる案件ステータス。
+// 新規登録時のステータス既定値は「受注前」のため、上のSCHEDULABLE_PROJECT_STATUSESだけで
+// 絞ると、登録したばかりの案件がパネルにもボードにも出てこず埋もれてしまう。
+// そこでパネルへの掲載(=人が見てドラッグで置ける)は受注前も対象にする。
+// ただし自動割当(autoPropose)は従来どおり受注前を除外し、未確定の案件へ機械的に
+// 工数が積まれないようにしている
+const PROPOSAL_PANEL_PROJECT_STATUSES = ['PRE_ORDER', ...SCHEDULABLE_PROJECT_STATUSES];
+
 // 案件1件に対して、最上位担当者を選び、受付日から順に空き時間へ割り振って
 // case_time_allocations に status:'提案' で登録する
 function autoProposeForProject(db, projectId) {
@@ -1122,9 +1130,9 @@ app.get('/api/proposals', (req, res) => {
     const results = rows.map(row => {
       const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(row.case_id);
       if (!project) return null;
-      // 検品・納品待ち・受注前などスケジュール調整が不要なステータスの案件は、
-      // 提案確認パネルの対象外にする(SCHEDULABLE_PROJECT_STATUSES参照)
-      if (!SCHEDULABLE_PROJECT_STATUSES.includes(project.status)) return null;
+      // 検品・納品待ちなどスケジュール調整が不要なステータスの案件は
+      // 提案確認パネルの対象外にする(PROPOSAL_PANEL_PROJECT_STATUSES参照)
+      if (!PROPOSAL_PANEL_PROJECT_STATUSES.includes(project.status)) return null;
 
       const suggestions = calculateSuggestions(db, project, { quiet: true });
       const matched = suggestions.find(s => s.employee_id === row.employee_id);
@@ -1136,6 +1144,7 @@ app.get('/api/proposals', (req, res) => {
         deadline: project.deadline,
         quantity: project.quantity,
         process_type: project.process_type,
+        status: project.status,
         employee_id: row.employee_id,
         employee_name: row.employee_name,
         proposed_hours_total: Math.round(row.proposed_hours_total * 10) / 10,
@@ -1146,20 +1155,20 @@ app.get('/api/proposals', (req, res) => {
 
     // まだ担当者候補も予定も付いていない未着手案件(case_time_allocationsに行が1件も無い)も
     // 「担当者未定」カードとして提案確認パネルに出す。これがないと、担当者を割り当てるまで
-    // 案件がボードのどこにも現れず埋もれてしまう。対象はスケジュール調整対象ステータス
-    // (SCHEDULABLE_PROJECT_STATUSES)に限る。status='提案'の案件は上のresultsに、
+    // 案件がボードのどこにも現れず埋もれてしまう。対象はパネル掲載ステータス
+    // (PROPOSAL_PANEL_PROJECT_STATUSES = 受注前を含む)。status='提案'の案件は上のresultsに、
     // status='予定'等の確定済み案件はcase_time_allocationsに行があるため、ここには含まれない
     // (=既存カードと重複しない)
     // 社内デザイン案件(INTERNAL_DESIGN)は生産の担当割り当て対象外のため除外する
     // (デザイン作業は準備項目としてデザイナーに割り当てる)
-    const schedulablePlaceholders = SCHEDULABLE_PROJECT_STATUSES.map(() => '?').join(', ');
+    const schedulablePlaceholders = PROPOSAL_PANEL_PROJECT_STATUSES.map(() => '?').join(', ');
     const unassignedProjects = db.prepare(`
       SELECT * FROM projects
       WHERE status IN (${schedulablePlaceholders})
         AND COALESCE(project_kind, 'NORMAL') != 'INTERNAL_DESIGN'
         AND id NOT IN (SELECT DISTINCT case_id FROM case_time_allocations)
       ORDER BY id ASC
-    `).all(...SCHEDULABLE_PROJECT_STATUSES);
+    `).all(...PROPOSAL_PANEL_PROJECT_STATUSES);
 
     const unassignedCards = unassignedProjects.map(project => ({
       case_id: project.id,
@@ -1168,6 +1177,7 @@ app.get('/api/proposals', (req, res) => {
       deadline: project.deadline,
       quantity: project.quantity,
       process_type: project.process_type,
+      status: project.status,
       employee_id: null,
       employee_name: null,
       proposed_hours_total: null,

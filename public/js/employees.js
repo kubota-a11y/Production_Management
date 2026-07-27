@@ -8,6 +8,7 @@ const PROCESS_TYPE_LABELS = {
   SILK_SCREEN_PRINT: 'シルクスクリーンプリント',
   DTF_PRINT: 'DTFプリント',
   RUBBER_TRANSFER_PRINT: 'ラバー転写プリント',
+  SUBLIMATION_PRINT: '昇華プリント',
   STANDARD_EMBROIDERY: '通常刺繍',
   HAT_EMBROIDERY: '帽子刺繍',
   PATCH_EMBROIDERY: 'ワッペン刺繍'
