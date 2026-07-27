@@ -226,6 +226,13 @@
   background: repeating-linear-gradient(135deg, #16a34a, #16a34a 6px, #15803d 6px, #15803d 12px);
 }
 
+/* デザイナー本人が社員用TODOリストから予定に入れたタスク。
+   案件由来の【準備】ブロック(紫の縞)と区別できるよう青緑の縞にする(社内からは操作不可) */
+.sb-bar-segment-todo {
+  background: repeating-linear-gradient(135deg, #0d9488, #0d9488 6px, #0f766e 6px, #0f766e 12px);
+  cursor: default;
+}
+
 /* 自動割当ボタン(日次/週次)専用の前準備・後片付け時間。既存の【準備】ブロック(紫の縞)や
    案件本体のブロックとは違うと一目で分かるよう、細身のグレーの縞模様にする */
 .sb-bar-segment-overhead {

@@ -282,6 +282,26 @@ function initDatabase(dbFile = dbPath) {
     )
   `);
 
+  // 社員用TODOリスト(スプレッドシート)のタスクを、デザイナーが自分のマイスケジュールボードで
+  // 「どの日にやるか」計画した情報。シートの行にはIDが無いため、担当者+タスク本文で同一視する。
+  // タスクの内容・状態(未着手/進行中/完了)はシートがマスターで、ここでは日付と見込み時間だけ持つ
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS designer_sheet_todo_plans (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      employee_id INTEGER NOT NULL,
+      task_text TEXT NOT NULL,
+      scheduled_date TEXT,
+      estimated_hours REAL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(employee_id, task_text),
+      FOREIGN KEY (employee_id) REFERENCES employees(id)
+    )
+  `);
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_designer_sheet_todo_plans_date
+    ON designer_sheet_todo_plans(scheduled_date)
+  `);
+
   // デザイナー(リモートの鈴木さん等)向け マイスケジュールボードの専用URL(トークン)。
   // チームリンク・取引先リンクと同じトークン方式。employee_id で従業員に紐付け、
   // 本人担当の準備項目の閲覧・日付移動・完了操作と稼働申告(schedule_overrides)を許可する。

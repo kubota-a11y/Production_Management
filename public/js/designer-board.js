@@ -9,8 +9,10 @@ const board = {
   unscheduled: [],
   sheetTodos: null,  // 社員用TODOリスト(スプレッドシート)の本人分。null=連携なし
   designerName: '',
-  selectedItemId: null,  // タップ移動用に選択中のタスクID
+  selectedItemId: null,     // タップ移動用に選択中の準備項目ID
+  selectedTodoText: null,   // タップ移動用に選択中のTODO(タスク本文で同一視)
   draggingItemId: null,
+  draggingTodoText: null,
   availabilityDate: null,
 
   init() {
@@ -55,6 +57,7 @@ const board = {
       this.sheetTodos = data.sheet_todos ?? null;
       this.designerName = data.designer_name;
       this.selectedItemId = null;
+      this.selectedTodoText = null;
       this.render();
     } catch (e) {
       console.error(e);
@@ -100,7 +103,9 @@ const board = {
     const todayISO = this.toISO(new Date());
     document.getElementById('days').innerHTML = this.days.map(day => {
       const items = this.scheduled.filter(i => i.scheduled_date === day.date);
-      const planned = items.reduce((s, i) => s + (Number(i.estimated_hours) || 0), 0);
+      const dayTodos = (this.sheetTodos || []).filter(t => t.scheduled_date === day.date);
+      const planned = items.reduce((s, i) => s + (Number(i.estimated_hours) || 0), 0)
+        + dayTodos.reduce((s, t) => s + (Number(t.estimated_hours) || 0), 0);
       const over = day.hours > 0 && planned > day.hours;
       const capHtml = day.is_day_off
         ? `<span class="day-off-badge">稼働なし</span>`
@@ -129,7 +134,9 @@ const board = {
           </div>
           ${modeButtons}
           <div class="day-chips">
-            ${items.map(i => this.chipHtml(i)).join('') || '<div class="day-drop-hint">ここにドラッグ / タップで移動</div>'}
+            ${items.map(i => this.chipHtml(i)).join('')}
+            ${dayTodos.map(t => this.todoChipHtml(t, true)).join('')}
+            ${items.length || dayTodos.length ? '' : '<div class="day-drop-hint">ここにドラッグ / タップで移動</div>'}
           </div>
         </div>
       `;
@@ -146,24 +153,97 @@ const board = {
       return;
     }
     section.style.display = 'block';
-    document.getElementById('sheet-todos-count').textContent = this.sheetTodos.length;
-    document.getElementById('sheet-todos-empty').style.display = this.sheetTodos.length ? 'none' : 'block';
-    document.getElementById('sheet-todos-chips').innerHTML = this.sheetTodos.map(t => {
-      const inProgress = t.status === '進行中';
-      const deadline = this.fmtSheetDate(t.deadline);
-      const metaParts = [];
-      if (deadline) metaParts.push(`期限 ${deadline}`);
-      if (t.memo) metaParts.push(this.esc(t.memo));
-      return `
-        <div class="todo-chip">
-          <span class="todo-status-badge ${inProgress ? 'todo-status-inprogress' : 'todo-status-notstarted'}">${inProgress ? '進行中' : '未着手'}</span>
-          <div class="chip-main">
-            <div class="chip-name">${this.esc(t.task)}</div>
-            ${metaParts.length ? `<div class="chip-meta">${metaParts.join(' ｜ ')}</div>` : ''}
-          </div>
+    // 日付に置いたTODOは日カード側に出るので、ここでは未計画のものだけ並べる
+    const unplanned = this.sheetTodos.filter(t => !t.scheduled_date);
+    document.getElementById('sheet-todos-count').textContent = unplanned.length;
+    document.getElementById('sheet-todos-empty').style.display = unplanned.length ? 'none' : 'block';
+    document.getElementById('sheet-todos-chips').innerHTML = unplanned.map(t => this.todoChipHtml(t)).join('');
+  },
+
+  // TODOチップ。準備項目と同じくD&D(タッチ端末はタップ選択→日付タップ)で日付に置ける。
+  // 完了操作はスプレッドシート側なので、チェックボックスの代わりに状態バッジを出す
+  todoChipHtml(t, inDayCard = false) {
+    const inProgress = t.status === '進行中';
+    const deadline = this.fmtSheetDate(t.deadline);
+    const selected = this.selectedTodoText === t.task;
+    const metaParts = [];
+    if (deadline) metaParts.push(`期限 ${deadline}`);
+    if (t.memo) metaParts.push(this.esc(t.memo));
+    const encoded = encodeURIComponent(t.task);
+    return `
+      <div class="todo-chip${selected ? ' selected' : ''}" draggable="true"
+           ondragstart="board.onTodoDragStart(event, '${encoded}')" ondragend="board.onChipDragEnd(event)"
+           onclick="event.stopPropagation(); board.onTodoTap('${encoded}')">
+        <span class="todo-status-badge ${inProgress ? 'todo-status-inprogress' : 'todo-status-notstarted'}">${inProgress ? '進行中' : '未着手'}</span>
+        <div class="chip-main">
+          <div class="chip-name">📝 ${this.esc(t.task)}</div>
+          ${metaParts.length ? `<div class="chip-meta">${metaParts.join(' ｜ ')}</div>` : ''}
         </div>
-      `;
-    }).join('');
+        <div class="chip-controls" onclick="event.stopPropagation()">
+          <input type="number" class="chip-hours" min="0" max="14" step="0.5"
+                 value="${t.estimated_hours ?? ''}" placeholder="h"
+                 onchange="board.onTodoHoursChange('${encoded}', this.value)">
+          <span class="chip-hours-label">h</span>
+          ${inDayCard ? `<button type="button" class="btn-todo-unplan" onclick="board.unplanTodo('${encoded}')" title="TODOリストへ戻す">↩︎</button>` : ''}
+        </div>
+      </div>
+    `;
+  },
+
+  // ===== TODOの予定操作 =====
+  onTodoDragStart(event, encodedTask) {
+    this.draggingTodoText = decodeURIComponent(encodedTask);
+    this.draggingItemId = null;
+    event.dataTransfer.effectAllowed = 'move';
+    event.target.classList.add('dragging');
+  },
+
+  onTodoTap(encodedTask) {
+    const task = decodeURIComponent(encodedTask);
+    this.selectedTodoText = this.selectedTodoText === task ? null : task;
+    this.selectedItemId = null;
+    this.render();
+    if (this.selectedTodoText) this.toast('移動先の日付をタップしてください');
+  },
+
+  async saveTodoPlan(taskText, body, successMsg) {
+    try {
+      const res = await fetch(`/api/designer/${this.token}/sheet-todo-plan`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task_text: taskText, ...body }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        this.toast(data.error || '保存に失敗しました');
+      } else {
+        this.toast(successMsg);
+      }
+    } catch (e) {
+      console.error(e);
+      this.toast('通信エラーで保存できませんでした');
+    }
+    await this.load();
+  },
+
+  async moveTodo(taskText, dateISO) {
+    await this.saveTodoPlan(taskText, { scheduled_date: dateISO }, `${this.fmtDate(dateISO)} に移動しました`);
+  },
+
+  async unplanTodo(encodedTask) {
+    const task = decodeURIComponent(encodedTask);
+    await this.saveTodoPlan(task, { scheduled_date: null, estimated_hours: null }, 'TODOリストへ戻しました');
+  },
+
+  async onTodoHoursChange(encodedTask, value) {
+    const task = decodeURIComponent(encodedTask);
+    const h = value === '' ? null : Number(value);
+    if (h !== null && (Number.isNaN(h) || h < 0 || h > 14)) return this.toast('0〜14時間で入力してください');
+    const current = this.sheetTodos.find(t => t.task === task);
+    await this.saveTodoPlan(task, {
+      scheduled_date: current ? current.scheduled_date : null,
+      estimated_hours: h,
+    }, '見込み時間を保存しました');
   },
 
   // シートの期限は "YYYY/MM/DD" 形式。表示用に M/D へ(不正な値はそのまま返す)
@@ -250,23 +330,34 @@ const board = {
     e.preventDefault();
     e.currentTarget.classList.remove('dropover');
     if (this.draggingItemId) {
-      await this.moveItem(this.draggingItemId, dateISO);
+      const id = this.draggingItemId;
       this.draggingItemId = null;
+      await this.moveItem(id, dateISO);
+    } else if (this.draggingTodoText) {
+      const task = this.draggingTodoText;
+      this.draggingTodoText = null;
+      await this.moveTodo(task, dateISO);
     }
   },
 
   // ===== タップ移動(スマホ・タブレット) =====
   onChipTap(itemId) {
     this.selectedItemId = this.selectedItemId === itemId ? null : itemId;
+    this.selectedTodoText = null;
     this.render();
     if (this.selectedItemId) this.toast('移動先の日付をタップしてください');
   },
 
   async onDayTap(dateISO) {
-    if (!this.selectedItemId) return;
-    const id = this.selectedItemId;
-    this.selectedItemId = null;
-    await this.moveItem(id, dateISO);
+    if (this.selectedItemId) {
+      const id = this.selectedItemId;
+      this.selectedItemId = null;
+      await this.moveItem(id, dateISO);
+    } else if (this.selectedTodoText) {
+      const task = this.selectedTodoText;
+      this.selectedTodoText = null;
+      await this.moveTodo(task, dateISO);
+    }
   },
 
   // ===== 更新API =====

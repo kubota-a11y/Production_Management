@@ -11,6 +11,7 @@ const scheduleBoard = {
   allocations: [],
   preparationItems: [],
   designerDayModes: [],
+  designerTodoPlans: [],
   unassignedPreparationItems: [],
   projectProgress: [],
   proposals: [],
@@ -48,6 +49,7 @@ const scheduleBoard = {
     await this.loadWeekAllocations();
     await this.loadWeekPreparationItems();
     await this.loadDesignerDayModes();
+    await this.loadDesignerTodoPlans();
     await this.loadProjectProgress();
     await this.loadProposals();
     this.render();
@@ -195,6 +197,20 @@ const scheduleBoard = {
     }
   },
 
+  // デザイナーが自分のマイスケジュールボードで日付に置いた、社員用TODOリストのタスク。
+  // 内容・完了はスプレッドシートがマスターのため、ここでは表示のみ(移動・編集は本人側)
+  async loadDesignerTodoPlans() {
+    try {
+      const dates = this.getWeekDates();
+      const start = this.toISODate(dates[0]);
+      const end = this.toISODate(dates[6]);
+      this.designerTodoPlans = await (await fetch(`/api/designer-sheet-todo-plans?start=${start}&end=${end}`)).json();
+    } catch (error) {
+      console.error('デザイナーのTODO予定取得エラー:', error);
+      this.designerTodoPlans = [];
+    }
+  },
+
   async loadUnassignedPreparationItems() {
     try {
       const all = await (await fetch('/api/preparation-items?unassigned=true')).json();
@@ -232,6 +248,7 @@ const scheduleBoard = {
     await this.loadWeekAllocations();
     await this.loadWeekPreparationItems();
     await this.loadDesignerDayModes();
+    await this.loadDesignerTodoPlans();
     this.render();
   },
 
@@ -240,6 +257,7 @@ const scheduleBoard = {
     await this.loadWeekAllocations();
     await this.loadWeekPreparationItems();
     await this.loadDesignerDayModes();
+    await this.loadDesignerTodoPlans();
     this.render();
   },
 
@@ -347,6 +365,10 @@ const scheduleBoard = {
     return this.preparationItems.filter(i => i.assigned_staff_id === employeeId && i.scheduled_date === dateISO);
   },
 
+  getTodoPlansFor(employeeId, dateISO) {
+    return this.designerTodoPlans.filter(p => p.employee_id === employeeId && p.scheduled_date === dateISO);
+  },
+
   // 日別モード申告のバッジHTML。未申告の従業員×日は空文字
   getDayModeBadge(employeeId, dateISO) {
     const row = this.designerDayModes.find(m => m.employee_id === employeeId && m.work_date === dateISO);
@@ -443,12 +465,14 @@ const scheduleBoard = {
 
     const dayAllocations = this.getAllocationsFor(employee.id, dateISO);
     const dayPrepItems = this.getPrepItemsFor(employee.id, dateISO);
+    const dayTodoPlans = this.getTodoPlansFor(employee.id, dateISO);
     // 自動割当ボタン(日次/週次)専用の前準備・後片付け(setup_minutes/cleanup_minutes)も
     // その日の消費時間としてカウントする。通常の割り当て(setup/cleanup=0)には影響しない
     const overheadHoursOf = (a) => ((a.setup_minutes || 0) + (a.cleanup_minutes || 0)) / 60;
     const allocationHours = dayAllocations.reduce((sum, a) => sum + a.planned_hours + overheadHoursOf(a), 0);
     const prepHours = dayPrepItems.reduce((sum, i) => sum + (i.estimated_hours || 0), 0);
-    const plannedTotal = allocationHours + prepHours;
+    const todoHours = dayTodoPlans.reduce((sum, p) => sum + (p.estimated_hours || 0), 0);
+    const plannedTotal = allocationHours + prepHours + todoHours;
     const scaleMax = Math.max(referenceHours, plannedTotal, 0.1);
     const referencePct = Math.min((referenceHours / scaleMax) * 100, 100);
     const isShort = plannedTotal < referenceHours;
@@ -500,6 +524,16 @@ const scheduleBoard = {
       return `<div class="sb-bar-segment sb-bar-segment-prep${i.status === '完了' ? ' is-completed' : ''}" draggable="true" ondragstart="event.stopPropagation(); scheduleBoard.onPrepItemDragStart(event, ${i.id})" ondragend="scheduleBoard.onDragEnd()" ontouchstart="event.stopPropagation(); scheduleBoard.onDragTouchStart(event, ${touchPayload})" ontouchmove="scheduleBoard.onDragTouchMove(event)" ontouchend="scheduleBoard.onDragTouchEnd(event)" style="width:${widthPct}%;" title="${this.escapeHtml(title)}">${this.escapeHtml(label)}</div>`;
     }).join('');
 
+    // デザイナー本人がマイスケジュールボードで日付に置いたTODOリストのタスク。
+    // 社内側からは移動・編集できない(内容と完了はスプレッドシートがマスター)ためドラッグ不可
+    const todoSegments = dayTodoPlans.map(p => {
+      const hours = p.estimated_hours || 0;
+      const widthPct = (hours / scaleMax) * 100;
+      const label = `【TODO】${p.task_text}`;
+      const title = `${label}: 予定${hours}h（社員用TODOリストより・本人が予定に入れたタスク）`;
+      return `<div class="sb-bar-segment sb-bar-segment-todo" style="width:${widthPct}%;" title="${this.escapeHtml(title)}">${this.escapeHtml(label)}</div>`;
+    }).join('');
+
     return `
       ${dayModeBadge}
       ${isShort ? `<div class="sb-cell-warning" title="計画時間(${this.roundHours(plannedTotal)}h)が勤務時間(${this.roundHours(referenceHours)}h)に不足しています">⚠️ 計画不足</div>` : ''}
@@ -507,6 +541,7 @@ const scheduleBoard = {
       <div class="sb-bar-track" onclick="event.stopPropagation(); scheduleBoard.openDetailModal(${employee.id}, '${dateISO}')">
         ${segments}
         ${prepSegments}
+        ${todoSegments}
         <div class="sb-bar-reference-marker" style="left:${referencePct}%;"></div>
       </div>
     `;
