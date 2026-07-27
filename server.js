@@ -268,15 +268,40 @@ const SUPPORT_DOMAIN_MAP = (() => {
   return map;
 })();
 
-// ===== 外部公開ガード(2026-07-27) =====
-// 本番はCloudflare Tunnelで localhost:3000 全体が公開ドメイン(order.kubota-tunnel.com等)に
-// 紐づいているため、外部からのリクエストを公開ページ・公開APIだけに制限する。
-// 判定方法: Cloudflareを経由したリクエストにはエッジで cf-ray / cf-connecting-ip ヘッダが
-// 必ず付与される(クライアントが同名ヘッダを送ってもCloudflareが上書きする)。
-// LAN内から :3000 への直接アクセスにはこのヘッダが無いため、社内利用は従来どおり全機能使える。
-// ※LAN内でこのヘッダを偽装すると「ブロックされる」方向にしか働かない(フェイルセーフ)。
+// ===== 外部公開ガード(2026-07-27、2026-07-28にホスト名判定へ修正) =====
+// 目的: お客様に配っている公開URL(注文フォーム等)から、社内画面や社内APIへ
+// 到達できないようにする。
+//
+// 判定は「どのホスト名で来たか」で行う。
+//   - 公開ホスト名(お客様に配っているドメイン)  → 公開ページ・公開APIのみ許可、他は404
+//   - それ以外のホスト名(社内用URL・LAN内のIP直打ち) → 従来どおり全機能を許可
+//
+// ※当初は「Cloudflare経由かどうか」で判定していたが、社内でもトンネル経由のURLで
+//   HiBoardを開いているため、社内ページまで巻き込んで遮断してしまった(2026-07-28修正)。
+//
+// 公開ホスト名は .env の PUBLIC_HOSTNAMES で設定する(カンマ区切り)。
+// 例: PUBLIC_HOSTNAMES=order.kubota-tunnel.com
+// 未設定時は PUBLIC_ORDER_BASE_URL のホスト名と選手専用ドメインを公開ホストとみなす。
+//
+// 【重要】社内用URLをインターネットに出している場合、このガードだけでは守れない。
+//   社内用ホスト名にはCloudflare Access(メール認証等)をかけること。
 // 緊急時は .env に EXTERNAL_GUARD=off を設定すると無効化できる。
 const EXTERNAL_GUARD_DISABLED = process.env.EXTERNAL_GUARD === 'off';
+const PUBLIC_HOSTNAMES = (() => {
+  const set = new Set(Object.keys(SUPPORT_DOMAIN_MAP));
+  if (process.env.PUBLIC_HOSTNAMES) {
+    for (const h of process.env.PUBLIC_HOSTNAMES.split(',')) {
+      const host = (h || '').trim().toLowerCase();
+      if (host) set.add(host);
+    }
+  } else if (process.env.PUBLIC_ORDER_BASE_URL) {
+    // 明示設定が無ければ、お客様に配っている注文フォームのドメインを公開ホストとみなす
+    try {
+      set.add(new URL(process.env.PUBLIC_ORDER_BASE_URL).hostname.toLowerCase());
+    } catch (_) { /* URLとして不正なら何も追加しない */ }
+  }
+  return set;
+})();
 const EXTERNAL_ALLOWED_PATTERNS = [
   /^\/order$/,                       // Web注文フォーム(GET/POST)
   /^\/guide$/,                       // ご注文の流れ
@@ -293,11 +318,12 @@ const EXTERNAL_ALLOWED_PATTERNS = [
 ];
 app.use((req, res, next) => {
   if (EXTERNAL_GUARD_DISABLED) return next();
-  const viaCloudflare = req.headers['cf-ray'] || req.headers['cf-connecting-ip'];
-  if (!viaCloudflare) return next(); // LAN内・開発機からの直接アクセス
+  const hostname = (req.hostname || '').toLowerCase();
+  // 社内用URL・LAN内のIP直打ちは対象外(従来どおり全機能を利用できる)
+  if (!PUBLIC_HOSTNAMES.has(hostname)) return next();
   if (req.path === '/') {
-    // トップ(/)は選手専用ドメインのみ許可。order.kubota-tunnel.com/ で社内画面は出さない
-    if (SUPPORT_DOMAIN_MAP[(req.hostname || '').toLowerCase()]) return next();
+    // トップ(/)は選手専用ドメインのみ許可。注文フォームのドメインで社内画面は出さない
+    if (SUPPORT_DOMAIN_MAP[hostname]) return next();
     return res.status(404).send('Not Found');
   }
   if (EXTERNAL_ALLOWED_PATTERNS.some((re) => re.test(req.path))) return next();
@@ -2860,6 +2886,15 @@ app.listen(PORT, HOST, () => {
     if (candidates.length > 1) {
       console.log(`  ※ 複数候補がある場合、まず「← おそらくこれ」のIPを試してください。繋がらなければ他の候補もお試しください。`);
     }
+  }
+  // 外部公開ガードの設定内容。設定漏れ・想定違いに起動時点で気づけるようにする
+  if (EXTERNAL_GUARD_DISABLED) {
+    console.log('外部公開ガード: 無効(.env の EXTERNAL_GUARD=off)。全ホスト名で全機能が見えます');
+  } else if (PUBLIC_HOSTNAMES.size === 0) {
+    console.log('外部公開ガード: 公開ホスト名が未設定です。お客様に配っているドメインを .env の PUBLIC_HOSTNAMES に設定してください');
+  } else {
+    console.log(`外部公開ガード: 次のホスト名では公開ページのみ許可 → ${[...PUBLIC_HOSTNAMES].join(', ')}`);
+    console.log('  (これ以外のホスト名・LAN内のIP直打ちは全機能を利用できます)');
   }
 });
 

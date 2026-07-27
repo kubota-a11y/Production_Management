@@ -31,5 +31,6 @@
 - 本番機のWindowsサービス化(クラッシュ時自動再起動)の手順は `docs/Windowsサービス化手順.md`。update.batはサービス(HiBoard)の有無を自動判定する
 - メール送信は `lib/order-mailer.js`(SMTP未設定環境では自動スキップされるので、開発機で気にしなくてよい)
 - 顧客名・受注情報などの顧客データをログや出力ファイルに書かない
+- **外部公開ガード**(server.js): お客様に配っている公開ドメインでは公開ページ(注文フォーム・ガイド・進捗確認・各トークンページ)だけを許可し、社内画面・社内APIは404にする。判定は**ホスト名**で行い、`.env` の `PUBLIC_HOSTNAMES`(カンマ区切り。未設定時は`PUBLIC_ORDER_BASE_URL`のホスト名+選手専用ドメイン)に載っているホスト名のみが制限対象。**社内用URL・LAN内のIP直打ちは全機能そのまま**。緊急時は `EXTERNAL_GUARD=off` で無効化。起動ログに現在の設定が出る。※社内用URLを外に出している場合はCloudflare Access等での保護が別途必要
 - お客様向け進捗確認ページは `/status`(`lib/order-status.js`)。受付番号(W-/T-/P-)+申込時の電話番号下4桁で照合する。総当たり対策のIP単位レート制限あり(既定10回/10分、.envの`STATUS_LOOKUP_MAX_ATTEMPTS`/`STATUS_LOOKUP_WINDOW_MIN`で調整可)
 - 主要ファイル: `server.js`(全API)、`public/js/schedule-board.js`(週間スケジュールボード)、`lib/order-intake.js`(Web注文フォーム受付)
