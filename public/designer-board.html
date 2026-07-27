@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>マイスケジュールボード | HIYOSHI</title>
+  <style>
+    /* デザイナー向けマイスケジュールボード。単体完結のスタイル */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
+      background: #f1f5f9; color: #0f172a; line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 20px 14px 60px; }
+
+    .page-head { text-align: center; padding: 14px 0 4px; }
+    .brand { font-size: .8rem; letter-spacing: .18em; color: #64748b; font-weight: 700; }
+    .page-head h1 { font-size: 1.3rem; margin-top: 2px; }
+    .designer-badge {
+      display: inline-block; margin-top: 8px; font-size: .95rem; font-weight: 700;
+      color: #9d174d; background: #fdf2f8; border: 1px solid #fbcfe8;
+      padding: 5px 18px; border-radius: 999px;
+    }
+    .page-note { text-align: center; font-size: .78rem; color: #64748b; margin-top: 8px; }
+
+    .load-error {
+      background: #fef2f2; border: 1px solid #fecaca; color: #991b1b;
+      border-radius: 10px; padding: 14px 16px; margin-top: 20px; text-align: center;
+    }
+
+    /* 週ナビ */
+    .week-nav { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 16px; }
+    .week-nav button {
+      border: 1px solid #cbd5e1; background: #fff; border-radius: 8px;
+      padding: 6px 14px; font-size: .85rem; cursor: pointer; font-weight: 600; color: #0f172a;
+    }
+    .week-nav button:hover { background: #f8fafc; }
+    .week-label { font-weight: 700; font-size: .95rem; min-width: 11em; text-align: center; }
+
+    section { margin-top: 22px; }
+    .sec-title { font-size: 1rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .sec-title .count {
+      font-size: .78rem; font-weight: 700; color: #9d174d; background: #fce7f3;
+      border-radius: 999px; padding: 1px 10px;
+    }
+    .sec-hint { font-size: .76rem; color: #64748b; margin-top: 2px; }
+    .sec-empty { margin-top: 10px; font-size: .85rem; color: #64748b; background: #fff; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 14px; text-align: center; }
+
+    /* タスクチップ */
+    .chips { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+    .chip {
+      background: #fff; border: 1px solid #e2e8f0; border-left: 4px solid #db2777; border-radius: 10px;
+      padding: 9px 12px; box-shadow: 0 1px 2px rgba(15,23,42,.04);
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      cursor: grab; touch-action: manipulation;
+    }
+    .chip.dragging { opacity: .5; }
+    .chip.selected { outline: 3px solid #f472b6; outline-offset: 1px; }
+    .chip.completed { border-left-color: #94a3b8; background: #f8fafc; }
+    .chip.completed .chip-name { text-decoration: line-through; color: #94a3b8; }
+    .chip-main { flex: 1 1 200px; min-width: 0; }
+    .chip-name { font-weight: 700; font-size: .88rem; }
+    .chip-meta { font-size: .74rem; color: #64748b; }
+    .chip-deadline-soon { color: #b45309; font-weight: 700; }
+    .chip-controls { display: flex; align-items: center; gap: 8px; }
+    .chip-hours { width: 60px; padding: 4px 6px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: .85rem; }
+    .chip-hours-label { font-size: .74rem; color: #64748b; }
+    .chip-done-label { display: flex; align-items: center; gap: 4px; font-size: .78rem; color: #334155; cursor: pointer; white-space: nowrap; }
+    .chip-done-label input { width: 17px; height: 17px; }
+
+    /* 日カード */
+    .days { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
+    .day-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; }
+    .day-card.today { border-color: #db2777; box-shadow: 0 0 0 2px rgba(219,39,119,.12); }
+    .day-card.dropover { background: #fdf2f8; border-color: #db2777; }
+    .day-card.day-off { background: #f8fafc; }
+    .day-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .day-title { font-weight: 700; font-size: .95rem; }
+    .day-title .dow-sat { color: #1d4ed8; }
+    .day-title .dow-sun { color: #dc2626; }
+    .day-cap { font-size: .78rem; color: #64748b; }
+    .day-cap .over { color: #dc2626; font-weight: 700; }
+    .day-off-badge { font-size: .74rem; font-weight: 700; color: #64748b; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 999px; padding: 1px 10px; }
+    .day-override-badge { font-size: .74rem; font-weight: 700; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 999px; padding: 1px 10px; }
+    .btn-availability {
+      margin-left: auto; border: 1px solid #cbd5e1; background: #fff; border-radius: 8px;
+      padding: 4px 10px; font-size: .76rem; cursor: pointer; color: #334155; white-space: nowrap;
+    }
+    .btn-availability:hover { background: #f8fafc; }
+    .day-chips { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; min-height: 8px; }
+    .day-drop-hint { font-size: .74rem; color: #cbd5e1; text-align: center; padding: 4px; border: 1px dashed #e2e8f0; border-radius: 8px; }
+
+    /* 稼働申告モーダル */
+    .modal-bg { display: none; position: fixed; inset: 0; background: rgba(15,23,42,.45); z-index: 50; align-items: center; justify-content: center; padding: 16px; }
+    .modal-bg.active { display: flex; }
+    .modal-box { background: #fff; border-radius: 14px; padding: 20px; width: 100%; max-width: 400px; }
+    .modal-box h2 { font-size: 1rem; margin-bottom: 4px; }
+    .modal-date { font-size: .85rem; color: #64748b; margin-bottom: 14px; }
+    .modal-actions { display: flex; flex-direction: column; gap: 8px; }
+    .modal-actions button {
+      border: 1px solid #cbd5e1; background: #fff; border-radius: 10px;
+      padding: 10px 14px; font-size: .9rem; cursor: pointer; text-align: left; font-weight: 600; color: #0f172a;
+    }
+    .modal-actions button:hover { background: #f8fafc; }
+    .modal-actions .danger { color: #991b1b; border-color: #fecaca; }
+    .hours-input-row { display: none; gap: 8px; align-items: center; margin-top: 4px; }
+    .hours-input-row.active { display: flex; }
+    .hours-input-row input { width: 80px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; }
+    .hours-input-row .apply { background: #db2777; color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-weight: 700; cursor: pointer; }
+    .modal-close { margin-top: 14px; width: 100%; border: none; background: #f1f5f9; border-radius: 10px; padding: 9px; font-size: .85rem; cursor: pointer; color: #475569; }
+
+    .toast {
+      position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+      background: #0f172a; color: #fff; font-size: .82rem; padding: 8px 18px; border-radius: 999px;
+      opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 60; white-space: nowrap;
+    }
+    .toast.show { opacity: .92; }
+
+    .foot-note { margin-top: 30px; font-size: .74rem; color: #94a3b8; text-align: center; line-height: 1.8; }
+
+    /* PC: 日カードを2列に */
+    @media (min-width: 760px) {
+      .days { display: grid; grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="page-head">
+      <div class="brand">HiYOSHi</div>
+      <h1>マイスケジュールボード</h1>
+      <div class="designer-badge" id="designer-name">読み込み中…</div>
+      <div class="page-note">タスクをドラッグ（またはタップで選択→日付をタップ）して予定を組めます。変更は自動保存され、社内のスケジュールボードにも反映されます。</div>
+    </div>
+
+    <div id="error-box" class="load-error" style="display:none;"></div>
+
+    <div class="week-nav" id="week-nav" style="display:none;">
+      <button onclick="board.moveWeek(-1)">← 前週</button>
+      <span class="week-label" id="week-label"></span>
+      <button onclick="board.moveWeek(1)">次週 →</button>
+      <button onclick="board.goThisWeek()">今週</button>
+    </div>
+
+    <section id="unscheduled-section" style="display:none;">
+      <div class="sec-title">📥 日付が未定のタスク <span class="count" id="unscheduled-count">0</span></div>
+      <div class="sec-hint">下の日付カードへドラッグ（タップ選択→日付タップでも可）で予定に入れられます</div>
+      <div class="chips" id="unscheduled-chips"></div>
+      <div class="sec-empty" id="unscheduled-empty" style="display:none;">未定のタスクはありません</div>
+    </section>
+
+    <section id="week-section" style="display:none;">
+      <div class="sec-title">🗓 今週の予定</div>
+      <div class="days" id="days"></div>
+    </section>
+
+    <div class="foot-note">
+      有限会社HiYOSHi 生産管理システム HiBoard<br>
+      このページのURLはあなた専用です。他の人に共有しないでください。
+    </div>
+  </div>
+
+  <!-- 稼働申告モーダル -->
+  <div class="modal-bg" id="availability-modal">
+    <div class="modal-box">
+      <h2>稼働予定の変更</h2>
+      <div class="modal-date" id="availability-modal-date"></div>
+      <div class="modal-actions">
+        <button onclick="board.submitAvailability('off')">🚫 この日は稼働できない（終日）</button>
+        <button onclick="board.showHoursInput()">⏱ 稼働できる時間を指定する</button>
+        <div class="hours-input-row" id="hours-input-row">
+          <input type="number" id="hours-input" min="0.5" max="14" step="0.5" placeholder="3">
+          <span>時間</span>
+          <button class="apply" onclick="board.submitAvailability('hours')">設定</button>
+        </div>
+        <button class="danger" onclick="board.submitAvailability('clear')">↩️ 通常の予定に戻す</button>
+      </div>
+      <button class="modal-close" onclick="board.closeAvailabilityModal()">閉じる</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="/js/designer-board.js"></script>
+</body>
+</html>

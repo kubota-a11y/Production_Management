@@ -22,6 +22,7 @@
         <a class="btn-staff-manage" href="/team-links">🔗 チームリンク</a>
         <a class="btn-staff-manage" href="/manual">📖 使い方</a>
         <a class="btn-staff-manage" href="/partner-links">🤝 取引先リンク</a>
+        <a class="btn-staff-manage" href="/designer-links">🎨 デザイナーリンク</a>
       </div>
     </header>
 
@@ -263,12 +264,21 @@
         <button class="btn-close" onclick="app.closeProjectModal()">✕</button>
       </div>
       <form id="project-form" class="project-form">
+        <div class="form-group">
+          <label>案件種別 *</label>
+          <div class="checkbox-group">
+            <label class="checkbox-pill"><input type="radio" name="project_kind" value="NORMAL" checked onchange="app.onProjectKindChange()"> 通常案件</label>
+            <label class="checkbox-pill"><input type="radio" name="project_kind" value="INTERNAL_DESIGN" onchange="app.onProjectKindChange()"> 社内デザイン</label>
+          </div>
+          <div class="field-hint" id="internal-design-hint" style="display:none;">社内デザイン案件（KRATVS・販促物など）は、生産に関する入力を省略して登録できます</div>
+        </div>
+
         <div class="form-row">
           <div class="form-group">
             <label>案件名 *</label>
             <input type="text" name="project_name" required>
           </div>
-          <div class="form-group">
+          <div class="form-group normal-only">
             <label>顧客名 *</label>
             <input type="text" name="customer_name" required>
           </div>
@@ -285,7 +295,7 @@
           </div>
         </div>
 
-        <div class="form-row">
+        <div class="form-row normal-only">
           <div class="form-group">
             <label>連絡経路 *</label>
             <select name="contact_method" required>
@@ -298,7 +308,7 @@
           </div>
         </div>
 
-        <div class="form-group">
+        <div class="form-group normal-only">
           <label>加工種別 * <span class="field-hint">(複数選択可)</span></label>
           <div class="checkbox-group">
             <label class="checkbox-pill"><input type="checkbox" name="process_type" value="SILK_SCREEN_PRINT"> シルクスクリーンプリント</label>
@@ -310,7 +320,7 @@
           </div>
         </div>
 
-        <div class="form-group">
+        <div class="form-group normal-only">
           <label>プリント箇所</label>
           <div class="print-location-rows" id="print-locations-container"></div>
           <button type="button" class="btn btn-small btn-secondary" onclick="app.addPrintLocationRow()">
@@ -323,7 +333,7 @@
           <div class="checkbox-group" id="prep-items-checkbox-group"></div>
         </div>
 
-        <div class="form-row">
+        <div class="form-row normal-only">
           <div class="form-group">
             <label>数量 *</label>
             <input type="number" name="quantity" min="1" required>
@@ -335,7 +345,7 @@
           </div>
         </div>
 
-        <div class="form-row">
+        <div class="form-row normal-only">
           <div class="form-group">
             <label>必要スキル <span class="field-hint">(カンマ区切り)</span></label>
             <input type="text" name="required_skill_tags" placeholder="SILK_SCREEN,DTF">

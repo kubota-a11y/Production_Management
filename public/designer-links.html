@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>デザイナーリンク管理 - Production Management</title>
+  <link rel="stylesheet" href="styles/main.css">
+  <style>
+    /* デザイナーリンク管理専用の差分スタイル(取引先リンク管理と同構成) */
+    .link-url { font-family: monospace; font-size: .8rem; color: #475569; word-break: break-all; }
+    .link-disabled-row td { opacity: .55; }
+    .status-pill { font-size: .75rem; font-weight: 700; padding: 2px 10px; border-radius: 999px; }
+    .status-pill.active { color: #166534; background: #dcfce7; }
+    .status-pill.disabled { color: #991b1b; background: #fee2e2; }
+    .copy-done { color: #166534; font-size: .78rem; margin-left: 6px; }
+    .base-warning { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; font-size: .82rem; line-height: 1.6; }
+    .url-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <!-- ヘッダー -->
+    <header class="app-header">
+      <div class="header-content">
+        <h1 class="app-title">🎨 デザイナーリンク管理</h1>
+        <p class="app-subtitle">Designer Schedule Links</p>
+      </div>
+      <div class="header-buttons">
+        <a class="btn-staff-manage" href="/">📋 HiBoardに戻る</a>
+      </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="main-content">
+      <section>
+        <div class="list-controls">
+          <button class="btn btn-primary" onclick="designerLinksApp.openModal()">➕ 新規リンク発行</button>
+          <p class="folder-notice">発行したURLをデザイン担当者に共有すると、担当者が社外から自分のスケジュールボード(担当の準備項目)を確認・調整できます。予定の移動・完了操作・稼働申告は本人の担当分に限定されます。</p>
+        </div>
+
+        <!-- 配布URLの基準アドレスが未設定のときだけ表示(designer-links.js が制御) -->
+        <div id="base-warning" class="base-warning" style="display:none"></div>
+
+        <div class="table-container">
+          <table class="projects-table" id="links-table">
+            <thead>
+              <tr>
+                <th>担当者</th>
+                <th>専用URL</th>
+                <th>状態</th>
+                <th>発行日</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="links-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ===== モーダル: リンク発行 ===== -->
+  <div id="link-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>新規リンク発行</h2>
+        <button class="btn-close" onclick="designerLinksApp.closeModal()">✕</button>
+      </div>
+      <form id="link-form" class="project-form">
+        <div class="form-group">
+          <label>担当者(従業員) * <span class="field-hint">(先に従業員管理で登録してください)</span></label>
+          <select id="link-employee-id" required>
+            <option value="">選択してください</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>メモ <span class="field-hint">(社内用。本人には表示されません)</span></label>
+          <input type="text" id="link-memo" maxlength="500" placeholder="例: リモートデザイン担当">
+        </div>
+
+        <div class="form-errors" id="link-form-errors" hidden style="color:#b91c1c"></div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" onclick="designerLinksApp.closeModal()">キャンセル</button>
+          <button type="submit" class="btn btn-primary">発行</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/designer-links.js"></script>
+</body>
+</html>

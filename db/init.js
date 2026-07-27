@@ -35,6 +35,12 @@ function initDatabase(dbFile = dbPath) {
     db.prepare(`ALTER TABLE projects ADD COLUMN estimated_hours REAL`).run();
   }
 
+  // 既存DBに project_kind カラムがない場合は追加。
+  // NORMAL=通常案件 / INTERNAL_DESIGN=社内デザイン案件(KRATVS・販促物など。生産系の必須入力を簡略化して登録する)
+  if (!columns.includes('project_kind')) {
+    db.prepare(`ALTER TABLE projects ADD COLUMN project_kind TEXT NOT NULL DEFAULT 'NORMAL'`).run();
+  }
+
   // 既存DBに assigned_employee_id カラムがない場合は追加
   // (assigned_staff_id は staff テーブル(管理担当者)への参照。こちらは employees テーブル(実作業者)への参照で、担当者提案機能の割り当て先として使う)
   if (!columns.includes('assigned_employee_id')) {
@@ -255,6 +261,23 @@ function initDatabase(dbFile = dbPath) {
     )
   `);
 
+  // デザイナー(リモートの鈴木さん等)向け マイスケジュールボードの専用URL(トークン)。
+  // チームリンク・取引先リンクと同じトークン方式。employee_id で従業員に紐付け、
+  // 本人担当の準備項目の閲覧・日付移動・完了操作と稼働申告(schedule_overrides)を許可する。
+  // disabled_at が入っているリンクは公開ページで404になる
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS designer_links (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      token TEXT NOT NULL UNIQUE,
+      employee_id INTEGER NOT NULL,
+      memo TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      disabled_at TEXT,
+      FOREIGN KEY (employee_id) REFERENCES employees(id)
+    )
+  `);
+
   // 準備項目マスターの初期データ投入(未投入の場合のみ)。
   // code は案件新規登録画面(旧ハードコード)・既存projects.prep_itemsのCSVコードと一致させる
   const prepItemCount = db.prepare(`SELECT COUNT(*) as c FROM preparation_item_master`).get().c;
@@ -281,6 +304,28 @@ function initDatabase(dbFile = dbPath) {
       prepItemStmt.run(code, name, index + 1);
     });
     console.log('✓ 準備項目マスターを初期投入しました');
+  }
+
+  // デザイン系の準備項目を追加投入(既存DBにも入るよう、codeごとの冪等INSERT)。
+  // 2026-07-27 鈴木さんスケジュールボード導入に伴い追加。DTFデータ作成は初期データに既存のため対象外
+  {
+    const designPrepItems = [
+      ['OUTSOURCE_DESIGN_DATA', '外注用デザインデータ作成'],
+      ['PROMO_DESIGN_DATA', '販促物用データ作成'],
+      ['WORK_INSTRUCTION_CREATION', '作業指示書作成'],
+      ['QUOTATION_CREATION', '見積書作成']
+    ];
+    const existsStmt = db.prepare(`SELECT COUNT(*) as c FROM preparation_item_master WHERE code = ?`);
+    const maxOrder = db.prepare(`SELECT COALESCE(MAX(display_order), 0) as m FROM preparation_item_master`).get().m;
+    const insertStmt = db.prepare(`INSERT INTO preparation_item_master (code, name, display_order) VALUES (?, ?, ?)`);
+    let added = 0;
+    designPrepItems.forEach(([code, name], index) => {
+      if (existsStmt.get(code).c === 0) {
+        insertStmt.run(code, name, maxOrder + index + 1);
+        added++;
+      }
+    });
+    if (added > 0) console.log(`✓ デザイン系の準備項目 ${added}件を追加しました`);
   }
 
   // 既存案件(projects.prep_items のCSVコード)を case_preparation_items へ移行する。

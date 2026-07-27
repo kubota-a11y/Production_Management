@@ -226,8 +226,11 @@ const app = {
       row.classList.add('row-warning');
     }
 
+    const kindBadge = project.project_kind === 'INTERNAL_DESIGN'
+      ? ' <span class="kind-badge-internal-design">🎨 社内デザイン</span>'
+      : '';
     row.innerHTML = `
-      <td class="cell-project-name">${this.escapeHtml(project.project_name)}</td>
+      <td class="cell-project-name">${this.escapeHtml(project.project_name)}${kindBadge}</td>
       <td>${formatDate(project.received_date)}</td>
       <td class="deadline-cell">${formatDate(project.deadline)}</td>
       <td>${this.escapeHtml(project.customer_name)}</td>
@@ -429,13 +432,16 @@ const app = {
         const prepProgressHtml = prepItems.length > 0
           ? `<div class="card-prep-progress">準備: ${prepItems.filter(i => i.status === '完了').length}/${prepItems.length}完了</div>`
           : '';
+        const cardKindBadge = project.project_kind === 'INTERNAL_DESIGN'
+          ? '<span class="kind-badge-internal-design">🎨 社内デザイン</span>'
+          : '';
         card.innerHTML = `
-          <div class="card-title">${this.escapeHtml(project.project_name)}</div>
+          <div class="card-title">${this.escapeHtml(project.project_name)} ${cardKindBadge}</div>
           <div class="card-customer">${this.escapeHtml(project.customer_name)}</div>
           <div class="card-deadline">${formatDate(project.deadline)}</div>
           <div class="card-info">
-            <span>${getProcessLabels(project.process_type)}</span>
-            <span>×${project.quantity}</span>
+            <span>${project.project_kind === 'INTERNAL_DESIGN' ? 'デザイン' : getProcessLabels(project.process_type)}</span>
+            <span>${project.project_kind === 'INTERNAL_DESIGN' ? '' : `×${project.quantity}`}</span>
           </div>
           ${prepProgressHtml}
           <div class="card-actions">
@@ -931,6 +937,20 @@ const app = {
     document.getElementById('image-lightbox-img').src = '';
   },
 
+  // ===== 案件種別(通常/社内デザイン)の切り替え =====
+  // 社内デザイン選択中は生産系フィールド(.normal-only)を隠し、必須も解除して簡略登録にする。
+  // 必須解除は「非表示のrequiredフィールドが送信をブロックする」ブラウザ仕様への対応
+  onProjectKindChange() {
+    const form = document.getElementById('project-form');
+    const isInternalDesign = form.elements['project_kind'].value === 'INTERNAL_DESIGN';
+    form.classList.toggle('internal-design-mode', isInternalDesign);
+    document.getElementById('internal-design-hint').style.display = isInternalDesign ? 'block' : 'none';
+    ['customer_name', 'contact_method', 'quantity', 'planned_hours'].forEach(name => {
+      const field = form.elements[name];
+      if (field) field.required = !isInternalDesign;
+    });
+  },
+
   // ===== UI: モーダル =====
   async openProjectModal(projectId = null) {
     this.editingProjectId = projectId;
@@ -956,6 +976,7 @@ const app = {
         });
         this.setCheckboxGroupValues(form, 'process_type', project.process_type);
         this.setCheckboxGroupValues(form, 'prep_items', project.prep_items);
+        form.elements['project_kind'].value = project.project_kind || 'NORMAL';
       }
 
       try {
@@ -982,6 +1003,7 @@ const app = {
       this.timeAllocations = [];
     }
 
+    this.onProjectKindChange();
     setTimeout(() => this.loadNasFiles(), 0);
     modal.style.display = 'flex';
   },
@@ -1444,12 +1466,21 @@ const app = {
     const form = document.getElementById('project-form');
     const formData = new FormData(form);
     const data = Object.fromEntries(formData);
+    const isInternalDesign = data.project_kind === 'INTERNAL_DESIGN';
 
-    // 加工種別（複数選択）をカンマ区切りにまとめる
+    // 加工種別（複数選択）をカンマ区切りにまとめる。社内デザイン案件は加工なしでよい
     data.process_type = formData.getAll('process_type').join(',');
-    if (!data.process_type) {
+    if (!data.process_type && !isInternalDesign) {
       alert('加工種別を1つ以上選択してください');
       return;
+    }
+
+    // 社内デザイン案件の簡略登録: 非表示フィールドへ既定値を入れる
+    if (isInternalDesign) {
+      data.customer_name = data.customer_name || '社内';
+      data.contact_method = data.contact_method || 'OTHER';
+      data.quantity = data.quantity || '0';
+      data.planned_hours = data.planned_hours || '0';
     }
 
     // 作業の準備項目（複数選択・任意）をカンマ区切りにまとめる
@@ -1461,8 +1492,8 @@ const app = {
     data.estimated_hours = data.estimated_hours ? parseFloat(data.estimated_hours) : null;
 
     // 数値変換
-    data.quantity = parseInt(data.quantity);
-    data.planned_hours = parseFloat(data.planned_hours);
+    data.quantity = parseInt(data.quantity) || 0;
+    data.planned_hours = parseFloat(data.planned_hours) || 0;
     data.assigned_staff_id = data.assigned_staff_id ? parseInt(data.assigned_staff_id) : null;
 
     try {

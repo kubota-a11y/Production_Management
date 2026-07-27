@@ -379,6 +379,25 @@ html, body {
   text-align: center;
 }
 
+/* ===== 案件種別: 社内デザイン ===== */
+
+/* 社内デザイン選択中は生産系の入力(normal-only)を隠して簡略登録にする */
+.project-form.internal-design-mode .normal-only {
+  display: none;
+}
+
+/* 一覧・かんばんカードの社内デザインバッジ */
+.kind-badge-internal-design {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: #fce7f3;
+  color: #9d174d;
+}
+
 /* ===== ステータスバッジ ===== */
 
 .status-badge {

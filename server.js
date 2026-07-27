@@ -12,6 +12,7 @@ const { registerOrderRoutes } = require('./lib/order-intake');
 const { registerTeamOrderRoutes } = require('./lib/team-order');
 const { registerPartnerPortalRoutes } = require('./lib/partner-portal');
 const { registerPartnerOrderRoutes } = require('./lib/partner-order');
+const { registerDesignerBoardRoutes } = require('./lib/designer-board');
 const { scheduleDailyBackup } = require('./lib/db-backup');
 const { extractCarriedData, extractCarriedItems } = require('./lib/intake-carry');
 
@@ -1002,8 +1003,10 @@ app.post('/api/schedule-board/auto-propose-range', (req, res) => {
         .map(r => r.case_id)
     );
 
+    // 社内デザイン案件は生産の自動割り当て対象外(デザイン作業は準備項目でデザイナーに割り当てる)
     const candidateProjects = db.prepare('SELECT * FROM projects WHERE assigned_employee_id IS NULL').all()
-      .filter(p => !alreadyProposedCaseIds.has(p.id) && SCHEDULABLE_PROJECT_STATUSES.includes(p.status));
+      .filter(p => !alreadyProposedCaseIds.has(p.id) && SCHEDULABLE_PROJECT_STATUSES.includes(p.status)
+        && p.project_kind !== 'INTERNAL_DESIGN');
 
     let proposedCount = 0;
     let skippedExpiredCount = 0;
@@ -1147,10 +1150,13 @@ app.get('/api/proposals', (req, res) => {
     // (SCHEDULABLE_PROJECT_STATUSES)に限る。status='提案'の案件は上のresultsに、
     // status='予定'等の確定済み案件はcase_time_allocationsに行があるため、ここには含まれない
     // (=既存カードと重複しない)
+    // 社内デザイン案件(INTERNAL_DESIGN)は生産の担当割り当て対象外のため除外する
+    // (デザイン作業は準備項目としてデザイナーに割り当てる)
     const schedulablePlaceholders = SCHEDULABLE_PROJECT_STATUSES.map(() => '?').join(', ');
     const unassignedProjects = db.prepare(`
       SELECT * FROM projects
       WHERE status IN (${schedulablePlaceholders})
+        AND COALESCE(project_kind, 'NORMAL') != 'INTERNAL_DESIGN'
         AND id NOT IN (SELECT DISTINCT case_id FROM case_time_allocations)
       ORDER BY id ASC
     `).all(...SCHEDULABLE_PROJECT_STATUSES);
@@ -1361,33 +1367,38 @@ function createProjectRecord(data) {
   const { project_name, received_date, deadline, customer_name, contact_method,
     work_content, process_type, quantity, planned_hours, assigned_staff_id,
     status, priority, reference_link, memo, nas_folder_path, prep_items,
-    required_skill_tags, estimated_hours, assigned_employee_id } = data;
+    required_skill_tags, estimated_hours, assigned_employee_id, project_kind } = data;
+  // 社内デザイン案件は数量・作業予定時間なしで登録できるため、NOT NULL列は0で埋める
+  const kind = project_kind === 'INTERNAL_DESIGN' ? 'INTERNAL_DESIGN' : 'NORMAL';
   const now = new Date().toISOString();
   const result = db.prepare(`
     INSERT INTO projects (
       project_name, received_date, deadline, customer_name, contact_method,
       work_content, process_type, quantity, planned_hours, assigned_staff_id,
       status, priority, reference_link, memo, nas_folder_path, prep_items,
-      required_skill_tags, estimated_hours, assigned_employee_id, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      required_skill_tags, estimated_hours, assigned_employee_id, project_kind, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(project_name, received_date, deadline, customer_name, contact_method,
-    work_content || '', process_type, quantity, planned_hours, assigned_staff_id || null,
+    work_content || '', process_type || '', quantity || 0, planned_hours || 0, assigned_staff_id || null,
     status || 'PRE_ORDER', priority || 'MEDIUM', reference_link || '', memo || '',
     nas_folder_path || '', prep_items || '', required_skill_tags || '', estimated_hours || null,
-    assigned_employee_id || null, now, now);
+    assigned_employee_id || null, kind, now, now);
   return result.lastInsertRowid;
 }
 
 app.post('/api/projects', (req, res) => {
   try {
     const id = createProjectRecord(req.body);
-    try {
-      const autoProposeResult = autoProposeForProject(db, id);
-      if (autoProposeResult.error) {
-        console.error(`自動提案に失敗しました(project_id=${id}): ${autoProposeResult.error}`);
+    // 社内デザイン案件は生産作業ではないため、従業員への自動割り当て提案の対象外にする
+    if (req.body.project_kind !== 'INTERNAL_DESIGN') {
+      try {
+        const autoProposeResult = autoProposeForProject(db, id);
+        if (autoProposeResult.error) {
+          console.error(`自動提案に失敗しました(project_id=${id}): ${autoProposeResult.error}`);
+        }
+      } catch (autoProposeError) {
+        console.error(`自動提案に失敗しました(project_id=${id}):`, autoProposeError.message);
       }
-    } catch (autoProposeError) {
-      console.error(`自動提案に失敗しました(project_id=${id}):`, autoProposeError.message);
     }
     res.status(201).json({ id, message: 'Project created successfully' });
   } catch (error) {
@@ -1400,19 +1411,20 @@ app.put('/api/projects/:id', (req, res) => {
     const { project_name, received_date, deadline, customer_name, contact_method,
       work_content, process_type, quantity, planned_hours, assigned_staff_id,
       status, priority, reference_link, memo, nas_folder_path, prep_items,
-      required_skill_tags, estimated_hours, assigned_employee_id } = req.body;
+      required_skill_tags, estimated_hours, assigned_employee_id, project_kind } = req.body;
+    const kind = project_kind === 'INTERNAL_DESIGN' ? 'INTERNAL_DESIGN' : 'NORMAL';
     const now = new Date().toISOString();
     db.prepare(`
       UPDATE projects SET
         project_name=?, received_date=?, deadline=?, customer_name=?, contact_method=?,
         work_content=?, process_type=?, quantity=?, planned_hours=?, assigned_staff_id=?,
         status=?, priority=?, reference_link=?, memo=?, nas_folder_path=?, prep_items=?,
-        required_skill_tags=?, estimated_hours=?, assigned_employee_id=?, updated_at=?
+        required_skill_tags=?, estimated_hours=?, assigned_employee_id=?, project_kind=?, updated_at=?
       WHERE id=?
     `).run(project_name, received_date, deadline, customer_name, contact_method,
-      work_content || '', process_type, quantity, planned_hours, assigned_staff_id || null,
+      work_content || '', process_type || '', quantity || 0, planned_hours || 0, assigned_staff_id || null,
       status, priority, reference_link || '', memo || '', nas_folder_path || '', prep_items || '',
-      required_skill_tags || '', estimated_hours || null, assigned_employee_id || null, now, req.params.id);
+      required_skill_tags || '', estimated_hours || null, assigned_employee_id || null, kind, now, req.params.id);
     res.json({ message: 'Project updated successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -2453,6 +2465,10 @@ registerPartnerPortalRoutes(app, db);
 // 取引先向け 加工依頼フォーム(公開フォーム /partner/{token}/order)。
 // 着地は ai_extracted_intake(line_user_id='PARTNER'、受付番号 P-{id})。
 registerPartnerOrderRoutes(app, db);
+
+// デザイナー向け マイスケジュールボード(専用URL /designer/{token} + 管理画面 /designer-links)。
+// リモートのデザイン担当が自分の準備項目をD&Dで日付調整・完了操作・稼働申告できる。
+registerDesignerBoardRoutes(app, db, { syncCaseStatus: syncCaseStatusForPreparationItems });
 
 // 5分ごとにLINEメッセージのAI構造化抽出を実行する。前回の実行が終わっていなければスキップする。
 let aiExtractionRunning = false;
