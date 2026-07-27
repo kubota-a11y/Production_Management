@@ -89,6 +89,16 @@
       padding: 4px 10px; font-size: .76rem; cursor: pointer; color: #334155; white-space: nowrap;
     }
     .btn-availability:hover { background: #f8fafc; }
+    /* 日別モード(デザイン/デザイン関連業務)の選択ボタン */
+    .day-mode-row { display: flex; gap: 6px; margin-top: 8px; }
+    .mode-btn {
+      border: 1px solid #cbd5e1; background: #fff; color: #64748b; border-radius: 999px;
+      padding: 3px 12px; font-size: .74rem; font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+    .mode-btn:hover { background: #f8fafc; }
+    .mode-btn-design.active { background: #fdf2f8; border-color: #f9a8d4; color: #9d174d; }
+    .mode-btn-related.active { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+
     .day-chips { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; min-height: 8px; }
     .day-drop-hint { font-size: .74rem; color: #cbd5e1; text-align: center; padding: 4px; border: 1px dashed #e2e8f0; border-radius: 8px; }
 

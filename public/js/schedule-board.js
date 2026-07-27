@@ -10,6 +10,7 @@ const scheduleBoard = {
   defaultSchedules: [],
   allocations: [],
   preparationItems: [],
+  designerDayModes: [],
   unassignedPreparationItems: [],
   projectProgress: [],
   proposals: [],
@@ -46,6 +47,7 @@ const scheduleBoard = {
     await this.loadDefaultSchedules();
     await this.loadWeekAllocations();
     await this.loadWeekPreparationItems();
+    await this.loadDesignerDayModes();
     await this.loadProjectProgress();
     await this.loadProposals();
     this.render();
@@ -179,6 +181,20 @@ const scheduleBoard = {
     }
   },
 
+  // デザイナーの日別モード申告(デザイン/デザイン関連業務)。本人が専用ボードで設定した
+  // 「この日はデザインに専念したい」等の意向を、従業員セルのバッジとして表示する(閲覧のみ)
+  async loadDesignerDayModes() {
+    try {
+      const dates = this.getWeekDates();
+      const start = this.toISODate(dates[0]);
+      const end = this.toISODate(dates[6]);
+      this.designerDayModes = await (await fetch(`/api/designer-day-modes?start=${start}&end=${end}`)).json();
+    } catch (error) {
+      console.error('日別モード申告取得エラー:', error);
+      this.designerDayModes = [];
+    }
+  },
+
   async loadUnassignedPreparationItems() {
     try {
       const all = await (await fetch('/api/preparation-items?unassigned=true')).json();
@@ -215,6 +231,7 @@ const scheduleBoard = {
     this.currentWeekStart.setDate(this.currentWeekStart.getDate() - 7);
     await this.loadWeekAllocations();
     await this.loadWeekPreparationItems();
+    await this.loadDesignerDayModes();
     this.render();
   },
 
@@ -222,6 +239,7 @@ const scheduleBoard = {
     this.currentWeekStart.setDate(this.currentWeekStart.getDate() + 7);
     await this.loadWeekAllocations();
     await this.loadWeekPreparationItems();
+    await this.loadDesignerDayModes();
     this.render();
   },
 
@@ -329,6 +347,15 @@ const scheduleBoard = {
     return this.preparationItems.filter(i => i.assigned_staff_id === employeeId && i.scheduled_date === dateISO);
   },
 
+  // 日別モード申告のバッジHTML。未申告の従業員×日は空文字
+  getDayModeBadge(employeeId, dateISO) {
+    const row = this.designerDayModes.find(m => m.employee_id === employeeId && m.work_date === dateISO);
+    if (!row) return '';
+    const isDesign = row.mode === 'DESIGN';
+    const label = isDesign ? '🎨 デザイン' : '📋 デザイン関連業務';
+    return `<div class="sb-day-mode-badge ${isDesign ? 'sb-day-mode-design' : 'sb-day-mode-related'}" title="本人がマイスケジュールボードで申告した、この日の仕事の種類">${label}</div>`;
+  },
+
   getProjectColor(projectId) {
     return this.colorPalette[projectId % this.colorPalette.length];
   },
@@ -409,8 +436,9 @@ const scheduleBoard = {
   // デスクトップの<td>とスマホの縦積み日別カードの両方から使う、セル内側(空き時間バー等)の
   // HTML組み立て。ドラッグ&ドロップのハンドラは各呼び出し元(セル/カード)側で付与する
   renderCellContent(employee, dateISO, referenceHours) {
+    const dayModeBadge = this.getDayModeBadge(employee.id, dateISO);
     if (referenceHours <= 0) {
-      return `<div class="sb-cell-off">休み</div>`;
+      return `${dayModeBadge}<div class="sb-cell-off">休み</div>`;
     }
 
     const dayAllocations = this.getAllocationsFor(employee.id, dateISO);
@@ -473,6 +501,7 @@ const scheduleBoard = {
     }).join('');
 
     return `
+      ${dayModeBadge}
       ${isShort ? `<div class="sb-cell-warning" title="計画時間(${this.roundHours(plannedTotal)}h)が勤務時間(${this.roundHours(referenceHours)}h)に不足しています">⚠️ 計画不足</div>` : ''}
       <div class="sb-cell-hours-label">${this.roundHours(plannedTotal)}h / ${this.roundHours(referenceHours)}h</div>
       <div class="sb-bar-track" onclick="event.stopPropagation(); scheduleBoard.openDetailModal(${employee.id}, '${dateISO}')">

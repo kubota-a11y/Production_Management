@@ -103,6 +103,14 @@ const board = {
         : `<span class="day-cap"><span class="${over ? 'over' : ''}">${this.round(planned)}h</span> / ${this.round(day.hours)}h</span>`;
       const overrideBadge = day.source === 'override' ? `<span class="day-override-badge">変更申告あり</span>` : '';
       const dow = this.dowLabel(day.date);
+      // 日別モード(この日の仕事の種類の意向)。選択中のボタンをもう一度押すと解除
+      const modeButtons = `
+        <div class="day-mode-row" onclick="event.stopPropagation()">
+          <button type="button" class="mode-btn mode-btn-design${day.mode === 'DESIGN' ? ' active' : ''}"
+                  onclick="board.setDayMode('${day.date}', 'DESIGN')">🎨 デザイン</button>
+          <button type="button" class="mode-btn mode-btn-related${day.mode === 'DESIGN_RELATED' ? ' active' : ''}"
+                  onclick="board.setDayMode('${day.date}', 'DESIGN_RELATED')">📋 デザイン関連業務</button>
+        </div>`;
       return `
         <div class="day-card${day.date === todayISO ? ' today' : ''}${day.is_day_off ? ' day-off' : ''}"
              data-date="${day.date}"
@@ -115,12 +123,38 @@ const board = {
             ${overrideBadge}
             <button type="button" class="btn-availability" onclick="event.stopPropagation(); board.openAvailabilityModal('${day.date}')">⚙ 稼働変更</button>
           </div>
+          ${modeButtons}
           <div class="day-chips">
             ${items.map(i => this.chipHtml(i)).join('') || '<div class="day-drop-hint">ここにドラッグ / タップで移動</div>'}
           </div>
         </div>
       `;
     }).join('');
+  },
+
+  // ===== 日別モード申告(デザイン/デザイン関連業務) =====
+  // 選択中のモードをもう一度押すと解除。保存後は社内スケジュールボードにもバッジ表示される
+  async setDayMode(dateISO, mode) {
+    const day = this.days.find(d => d.date === dateISO);
+    const newMode = day && day.mode === mode ? null : mode;
+    try {
+      const res = await fetch(`/api/designer/${this.token}/day-mode`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ work_date: dateISO, mode: newMode }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        this.toast(data.error || '保存に失敗しました');
+      } else {
+        const labels = { DESIGN: '🎨 デザインの日にしました', DESIGN_RELATED: '📋 デザイン関連業務の日にしました' };
+        this.toast(newMode ? labels[newMode] : '設定を解除しました');
+      }
+    } catch (e) {
+      console.error(e);
+      this.toast('通信エラーで保存できませんでした');
+    }
+    await this.load();
   },
 
   chipHtml(i) {

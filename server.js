@@ -1991,7 +1991,24 @@ app.get('/api/preparation-items/master', (req, res) => {
   }
 });
 
-// 案件作成・編集時に選択した準備項目をまとめて登録(既に登録済みの項目はスキップ = 冪等)
+// デザイン作業の自動割り当て先。有効なデザイナーリンクに紐づく従業員を返す(いなければnull)。
+// 複数リンクがある場合は最初に発行されたリンクを既定のデザイン担当とみなす
+function getDefaultDesignerEmployeeId() {
+  const link = db.prepare(`
+    SELECT dl.employee_id FROM designer_links dl
+    JOIN employees e ON dl.employee_id = e.id
+    WHERE dl.disabled_at IS NULL AND e.is_active = 1
+    ORDER BY dl.created_at ASC LIMIT 1
+  `).get();
+  return link ? link.employee_id : null;
+}
+
+// 案件作成・編集時に選択した準備項目をまとめて登録(既に登録済みの項目はスキップ = 冪等)。
+// デザイン担当者への自動割り当て(2026-07-27 社長指示の設計):
+//  - 社内デザイン案件(INTERNAL_DESIGN) → 全項目
+//  - 通常案件 → デザイン担当者の専用項目(is_designer_item=1)のみ
+// いずれも予定日は空のまま = 本人のマイスケジュールボード「日付が未定のタスク」に入り、
+// 日付の入れ込みは本人がD&Dで行う
 app.post('/api/projects/:projectId/preparation-items', (req, res) => {
   try {
     const { preparation_item_ids } = req.body;
@@ -1999,22 +2016,49 @@ app.post('/api/projects/:projectId/preparation-items', (req, res) => {
       return res.status(400).json({ error: 'preparation_item_ids は配列で指定してください' });
     }
     const caseId = req.params.projectId;
+    const project = db.prepare('SELECT project_kind FROM projects WHERE id = ?').get(caseId);
+    const isInternalDesign = !!(project && project.project_kind === 'INTERNAL_DESIGN');
+    const designerEmployeeId = getDefaultDesignerEmployeeId();
+    const designerItemIds = new Set(
+      db.prepare('SELECT id FROM preparation_item_master WHERE is_designer_item = 1').all().map(r => r.id)
+    );
     const existingIds = new Set(
       db.prepare('SELECT preparation_item_id FROM case_preparation_items WHERE case_id = ?')
         .all(caseId).map(row => row.preparation_item_id)
     );
     const insertStmt = db.prepare(`
-      INSERT INTO case_preparation_items (case_id, preparation_item_id, status)
-      VALUES (?, ?, '未着手')
+      INSERT INTO case_preparation_items (case_id, preparation_item_id, status, assigned_staff_id)
+      VALUES (?, ?, '未着手', ?)
     `);
     let createdCount = 0;
+    let designerCount = 0;
     preparation_item_ids.forEach(itemId => {
       if (!existingIds.has(itemId)) {
-        insertStmt.run(caseId, itemId);
+        const toDesigner = designerEmployeeId && (isInternalDesign || designerItemIds.has(itemId));
+        insertStmt.run(caseId, itemId, toDesigner ? designerEmployeeId : null);
         createdCount++;
+        if (toDesigner) designerCount++;
       }
     });
+    if (designerCount > 0) {
+      console.log(`[準備項目] 案件#${caseId}: ${designerCount}件をデザイン担当(従業員#${designerEmployeeId})へ自動割り当て`);
+    }
     res.status(201).json({ created: createdCount, message: 'Preparation items registered successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// デザイナーの日別モード申告(デザイン/デザイン関連業務)の週分取得。
+// 週間スケジュールボードが従業員セルにバッジ表示するために使う(閲覧のみ・設定は本人の専用ボードから)
+app.get('/api/designer-day-modes', (req, res) => {
+  try {
+    const { start, end } = req.query;
+    if (!start || !end) return res.status(400).json({ error: 'start と end を指定してください' });
+    const rows = db.prepare(`
+      SELECT employee_id, work_date, mode FROM designer_day_modes WHERE work_date BETWEEN ? AND ?
+    `).all(start, end);
+    res.json(rows);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

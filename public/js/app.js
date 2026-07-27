@@ -1475,12 +1475,15 @@ const app = {
       return;
     }
 
-    // 社内デザイン案件の簡略登録: 非表示フィールドへ既定値を入れる
+    // 社内デザイン案件の簡略登録: 非表示フィールドへ既定値を入れる。
+    // 新規登録時のステータスは「生産待ち」固定 — 準備項目(デザイン作業)が全て完了すると
+    // 既存の同期処理で自動的に「準備完了」へ進む(編集時は現在のステータスを維持)
     if (isInternalDesign) {
       data.customer_name = data.customer_name || '社内';
       data.contact_method = data.contact_method || 'OTHER';
       data.quantity = data.quantity || '0';
       data.planned_hours = data.planned_hours || '0';
+      if (!this.editingProjectId) data.status = 'WAITING';
     }
 
     // 作業の準備項目（複数選択・任意）をカンマ区切りにまとめる

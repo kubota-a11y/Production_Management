@@ -261,6 +261,27 @@ function initDatabase(dbFile = dbPath) {
     )
   `);
 
+  // 既存DBに preparation_item_master.is_designer_item カラムがない場合は追加。
+  // 1の項目は「デザイン担当者の専用項目」= どの案件種別でも登録時にデザイン担当へ自動割り当てされる
+  const prepMasterColumns = db.prepare(`PRAGMA table_info('preparation_item_master')`).all().map(col => col.name);
+  if (!prepMasterColumns.includes('is_designer_item')) {
+    db.prepare(`ALTER TABLE preparation_item_master ADD COLUMN is_designer_item INTEGER NOT NULL DEFAULT 0`).run();
+  }
+
+  // デザイナーの日別モード申告(この日はデザインに専念したい等)。本人がマイスケジュールボードで
+  // 「デザイン」「デザイン関連業務」を選び、社内の週間スケジュールボードにバッジ表示される
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS designer_day_modes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      employee_id INTEGER NOT NULL,
+      work_date TEXT NOT NULL,
+      mode TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(employee_id, work_date),
+      FOREIGN KEY (employee_id) REFERENCES employees(id)
+    )
+  `);
+
   // デザイナー(リモートの鈴木さん等)向け マイスケジュールボードの専用URL(トークン)。
   // チームリンク・取引先リンクと同じトークン方式。employee_id で従業員に紐付け、
   // 本人担当の準備項目の閲覧・日付移動・完了操作と稼働申告(schedule_overrides)を許可する。
@@ -326,6 +347,20 @@ function initDatabase(dbFile = dbPath) {
       }
     });
     if (added > 0) console.log(`✓ デザイン系の準備項目 ${added}件を追加しました`);
+
+    // デザイン担当者の専用項目フラグを付与(冪等)。2026-07-27 社長指定の5項目 =
+    // 案件種別を問わず、案件登録時にデザイン担当のマイスケジュールボードへ自動で入る
+    const designerItemCodes = [
+      'OUTSOURCE_DESIGN_DATA', 'PROMO_DESIGN_DATA', 'DTF_DATA_CREATION',
+      'WORK_INSTRUCTION_CREATION', 'QUOTATION_CREATION'
+    ];
+    const flagged = db.prepare(`
+      UPDATE preparation_item_master SET is_designer_item = 1
+      WHERE code IN (${designerItemCodes.map(() => '?').join(',')}) AND is_designer_item = 0
+    `).run(...designerItemCodes);
+    if (flagged.changes > 0) {
+      console.log(`✓ デザイン担当者の専用項目フラグを ${flagged.changes}件に付与しました`);
+    }
   }
 
   // 既存案件(projects.prep_items のCSVコード)を case_preparation_items へ移行する。
@@ -357,6 +392,40 @@ function initDatabase(dbFile = dbPath) {
     });
     if (migratedCount > 0) {
       console.log(`✓ 既存案件の準備項目 ${migratedCount}件を case_preparation_items へ移行しました`);
+    }
+  }
+
+  // 未割り当てのデザイン系準備項目をデザイン担当者へバックフィルする。
+  // 自動割り当て導入(2026-07-27)前に登録された案件の項目が、どのボードにも表示されず
+  // 埋もれてしまうのを防ぐ。対象は「担当者なし・予定日なし・未着手」のうち、
+  //  ①社内デザイン案件(INTERNAL_DESIGN)の全項目
+  //  ②通常案件のデザイン担当者専用項目(is_designer_item=1)。準備段階を終えた案件は除外
+  // 割り当て先は有効なデザイナーリンク(最初に発行されたもの)の従業員。冪等
+  {
+    const designerLink = db.prepare(`
+      SELECT dl.employee_id FROM designer_links dl
+      JOIN employees e ON dl.employee_id = e.id
+      WHERE dl.disabled_at IS NULL AND e.is_active = 1
+      ORDER BY dl.created_at ASC LIMIT 1
+    `).get();
+    if (designerLink) {
+      const backfilled = db.prepare(`
+        UPDATE case_preparation_items SET assigned_staff_id = ?
+        WHERE assigned_staff_id IS NULL AND scheduled_date IS NULL AND status = '未着手'
+          AND (
+            case_id IN (SELECT id FROM projects WHERE project_kind = 'INTERNAL_DESIGN')
+            OR (
+              preparation_item_id IN (SELECT id FROM preparation_item_master WHERE is_designer_item = 1)
+              AND case_id IN (
+                SELECT id FROM projects
+                WHERE status NOT IN ('PREP_COMPLETE', 'INSPECTION', 'DELIVERED', 'COMPLETED')
+              )
+            )
+          )
+      `).run(designerLink.employee_id);
+      if (backfilled.changes > 0) {
+        console.log(`✓ デザイン系の準備項目 ${backfilled.changes}件をデザイン担当(従業員#${designerLink.employee_id})へ割り当てました`);
+      }
     }
   }
 

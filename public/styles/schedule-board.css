@@ -143,6 +143,31 @@
   cursor: default;
 }
 
+/* デザイナーの日別モード申告バッジ(本人がマイスケジュールボードで設定・ここでは閲覧のみ) */
+.sb-day-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-bottom: 4px;
+  cursor: default;
+}
+
+.sb-day-mode-design {
+  color: #9d174d;
+  background: #fce7f3;
+  border: 1px solid #f9a8d4;
+}
+
+.sb-day-mode-related {
+  color: #1d4ed8;
+  background: #dbeafe;
+  border: 1px solid #93c5fd;
+}
+
 .sb-cell-hours-label {
   font-size: 11px;
   color: var(--gray-600);
