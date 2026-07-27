@@ -12,6 +12,7 @@ const { registerTeamOrderRoutes } = require('./lib/team-order');
 const { registerPartnerPortalRoutes } = require('./lib/partner-portal');
 const { registerPartnerOrderRoutes } = require('./lib/partner-order');
 const { registerDesignerBoardRoutes } = require('./lib/designer-board');
+const { registerOrderStatusRoutes } = require('./lib/order-status');
 const { scheduleDailyBackup } = require('./lib/db-backup');
 const { extractCarriedData, extractCarriedItems } = require('./lib/intake-carry');
 const { HOLIDAYS, isJpHoliday } = require('./lib/jp-holidays');
@@ -279,6 +280,8 @@ const EXTERNAL_GUARD_DISABLED = process.env.EXTERNAL_GUARD === 'off';
 const EXTERNAL_ALLOWED_PATTERNS = [
   /^\/order$/,                       // Web注文フォーム(GET/POST)
   /^\/guide$/,                       // ご注文の流れ
+  /^\/status$/,                      // お客様向け 進捗確認ページ
+  /^\/api\/order-status$/,           // 進捗確認の照合API(受付番号+電話下4桁)
   /^\/support\/[\w-]+$/,             // 選手応援 特設ページ
   /^\/team\/[\w-]+$/,                // チーム追加注文フォーム
   /^\/partner\/[\w-]+(\/order)?$/,   // 取引先ポータル・加工依頼フォーム
@@ -2826,6 +2829,7 @@ registerPartnerOrderRoutes(app, db);
 // デザイナー向け マイスケジュールボード(専用URL /designer/{token} + 管理画面 /designer-links)。
 // リモートのデザイン担当が自分の準備項目をD&Dで日付調整・完了操作・稼働申告できる。
 registerDesignerBoardRoutes(app, db, { syncCaseStatus: syncCaseStatusForPreparationItems });
+registerOrderStatusRoutes(app, db);
 
 // 5分ごとにLINEメッセージのAI構造化抽出を実行する。前回の実行が終わっていなければスキップする。
 let aiExtractionRunning = false;

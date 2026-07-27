@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>ご注文の進捗確認 | HIYOSHI</title>
+  <style>
+    /* お客様向け進捗確認ページ。partner-status.html と同じトーンの単体完結スタイル */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    /* display指定のあるクラス(.meta-row等)がhidden属性を打ち消してしまうため明示的に優先する */
+    [hidden] { display: none !important; }
+    body {
+      font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
+      background: #f1f5f9; color: #0f172a; line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrap { max-width: 560px; margin: 0 auto; padding: 20px 14px 40px; }
+
+    .page-head { text-align: center; padding: 18px 0 6px; }
+    .brand { font-size: .8rem; letter-spacing: .18em; color: #64748b; font-weight: 700; }
+    .page-head h1 { font-size: 1.35rem; margin-top: 2px; }
+    .page-note { text-align: center; font-size: .85rem; color: #64748b; margin-top: 10px; }
+
+    .card {
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+      padding: 18px 16px; margin-top: 20px; box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+    }
+    .field { display: block; margin-bottom: 14px; font-size: .88rem; font-weight: 600; color: #334155; }
+    .field input {
+      display: block; width: 100%; margin-top: 6px; padding: 11px 12px;
+      border: 1px solid #cbd5e1; border-radius: 8px;
+      /* 1rem未満にするとiOSで入力時に自動ズームするため16px相当を維持する */
+      font-size: 1rem; font-family: inherit;
+    }
+    .field input:focus { outline: 2px solid #93c5fd; outline-offset: 1px; border-color: #60a5fa; }
+    .field .hint { display: block; font-weight: 400; font-size: .78rem; color: #64748b; margin-top: 4px; }
+
+    .btn-submit {
+      width: 100%; padding: 13px; border: none; border-radius: 8px;
+      background: #1d4ed8; color: #fff; font-size: 1rem; font-weight: 700;
+      font-family: inherit; cursor: pointer;
+    }
+    .btn-submit:disabled { background: #94a3b8; cursor: default; }
+
+    .err {
+      background: #fef2f2; border: 1px solid #fecaca; color: #991b1b;
+      border-radius: 10px; padding: 12px 14px; margin-top: 16px; font-size: .88rem;
+    }
+
+    /* 結果表示 */
+    .result-receipt { font-size: .82rem; color: #64748b; font-weight: 700; }
+    .result-name { font-size: 1.05rem; font-weight: 700; margin-top: 2px; }
+    .stage-pill {
+      display: inline-block; margin-top: 12px;
+      font-size: .85rem; font-weight: 700; padding: 4px 14px; border-radius: 999px;
+    }
+    .stage-1 { color: #475569; background: #f1f5f9; border: 1px solid #cbd5e1; }
+    .stage-2 { color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe; }
+    .stage-3 { color: #b45309; background: #fffbeb; border: 1px solid #fde68a; }
+    .stage-4 { color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; }
+    .stage-note { font-size: .88rem; color: #334155; margin-top: 10px; }
+
+    /* 4段階の進捗バー */
+    .steps { display: flex; gap: 4px; margin-top: 16px; }
+    .step { flex: 1; text-align: center; font-size: .7rem; color: #94a3b8; }
+    .step-bar { height: 6px; border-radius: 999px; background: #e2e8f0; margin-bottom: 5px; }
+    .step.done .step-bar { background: #2563eb; }
+    .step.done { color: #1d4ed8; font-weight: 700; }
+
+    .meta-row { display: flex; justify-content: space-between; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: .88rem; }
+    .meta-label { color: #64748b; }
+    .meta-value { font-weight: 700; }
+
+    .contact { text-align: center; font-size: .85rem; color: #475569; margin-top: 22px; }
+    .contact a { color: #1d4ed8; font-weight: 700; }
+    .btn-again {
+      display: block; width: 100%; margin-top: 16px; padding: 11px;
+      border: 1px solid #cbd5e1; border-radius: 8px; background: #fff;
+      color: #334155; font-size: .9rem; font-family: inherit; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="page-head">
+      <p class="brand">HIYOSHI</p>
+      <h1>ご注文の進捗確認</h1>
+      <p class="page-note">受付完了画面・受付控えメールに記載の<strong>受付番号</strong>と、お申し込み時の<strong>電話番号の下4桁</strong>をご入力ください。</p>
+    </header>
+
+    <form id="lookupForm" class="card" novalidate>
+      <label class="field">受付番号
+        <input type="text" id="receiptNo" placeholder="例: W-123" maxlength="12" autocomplete="off" inputmode="text">
+        <span class="hint">W / T / P で始まる番号です。</span>
+      </label>
+      <label class="field">電話番号の下4桁
+        <input type="text" id="phoneLast4" placeholder="例: 5678" maxlength="4" autocomplete="off" inputmode="numeric">
+        <span class="hint">お申し込み時にご入力いただいた電話番号の、末尾4桁の数字です。</span>
+      </label>
+      <button type="submit" id="submitBtn" class="btn-submit">進捗を確認する</button>
+    </form>
+
+    <div id="errBox" class="err" hidden></div>
+
+    <section id="resultCard" class="card" hidden>
+      <p class="result-receipt" id="resReceipt"></p>
+      <p class="result-name" id="resName"></p>
+      <span class="stage-pill" id="resStage"></span>
+      <p class="stage-note" id="resNote"></p>
+
+      <div class="steps" id="resSteps"></div>
+
+      <div class="meta-row" id="resDeadlineRow" hidden>
+        <span class="meta-label">納品予定日</span>
+        <span class="meta-value" id="resDeadline"></span>
+      </div>
+      <div class="meta-row" id="resDeliveredRow" hidden>
+        <span class="meta-label">納品日</span>
+        <span class="meta-value" id="resDelivered"></span>
+      </div>
+
+      <button type="button" class="btn-again" id="againBtn">別の受付番号を確認する</button>
+    </section>
+
+    <p class="contact">
+      ご不明な点は <a href="https://lin.ee/OIX6jSZ" target="_blank" rel="noopener">公式LINE</a> よりお気軽にお問い合わせください。<br>
+      <a href="/guide">ご注文の流れ</a>
+    </p>
+  </main>
+
+  <script src="/js/order-status.js"></script>
+</body>
+</html>
