@@ -135,7 +135,7 @@ const board = {
           ${modeButtons}
           <div class="day-chips">
             ${items.map(i => this.chipHtml(i)).join('')}
-            ${dayTodos.map(t => this.todoChipHtml(t, true)).join('')}
+            ${dayTodos.map(t => this.todoChipHtml(t)).join('')}
             ${items.length || dayTodos.length ? '' : '<div class="day-drop-hint">ここにドラッグ / タップで移動</div>'}
           </div>
         </div>
@@ -164,7 +164,7 @@ const board = {
 
   // TODOチップ。準備項目と同じくD&D(タッチ端末はタップ選択→日付タップ)で日付に置ける。
   // 完了操作はスプレッドシート側なので、チェックボックスの代わりに状態バッジを出す
-  todoChipHtml(t, inDayCard = false) {
+  todoChipHtml(t) {
     const inProgress = t.status === '進行中';
     const deadline = this.fmtSheetDate(t.deadline);
     const selected = this.selectedTodoText === t.task;
@@ -189,6 +189,7 @@ const board = {
                  value="${t.estimated_hours ?? ''}" placeholder="h"
                  onchange="board.onTodoHoursChange('${encoded}', this.value)">
           <span class="chip-hours-label">h</span>
+          ${t.scheduled_date ? `<button type="button" class="btn-unplan" onclick="board.onTodoDateChange('${encoded}', '')" title="このタスクをTODOリストに戻します">↩︎ 未定に戻す</button>` : ''}
         </div>
       </div>
     `;
@@ -303,6 +304,7 @@ const board = {
           <label class="chip-done-label">
             <input type="checkbox" ${done ? 'checked' : ''} onchange="board.onDoneChange(${i.id}, this.checked)"> 完了
           </label>
+          ${i.scheduled_date ? `<button type="button" class="btn-unplan" onclick="board.onItemDateChange(${i.id}, '')" title="このタスクを「日付が未定のタスク」に戻します">↩︎ 未定に戻す</button>` : ''}
         </div>
       </div>
     `;

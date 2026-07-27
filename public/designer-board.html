@@ -66,6 +66,14 @@
     .chip-deadline-soon { color: #b45309; font-weight: 700; }
     .chip-controls { display: flex; align-items: center; gap: 8px; }
     .chip-hours { width: 60px; padding: 4px 6px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: .85rem; }
+    /* 日付カードに置いたタスクを未定へ戻すボタン(プルダウンの空欄選択と同じ操作の近道) */
+    .btn-unplan {
+      border: 1px solid #cbd5e1; background: #fff; color: #475569; border-radius: 999px;
+      padding: 3px 10px; font-size: .74rem; font-weight: 700; cursor: pointer;
+      white-space: nowrap; font-family: inherit;
+    }
+    .btn-unplan:hover { background: #f8fafc; color: #0f172a; }
+
     /* 日付プルダウン。長い画面をドラッグしなくても予定を入れられるようにするための操作 */
     .chip-date {
       padding: 4px 6px; border: 1px solid #cbd5e1; border-radius: 6px;
