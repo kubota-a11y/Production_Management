@@ -131,9 +131,20 @@
   }
 
   // ===== 送信 =====
-  async function submit(ev) {
+  // 送信ボタン → 内容の確認ウィンドウ → 「送信する」で send() を実行する
+  function submit(ev) {
     ev.preventDefault();
     const lines = collectLines();
+    const totalQty = lines.reduce((sum, l) => sum + (l.qty >= 1 ? l.qty : 0), 0);
+    FormGuard.confirm([
+      ['ご担当者名', $('#contactName').value || '(未入力)'],
+      ['電話番号', $('#contactPhone').value || '(未入力)'],
+      ['ご注文点数', lines.length ? `${lines.length}行 / 計${totalQty}枚` : '(未入力)'],
+      ['ご希望納期', $('#deadlineDate').value || $('#deadlineNote').value || '(指定なし)'],
+    ], () => send(lines));
+  }
+
+  async function send(lines) {
     const payload = {
       website: document.querySelector('input[name="website"]').value,
       orderer: {
@@ -204,6 +215,8 @@
 
       $('#teamOrderForm').hidden = false;
       $('#teamOrderForm').addEventListener('submit', submit);
+      // 入力途中のEnterキーによる誤送信を防ぐ
+      FormGuard.blockEnterSubmit();
     } catch {
       $('#leadText').textContent = '';
       const box = $('#loadError');

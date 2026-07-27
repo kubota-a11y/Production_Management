@@ -478,11 +478,26 @@
   }
 
   // ===== 送信 =====
-  form.addEventListener('submit', async (e) => {
+  // 入力途中のEnterキーによる誤送信を防ぐ(送信は必ずボタン→確認ウィンドウ経由)
+  FormGuard.blockEnterSubmit();
+
+  // 送信ボタン → 内容の確認ウィンドウ → 「送信する」で send() を実行する
+  form.addEventListener('submit', (e) => {
     e.preventDefault();
     showErrors(null);
     const clientErrors = clientValidate();
     if (clientErrors.length) { showErrors(clientErrors); return; }
+    const typeLabel = { order: '正式発注', consult: 'かんたん相談' }[currentType()] || '見積・イメージ依頼';
+    FormGuard.confirm([
+      ['ご依頼種別', typeLabel],
+      ['会社/団体名', val('orderer.org_name') || '(未入力)'],
+      ['ご担当者名', val('orderer.contact_name') || '(未入力)'],
+      ['電話番号', val('orderer.phone') || '(未入力)'],
+      ['メールアドレス', $('#ordererEmail').value.trim() || '(未入力)'],
+    ], send);
+  });
+
+  async function send() {
     const btn = $('#submitBtn');
     btn.disabled = true;
     btn.textContent = '送信中...';
@@ -527,5 +542,5 @@
       btn.disabled = false;
       btn.textContent = '送信する';
     }
-  });
+  }
 })();

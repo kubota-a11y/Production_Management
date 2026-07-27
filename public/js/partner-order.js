@@ -167,8 +167,23 @@ const partnerOrder = {
     }));
   },
 
-  async submit(ev) {
+  // 新規案件: 送信ボタン押下 → 確認ウィンドウを出すところまで。実送信は sendNew()
+  submit(ev) {
     ev.preventDefault();
+    document.getElementById('formErrors').hidden = true;
+    const items = this.collectItems();
+    const fileCount = document.getElementById('images').files.length;
+    FormGuard.confirm([
+      ['ご担当者名', document.getElementById('contactName').value || '(未入力)'],
+      ['持ち込み予定', document.getElementById('dropoffDate').value || '(未入力)'],
+      ['指図書番号', document.getElementById('instructionNo').value || '(なし)'],
+      ['品物', items.length ? `${items.length}点` : '(未入力)'],
+      ['希望納期', document.getElementById('deadlineDate').value || document.getElementById('deadlineNote').value || '(指定なし)'],
+      ['添付ファイル', fileCount ? `${fileCount}点` : '(なし)'],
+    ], () => this.sendNew());
+  },
+
+  async sendNew() {
     const errBox = document.getElementById('formErrors');
     errBox.hidden = true;
     const btn = document.getElementById('submitBtn');
@@ -219,12 +234,11 @@ const partnerOrder = {
     }
   },
 
-  // 追加案件(簡易版)の送信。指図書の添付と担当者名は必須。
-  async submitAdditional(ev) {
+  // 追加案件(簡易版): 必須チェックを済ませてから確認ウィンドウを出す。実送信は sendAdditional()
+  submitAdditional(ev) {
     ev.preventDefault();
     const errBox = document.getElementById('a_formErrors');
     errBox.hidden = true;
-    const btn = document.getElementById('a_submitBtn');
 
     // 送信前の軽いチェック(本チェックはサーバー側でも実施)
     const contactName = document.getElementById('a_contactName').value.trim();
@@ -238,6 +252,21 @@ const partnerOrder = {
       errBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
+
+    FormGuard.confirm([
+      ['ご担当者名', contactName],
+      ['指図書番号', document.getElementById('a_instructionNo').value || '(なし)'],
+      ['指図書の添付', `${files.length}点`],
+      ['希望納期', document.getElementById('a_deadlineDate').value || document.getElementById('a_deadlineNote').value || '(指定なし)'],
+    ], () => this.sendAdditional());
+  },
+
+  async sendAdditional() {
+    const errBox = document.getElementById('a_formErrors');
+    errBox.hidden = true;
+    const btn = document.getElementById('a_submitBtn');
+    const contactName = document.getElementById('a_contactName').value.trim();
+    const files = document.getElementById('a_images').files;
 
     const payload = {
       order_type: 'additional',
@@ -285,4 +314,8 @@ const partnerOrder = {
 
 document.getElementById('partnerOrderForm').addEventListener('submit', ev => partnerOrder.submit(ev));
 document.getElementById('additionalForm').addEventListener('submit', ev => partnerOrder.submitAdditional(ev));
+
+// 入力途中のEnterキーによる誤送信を防ぐ(送信は必ずボタン→確認ウィンドウ経由で行う)
+FormGuard.blockEnterSubmit();
+
 partnerOrder.init();
