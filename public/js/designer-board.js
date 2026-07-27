@@ -153,8 +153,10 @@ const board = {
       return;
     }
     section.style.display = 'block';
-    // 日付に置いたTODOは日カード側に出るので、ここでは未計画のものだけ並べる
-    const unplanned = this.sheetTodos.filter(t => !t.scheduled_date);
+    // 日付に置いたTODOは日カード側に出るので、ここでは未計画のものだけ並べる。
+    // 「未着手」は件数が多く確認の負担になるため一覧には出さず、「進行中」だけを表示する
+    // (2026-07-27 社長指示)。日付に置き済みのものは状態を問わず日カードに残す
+    const unplanned = this.sheetTodos.filter(t => !t.scheduled_date && t.status === '進行中');
     document.getElementById('sheet-todos-count').textContent = unplanned.length;
     document.getElementById('sheet-todos-empty').style.display = unplanned.length ? 'none' : 'block';
     document.getElementById('sheet-todos-chips').innerHTML = unplanned.map(t => this.todoChipHtml(t)).join('');
