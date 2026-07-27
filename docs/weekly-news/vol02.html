@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>社内システムお知らせ Vol.2(A4印刷用)</title>
+<style>
+  /* A4印刷用。Chromeのヘッドレス印刷でPDF化する(生成手順はdocs/weekly-news/README.md参照) */
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #1c1917;
+    --text: #44403c;
+    --muted: #78716c;
+    --hairline: #e7e2dc;
+    --accent-bg: #f5f2ee;
+    --ask-bg: #f2f6f3;
+    --ask-line: #cfdfd4;
+    --ask-text: #3f6b50;
+    --serif: "Hiragino Mincho ProN", "Yu Mincho", serif;
+    --sans: "Hiragino Sans", "Noto Sans JP", sans-serif;
+  }
+
+  body {
+    font-family: var(--sans);
+    color: var(--text);
+    line-height: 1.7;
+    font-size: 9.2pt;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .page {
+    width: 210mm; height: 297mm;
+    padding: 15mm 18mm 13mm;
+    page-break-after: always;
+    position: relative;
+    background: #fff;
+  }
+  .page:last-child { page-break-after: auto; }
+
+  /* ===== ヘッダー ===== */
+  .hero { text-align: center; margin-bottom: 6.5mm; }
+  .overline {
+    font-size: 7pt; letter-spacing: .32em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 2.2mm;
+  }
+  h1 {
+    font-family: var(--serif); font-size: 19pt; font-weight: 600;
+    letter-spacing: .12em; color: var(--ink);
+  }
+  .divider { width: 12mm; height: .35mm; background: var(--ink); margin: 3.5mm auto; }
+  .lead { color: var(--muted); font-size: 8.4pt; }
+
+  .intro {
+    background: var(--accent-bg);
+    border-radius: 1.5mm;
+    padding: 3.4mm 5mm;
+    margin-bottom: 6.5mm;
+    font-size: 9pt;
+  }
+  .intro strong { color: var(--ink); }
+
+  /* ===== セクション ===== */
+  .sec { margin-bottom: 5.6mm; }
+  .sec-head {
+    display: flex; align-items: baseline; gap: 3mm;
+    border-bottom: .3mm solid var(--ink);
+    padding-bottom: 1.2mm; margin-bottom: 2.2mm;
+  }
+  .sec-head h2 {
+    font-family: var(--serif); font-size: 12pt; font-weight: 600;
+    letter-spacing: .08em; color: var(--ink);
+  }
+  .sec-head .sub { margin-left: auto; font-size: 7.2pt; color: var(--muted); letter-spacing: .06em; }
+
+  ul.items { list-style: none; }
+  ul.items li {
+    position: relative;
+    padding-left: 4.2mm;
+    margin-bottom: 1.3mm;
+  }
+  ul.items li::before {
+    content: ""; position: absolute; left: .6mm; top: 2.1mm;
+    width: 1.5mm; height: 1.5mm; border-radius: 50%;
+    background: var(--ink);
+  }
+  ul.items strong { color: var(--ink); font-weight: 600; }
+  .note { color: var(--muted); font-size: 8.4pt; }
+
+  /* ===== テーマ見出し ===== */
+  .theme {
+    display: inline-block;
+    font-size: 7pt; font-weight: 600; letter-spacing: .14em;
+    color: #fff; background: var(--ink);
+    padding: .4mm 2.6mm; border-radius: .8mm;
+    margin-right: 2mm; vertical-align: middle;
+  }
+
+  /* ===== お願いボックス ===== */
+  .ask {
+    background: var(--ask-bg);
+    border: .3mm solid var(--ask-line);
+    border-radius: 1.5mm;
+    padding: 3.4mm 5mm 3mm;
+    margin-top: 5.5mm;
+  }
+  .ask h3 {
+    font-family: var(--serif); font-size: 10.5pt; font-weight: 600;
+    letter-spacing: .1em; color: var(--ask-text); margin-bottom: 1.6mm;
+  }
+  .ask ul.items li::before { background: var(--ask-text); }
+
+  /* ===== フッター ===== */
+  .foot {
+    position: absolute; left: 18mm; right: 18mm; bottom: 9mm;
+    border-top: .3mm solid var(--hairline);
+    padding-top: 2mm;
+    display: flex; justify-content: space-between;
+    font-size: 7.2pt; color: var(--muted); letter-spacing: .06em;
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <header class="hero">
+    <div class="overline">HIYOSHI DX WEEKLY</div>
+    <h1>社内システムお知らせ</h1>
+    <div class="divider"></div>
+    <div class="lead">Vol.2 ─ 2026年7月27日発行 ─ 対象期間:7月22日〜7月26日</div>
+  </header>
+
+  <div class="intro">
+    今週は<strong>「卸先さま(取引先)とのやり取り」</strong>がHiBoardでできるようになったのが一番の変化です。あわせて、<strong>LINE問い合わせの見え方</strong>を整理し、<strong>HiBoardの使い方ガイド</strong>も用意しました。皆さんの日々の作業に関わる部分を中心にお知らせします。
+  </div>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">受注</span>
+      <h2>卸先さま専用ページができました</h2>
+      <span class="sub">7/23〜7/24</span>
+    </div>
+    <ul class="items">
+      <li><strong>納期確認ページ</strong>を新設。卸先さまが、進行中のご依頼と納品済みの案件を<strong>ご自身で確認</strong>できます。→ 「あの件どうなってる?」という電話・問い合わせ対応が減ります。</li>
+      <li>同じページの<strong>加工依頼フォーム</strong>から、卸先さまが直接ご依頼できます。依頼が届くと<strong>三浦さんのTODOに通知</strong>が入り、<strong>受注候補一覧にも自動で載ります</strong>(Web注文と同じ流れ)。</li>
+      <li>依頼は<strong>「追加案件」と「新規案件」の2種類</strong>に分かれます。<strong>「追加案件」は指図書(写真・PDF)の添付が必須</strong>なので、その<strong>指図書を見て作業指示書を作成</strong>してください。「新規案件」は詳細が入力された状態で届きます。</li>
+      <li>卸先さまからの依頼には受付番号<strong>「P-番号」</strong>が付き、画面にも表示されます。「P-3の件で」と言われたら、その番号で照合できます。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">受注</span>
+      <h2>LINE問い合わせの表示を整理</h2>
+      <span class="sub">7/24</span>
+    </div>
+    <ul class="items">
+      <li>お名前が読み取れないLINEの問い合わせは、これまで1件ずつTODOに並んでいましたが、<strong>1日分をまとめて1行</strong>で表示するようにしました。→ 三浦さんのTODOがすっきりします。</li>
+      <li>まとめ行の中身は<strong>HiBoardの受注候補一覧</strong>で確認できます。まとめ行を見たら、受注候補でその日の分をチェックしてください。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">その他</span>
+      <h2>HiBoardの「使い方ガイド」を追加</h2>
+      <span class="sub">7/25</span>
+    </div>
+    <ul class="items">
+      <li>社員向けの<strong>「HiBoard 使い方ガイド」</strong>を用意しました。HiBoard画面右上の<strong>「📖 使い方」</strong>から開けます。</li>
+      <li>注文の入り口 → 朝の取り込み → ステータス → スケジュール → 納品 → リピート → Q&A の<strong>業務の流れ順・全7章</strong>。各機能に「使うタイミング」「手順」「つまずきポイント」を書いています。</li>
+      <li>操作に迷ったら、まずここを見てください。<strong>印刷すればそのままA4のマニュアル</strong>としても使えます。</li>
+    </ul>
+  </section>
+
+  <div class="ask">
+    <h3>皆さんへのお願い(今週からの動き方)</h3>
+    <ul class="items">
+      <li>卸先さまからの<strong>加工依頼も受注候補一覧に載ります</strong>。1日1回の確認を続けてください(三浦さんにはTODO通知も届きます)。</li>
+      <li><strong>「追加案件」で届いた依頼は、添付の指図書を見て作業指示書を作成</strong>してください。</li>
+      <li>納期の問い合わせが来たら、卸先さまには<strong>納期確認ページで見られる</strong>ことをご案内ください。</li>
+      <li>操作で迷ったら<strong>「📖 使い方」ガイド</strong>を確認 → それでも分からなければ久保田まで。</li>
+    </ul>
+  </div>
+
+  <div class="foot">
+    <span>株式会社ヒヨシ ─ 社内システムお知らせ Vol.2</span>
+    <span>1 / 1</span>
+  </div>
+</div>
+
+</body>
+</html>
