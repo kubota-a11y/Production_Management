@@ -586,7 +586,7 @@ const scheduleBoard = {
       const setupMin = a.setup_minutes || 0;
       const cleanupMin = a.cleanup_minutes || 0;
       const overheadNote = (setupMin > 0 || cleanupMin > 0) ? `（準備${setupMin}分+片付け${cleanupMin}分込み）` : '';
-      const title = `${a.project_name}: 実作業${a.planned_hours}h${overheadNote}${a.actual_hours != null ? ` / 実績${a.actual_hours}h` : ''}${isProposed ? '（提案中・未確定・ドラッグで確定/移動可）' : '（ドラッグで移動可）'}`;
+      const title = `${a.project_name}: 実作業${a.planned_hours}h${overheadNote}${a.actual_hours != null ? ` / 実績${a.actual_hours}h` : ''}${isProposed ? '（提案中・未確定・ドラッグで確定/移動可）' : '（ドラッグで移動可）'}\n提案確認パネルへドラッグすると予定から外せます`;
       const proposedCls = isProposed ? ' sb-bar-segment-proposed' : '';
       const highlightCls = isProposed && this.highlightedCaseId === a.case_id ? ' is-highlighted' : '';
       const proposedClick = isProposed
@@ -1124,6 +1124,12 @@ const scheduleBoard = {
     this.dragPayload = null;
     if (!target) return;
 
+    // 提案確認パネルの上で指を離した場合は、予定から外して戻す
+    if (target.id === 'sb-proposals-cards') {
+      if (payload.type === 'allocation') await this.unscheduleByAllocation(payload.allocationId);
+      return;
+    }
+
     const employeeId = Number(target.dataset.employeeId);
     const dateISO = target.dataset.dateIso;
     if (!this.confirmIfPastDate(dateISO)) return;
@@ -1138,7 +1144,72 @@ const scheduleBoard = {
 
   findDropTargetAt(x, y) {
     const el = document.elementFromPoint(x, y);
-    return el ? el.closest('.sb-cell, .sb-mobile-day-cell') : null;
+    return el ? el.closest('.sb-cell, .sb-mobile-day-cell, #sb-proposals-cards') : null;
+  },
+
+  // ===== 提案確認パネルへのドロップ(予定から外して戻す) =====
+  // ボード上のブロック(確定済み・提案中どちらも)をパネルへ落とすと、その案件の割り当てを
+  // 全件外して「担当者未定」カードとしてパネルに戻す
+  onProposalsDragOver(event) {
+    const payload = this.dragPayload;
+    if (!payload || payload.type !== 'allocation') return; // 提案カード自身のドロップは無視
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    document.getElementById('sb-proposals-cards').classList.add('is-drop-target');
+  },
+
+  onProposalsDragLeave(event) {
+    // 子要素間の移動でも leave が飛ぶため、パネルの外に出たときだけ解除する
+    const panel = document.getElementById('sb-proposals-cards');
+    if (!panel.contains(event.relatedTarget)) panel.classList.remove('is-drop-target');
+  },
+
+  async onProposalsDrop(event) {
+    event.preventDefault();
+    document.getElementById('sb-proposals-cards').classList.remove('is-drop-target');
+
+    let payload = this.dragPayload;
+    if (!payload) {
+      try { payload = JSON.parse(event.dataTransfer.getData('text/plain')); } catch { payload = null; }
+    }
+    this.dragPayload = null;
+    if (!payload || payload.type !== 'allocation') return;
+
+    await this.unscheduleByAllocation(payload.allocationId);
+  },
+
+  // 割り当てIDから案件を特定し、その案件をまるごと予定から外す。
+  // 複数日に分かれている案件でも、1つのブロックを戻せば全部まとめて外れる
+  async unscheduleByAllocation(allocationId) {
+    const allocation = this.allocations.find(a => a.id === allocationId);
+    if (!allocation) return;
+
+    const others = this.allocations.filter(a => a.case_id === allocation.case_id).length;
+    const message = others > 1
+      ? `「${allocation.project_name}」を予定から外して提案確認に戻しますか?\n(この案件の予定 ${others}件すべてが外れます)`
+      : `「${allocation.project_name}」を予定から外して提案確認に戻しますか?`;
+    if (!confirm(message)) return;
+
+    try {
+      const res = await fetch(`/api/projects/${allocation.case_id}/unschedule`, { method: 'POST' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || '提案確認へ戻せませんでした');
+        return;
+      }
+      await this.loadWeekAllocations();
+      await this.loadProposals();
+      await this.loadProjectProgress();
+      await this.loadProjects();
+      this.renderBoard();
+      this.renderMobileBoard();
+      this.renderLegend();
+      this.renderProgress();
+      this.renderProposals();
+    } catch (error) {
+      console.error('提案確認へ戻す処理でエラー:', error);
+      alert('提案確認へ戻せませんでした');
+    }
   },
 
   createDragGhost(sourceEl, touch) {

@@ -102,7 +102,11 @@
             </label>
           </div>
 
-          <div class="sb-proposals-cards" id="sb-proposals-cards"></div>
+          <!-- ボード上のブロックをここへドラッグすると、その案件を予定から外して提案確認に戻す -->
+          <div class="sb-proposals-cards" id="sb-proposals-cards"
+               ondragover="scheduleBoard.onProposalsDragOver(event)"
+               ondragleave="scheduleBoard.onProposalsDragLeave(event)"
+               ondrop="scheduleBoard.onProposalsDrop(event)"></div>
         </aside>
       </div>
     </main>

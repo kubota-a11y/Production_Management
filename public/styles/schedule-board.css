@@ -698,6 +698,14 @@
   gap: 8px;
 }
 
+/* ボードのブロックをここへドラッグすると予定から外して戻せる。その受け入れ表示 */
+.sb-proposals-cards.is-drop-target {
+  outline: 2px dashed #f97316;
+  outline-offset: -4px;
+  background: #fff7ed;
+  border-radius: 8px;
+}
+
 .sb-proposals-cards .sb-empty-notice {
   padding: 16px 8px;
   font-size: 12px;

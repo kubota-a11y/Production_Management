@@ -2178,6 +2178,27 @@ app.delete('/api/time-allocations/:id', (req, res) => {
   }
 });
 
+// 案件をボードから外して提案確認パネルへ戻す(ブロックをパネルへドラッグしたとき)。
+// その案件の割り当てを status を問わず全件削除し、担当者を未割り当てに戻す。
+// case_time_allocations が0件になることで /api/proposals の「担当者未定」カードとして
+// 再びパネルに出る。DELETE /api/time-allocations/:id と違い自動再提案はしない
+// (利用者が意図してボードから外したのに、すぐ別の日へ再配置されると戻したことにならないため)
+app.post('/api/projects/:id/unschedule', (req, res) => {
+  try {
+    const project = db.prepare('SELECT id, project_name FROM projects WHERE id = ?').get(req.params.id);
+    if (!project) return res.status(404).json({ error: '案件が見つかりません' });
+
+    const removed = db.prepare('DELETE FROM case_time_allocations WHERE case_id = ?').run(project.id).changes;
+    db.prepare('UPDATE projects SET assigned_employee_id = NULL, updated_at = ? WHERE id = ?')
+      .run(new Date().toISOString(), project.id);
+
+    console.log(`[予定から外す] 案件#${project.id}「${project.project_name}」の割り当て${removed}件を削除し提案確認へ戻しました`);
+    res.json({ id: project.id, removed_count: removed });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ===== 準備項目 =====
 
 // 案件が全準備項目完了→未完了、未完了→全完了に切り替わったタイミングでcases.statusを同期する。
