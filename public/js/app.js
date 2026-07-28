@@ -79,8 +79,9 @@ const app = {
 
   // 準備項目の選択肢をマスターデータから動的に生成する。
   // value は既存の prep_items CSV(projects.prep_items)と互換性を保つため code を使う
-  renderPrepItemsCheckboxGroup() {
-    const container = document.getElementById('prep-items-checkbox-group');
+  // containerId を渡すと受注候補モーダル側にも同じ選択肢を描ける(実装は1つに保つ)
+  renderPrepItemsCheckboxGroup(containerId = 'prep-items-checkbox-group') {
+    const container = document.getElementById(containerId);
     if (!container) return;
     container.innerHTML = this.prepItemsMaster.map(item => `
       <label class="checkbox-pill"><input type="checkbox" name="prep_items" value="${this.escapeHtml(item.code)}"> ${this.escapeHtml(item.name)}</label>
@@ -88,7 +89,7 @@ const app = {
   },
 
   // ===== プリント箇所（案件フォーム内） =====
-  printLocationRowHtml(rowKey, locationName, colorCount) {
+  printLocationRowHtml(rowKey, locationName, colorCount, containerId = 'print-locations-container') {
     const options = [1, 2, 3, 4].map(n =>
       `<option value="${n}" ${Number(colorCount) === n ? 'selected' : ''}>${n}色</option>`
     ).join('');
@@ -96,12 +97,12 @@ const app = {
       <div class="print-location-row" data-row-key="${rowKey}">
         <input type="text" class="pl-location-name" data-row-key="${rowKey}" placeholder="箇所名(例: 胸ロゴ)" value="${this.escapeHtml(locationName || '')}">
         <select class="pl-color-count" data-row-key="${rowKey}">${options}</select>
-        <button type="button" class="btn-small btn-danger" onclick="app.removePrintLocationRow('${rowKey}')">🗑️</button>
+        <button type="button" class="btn-small btn-danger" onclick="app.removePrintLocationRow('${rowKey}', '${containerId}')">🗑️</button>
       </div>
     `;
   },
 
-  renderPrintLocationRows(locations = []) {
+  renderPrintLocationRows(locations = [], containerId = 'print-locations-container') {
     this.printLocationRowCounter = 0;
     this.printLocationRows = locations.map(l => ({
       rowKey: `existing-${this.printLocationRowCounter++}`,
@@ -109,7 +110,7 @@ const app = {
       color_count: l.color_count
     }));
 
-    const container = document.getElementById('print-locations-container');
+    const container = document.getElementById(containerId);
     if (!container) return;
 
     if (this.printLocationRows.length === 0) {
@@ -118,23 +119,23 @@ const app = {
     }
 
     container.innerHTML = this.printLocationRows.map(row =>
-      this.printLocationRowHtml(row.rowKey, row.location_name, row.color_count)
+      this.printLocationRowHtml(row.rowKey, row.location_name, row.color_count, containerId)
     ).join('');
   },
 
-  addPrintLocationRow() {
+  addPrintLocationRow(containerId = 'print-locations-container') {
     const rowKey = `new-${this.printLocationRowCounter++}`;
-    const container = document.getElementById('print-locations-container');
+    const container = document.getElementById(containerId);
     if (!container) return;
 
     const emptyNotice = container.querySelector('.folder-notice');
     if (emptyNotice) emptyNotice.remove();
 
-    container.insertAdjacentHTML('beforeend', this.printLocationRowHtml(rowKey, '', 1));
+    container.insertAdjacentHTML('beforeend', this.printLocationRowHtml(rowKey, '', 1, containerId));
   },
 
-  removePrintLocationRow(rowKey) {
-    const container = document.getElementById('print-locations-container');
+  removePrintLocationRow(rowKey, containerId = 'print-locations-container') {
+    const container = document.getElementById(containerId);
     if (!container) return;
     const rowEl = container.querySelector(`[data-row-key="${rowKey}"]`);
     if (rowEl) rowEl.remove();
@@ -144,8 +145,8 @@ const app = {
     }
   },
 
-  collectPrintLocationData() {
-    const rows = [...document.querySelectorAll('#print-locations-container .print-location-row')];
+  collectPrintLocationData(containerId = 'print-locations-container') {
+    const rows = [...document.querySelectorAll(`#${containerId} .print-location-row`)];
     return rows
       .map(rowEl => ({
         location_name: rowEl.querySelector('.pl-location-name').value.trim(),
@@ -863,11 +864,32 @@ const app = {
     form.elements['work_content'].value = itemsText;
     form.elements['memo'].value = intake.notes || '';
 
+    form.elements['required_skill_tags'].value = '';
+    form.elements['estimated_hours'].value = '';
+    form.elements['nas_folder_path'].value = '';
+
     this.setCheckboxGroupValues(form, 'process_type', this.detectProcessType(itemsText));
+
+    // 新規案件モーダルと同じ入力欄をここでも用意する(登録後に編集で入れ直す手間を無くすため)。
+    // Web注文フォーム由来の候補はプリント箇所が raw_ai_response に入っているので、あれば初期表示する
+    this.renderPrepItemsCheckboxGroup('ai-intake-prep-items-checkbox-group');
+    this.renderPrintLocationRows(this.extractIntakePrintLocations(intake), 'ai-intake-print-locations-container');
 
     // AIが返した生の値が日付/数値としてうまく変換できなかった場合に備え、参考情報として表示する
     document.getElementById('ai-intake-deadline-hint').textContent = intake.deadline ? `AI抽出値: ${intake.deadline}` : '';
     document.getElementById('ai-intake-quantity-hint').textContent = intake.quantity ? `AI抽出値: ${intake.quantity}` : '';
+  },
+
+  // Web注文フォーム由来の候補は raw_ai_response にプリント箇所を持っているので取り出す。
+  // LINE由来など持っていない候補は空配列(手入力してもらう)
+  extractIntakePrintLocations(intake) {
+    try {
+      const raw = JSON.parse(intake.raw_ai_response || '{}');
+      const locations = (raw.decoration && raw.decoration.print_locations) || [];
+      return Array.isArray(locations) ? locations : [];
+    } catch {
+      return [];
+    }
   },
 
   async submitAiIntakeConfirm() {
@@ -891,6 +913,12 @@ const app = {
     data.quantity = parseInt(data.quantity);
     data.planned_hours = parseFloat(data.planned_hours);
     data.assigned_staff_id = data.assigned_staff_id ? parseInt(data.assigned_staff_id) : null;
+    data.estimated_hours = data.estimated_hours ? parseFloat(data.estimated_hours) : null;
+    // 新規案件モーダルと同じく、プリント箇所と準備項目も一緒に登録する
+    // (print_locations は確定処理が case_print_locations へ引き継ぐ)
+    data.print_locations = this.collectPrintLocationData('ai-intake-print-locations-container');
+    const prepItemCodes = formData.getAll('prep_items');
+    data.prep_items = prepItemCodes.join(',');
 
     try {
       const result = await API.confirmAiIntake(this.editingAiIntakeId, data);
@@ -899,6 +927,15 @@ const app = {
         return;
       }
       console.log(`✓ AI受注候補 #${this.editingAiIntakeId} を案件 #${result.id} として登録`);
+
+      // 準備項目は案件作成後に別APIでタスク化する(新規案件モーダルと同じ手順)
+      if (prepItemCodes.length > 0) {
+        const codeToId = new Map(this.prepItemsMaster.map(m => [m.code, m.id]));
+        const prepItemIds = prepItemCodes.map(code => codeToId.get(code)).filter(Boolean);
+        if (prepItemIds.length > 0) {
+          await API.registerCasePreparationItems(result.id, prepItemIds);
+        }
+      }
 
       this.closeAiIntakeModal();
       await this.loadAiIntakeList();

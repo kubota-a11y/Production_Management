@@ -1416,11 +1416,20 @@ app.post('/api/projects/:id/confirm-proposal-at', (req, res) => {
     const setupMinutes = hasExistingOverhead ? (existingProposalRows[0].setup_minutes || 0) : AUTO_PROPOSE_SETUP_MINUTES;
     const cleanupMinutes = hasExistingOverhead ? (existingProposalRows[0].cleanup_minutes || 0) : AUTO_PROPOSE_CLEANUP_MINUTES;
 
+    // 必要時間の決め方(2026-07-28に方針変更)。
+    // 担当者の生産性(employee_process_rates)が未登録でもボードに置けるようにするため、
+    // 次の優先順で決める。以前は生産性が無いと「必要時間を計算できませんでした」で
+    // ドロップ自体が失敗し、担当者を割り当てないと案件をボードに載せられなかった。
+    //   1. 担当者の生産性から計算できるならそれ(従来どおり精度が高い)
+    //   2. 既存の提案に積まれていた合計時間(別の担当者向けに算出済みの値)
+    //   3. 案件の「作業予定時間」(手入力の見積もり・分) ← これで誰の列にも置ける
     const { requiredHours, canHandleAll } = calculateRequiredHours(db, project, employeeId);
-    const finalRequiredHours = (canHandleAll && requiredHours > 0) ? requiredHours : existingProposalHours;
+    const plannedHours = (project.planned_hours || 0) / 60;
+    const finalRequiredHours = (canHandleAll && requiredHours > 0) ? requiredHours
+      : (existingProposalHours > 0 ? existingProposalHours : plannedHours);
 
     if (finalRequiredHours <= 0) {
-      return res.status(400).json({ error: 'この案件の必要時間を計算できませんでした(担当者の生産性が未登録で、既存の提案もありません)' });
+      return res.status(400).json({ error: 'この案件の必要時間が分かりません。案件の「作業予定時間」を入力してください' });
     }
 
     // 既存提案の削除→再割り振り→担当者更新を1トランザクションにまとめる。
