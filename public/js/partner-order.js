@@ -184,6 +184,7 @@ const partnerOrder = {
     const fileCount = document.getElementById('images').files.length;
     FormGuard.confirm([
       ['ご担当者名', document.getElementById('contactName').value || '(未入力)'],
+      ['メールアドレス', document.getElementById('contactEmail').value || '(未入力)'],
       ['持ち込み予定', document.getElementById('dropoffDate').value || '(未入力)'],
       ['指図書番号', document.getElementById('instructionNo').value || '(なし)'],
       ['品物', items.length ? `${items.length}点` : '(未入力)'],
@@ -205,6 +206,7 @@ const partnerOrder = {
         instruction_no: document.getElementById('instructionNo').value,
         contact_name: document.getElementById('contactName').value,
         phone: document.getElementById('contactPhone').value,
+        email: document.getElementById('contactEmail').value,
       },
       items: this.collectItems(),
       deadline: {
@@ -271,6 +273,7 @@ const partnerOrder = {
 
     FormGuard.confirm([
       ['ご担当者名', contactName],
+      ['メールアドレス', document.getElementById('a_contactEmail').value || '(未入力)'],
       ['指図書番号', document.getElementById('a_instructionNo').value || '(なし)'],
       ['指図書の添付', `${files.length}点`],
       ['希望納期', document.getElementById('a_deadlineDate').value || document.getElementById('a_deadlineNote').value || '(指定なし)'],
@@ -290,6 +293,7 @@ const partnerOrder = {
       dropoff: {
         contact_name: contactName,
         phone: document.getElementById('a_contactPhone').value,
+        email: document.getElementById('a_contactEmail').value,
         instruction_no: document.getElementById('a_instructionNo').value,
       },
       deadline: {
