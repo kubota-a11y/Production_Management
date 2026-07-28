@@ -163,7 +163,7 @@ const board = {
   },
 
   // TODOチップ。準備項目と同じくD&D(タッチ端末はタップ選択→日付タップ)で日付に置ける。
-  // 完了操作はスプレッドシート側なので、チェックボックスの代わりに状態バッジを出す
+  // 状態バッジに加えて完了ボタンを持ち、押すとスプレッドシート側も「完了」に更新する
   todoChipHtml(t) {
     const inProgress = t.status === '進行中';
     const deadline = this.fmtSheetDate(t.deadline);
@@ -190,6 +190,8 @@ const board = {
                  onchange="board.onTodoHoursChange('${encoded}', this.value)">
           <span class="chip-hours-label">h</span>
           ${t.scheduled_date ? `<button type="button" class="btn-unplan" onclick="board.onTodoDateChange('${encoded}', '')" title="このタスクをTODOリストに戻します">↩︎ 未定に戻す</button>` : ''}
+          <button type="button" class="btn-todo-done" onclick="board.onTodoComplete('${encoded}')"
+                  title="TODOリスト(スプレッドシート)も完了に更新します">✓ 完了</button>
         </div>
       </div>
     `;
@@ -233,6 +235,26 @@ const board = {
 
   async moveTodo(taskText, dateISO) {
     await this.saveTodoPlan(taskText, { scheduled_date: dateISO }, `${this.fmtDate(dateISO)} に移動しました`);
+  },
+
+  // TODOの完了。スプレッドシート側の状態を「完了」に更新し、一覧からも消える。
+  // シートがマスターなので取り消しはスプレッドシート側で行う ⇒ 押す前に確認する
+  async onTodoComplete(encodedTask) {
+    const task = decodeURIComponent(encodedTask);
+    if (!confirm(`このタスクを完了にしますか?\n\n${task}\n\nTODOリスト(スプレッドシート)も完了に更新されます。`)) return;
+    try {
+      const res = await fetch(`/api/designer/${this.token}/sheet-todo-complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task_text: task }),
+      });
+      const data = await res.json();
+      this.toast(!res.ok || !data.ok ? (data.error || '完了にできませんでした') : '完了にしました');
+    } catch (e) {
+      console.error(e);
+      this.toast('通信エラーで完了にできませんでした');
+    }
+    await this.load();
   },
 
   async onTodoHoursChange(encodedTask, value) {
@@ -430,8 +452,34 @@ const board = {
     this.availabilityDate = dateISO;
     document.getElementById('availability-modal-date').textContent = `${this.dowLabel(dateISO).text} ${this.fmtDate(dateISO)}`;
     document.getElementById('hours-input-row').classList.remove('active');
-    document.getElementById('hours-input').value = '';
+    // すでに時間帯を申告している日は、その値を初期表示して直しやすくする
+    const day = (this.days || []).find(d => d.date === dateISO);
+    document.getElementById('start-input').value = (day && day.start_time) || '09:00';
+    document.getElementById('end-input').value = (day && day.end_time) || '17:00';
+    this.updateHoursHint();
     document.getElementById('availability-modal').classList.add('active');
+  },
+
+  // 指定した時間帯が何時間になるかを表示する(終了が開始より前なら注意を出す)
+  updateHoursHint() {
+    const hint = document.getElementById('hours-hint');
+    const hours = this.rangeHours();
+    if (hours === null) {
+      hint.textContent = '終了時刻は開始時刻より後にしてください。';
+      hint.style.color = '#b91c1c';
+    } else {
+      hint.textContent = `この時間帯の稼働時間: ${hours}時間`;
+      hint.style.color = '#64748b';
+    }
+  },
+
+  // 入力中の開始〜終了から稼働時間を求める。不正な並びなら null
+  rangeHours() {
+    const toMin = v => { const [h, m] = String(v || '').split(':').map(Number); return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : NaN; };
+    const s = toMin(document.getElementById('start-input').value);
+    const e = toMin(document.getElementById('end-input').value);
+    if (Number.isNaN(s) || Number.isNaN(e) || e <= s) return null;
+    return Math.round(((e - s) / 60) * 100) / 100;
   },
 
   closeAvailabilityModal() {
@@ -441,16 +489,16 @@ const board = {
 
   showHoursInput() {
     document.getElementById('hours-input-row').classList.add('active');
-    document.getElementById('hours-input').focus();
+    document.getElementById('start-input').focus();
   },
 
   async submitAvailability(mode) {
     if (!this.availabilityDate) return;
     const body = { work_date: this.availabilityDate, mode };
     if (mode === 'hours') {
-      const h = Number(document.getElementById('hours-input').value);
-      if (!h || Number.isNaN(h)) return this.toast('稼働時間を入力してください');
-      body.hours = h;
+      if (this.rangeHours() === null) return this.toast('終了時刻は開始時刻より後にしてください');
+      body.start_time = document.getElementById('start-input').value;
+      body.end_time = document.getElementById('end-input').value;
     }
     try {
       const res = await fetch(`/api/designer/${this.token}/availability`, {
@@ -462,7 +510,7 @@ const board = {
       if (!res.ok || !data.ok) {
         this.toast(data.error || '保存に失敗しました');
       } else {
-        this.toast({ off: '稼働なしで申告しました', hours: '稼働時間を申告しました', clear: '通常の予定に戻しました' }[mode]);
+        this.toast({ off: '稼働なしで申告しました', hours: '稼働できる時間帯を申告しました', clear: '通常の予定に戻しました' }[mode]);
       }
     } catch (e) {
       console.error(e);

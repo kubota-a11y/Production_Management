@@ -73,6 +73,13 @@
       white-space: nowrap; font-family: inherit;
     }
     .btn-unplan:hover { background: #f8fafc; color: #0f172a; }
+    /* TODOの完了ボタン。押すとスプレッドシート側も完了になるため、色で区別する */
+    .btn-todo-done {
+      border: 1px solid #86efac; background: #f0fdf4; color: #15803d; border-radius: 999px;
+      padding: 3px 10px; font-size: .74rem; font-weight: 700; cursor: pointer;
+      white-space: nowrap; font-family: inherit;
+    }
+    .btn-todo-done:hover { background: #dcfce7; color: #14532d; }
 
     /* 日付プルダウン。長い画面をドラッグしなくても予定を入れられるようにするための操作 */
     .chip-date {
@@ -141,10 +148,12 @@
     }
     .modal-actions button:hover { background: #f8fafc; }
     .modal-actions .danger { color: #991b1b; border-color: #fecaca; }
-    .hours-input-row { display: none; gap: 8px; align-items: center; margin-top: 4px; }
+    .hours-input-row { display: none; gap: 8px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
     .hours-input-row.active { display: flex; }
-    .hours-input-row input { width: 80px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; }
+    .hours-input-row input { width: 108px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; }
     .hours-input-row .apply { background: #db2777; color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-weight: 700; cursor: pointer; }
+    /* 指定した時間帯が何時間になるかの目安。入力のたびに更新する */
+    .hours-hint { width: 100%; margin: 2px 0 0; font-size: .78rem; color: #64748b; }
     .modal-close { margin-top: 14px; width: 100%; border: none; background: #f1f5f9; border-radius: 10px; padding: 9px; font-size: .85rem; cursor: pointer; color: #475569; }
 
     .toast {
@@ -212,11 +221,13 @@
       <div class="modal-date" id="availability-modal-date"></div>
       <div class="modal-actions">
         <button onclick="board.submitAvailability('off')">🚫 この日は稼働できない（終日）</button>
-        <button onclick="board.showHoursInput()">⏱ 稼働できる時間を指定する</button>
+        <button onclick="board.showHoursInput()">⏱ 稼働できる時間帯を指定する</button>
         <div class="hours-input-row" id="hours-input-row">
-          <input type="number" id="hours-input" min="0.5" max="14" step="0.5" placeholder="3">
-          <span>時間</span>
+          <input type="time" id="start-input" step="900" value="09:00" oninput="board.updateHoursHint()">
+          <span>〜</span>
+          <input type="time" id="end-input" step="900" value="17:00" oninput="board.updateHoursHint()">
           <button class="apply" onclick="board.submitAvailability('hours')">設定</button>
+          <p class="hours-hint" id="hours-hint"></p>
         </div>
         <button class="danger" onclick="board.submitAvailability('clear')">↩️ 通常の予定に戻す</button>
       </div>
