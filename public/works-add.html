@@ -69,8 +69,9 @@
   </p>
 
   <div id="notconf" class="warn" style="display:none">
-    GitHubトークンが未設定のため、登録しても公開できません。<br>
-    本番機の <code>.env</code> に <code>WORKS_GITHUB_TOKEN</code> を設定してください。
+    <b>GitHubトークンが読み込めていないため、登録しても公開できません。</b>
+    <div id="diag" style="margin-top:10px;font-size:12.5px;background:#fff;border:1px solid #f0c8c2;border-radius:6px;padding:10px 12px;line-height:1.9"></div>
+    <div style="margin-top:8px;font-size:12px">※ トークンの中身は表示していません（有無と文字数のみ）</div>
   </div>
 
   <form id="form">
@@ -147,7 +148,23 @@
   // ---- 選択肢の読み込み ----
   fetch('/api/works/meta').then(function (r) { return r.json(); }).then(function (m) {
     meta = m;
-    if (!m.configured) $('notconf').style.display = 'block';
+    if (!m.configured) {
+      $('notconf').style.display = 'block';
+      var d = m.diag || {};
+      var yn = function (b) { return b ? '✅ あり' : '❌ なし'; };
+      $('diag').innerHTML = [
+        '設定キー(WORKS_GITHUB_TOKEN)：' + yn(d.keyPresent),
+        '値の文字数：' + (d.length || 0) + ' 文字',
+        'トークンらしい書式か：' + (d.looksLikeToken ? '✅ はい' : '❌ いいえ'),
+        (d.hasQuotes ? '⚠️ 引用符で囲まれています（外してください）' : ''),
+        (d.hasSpaces ? '⚠️ 前後に空白があります（詰めてください）' : ''),
+        '.env の読込先：<code>' + (d.cwd || '?') + '</code>',
+        'その場所に .env があるか：' + yn(d.envFileFound),
+        (d.similarKeys && d.similarKeys.length
+          ? '⚠️ 似た名前のキーがあります：<code>' + d.similarKeys.join('</code> <code>') + '</code>（打ち間違いの可能性）'
+          : ''),
+      ].filter(Boolean).join('<br>');
+    }
     m.positions.forEach(function (p) { $('pos').add(new Option(p, p)); });
     m.methods.forEach(function (t) { $('mtd').add(new Option(t, t)); });
     $('cats').innerHTML = m.categories.map(function (c) {
@@ -201,10 +218,16 @@
   $('form').addEventListener('submit', function (e) {
     e.preventDefault();
     var msg = $('msg');
+    // classNameを空にすれば #msg の display:none に戻る。
+    // ここで style.display を直接指定すると .ok / .ng の display:block を
+    // 打ち消してしまい、メッセージが一切出なくなるので触らないこと。
     msg.className = '';
-    msg.style.display = 'none';
 
-    function fail(t) { msg.className = 'ng'; msg.textContent = t; }
+    function fail(t) {
+      msg.className = 'ng';
+      msg.textContent = t;
+      msg.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
 
     if (!picked) return fail('写真を選んでください');
     if (!$('client').value.trim()) return fail('取引先を入力してください');
@@ -235,6 +258,7 @@
         msg.className = 'ok';
         msg.innerHTML = '<b>登録しました。</b><br>数分後にサイトの制作実績へ反映されます。'
           + '<br><a href="https://hiyoshi-web.pages.dev/works/" target="_blank" rel="noopener">実績一覧を開く</a>';
+        msg.scrollIntoView({ block: 'center', behavior: 'smooth' });
         $('form').reset();
         picked = null; methods = []; redraw();
         $('preview').style.display = 'none';
