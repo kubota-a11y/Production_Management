@@ -111,6 +111,11 @@ const board = {
         ? `<span class="day-off-badge">稼働なし</span>`
         : `<span class="day-cap"><span class="${over ? 'over' : ''}">${this.round(planned)}h</span> / ${this.round(day.hours)}h</span>`;
       const overrideBadge = day.source === 'override' ? `<span class="day-override-badge">変更申告あり</span>` : '';
+      // その日の稼働時刻。申告した時間帯(override)は色を変えて区別し、未申告の日は基本の勤務時間を出す。
+      // 稼働なしの日は時刻が無いので出さない
+      const timeHtml = (!day.is_day_off && day.start_time && day.end_time)
+        ? `<span class="day-time${day.source === 'override' ? ' is-override' : ''}">${day.start_time}〜${day.end_time}</span>`
+        : '';
       const dow = this.dowLabel(day.date);
       // 日別モード(この日の仕事の種類の意向)。選択中のボタンをもう一度押すと解除
       const modeButtons = `
@@ -129,6 +134,7 @@ const board = {
           <div class="day-head">
             <span class="day-title">${dow.html} <span style="font-weight:400;font-size:.82rem;">${this.fmtDate(day.date)}</span></span>
             ${capHtml}
+            ${timeHtml}
             ${overrideBadge}
             <button type="button" class="btn-availability" onclick="event.stopPropagation(); board.openAvailabilityModal('${day.date}')">⚙ 稼働変更</button>
           </div>

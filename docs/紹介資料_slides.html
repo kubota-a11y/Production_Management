@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>HiBoard 開発紹介資料</title>
+<style>
+  @page { size: 960pt 540pt; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root{
+    --navy:#12233d;
+    --navy2:#1d3a63;
+    --accent:#e8622a;
+    --accent-soft:#fdf1eb;
+    --teal:#12867f;
+    --teal-soft:#e8f4f3;
+    --ink:#1c2733;
+    --muted:#5d6b7a;
+    --line:#dfe4ea;
+    --bg:#f6f7f9;
+  }
+
+  html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body{
+    font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic","Meiryo",sans-serif;
+    color:var(--ink);
+    background:#8a8f96;
+  }
+
+  .slide{
+    width:960pt; height:540pt;
+    position:relative; overflow:hidden;
+    background:#fff;
+    page-break-after:always;
+    padding:46pt 54pt 40pt;
+    display:flex; flex-direction:column;
+  }
+  .slide:last-child{ page-break-after:auto; }
+
+  /* ---------- パーツ ---------- */
+  .eyebrow{
+    font-size:12pt; letter-spacing:.14em; color:var(--accent);
+    font-weight:700; margin-bottom:8pt;
+  }
+  h2{
+    font-size:31pt; line-height:1.25; font-weight:700; color:var(--navy);
+    letter-spacing:.01em;
+  }
+  h2 .sub{ font-size:16pt; color:var(--muted); font-weight:600; margin-left:12pt; }
+  .lead{ font-size:14.5pt; color:var(--muted); margin-top:12pt; line-height:1.6; }
+  .rule{ width:64pt; height:5pt; background:var(--accent); border-radius:3pt; margin:14pt 0 22pt; }
+
+  .pageno{
+    position:absolute; right:32pt; bottom:20pt;
+    font-size:10pt; color:#9aa4b0; letter-spacing:.08em;
+  }
+  .brandmark{
+    position:absolute; left:54pt; bottom:20pt;
+    font-size:10pt; color:#9aa4b0; letter-spacing:.1em;
+  }
+
+  .body{ flex:1; display:flex; flex-direction:column; justify-content:center; }
+
+  /* カードグリッド */
+  .grid{ display:grid; gap:16pt; }
+  .g2{ grid-template-columns:1fr 1fr; }
+  .g3{ grid-template-columns:1fr 1fr 1fr; }
+  .g4{ grid-template-columns:repeat(4,1fr); }
+
+  .card{
+    border:1.2pt solid var(--line); border-radius:9pt;
+    padding:20pt 22pt; background:#fff;
+  }
+  .card.tint{ background:var(--bg); border-color:#e6eaef; }
+  .card h3{
+    font-size:16.5pt; color:var(--navy); font-weight:700; margin-bottom:10pt;
+    display:flex; align-items:center; gap:9pt; line-height:1.35;
+  }
+  .card p{ font-size:12.5pt; line-height:1.75; color:#3e4b59; }
+  .card ul{ margin-top:2pt; }
+
+  ul{ list-style:none; }
+  li{
+    font-size:12.8pt; line-height:1.72; color:#3e4b59;
+    padding-left:15pt; position:relative; margin-bottom:5pt;
+  }
+  li::before{
+    content:""; position:absolute; left:0; top:7.5pt;
+    width:5pt; height:5pt; border-radius:50%; background:var(--accent);
+  }
+  li b{ color:var(--navy); font-weight:700; }
+
+  .num{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:24pt; height:24pt; border-radius:50%;
+    background:var(--navy); color:#fff; font-size:12.5pt; font-weight:700;
+    flex:none;
+  }
+  .num.acc{ background:var(--accent); }
+  .num.teal{ background:var(--teal); }
+
+  .tag{
+    display:inline-block; font-size:10.5pt; font-weight:700;
+    padding:3.5pt 10pt; border-radius:99pt; letter-spacing:.04em;
+  }
+  .tag.in{ background:var(--navy); color:#fff; }
+  .tag.out{ background:var(--accent-soft); color:var(--accent); }
+  .tag.te{ background:var(--teal-soft); color:var(--teal); }
+
+  /* 表紙 */
+  .cover{ background:linear-gradient(135deg,#12233d 0%,#1d3a63 60%,#255080 100%); color:#fff; justify-content:center; }
+  .cover h1{ font-size:46pt; font-weight:700; line-height:1.28; letter-spacing:.01em; }
+  .cover .kicker{ font-size:14pt; letter-spacing:.2em; color:#8fb6e0; font-weight:700; margin-bottom:20pt; }
+  .cover .tagline{ font-size:17pt; color:#cfe0f2; margin-top:22pt; line-height:1.7; font-weight:400; }
+  .cover .meta{ margin-top:auto; font-size:12pt; color:#8fb6e0; letter-spacing:.06em; }
+  .cover .accentbar{ width:80pt; height:6pt; background:var(--accent); border-radius:3pt; margin:26pt 0; }
+
+  /* 章扉 */
+  .chapter{ background:var(--navy); color:#fff; justify-content:center; }
+  .chapter .cno{ font-size:15pt; letter-spacing:.3em; color:var(--accent); font-weight:700; }
+  .chapter h2{ color:#fff; font-size:38pt; margin-top:14pt; }
+  .chapter p{ font-size:15pt; color:#b8cbe0; margin-top:16pt; line-height:1.7; }
+
+  /* 数字ハイライト */
+  .stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:18pt; }
+  .stat{ text-align:center; border:1.2pt solid var(--line); border-radius:10pt; padding:24pt 12pt; background:var(--bg); }
+  .stat .v{ font-size:40pt; font-weight:700; color:var(--navy); line-height:1; letter-spacing:-.01em; }
+  .stat .v small{ font-size:17pt; font-weight:700; margin-left:3pt; }
+  .stat .k{ font-size:12pt; color:var(--muted); margin-top:11pt; font-weight:600; }
+
+  /* フロー図 */
+  .flow{ display:flex; align-items:center; gap:14pt; justify-content:center; }
+  .flowcol{ display:flex; flex-direction:column; gap:9pt; }
+  .chip{
+    border:1.2pt solid var(--line); border-radius:7pt; background:#fff;
+    padding:10pt 14pt; font-size:12pt; font-weight:600; color:#33404e;
+    min-width:132pt;
+  }
+  .chip .c-sub{ display:block; font-size:9.5pt; color:#8e99a5; font-weight:500; margin-top:2pt; }
+  .arrow{ font-size:22pt; color:#c3cbd4; }
+  .hub{
+    background:var(--navy); color:#fff; border-radius:11pt;
+    padding:26pt 22pt; text-align:center; min-width:170pt;
+  }
+  .hub .t{ font-size:19pt; font-weight:700; }
+  .hub .d{ font-size:11pt; color:#a9c1da; margin-top:8pt; line-height:1.6; }
+
+  /* before/after */
+  .ba{ display:grid; grid-template-columns:1fr 34pt 1fr; gap:14pt; align-items:stretch; }
+  .ba .box{ border-radius:9pt; padding:18pt 20pt; }
+  .ba .before{ background:#f2f3f5; border:1.2pt solid #e2e5e9; }
+  .ba .after{ background:var(--accent-soft); border:1.2pt solid #f6d5c5; }
+  .ba .box h4{ font-size:13pt; margin-bottom:9pt; font-weight:700; }
+  .ba .before h4{ color:#7a838d; }
+  .ba .after h4{ color:var(--accent); }
+  .ba .box li{ font-size:11.8pt; margin-bottom:3pt; }
+  .ba .before li::before{ background:#b3bac1; }
+  .ba .mid{ display:flex; align-items:center; justify-content:center; font-size:24pt; color:#c3cbd4; }
+
+  /* テーブル */
+  table{ width:100%; border-collapse:collapse; }
+  th,td{ text-align:left; padding:10pt 14pt; font-size:12.3pt; border-bottom:1pt solid var(--line); }
+  th{ background:var(--navy); color:#fff; font-size:12pt; font-weight:700; border-bottom:none; }
+  th:first-child{ border-top-left-radius:7pt; }
+  th:last-child{ border-top-right-radius:7pt; }
+  td:first-child{ font-weight:700; color:var(--navy); width:170pt; }
+  tbody tr:nth-child(even){ background:var(--bg); }
+
+  .note{
+    margin-top:16pt; font-size:11.5pt; color:var(--muted);
+    background:var(--teal-soft); border-left:4pt solid var(--teal);
+    padding:11pt 16pt; border-radius:0 7pt 7pt 0; line-height:1.65;
+  }
+  .note b{ color:var(--teal); }
+
+  /* 情報量の多いスライド用の詰め指定 */
+  .compact .card{ padding:15pt 18pt; }
+  .compact .card h3{ font-size:15.5pt; margin-bottom:7pt; }
+  .compact .card p{ font-size:12pt; line-height:1.66; }
+</style>
+</head>
+<body>
+
+<!-- ============ 1. 表紙 ============ -->
+<section class="slide cover">
+  <div class="kicker">CASE STUDY / 町工場のDX内製</div>
+  <h1 style="font-size:40pt">AIと一緒に、5週間で<br>「生産管理」から<br>「お客様が使うツール」まで作った話</h1>
+  <div class="accentbar"></div>
+  <div class="tagline">
+    プリント・刺繍加工業の自社開発システム <b>HiBoard</b><br>
+    ― 外注ゼロ・月額費用ゼロ・現場で毎日動いています ―
+  </div>
+  <div class="meta">2026年7月 / 開発ツール:Claude Code(AIコーディング)</div>
+</section>
+
+<!-- ============ 2. 背景・課題 ============ -->
+<section class="slide">
+  <div class="eyebrow">BACKGROUND</div>
+  <h2>きっかけは、日常にあった「小さな詰まり」</h2>
+  <div class="rule"></div>
+  <div class="body">
+    <div class="grid g4">
+      <div class="card tint">
+        <h3><span class="num">1</span>注文の入り口が<br>バラバラ</h3>
+        <p>電話・LINE・メール・持ち込み。どこに何が来たか、担当者の記憶頼り。</p>
+      </div>
+      <div class="card tint">
+        <h3><span class="num">2</span>「上がりはいつ?」<br>の電話</h3>
+        <p>お客様・取引先からの進捗確認のたび、手を止めて調べて折り返す。</p>
+      </div>
+      <div class="card tint">
+        <h3><span class="num">3</span>予定が頭の中に<br>しかない</h3>
+        <p>誰がいつ何をやるか。ホワイトボードと口頭で回していて、抜けが出る。</p>
+      </div>
+      <div class="card tint">
+        <h3><span class="num">4</span>リピート注文の<br>転記が毎回発生</h3>
+        <p>去年と同じ内容でも、また一から入力し直していた。</p>
+      </div>
+    </div>
+    <div class="note">
+      <b>方針:</b> 高価なパッケージを買うのではなく、<b>自社の業務にぴったり合うものを、社長自身がAIと一緒に作る</b>ことにしました。
+    </div>
+  </div>
+  <div class="brandmark">HiBoard</div><div class="pageno">2</div>
+</section>
+
+<!-- ============ 3. 全体像 ============ -->
+<section class="slide">
+  <div class="eyebrow">OVERVIEW</div>
+  <h2>作ったものの全体像</h2>
+  <div class="rule"></div>
+  <div class="body">
+    <div class="flow">
+      <div class="flowcol">
+        <div class="chip">📱 LINEでの注文<span class="c-sub">AIが内容を自動読み取り</span></div>
+        <div class="chip">🌐 Web注文フォーム<span class="c-sub">一般のお客様</span></div>
+        <div class="chip">⚽ チーム専用URL<span class="c-sub">クラブチームの追加注文</span></div>
+        <div class="chip">🤝 取引先専用URL<span class="c-sub">加工依頼・納期確認</span></div>
+      </div>
+      <div class="arrow">▶</div>
+      <div class="hub">
+        <div class="t">HiBoard</div>
+        <div class="d">受注候補 → 案件化<br>週間スケジュール<br>進行管理・納品履歴</div>
+      </div>
+      <div class="arrow">▶</div>
+      <div class="flowcol">
+        <div class="chip">🔎 お客様の進捗確認<span class="c-sub">受付番号で自分で確認</span></div>
+        <div class="chip">📊 取引先ポータル<span class="c-sub">納期をいつでも閲覧</span></div>
+        <div class="chip">🎨 デザイナーボード<span class="c-sub">リモート担当の予定管理</span></div>
+        <div class="chip">✅ 社員TODOへ自動連携<span class="c-sub">対応漏れを防ぐ</span></div>
+      </div>
+    </div>
+    <div class="note">
+      どの経路から来た注文も<b>1か所(受注候補)に集まる</b>のがいちばんの肝。入り口を増やしても、現場の見る場所は増えません。
+    </div>
+  </div>
+  <div class="brandmark">HiBoard</div><div class="pageno">3</div>
+</section>
+
+<!-- ============ 4. 数字 ============ -->
+<section class="slide">
+  <div class="eyebrow">RESULT AT A GLANCE</div>
+  <h2>数字で見ると</h2>
+  <div class="rule"></div>
+  <div class="body">
+    <div class="stats">
+      <div class="stat"><div class="v">5<small>週間</small></div><div class="k">構想から本番稼働まで</div></div>
+      <div class="stat"><div class="v">126</div><div class="k">開発の更新回数(コミット)</div></div>
+      <div class="stat"><div class="v">7<small>種</small></div><div class="k">社外の方が使うツール</div></div>
+      <div class="stat"><div class="v">0<small>円</small></div><div class="k">月額のサーバー・利用料</div></div>
+    </div>
+    <div class="grid g3" style="margin-top:22pt">
+      <div class="card">
+        <h3>技術構成はあえてシンプルに</h3>
+        <p>Node.js + SQLite。社内のWindows機1台で稼働し、必要なページだけ外部に公開しています。</p>
+      </div>
+      <div class="card">
+        <h3>専門のエンジニアはゼロ</h3>
+        <p>社長がAI(Claude Code)と対話しながら、業務のわかる人間が仕様を決めて作りました。</p>
+      </div>
+      <div class="card">
+        <h3>毎日、現場で動いています</h3>
+        <p>試作で終わらせず本番運用へ。自動バックアップ・自動復旧まで組み込み済みです。</p>
+      </div>
+    </div>
+  </div>
+  <div class="brandmark">HiBoard</div><div class="pageno">4</div>
+</section>
+
+<!-- ============ 5. 章扉:社内 ============ -->
+<section class="slide chapter">
+  <div class="cno">CHAPTER 01</div>
+  <h2>社内向け ― 生産管理システム「HiBoard」</h2>
+  <p>案件の受付から納品までを、1枚のボードで見えるようにする。</p>
+  <div class="pageno" style="color:#7d97b5">5</div>
+</section>
+
+<!-- ============ 6. 案件管理 ============ -->
+<section class="slide">
+  <div class="eyebrow">CHAPTER 01 &nbsp;/&nbsp; 社内向け</div>
+  <h2>① 案件管理 <span class="sub">今どこまで進んでいるかが、一目でわかる</span></h2>
+  <div class="rule"></div>
+  <div class="body">
+    <div class="grid g2">
+      <div class="card">
+        <h3><span class="num">1</span>ステータスで進行を見える化</h3>
+        <ul>
+          <li>受注前 → <b>確定</b> → 準備 → <b>進行中</b> → 検品 → 納品待ち → 完了</li>
+          <li>一覧表示とカンバン表示を切り替えて確認</li>
+          <li>受付日・納期・加工種別・数量・担当者を一元管理</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span class="num">2</span>案件ごとの「準備項目」チェック</h3>
+        <ul>
+          <li>デザインデータ作成・作業指示書・見積書などを<b>チェックリスト化</b></li>
+          <li>全社共通のマスタで管理するので、人によるバラつきが出ない</li>
+          <li>全部終われば自動で次のステータスへ</li>
+        </ul>
+      </div>
+    </div>
+    <div class="card tint" style="margin-top:16pt">
+      <h3><span class="num acc">3</span>リピート注文は「↻ 再注文」ワンクリック</h3>
+      <p>納品履歴から過去の案件を検索して、ボタンひとつで<b>品目・プリント位置ごと複製</b>。「去年と同じで」という依頼の入力の手間がほぼゼロになりました。</p>
+    </div>
+  </div>
+  <div class="brandmark">HiBoard</div><div class="pageno">6</div>
+</section>
+
+<!-- ============ 7. スケジュールボード ============ -->
+<section class="slide">
+  <div class="eyebrow">CHAPTER 01 &nbsp;/&nbsp; 社内向け</div>
+  <h2>② 週間スケジュールボード <span class="sub">「誰が・いつ・何を」をドラッグで決める</span></h2>
+  <div class="rule"></div>
+  <div class="body">
+    <div class="grid g2">
+      <div class="card">
+        <h3><span class="num">1</span>マス目に置くだけの予定組み</h3>
+        <ul>
+          <li>従業員 × 日付のマス目へ、作業を<b>ドラッグ&amp;ドロップ</b>で割り当て</li>
+          <li>案件の見込み時間から<b>1日の負荷を自動集計</b> ― 入れすぎが色でわかる</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span class="num">2</span>現場の事情もそのまま反映</h3>
+        <ul>
+          <li>祝日・人ごとの勤務パターンに自動対応</li>
+          <li>「この日は終日不可」「午後だけ」などの<b>臨時の稼働変更</b>も登録可</li>
+        </ul>
+      </div>
+    </div>
+    <div class="card tint" style="margin-top:16pt">
+      <h3><span class="num acc">3</span>割り当て漏れを拾う「提案確認パネル」</h3>
+      <p>担当者が決まっていない案件・未着手の案件を自動で拾い上げて表示。<b>「気づいたら誰も手をつけていなかった」を防ぎます。</b></p>
+    </div>
+  </div>
+  <div class="brandmark">HiBoard</div><div class="pageno">7</div>
+</section>
+
+<!-- ============ 8. 受注候補ボックス ============ -->
+<section class="slide">
+  <div class="eyebrow">CHAPTER 01 &nbsp;/&nbsp; 社内向け</div>
+  <h2>③ 受注候補ボックス <span class="sub">すべての注文が合流する、たった1つの場所</span></h2>
+  <div class="rule"></div>
+  <div class="body">
+    <div class="grid g2">
+      <div class="card">
+        <h3><span class="num">1</span>4つの入り口が1つの一覧に</h3>
+        <ul>
+          <li>受付番号を見れば経路がわかる<br>
+            <span class="tag in">W-</span> Web注文 &nbsp;
+            <span class="tag in">T-</span> チーム注文 &nbsp;
+            <span class="tag in">P-</span> 取引先依頼 &nbsp;
+            <span class="tag in">LINE</span>
+          </li>
+          <li>社員は「候補を確認して案件にする」だけ。<b>探しに行く作業がなくなった</b></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span class="num acc">2</span>新しい注文は社員のTODOへ自動追記</h3>
+        <ul>
+          <li>注文が届くと、社員が普段使っている<b>TODOリストへ自動でタスクが追加</b>される</li>
+          <li>「システムを見に行かないと気づかない」状態をなくすための仕掛け</li>
+        </ul>
+      </div>
+    </div>
+    <div class="ba" style="margin-top:16pt">
+      <div class="box before">
+        <h4>BEFORE</h4>
+        <ul><li>LINE・メール・電話メモを各自が見に行く</li><li>誰が対応中か口頭で確認</li></ul>
+      </div>
+      <div class="mid">▶</div>
+      <div class="box after">
+        <h4>AFTER</h4>
+        <ul><li>入り口が増えても、見る場所は1つだけ</li><li>着信と同時にTODOへ自動で積まれる</li></ul>
+      </div>
+    </div>
+  </div>
+  <div class="brandmark">HiBoard</div><div class="pageno">8</div>
+</section>
+
+<!-- ============ 9. 章扉:お客様向け ============ -->
+<section class="slide chapter">
+  <div class="cno">CHAPTER 02</div>
+  <h2>お客様向け ― 注文と、その後がわかるツール</h2>
+  <p>「注文しやすい」だけでなく、「注文したあと不安にならない」を目指しました。</p>
+  <div class="pageno" style="color:#7d97b5">9</div>
+</section>
+
+<!-- ============ 10. 注文フォーム ============ -->
+<section class="slide">
+  <div class="eyebrow">CHAPTER 02 &nbsp;/&nbsp; お客様向け</div>
+  <h2>Web注文フォーム <span class="sub">「まだ決まっていない人」も相談できる3つのモード</span></h2>
+  <div class="rule"></div>
+  <div class="body">
+    <div class="grid g3">
+      <div class="card tint">
+        <h3><span class="num acc">1</span>かんたん相談</h3>
+        <p>連絡先と希望の時間帯、ひとこと書くだけ。<b>詳細が決まっていなくても送れる</b>ように、あえて入力を最小限に。あとは弊社から電話でヒアリングします。</p>
+      </div>
+      <div class="card tint">
+        <h3><span class="num acc">2</span>見積・イメージ依頼</h3>
+        <p>だいたいの内容と枚数から、見積とデザインイメージをご提案。判断材料がほしい段階の窓口です。</p>
+      </div>
+      <div class="card tint">
+        <h3><span class="num acc">3</span>正式発注</h3>
+        <p>内容が固まっているお客様向け。必要事項をまとめて送信いただけます。</p>
+      </div>
+    </div>
+    <div class="grid g3" style="margin-top:16pt">
+      <div class="card"><h3>受付番号 + 控えメール</h3><p>送信後すぐに受付番号を表示し、控えメールを自動送信します。</p></div>
+      <div class="card"><h3>書きかけを自動保存</h3><p>入力途中でブラウザを閉じても、24時間は内容が残ります。</p></div>
+      <div class="card"><h3>スマホ写真もそのまま</h3><p>iPhoneのHEIC形式を含め、参考画像を添付できます。</p></div>
+    </div>
+  </div>
+  <div class="brandmark">HiBoard</div><div class="pageno">10</div>
+</section>
+
+<!-- ============ 11. ガイド + 進捗確認 ============ -->
+<section class="slide">
+  <div class="eyebrow">CHAPTER 02 &nbsp;/&nbsp; お客様向け</div>
+  <h2>ご注文の流れガイド ＆ 進捗確認ページ</h2>
+  <div class="rule"></div>
+  <div class="body">
+    <div class="grid g2">
+      <div class="card">
+        <h3><span class="num">1</span>ご注文の流れガイド</h3>
+        <ul>
+          <li>注文から納品までのステップを、順を追って説明するページ</li>
+          <li>落ち着いた読み物調のデザインで、<b>はじめてのお客様の不安を減らす</b></li>
+          <li>同じ内容を<b>QRコード付きA4チラシ(PDF)</b>にして店頭・同梱でも配布</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span class="num acc">2</span>注文の進捗確認ページ</h3>
+        <ul>
+          <li><b>受付番号 + 電話番号の下4桁</b>だけで、自分の注文の状況を確認できる</li>
+          <li>会員登録・パスワード不要。お客様に覚えてもらうものを作らない</li>
+          <li>表示は<b>4段階</b>にシンプル化 ― 受付済み / 製作中 / 検品・出荷準備中 / 納品済み</li>
+        </ul>
+      </div>
+    </div>
+    <div class="note">
+      <b>ねらい:</b> 「今どうなってますか?」の電話を減らすこと。お客様は待たされず、こちらは手を止めずに済みます。
+      なお、他人の注文を覗けないよう、照会回数の制限などの安全対策も入れています。
+    </div>
+  </div>
+  <div class="brandmark">HiBoard</div><div class="pageno">11</div>
+</section>
+
+<!-- ============ 12. 章扉:チーム・取引先 ============ -->
+<section class="slide chapter">
+  <div class="cno">CHAPTER 03</div>
+  <h2>チーム・取引先向け ― 専用URLという考え方</h2>
+  <p>ログインを作らない。相手ごとに専用のURLを1本お渡しする方式にしました。</p>
+  <div class="pageno" style="color:#7d97b5">12</div>
+</section>
+
+<!-- ============ 13. チーム追加注文 ============ -->
+<section class="slide">
+  <div class="eyebrow">CHAPTER 03 &nbsp;/&nbsp; クラブチーム向け</div>
+  <h2>チーム追加注文フォーム <span class="sub">「またお願いします」を、やり取りなしで受ける</span></h2>
+  <div class="rule"></div>
+  <div class="body">
+    <div class="grid g2">
+      <div class="card">
+        <h3><span class="num teal">1</span>チームごとの専用URLを発行</h3>
+        <ul>
+          <li>提携チームごとにURLを1本発行してお渡しするだけ</li>
+          <li>チームの担当者は、そのURLを開けばすぐ注文できる</li>
+          <li>発行・編集・停止・再開はすべて管理画面からワンクリック</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span class="num teal">2</span>名簿をそのまま入力できる形に</h3>
+        <ul>
+          <li><b>名前 × 背番号 × サイズ × 枚数</b>を行で追加していく入力形式</li>
+          <li>選べるサイズ(110〜160 / S〜XXL)は<b>チーム・商品ごとに設定可</b></li>
+          <li>参考単価・参考合計を自動表示(正式なお見積は後日ご案内)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="ba" style="margin-top:16pt">
+      <div class="box before">
+        <h4>BEFORE</h4>
+        <ul><li>LINEで枚数とサイズを何度も聞き直す</li><li>名簿の写真を見ながら手で転記</li></ul>
+      </div>
+      <div class="mid">▶</div>
+      <div class="box after">
+        <h4>AFTER</h4>
+        <ul><li>チーム側で入力 → そのまま受注候補に着地</li><li>聞き漏れ・転記ミスがなくなる</li></ul>
+      </div>
+    </div>
+  </div>
+  <div class="brandmark">HiBoard</div><div class="pageno">13</div>
+</section>
+
+<!-- ============ 14. 取引先ポータル ============ -->
+<section class="slide">
+  <div class="eyebrow">CHAPTER 03 &nbsp;/&nbsp; 取引先(BtoB)向け</div>
+  <h2>取引先ポータル ＆ 加工依頼フォーム</h2>
+  <div class="rule"></div>
+  <div class="body">
+    <div class="grid g2">
+      <div class="card">
+        <h3><span class="num teal">1</span>納期確認ポータル(閲覧専用)</h3>
+        <ul>
+          <li>取引先が<b>自社の案件だけ</b>の進行状況・納品予定日をいつでも閲覧</li>
+          <li>案件との紐付けは自動判定。こちらの登録作業は不要</li>
+          <li>ねらいはずばり<b>「上がりはいつ?」の電話をなくす</b>こと</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span class="num teal">2</span>持ち込み加工依頼フォーム</h3>
+        <ul>
+          <li>同じURLから<b>加工の依頼そのもの</b>をWebで送信できる</li>
+          <li>持ち込み予定日・指図書番号・品物ごとの加工内容(方法 × 箇所 × 内容 × 色)・画像添付に対応</li>
+          <li>加工方法はプルダウン選択(シルク / DTF / ラバー / 刺繍 / 帽子刺繍 ほか)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="note">
+      <b>この先に見ているもの:</b> 現在は当日持ち込み+紙の指図書が中心。ゆくゆくは<b>案件の入力そのものを取引先側で完結</b>していただき、受発注全体をDXしたいと考えています。納期確認ポータルは、その第一歩です。
+    </div>
+  </div>
+  <div class="brandmark">HiBoard</div><div class="pageno">14</div>
+</section>
+
+<!-- ============ 15. デザイナーボード ============ -->
+<section class="slide">
+  <div class="eyebrow">CHAPTER 03 &nbsp;/&nbsp; リモートスタッフ向け</div>
+  <h2>デザイナー用マイスケジュールボード <span class="sub">離れて働く人と、同じ1枚を見る</span></h2>
+  <div class="rule"></div>
+  <div class="body">
+    <div class="grid g2">
+      <div class="card">
+        <h3><span class="num acc">1</span>自分の作業日を、自分で決められる</h3>
+        <ul>
+          <li>担当タスクを週間カレンダーで表示し、<b>ドラッグ&amp;ドロップで作業日を移動</b>(スマホはタップ操作)</li>
+          <li>見込み時間の入力・完了操作・「この日は終日不可 / ○時間だけ可」の稼働申告も本人から</li>
+          <li>デザイン系の作業は、案件登録時に<b>自動で担当者へ割り当て</b></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span class="num acc">2</span>社内ボードと同じデータを共有</h3>
+        <ul>
+          <li>社内から入れた予定も、本人が動かした予定も<b>同じ1つのボード</b>に反映</li>
+          <li>二重管理・言った言わないが起きない</li>
+          <li>本人が使っているTODOリストの内容もボードに表示し、日付に配置できる</li>
+        </ul>
+      </div>
+    </div>
+    <div class="note">
+      <b>背景:</b> リモートのデザイン担当は他業務との兼ね合いで納期が読みにくいという課題がありました。管理を強めるのではなく、<b>本人が予定を置ける場所を用意して共有する</b>方向で解決しています。
+    </div>
+  </div>
+  <div class="brandmark">HiBoard</div><div class="pageno">15</div>
+</section>
+
+<!-- ============ 16. LINE × AI + 特設ページ ============ -->
+<section class="slide">
+  <div class="eyebrow">TOPICS</div>
+  <h2>その他の取り組み</h2>
+  <div class="rule"></div>
+  <div class="body">
+    <div class="grid g2">
+      <div class="card">
+        <h3><span class="num acc">A</span>LINEの注文は、AIが下読みする</h3>
+        <ul>
+          <li>お客様から届いたLINEの文面を<b>AIが解析</b>し、顧客名・内容・数量などを抽出</li>
+          <li>抽出結果はそのまま受注候補に登録され、社員は<b>確認して案件化するだけ</b></li>
+          <li>会話文からの手作業の転記が不要に</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span class="num teal">B</span>選手応援グッズの特設ページ</h3>
+        <ul>
+          <li>所属選手の応援Tシャツ販売のため、<b>専用ドメインの特設サイト</b>を構築</li>
+          <li>カラー切替・前面/背面ギャラリー・販売価格・締切・選手への還元を明示</li>
+          <li>決済は自社ネットショップへ誘導する分担設計。SNS告知画像も自動生成</li>
+          <li>次の選手にも使い回せるテンプレート構造 → <b>「特設サイト+グッズ販売」の商品化</b>を構想中</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="brandmark">HiBoard</div><div class="pageno">16</div>
+</section>
+
+<!-- ============ 17. 運用・インフラ ============ -->
+<section class="slide">
+  <div class="eyebrow">OPERATION</div>
+  <h2>「作って終わり」にしないための仕組み</h2>
+  <div class="rule"></div>
+  <div class="body">
+    <table>
+      <thead><tr><th>項目</th><th>やっていること</th></tr></thead>
+      <tbody>
+        <tr><td>外部への公開</td><td>専用トンネル経由で公開。固定IPの契約もルーターの設定変更も不要</td></tr>
+        <tr><td>公開範囲の制御</td><td>お客様に配っているURLでは<b>公開ページだけ</b>を表示し、社内画面は一切見えないようガード</td></tr>
+        <tr><td>更新の反映</td><td>本番機で更新用ファイルを<b>ダブルクリックするだけ</b>(取得→更新→再起動まで自動)</td></tr>
+        <tr><td>止まらない工夫</td><td>万一サーバーが落ちても<b>5秒後に自動で復活</b>。パソコン起動時にも自動立ち上げ</td></tr>
+        <tr><td>バックアップ</td><td>業務データを<b>毎日自動でバックアップ(30世代)</b>+社内NASへ二重保存</td></tr>
+        <tr><td>社員向けマニュアル</td><td>業務の流れ順に並べた使い方ガイドをシステム内に同梱。<b>印刷すればそのままA4配布資料</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="brandmark">HiBoard</div><div class="pageno">17</div>
+</section>
+
+<!-- ============ 18. 開発スタイル ============ -->
+<section class="slide">
+  <div class="eyebrow">HOW WE BUILT IT</div>
+  <h2>AIとの開発が、うまく回った5つの理由</h2>
+  <div class="rule"></div>
+  <div class="body">
+    <div class="grid g2 compact" style="gap:13pt 20pt">
+      <div class="card">
+        <h3><span class="num">1</span>いきなり作らせない</h3>
+        <p><b>調査 → 方針の提示 → 承認 → 実装</b>の順を毎回徹底。「何を作るか」を人間が決め、「どう作るか」をAIに任せる分担にしました。</p>
+      </div>
+      <div class="card">
+        <h3><span class="num">2</span>必ず動作確認と証跡を出させる</h3>
+        <p>実装後は開発用のパソコンで動かして確認し、画面のスクリーンショット付きで報告してもらう。目で見て納得してから次へ進みます。</p>
+      </div>
+      <div class="card">
+        <h3><span class="num">3</span>ルールを文書に書いておく</h3>
+        <p>開発の進め方・本番反映の手順を<b>プロジェクト内の文書に明文化</b>。AIが毎回同じ手順を守るので、作業がブレません。</p>
+      </div>
+      <div class="card">
+        <h3><span class="num">4</span>本番反映は固定の型で</h3>
+        <p>「承認 → 反映 → 本番機でダブルクリック」の一本道に固定。事故が起きにくく、誰でも同じ操作で更新できます。</p>
+      </div>
+      <div class="card tint" style="grid-column:span 2">
+        <h3><span class="num acc">5</span>社員へのお知らせづくりまで自動化</h3>
+        <p>毎週月曜に配っている社員向けの「社内システムお知らせ(A4)」は、その週の開発履歴からAIが自動作成しています。<b>作った機能を現場に伝えるところまで含めて仕組み化</b>したことで、機能が使われないまま埋もれることがなくなりました。</p>
+      </div>
+    </div>
+  </div>
+  <div class="brandmark">HiBoard</div><div class="pageno">18</div>
+</section>
+
+<!-- ============ 19. まとめ ============ -->
+<section class="slide">
+  <div class="eyebrow">CONCLUSION</div>
+  <h2>やってみてわかったこと</h2>
+  <div class="rule"></div>
+  <div class="body">
+    <div class="grid g3">
+      <div class="card tint">
+        <h3>業務を知っている人が<br>作れる時代になった</h3>
+        <p>「現場の困りごと」と「作る手」の間にあった距離が、AIによってほぼゼロになりました。仕様書を書いて伝える手間がいりません。</p>
+      </div>
+      <div class="card tint">
+        <h3>小さく作って<br>すぐ現場に出せる</h3>
+        <p>思いついた改善をその日のうちに形にして、翌日には社員が使っている。この速さが、既製品にはない価値でした。</p>
+      </div>
+      <div class="card tint">
+        <h3>お客様との接点まで<br>広げられた</h3>
+        <p>社内の効率化で終わらず、<b>お客様・チーム・取引先が実際に使うツール</b>まで届いたことが、いちばんの成果です。</p>
+      </div>
+    </div>
+    <div class="note" style="margin-top:24pt; font-size:12.5pt">
+      同じような課題をお持ちの加工業・小規模事業者の方へ ―
+      <b>大きな投資をしなくても、自社に合った仕組みは作れます。</b>まずは「毎日ちょっと面倒なこと」を1つ選ぶところからで十分でした。
+    </div>
+  </div>
+  <div class="brandmark">HiBoard</div><div class="pageno">19</div>
+</section>
+
+<!-- ============ 20. 裏表紙 ============ -->
+<section class="slide cover" style="justify-content:center">
+  <div class="kicker">THANK YOU</div>
+  <h1 style="font-size:38pt">お読みいただき<br>ありがとうございました</h1>
+  <div class="accentbar"></div>
+  <div class="tagline" style="font-size:15pt">
+    プリント・刺繍加工 / サッカーウェア企画製作 / オリジナルブランド<br>
+    自社開発システム <b>HiBoard</b>
+  </div>
+  <div class="meta">お問い合わせ・ご相談は、Web注文フォームの「かんたん相談」からどうぞ。</div>
+</section>
+
+</body>
+</html>

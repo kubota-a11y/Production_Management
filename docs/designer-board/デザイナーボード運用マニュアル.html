@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>マイスケジュールボード 運用マニュアル</title>
+<style>
+  /* A4印刷前提の運用マニュアル。ブラウザ印刷/ヘッドレスChromeでPDF化する */
+  @page { size: A4; margin: 14mm 15mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
+    color: #1a2233; font-size: 10.5pt; line-height: 1.62;
+  }
+  .page { page-break-after: always; }
+  .page:last-child { page-break-after: auto; }
+
+  .doc-header { border-bottom: 3px solid #db2777; padding-bottom: 8px; margin-bottom: 14px; }
+  .doc-brand { font-size: 8.5pt; letter-spacing: .2em; color: #64748b; font-weight: 700; }
+  h1 { font-size: 17pt; margin-top: 2px; }
+  .doc-meta { font-size: 8.5pt; color: #64748b; margin-top: 2px; }
+
+  h2 {
+    font-size: 12.5pt; margin: 14px 0 7px; padding: 3px 10px;
+    background: #fdf2f8; border-left: 5px solid #db2777; border-radius: 3px;
+  }
+  h2.side-hiyoshi { background: #eff6ff; border-left-color: #2563b0; }
+  h3 { font-size: 11pt; margin: 12px 0 4px; color: #0f172a; }
+  p { margin-bottom: 6px; }
+  ul, ol { margin: 4px 0 8px 1.6em; }
+  li { margin-bottom: 3px; }
+
+  .lead {
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+    padding: 10px 14px; margin-bottom: 10px;
+  }
+
+  table { width: 100%; border-collapse: collapse; margin: 5px 0 9px; font-size: 9.5pt; }
+  th, td { border: 1px solid #cbd5e1; padding: 4px 8px; text-align: left; vertical-align: top; }
+  th { background: #f1f5f9; font-weight: 700; white-space: nowrap; }
+
+  .flow {
+    display: flex; align-items: stretch; gap: 6px; margin: 8px 0 12px; text-align: center;
+  }
+  .flow-step {
+    flex: 1; background: #fff; border: 1.5px solid #cbd5e1; border-radius: 8px;
+    padding: 8px 6px; font-size: 9pt; line-height: 1.5;
+  }
+  .flow-step b { display: block; font-size: 9.5pt; margin-bottom: 2px; }
+  .flow-arrow { align-self: center; color: #db2777; font-weight: 700; font-size: 12pt; }
+  .flow-step.who-hiyoshi { border-color: #93c5fd; background: #eff6ff; }
+  .flow-step.who-suzuki { border-color: #f9a8d4; background: #fdf2f8; }
+  .who-tag { display: inline-block; font-size: 7.5pt; font-weight: 700; border-radius: 999px; padding: 0 8px; margin-bottom: 3px; }
+  .who-tag.hiyoshi { color: #1d4ed8; background: #dbeafe; }
+  .who-tag.suzuki { color: #9d174d; background: #fce7f3; }
+
+  .badge { display: inline-block; font-size: 8.5pt; font-weight: 700; border-radius: 999px; padding: 1px 10px; white-space: nowrap; }
+  .badge-design { color: #9d174d; background: #fce7f3; border: 1px solid #f9a8d4; }
+  .badge-related { color: #1d4ed8; background: #dbeafe; border: 1px solid #93c5fd; }
+  .badge-progress { color: #1d4ed8; background: #dbeafe; border: 1px solid #93c5fd; }
+  .badge-notstarted { color: #475569; background: #f1f5f9; border: 1px solid #cbd5e1; }
+
+  .note {
+    background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px;
+    padding: 8px 12px; margin: 8px 0; font-size: 9.5pt;
+  }
+  .note b { color: #92400e; }
+  .warn {
+    background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px;
+    padding: 8px 12px; margin: 8px 0; font-size: 9.5pt;
+  }
+  .warn b { color: #b91c1c; }
+
+  .kbd {
+    display: inline-block; border: 1px solid #cbd5e1; border-bottom-width: 2px; border-radius: 5px;
+    background: #f8fafc; padding: 0 7px; font-size: 9pt; font-weight: 700; white-space: nowrap;
+  }
+  .doc-footer { margin-top: 16px; font-size: 8pt; color: #94a3b8; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ============ 1ページ目: 概要と全体の流れ ============ -->
+<div class="page">
+  <div class="doc-header">
+    <div class="doc-brand">HiYOSHi 生産管理システム HiBoard</div>
+    <h1>マイスケジュールボード 運用マニュアル</h1>
+    <div class="doc-meta">デザイン業務のスケジュール共有(鈴木さん × HiYOSHi) ｜ 2026年7月27日 初版</div>
+  </div>
+
+  <div class="lead">
+    <b>この仕組みの目的</b><br>
+    デザイン業務の「何を・いつやるか」を、リモートの鈴木さんとHiYOSHiが<b>同じ画面で共有</b>するための仕組みです。
+    HiYOSHiは仕事(タスク)を渡すだけ、<b>どの日にやるかは鈴木さんが自分で決めます</b>。
+    鈴木さんが組んだ予定は、社内の週間スケジュールボードにそのまま表示されます。
+  </div>
+
+  <h2>全体の流れ</h2>
+  <div class="flow">
+    <div class="flow-step who-hiyoshi">
+      <span class="who-tag hiyoshi">HiYOSHi</span>
+      <b>① 案件を登録する</b>
+      HiBoardで案件登録。デザインの準備項目にチェックを入れるだけ
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step who-suzuki">
+      <span class="who-tag suzuki">自動</span>
+      <b>② タスクが届く</b>
+      鈴木さんのボードの「日付が未定のタスク」に自動で入る
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step who-suzuki">
+      <span class="who-tag suzuki">鈴木さん</span>
+      <b>③ 予定を組む</b>
+      日付と見込み時間を自分で決める。終わったら完了チェック
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step who-hiyoshi">
+      <span class="who-tag hiyoshi">HiYOSHi</span>
+      <b>④ 社内で見える</b>
+      週間スケジュールボードの鈴木さんの行に自動反映
+    </div>
+  </div>
+
+  <h2>使う画面は3つ</h2>
+  <table>
+    <tr><th>画面</th><th>誰が使う</th><th>何をする</th></tr>
+    <tr>
+      <td><b>マイスケジュールボード</b><br>(専用URL)</td>
+      <td>鈴木さん</td>
+      <td>自分の週間予定づくり・完了操作・稼働申告。<b>鈴木さんに関する操作はすべてこの画面</b>で行う</td>
+    </tr>
+    <tr>
+      <td><b>HiBoard</b>(案件登録・週間スケジュールボード)</td>
+      <td>HiYOSHi(久保田・三浦)</td>
+      <td>案件とデザインタスクの登録、鈴木さんの予定・進み具合の確認</td>
+    </tr>
+    <tr>
+      <td><b>社員用TODOリスト</b>(スプレッドシート)</td>
+      <td>両方</td>
+      <td>案件にひも付かない細かい仕事の受け渡し。従来どおり記入・完了はシートで行う</td>
+    </tr>
+  </table>
+
+  <h2>役割分担の原則</h2>
+  <ul>
+    <li><b>HiYOSHiは「何を・いつまでに」を渡す</b> — 案件の納期は伝えるが、作業日は指定しない</li>
+    <li><b>鈴木さんは「どの日にやるか」を決める</b> — CARVE業務との兼ね合いは鈴木さん自身が調整する</li>
+    <li><b>稼働できない日は先に申告する</b> — 稼働変更ボタンで申告すれば、HiYOSHiは納期回答や割り振りを調整できる。<b>申告にペナルティはなし。困るのは無申告の遅れだけ</b></li>
+  </ul>
+
+  <div class="note">
+    <b>稼働の目安:</b> 1日6時間 × 週5日(月〜金) = 週30時間。
+    週によって増減がある場合は、マイスケジュールボードの「⚙ 稼働変更」で日ごとに申告します。
+  </div>
+</div>
+
+<!-- ============ 2ページ目: HiYOSHi側の手順 ============ -->
+<div class="page">
+  <h2 class="side-hiyoshi">HiYOSHi側の手順(久保田さん・社内)</h2>
+
+  <h3>1. デザインの仕事を渡す = 案件を登録するだけ</h3>
+  <p>案件登録時に、鈴木さんの仕事に当たる<b>「作業の準備項目」にチェック</b>を入れると、その項目が自動で鈴木さんのボードに届きます。追加の操作は一切不要です。</p>
+  <table>
+    <tr><th>案件の種類</th><th>登録方法</th><th>鈴木さんに届く項目</th></tr>
+    <tr>
+      <td><b>社内デザイン案件</b><br>(KRATVS・販促物・自社デザイン)</td>
+      <td>新規案件 → 案件種別「<b>社内デザイン</b>」を選択。案件名・納期・準備項目だけの簡単登録</td>
+      <td>チェックした<b>全部の準備項目</b></td>
+    </tr>
+    <tr>
+      <td><b>通常案件</b><br>(お客様からのオーダー)</td>
+      <td>従来どおり登録</td>
+      <td>チェックのうち<b>デザイン系5項目だけ</b>(下記)</td>
+    </tr>
+  </table>
+  <p><b>デザイン系5項目(鈴木さん専用の準備項目):</b> 外注用デザインデータ作成 / 販促物用データ作成 / DTFデータ作成 / 作業指示書作成 / 見積書作成</p>
+
+  <h3>2. 細かい仕事はTODOスプレッドシートで渡す</h3>
+  <p>案件にするほどでもない仕事は、従来どおり<b>社員用TODOリストのTODO_鈴木タブ</b>に書きます(朝会の議事録からの自動追記もそのまま)。状態を「<b>進行中</b>」にすると鈴木さんのボードのTODOリストに表示されます(未着手は表示されません)。</p>
+
+  <h3>3. 進み具合は週間スケジュールボードで見る</h3>
+  <p>HiBoardヘッダー「🗓️ スケジュール」の鈴木さんの行に、本人が組んだ予定が表示されます。</p>
+  <table>
+    <tr><th>表示</th><th>意味</th></tr>
+    <tr><td>紫の縞ブロック【準備】</td><td>案件由来のデザインタスク(完了すると緑になる)</td></tr>
+    <tr><td>青緑の縞ブロック【TODO】</td><td>TODOリストから本人が予定に入れたタスク</td></tr>
+    <tr><td><span class="badge badge-design">🎨 デザイン</span> <span class="badge badge-related">📋 デザイン関連業務</span></td><td>本人が申告した「その日の仕事の種類」の意向(次項)</td></tr>
+    <tr><td>「休み」表示・時間の減少</td><td>本人の稼働申告(終日不可・時間短縮)が反映されたもの</td></tr>
+  </table>
+
+  <h3>4. 日別バッジの汲み取り方</h3>
+  <ul>
+    <li><span class="badge badge-design">🎨 デザイン</span> の日 = <b>デザインに専念したい日</b>。指示書・見積書などの依頼や割り込みはなるべく避け、翌日以降に回す</li>
+    <li><span class="badge badge-related">📋 デザイン関連業務</span> の日 = 指示書・見積書・データ整備などの<b>細かい仕事を受けられる日</b></li>
+  </ul>
+  <div class="note">
+    <b>社内からは鈴木さんの予定を直接動かさない</b>のが原則です(【TODO】ブロックはそもそも動かせません)。
+    調整したいときは、朝会・LINEで本人に伝えて本人のボードで動かしてもらいます。
+  </div>
+
+  <h3>5. デザインが全部終わると</h3>
+  <p>案件の準備項目がすべて完了すると、案件ステータスが自動で「<b>準備完了</b>」に進みます。社内デザイン案件はこれで実質完成、通常案件は次の生産工程(三浦さん側)へ渡ります。</p>
+</div>
+
+<!-- ============ 3ページ目: 鈴木さん側の手順 ============ -->
+<div class="page">
+  <h2>鈴木さん側の手順(マイスケジュールボード)</h2>
+
+  <h3>0. 画面を開く</h3>
+  <ul>
+    <li>共有された<b>専用URL</b>をブラウザで開く(PC・スマホどちらでも可)。ブックマーク推奨</li>
+    <li>画面は上から「<b>今週の予定</b>」→「<b>日付が未定のタスク</b>」→「<b>TODOリスト</b>」の順</li>
+  </ul>
+  <div class="warn"><b>URLは鈴木さん専用です。</b>他の人に共有しないでください(URLを知っていれば誰でも開けてしまうため)。</div>
+
+  <h3>1. 週の初め(月曜の朝会前後): 今週の予定を組む</h3>
+  <ol>
+    <li>「日付が未定のタスク」「TODOリスト」を確認する</li>
+    <li>各タスクの <span class="kbd">日付を選ぶ</span> プルダウンで、やる日を決める(日付カードへのドラッグでもOK)</li>
+    <li>見込み時間(h)を入れる — 日カードの「◯h / 6h」で<b>その日の詰まり具合</b>が見える。6hを超えると赤字になるので入れすぎのサイン</li>
+    <li>稼働できない日・短い日は <span class="kbd">⚙ 稼働変更</span> で申告する(終日不可 / 時間指定 / 通常に戻す)</li>
+    <li>各日の <span class="kbd">🎨 デザイン</span> / <span class="kbd">📋 デザイン関連業務</span> ボタンで、その日の仕事の種類の意向を表明する(もう一度押すと解除)</li>
+  </ol>
+
+  <h3>2. 日々: 進めながら更新する</h3>
+  <ul>
+    <li>終わった案件タスクは<b>「完了」にチェック</b> → 社内に自動で伝わる(取り消しも可)</li>
+    <li><b>TODOの完了はスプレッドシート側で</b>「完了」にする(ボード側に完了チェックはありません)</li>
+    <li>予定がずれたら、日付プルダウンで別の日へ動かす。いったん白紙にしたいときは <span class="kbd">↩︎ 未定に戻す</span></li>
+    <li>週をまたぐ移動は「次週 →」で翌週を表示してから日付を選ぶ</li>
+  </ul>
+
+  <h3>3. 間に合わなそうなとき(いちばん大事)</h3>
+  <div class="note">
+    <b>「間に合わない」と分かった時点で、すぐ動かす+伝える。</b><br>
+    ① ボード上でタスクを後ろの日へ動かす → ② 朝会かLINEでひとこと伝える。<br>
+    早く分かれば納期の再調整・お客様への先回り連絡など打てる手があります。<b>申告にペナルティはありません。</b>
+  </div>
+
+  <h3>よく使う操作まとめ</h3>
+  <table>
+    <tr><th>やりたいこと</th><th>操作</th></tr>
+    <tr><td>タスクをある日に入れる</td><td>タスクの「日付を選ぶ」で曜日を選択(ドラッグ&ドロップでも可)</td></tr>
+    <tr><td>別の日へ動かす / 未定に戻す</td><td>日カード上のタスクの「日付を選ぶ」で変更 / 「↩︎ 未定に戻す」</td></tr>
+    <tr><td>見込み時間を入れる</td><td>タスクの「h」欄に数字(0.5刻み)</td></tr>
+    <tr><td>案件タスクを終わらせる</td><td>「完了」にチェック</td></tr>
+    <tr><td>TODOを終わらせる</td><td><b>スプレッドシートで</b>状態を「完了」に(ボードから最大1分で消える)</td></tr>
+    <tr><td>稼働できない日を伝える</td><td>その日の「⚙ 稼働変更」→ 終日不可 or 時間指定</td></tr>
+    <tr><td>デザイン専念日を伝える</td><td>その日の「🎨 デザイン」ボタンを押す</td></tr>
+  </table>
+</div>
+
+<!-- ============ 4ページ目: 注意点・困ったとき ============ -->
+<div class="page">
+  <h2>注意点(全員共通)</h2>
+  <table>
+    <tr><th>注意点</th><th>理由・対処</th></tr>
+    <tr>
+      <td><b>TODOリストに出るのは「進行中」だけ</b></td>
+      <td>未着手まで出すと量が多くなりすぎるため。鈴木さんに予定を組んでほしいTODOは、シートで状態を<b>「進行中」にしてから</b>渡す</td>
+    </tr>
+    <tr>
+      <td><b>同じ名前のTODOは1件として扱われる</b></td>
+      <td>シートの行に通し番号がないため、タスク名で見分けている。別々の仕事なら「ペルル 請求書作成<b>①</b>」「<b>②</b>」のように名前を変えて書く</td>
+    </tr>
+    <tr>
+      <td><b>日付を決めたTODOの名前をシートで書き換えない</b></td>
+      <td>名前で照合しているため、書き換えると日付との紐づけが外れて未定に戻る。名前を直したいときは、直した後にボードで日付を入れ直す</td>
+    </tr>
+    <tr>
+      <td><b>TODOの内容・完了はシートがマスター</b></td>
+      <td>ボードが覚えているのは「どの日に・何時間」だけ。内容の修正・完了は必ずシート側で行う(ボードへの反映は最大1分)</td>
+    </tr>
+    <tr>
+      <td><b>稼働の時間指定は9:00開始として記録される</b></td>
+      <td>例: 「3時間」と申告→社内ボードでは9:00〜12:00と表示される。時間帯まで正確に伝えたいときは朝会・LINEで補足する</td>
+    </tr>
+    <tr>
+      <td><b>デザイナーリンクを無効化している間の案件登録</b></td>
+      <td>タスクの自動振り分けが働かない。リンクは常時「有効」のままにしておく(無効化はやめる時だけ)</td>
+    </tr>
+  </table>
+
+  <h2>困ったときは(Q&amp;A)</h2>
+  <table>
+    <tr><th>症状</th><th>確認すること</th></tr>
+    <tr>
+      <td>登録した案件のタスクが鈴木さんのボードに出ない</td>
+      <td>①案件の「作業の準備項目」にチェックが入っているか ②通常案件の場合、その項目がデザイン系5項目か(それ以外は社内の担当) ③デザイナーリンクが有効か</td>
+    </tr>
+    <tr>
+      <td>シートに書いたTODOがボードに出ない</td>
+      <td>①状態が「進行中」になっているか ②タブがTODO_鈴木か ③1分待って再読み込みしたか</td>
+    </tr>
+    <tr>
+      <td>完了にしたのにTODOがボードに残っている</td>
+      <td>反映まで最大1分。再読み込み(スマホは引っ張って更新)で消える</td>
+    </tr>
+    <tr>
+      <td>社内ボードに鈴木さんの行がない</td>
+      <td>従業員管理で鈴木さんが「有効」か、基本スケジュール(月〜金6時間)が設定されているか</td>
+    </tr>
+    <tr>
+      <td>ページが開けない・「ご利用いただけません」と出る</td>
+      <td>URLが途中で切れていないか、リンクが無効化されていないか(HiBoard「🎨 デザイナーリンク」で確認・再有効化)</td>
+    </tr>
+  </table>
+
+  <h2>週次の運用リズム(推奨)</h2>
+  <table>
+    <tr><th>タイミング</th><th>鈴木さん</th><th>HiYOSHi</th></tr>
+    <tr>
+      <td><b>月曜 朝会</b></td>
+      <td>今週の予定を組む・稼働変更とバッジを設定</td>
+      <td>今週の依頼を先出し・2〜4週先の案件見込みを共有</td>
+    </tr>
+    <tr>
+      <td><b>毎日</b></td>
+      <td>完了チェック・ずれたら日付を動かす</td>
+      <td>週間ボードで進み具合を確認(直接は動かさない)</td>
+    </tr>
+    <tr>
+      <td><b>遅れそうなとき</b></td>
+      <td>すぐ日付を動かす+ひとこと伝える</td>
+      <td>その日のうちに方針を返す(再調整・振り替え等)</td>
+    </tr>
+  </table>
+
+  <div class="doc-footer">
+    有限会社HiYOSHi ｜ マイスケジュールボード運用マニュアル 初版(2026-07-27) ｜ 機能追加時はこの資料も更新すること
+  </div>
+</div>
+
+</body>
+</html>
