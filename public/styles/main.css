@@ -78,6 +78,9 @@ html, body {
   display: flex;
   gap: 12px;
   align-items: center;
+  /* ボタンが増えても画面からはみ出さないよう折り返す（幅の狭いノートPC対策） */
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .btn-header {
