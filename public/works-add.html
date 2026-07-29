@@ -255,7 +255,11 @@
     fetch('/api/works/publish', { method: 'POST', body: fd })
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (r) {
-        if (!r.ok) throw new Error(r.j.error || '登録に失敗しました');
+        if (!r.ok) {
+          var e = new Error(r.j.error || '登録に失敗しました');
+          e.hint = r.j.tokenHint;
+          throw e;
+        }
         msg.className = 'ok';
         msg.innerHTML = '<b>登録しました。</b><br>数分後にサイトの制作実績へ反映されます。'
           + '<br><a href="https://hiyoshi-web.pages.dev/works/" target="_blank" rel="noopener">実績一覧を開く</a>';
@@ -265,7 +269,39 @@
         $('preview').style.display = 'none';
         drop.innerHTML = 'ここに写真をドラッグ＆ドロップ<br><span style="font-size:12px">またはタップして選択</span>';
       })
-      .catch(function (err) { fail(String(err.message || err)); })
+      .catch(function (err) {
+        fail(String(err.message || err));
+        var h = err.hint;
+        if (h) {
+          // トークンの値は出さず、長さと書式だけを手がかりとして表示する。
+          // 2026-07-29の実例では「短く切れている」ではなく、.envに古い値の断片が
+          // 残ったまま新しい値が繋がって104文字になっていた。長すぎる場合も指摘する。
+          var EXPECT = 93;
+          var n = h.length || 0;
+          var lenNote;
+          if (n === 0) {
+            lenNote = '❌ 値が読み込まれていません（.env の WORKS_GITHUB_TOKEN 行をご確認ください）';
+          } else if (n < EXPECT) {
+            lenNote = '❌ <b>短すぎます</b>。コピーが途中で切れています。'
+              + 'GitHubのコピーボタンを使って貼り直してください';
+          } else if (n > EXPECT) {
+            lenNote = '❌ <b>長すぎます</b>。古い値の断片が残ったまま、新しい値が繋がっている可能性があります。'
+              + 'メモ帳の「右端で折り返す」をOFFにしてから、'
+              + '<b>WORKS_GITHUB_TOKEN= の行を丸ごと削除</b>して貼り直してください';
+          } else {
+            lenNote = '✅ 長さは想定どおりです。'
+              + 'トークンが再発行されて無効になっている可能性があるので、GitHubで発行し直してください';
+          }
+          msg.innerHTML = msg.textContent
+            + '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #f5c6c0;font-size:12.5px;line-height:1.9">'
+            + '読み込まれている値の文字数：<b>' + n + ' 文字</b>（正しくは ' + EXPECT + ' 文字）<br>'
+            + lenNote + '<br>'
+            + '書式：' + (h.looksLikeToken ? '✅ github_pat_ で始まっています' : '❌ github_pat_ で始まっていません')
+            + (h.hasQuotes ? '<br>⚠️ 引用符で囲まれています。" や \' を外してください' : '')
+            + (h.hasSpaces ? '<br>⚠️ 前後に空白があります。詰めてください' : '')
+            + '</div>';
+        }
+      })
       .finally(function () {
         $('submit').disabled = false;
         $('submit').textContent = 'サイトに登録する';
