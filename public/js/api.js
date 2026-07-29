@@ -292,6 +292,36 @@ const API = {
     return response.json();
   },
 
+  // ===== 顧客台帳 =====
+
+  // 顧客一覧(projects.customer_nameのTRIMグルーピング集計)
+  async getCustomers() {
+    const response = await fetch('/api/customers');
+    return response.json();
+  },
+
+  // 指定顧客の全案件(進行中含む・納品日/Freeeリンク/NASパス込み)
+  async getCustomerProjects(name) {
+    const response = await fetch(`/api/customers/projects?name=${encodeURIComponent(name)}`);
+    return response.json();
+  },
+
+  // 顧客メモ取得(未登録ならnull)
+  async getCustomerNote(name) {
+    const response = await fetch(`/api/customer-notes?name=${encodeURIComponent(name)}`);
+    return response.json();
+  },
+
+  // 顧客メモ保存(顧客名キーのUPSERT)
+  async saveCustomerNote(data) {
+    const response = await fetch('/api/customer-notes', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return response.json();
+  },
+
   // ===== NAS関連 =====
 
   // NASフォルダ内のファイル一覧を取得

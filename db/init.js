@@ -90,6 +90,20 @@ function initDatabase(dbFile = dbPath) {
     db.prepare(`ALTER TABLE ai_extracted_intake ADD COLUMN reference_link TEXT`).run();
   }
 
+  // 顧客メモ(顧客台帳ページ用)。顧客マスタは持たず projects.customer_name の
+  // TRIM値をキーに、担当窓口・連絡先・注意点などを顧客単位で書き残す
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS customer_notes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      customer_name TEXT NOT NULL UNIQUE,
+      contact_person TEXT,
+      contact_info TEXT,
+      memo TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+
   // 従業員の曜日ごとの標準勤務パターン
   db.exec(`
     CREATE TABLE IF NOT EXISTS employee_default_schedule (

@@ -1691,6 +1691,96 @@ app.get('/api/delivery-records', (req, res) => {
   }
 });
 
+// ===== 顧客台帳 =====
+// 顧客マスタは持たず、projects.customer_name(TRIM)でグルーピングした集計を返す。
+// 社内デザイン案件と顧客名が空の案件は対象外。並びは直近の動き(納品日 or 受付日)が新しい順
+app.get('/api/customers', (req, res) => {
+  try {
+    const customers = db.prepare(`
+      SELECT TRIM(p.customer_name) AS customer_name,
+        COUNT(*) AS project_count,
+        SUM(CASE WHEN p.status = 'COMPLETED' THEN 1 ELSE 0 END) AS delivered_count,
+        SUM(p.quantity) AS total_quantity,
+        MIN(p.received_date) AS first_received_date,
+        MAX(p.received_date) AS last_received_date,
+        MAX(d.delivered_date) AS last_delivered_date,
+        GROUP_CONCAT(p.process_type, ',') AS process_types,
+        MAX(CASE WHEN n.id IS NOT NULL THEN 1 ELSE 0 END) AS has_note
+      FROM projects p
+      LEFT JOIN (
+        SELECT case_id, MAX(delivered_date) AS delivered_date
+        FROM delivery_records GROUP BY case_id
+      ) d ON d.case_id = p.id
+      LEFT JOIN customer_notes n ON n.customer_name = TRIM(p.customer_name)
+      WHERE p.project_kind != 'INTERNAL_DESIGN' AND TRIM(p.customer_name) != ''
+      GROUP BY TRIM(p.customer_name)
+      ORDER BY COALESCE(MAX(d.delivered_date), MAX(p.received_date)) DESC
+    `).all();
+    res.json(customers);
+  } catch (error) {
+    sendServerError(res, req, error);
+  }
+});
+
+// 指定顧客の全案件(進行中含む)を新しい順で返す。納品日・Freeeリンク・NASパス込みで、
+// 顧客詳細から納品履歴ページと同じ操作(フォルダ閲覧・Freee・再注文)ができるようにする
+app.get('/api/customers/projects', (req, res) => {
+  try {
+    const name = (req.query.name || '').trim();
+    if (!name) return res.status(400).json({ error: 'name is required' });
+    const projects = db.prepare(`
+      SELECT p.id, p.project_name, p.received_date, p.deadline, p.customer_name,
+        p.process_type, p.quantity, p.status, p.nas_folder_path,
+        p.freee_quote_url, p.freee_invoice_url,
+        d.delivered_date, d.delivery_method
+      FROM projects p
+      LEFT JOIN (
+        SELECT case_id, MAX(delivered_date) AS delivered_date, delivery_method
+        FROM delivery_records GROUP BY case_id
+      ) d ON d.case_id = p.id
+      WHERE p.project_kind != 'INTERNAL_DESIGN' AND TRIM(p.customer_name) = ?
+      ORDER BY p.received_date DESC, p.id DESC
+    `).all(name);
+    res.json(projects);
+  } catch (error) {
+    sendServerError(res, req, error);
+  }
+});
+
+// 顧客メモの取得。未登録の顧客は null を返す(エラーにしない)
+app.get('/api/customer-notes', (req, res) => {
+  try {
+    const name = (req.query.name || '').trim();
+    if (!name) return res.status(400).json({ error: 'name is required' });
+    const note = db.prepare('SELECT * FROM customer_notes WHERE customer_name = ?').get(name);
+    res.json(note || null);
+  } catch (error) {
+    sendServerError(res, req, error);
+  }
+});
+
+// 顧客メモの保存(顧客名キーのUPSERT)
+app.put('/api/customer-notes', (req, res) => {
+  try {
+    const customer_name = (req.body.customer_name || '').trim();
+    if (!customer_name) return res.status(400).json({ error: 'customer_name is required' });
+    const { contact_person, contact_info, memo } = req.body;
+    const now = new Date().toISOString();
+    db.prepare(`
+      INSERT INTO customer_notes (customer_name, contact_person, contact_info, memo, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(customer_name) DO UPDATE SET
+        contact_person = excluded.contact_person,
+        contact_info = excluded.contact_info,
+        memo = excluded.memo,
+        updated_at = excluded.updated_at
+    `).run(customer_name, contact_person || '', contact_info || '', memo || '', now, now);
+    res.json({ message: 'Customer note saved successfully' });
+  } catch (error) {
+    sendServerError(res, req, error);
+  }
+});
+
 // 過去案件をもとに新規案件を複製作成する(リピート注文用)。
 // 加工内容・NASフォルダパス・アイテム明細・プリント箇所を引き継ぎ、
 // 担当者割り当て・作業計画・名簿(選手名は年度で変わるため)は引き継がない。
@@ -2650,6 +2740,10 @@ app.delete('/api/staff/:id', (req, res) => {
 
 app.get('/employees', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'employees.html'));
+});
+
+app.get('/customers', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'customers.html'));
 });
 
 app.get('/delivery-history', (req, res) => {

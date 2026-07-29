@@ -8,7 +8,6 @@ const deliveryHistoryApp = {
   records: [],
   searchQuery: '',
   duplicateSource: null,
-  browsePath: null,
 
   // ===== 初期化 =====
   async init() {
@@ -42,9 +41,6 @@ const deliveryHistoryApp = {
     // モーダルの背景クリックで閉じる(project-modal等と同じ挙動)
     document.getElementById('duplicate-modal').addEventListener('click', (e) => {
       if (e.target.id === 'duplicate-modal') this.closeDuplicateModal();
-    });
-    document.getElementById('nas-browse-modal').addEventListener('click', (e) => {
-      if (e.target.id === 'nas-browse-modal') this.closeNasBrowseModal();
     });
   },
 
@@ -93,7 +89,8 @@ const deliveryHistoryApp = {
         folderBtn.className = 'btn-small';
         folderBtn.textContent = '📁 フォルダ';
         folderBtn.title = '案件フォルダの中身(指示書PDF・入稿データ等)をブラウザで見る';
-        folderBtn.addEventListener('click', () => this.openNasBrowseModal(record));
+        folderBtn.addEventListener('click', () =>
+          NasBrowse.open(record.nas_folder_path, `${record.project_name} / ${record.customer_name}`));
         actions.appendChild(folderBtn);
       }
       if (record.freee_quote_url) {
@@ -123,107 +120,8 @@ const deliveryHistoryApp = {
     });
   },
 
-  // ===== 案件フォルダ閲覧(NASの中身をブラウザで一覧・プレビュー) =====
-  openNasBrowseModal(record) {
-    document.getElementById('nas-browse-project-info').textContent =
-      `${record.project_name} / ${record.customer_name}`;
-    document.getElementById('nas-browse-modal').style.display = 'flex';
-    this.loadNasBrowse(record.nas_folder_path);
-  },
-
-  closeNasBrowseModal() {
-    document.getElementById('nas-browse-modal').style.display = 'none';
-    this.browsePath = null;
-  },
-
-  async loadNasBrowse(path) {
-    const listEl = document.getElementById('nas-browse-list');
-    const loadingEl = document.getElementById('nas-browse-loading');
-    const breadcrumbEl = document.getElementById('nas-browse-breadcrumb');
-    loadingEl.style.display = 'block';
-    listEl.innerHTML = '';
-    breadcrumbEl.innerHTML = '';
-
-    try {
-      const data = await API.getNasList(path);
-      loadingEl.style.display = 'none';
-
-      if (!data || !data.exists) {
-        listEl.innerHTML = '<div class="folder-notice">フォルダが見つかりません(NASに接続できないか、パスが変わっている可能性があります)</div>';
-        return;
-      }
-
-      this.browsePath = data.path;
-      this.renderNasBreadcrumb(data.path);
-
-      const entries = [...data.entries].sort((a, b) => a.name.localeCompare(b.name, 'ja'));
-      if (entries.length === 0) {
-        listEl.innerHTML = '<div class="folder-notice">フォルダ内にファイルが見つかりません</div>';
-        return;
-      }
-
-      entries.forEach(entry => {
-        const item = document.createElement('div');
-        item.className = 'folder-item';
-        const nameEl = document.createElement('span');
-        nameEl.textContent = entry.name + (entry.isDirectory ? ' /' : '');
-        item.appendChild(nameEl);
-
-        if (entry.isDirectory) {
-          item.style.cursor = 'pointer';
-          item.onclick = () => this.loadNasBrowse(entry.path);
-        } else {
-          const openBtn = document.createElement('button');
-          openBtn.className = 'btn-small';
-          openBtn.textContent = '📂 開く/DL';
-          openBtn.style.marginLeft = '8px';
-          openBtn.onclick = (e) => {
-            e.stopPropagation();
-            window.open(API.getNasFileUrl(entry.path), '_blank');
-          };
-          item.appendChild(openBtn);
-        }
-        listEl.appendChild(item);
-      });
-    } catch (error) {
-      console.error('NAS一覧取得エラー:', error);
-      loadingEl.style.display = 'none';
-      listEl.innerHTML = '<div class="folder-notice">NAS一覧の取得に失敗しました</div>';
-    }
-  },
-
-  // パスの区切りごとにクリックできるパンくずを組み立てる(案件モーダルのNAS一覧と同じ挙動)
-  renderNasBreadcrumb(fullPath) {
-    const breadcrumbEl = document.getElementById('nas-browse-breadcrumb');
-    breadcrumbEl.innerHTML = '';
-    const sep = fullPath.includes('\\') ? '\\' : '/';
-    const parts = fullPath.split(/[\\/]+/).filter(Boolean);
-    parts.forEach((part, idx) => {
-      const seg = document.createElement('a');
-      seg.href = '#';
-      const resolved = (fullPath.startsWith(sep) ? sep : '') + parts.slice(0, idx + 1).join(sep);
-      seg.textContent = (idx === 0 && fullPath.startsWith(sep)) ? sep + part : part;
-      seg.style.marginRight = '6px';
-      seg.onclick = (e) => {
-        e.preventDefault();
-        this.loadNasBrowse(resolved);
-      };
-      breadcrumbEl.appendChild(seg);
-      if (idx < parts.length - 1) breadcrumbEl.appendChild(document.createTextNode(' / '));
-    });
-  },
-
-  // 表示中のフォルダをサーバー機のエクスプローラーで開く(サーバーを動かしている端末上でのみ有効)
-  async openBrowseFolderOnServer() {
-    if (!this.browsePath) return;
-    try {
-      const result = await API.openNasFile(this.browsePath);
-      if (result.error) alert(`フォルダを開けませんでした: ${result.error}`);
-    } catch (error) {
-      console.error('NASフォルダ表示エラー:', error);
-      alert('フォルダを開けませんでした');
-    }
-  },
+  // ===== 案件フォルダ閲覧 =====
+  // モーダル本体は js/nas-browse.js の共有モジュール(NasBrowse)に集約(顧客台帳と共用)
 
   // ===== リピート注文(複製) =====
   openDuplicateModal(record) {

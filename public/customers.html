@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>顧客台帳 - Production Management</title>
+  <link rel="stylesheet" href="styles/main.css">
+  <style>
+    /* 顧客台帳ページ専用の小さめ調整のみ(共通見た目はmain.cssに従う) */
+    .customer-row { cursor: pointer; }
+    .customer-note-card {
+      background: #fff;
+      border: 1px solid var(--gray-200, #e5e7eb);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .customer-note-card h3 { margin: 0 0 12px; font-size: 16px; }
+    .customer-detail-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .customer-detail-toolbar h2 { margin: 0; }
+    .note-save-status { color: var(--gray-600, #4b5563); font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <!-- ヘッダー -->
+    <header class="app-header">
+      <div class="header-content">
+        <h1 class="app-title">📇 顧客台帳</h1>
+        <p class="app-subtitle">Customer Directory</p>
+      </div>
+      <div class="header-buttons">
+        <a class="btn-staff-manage" href="/delivery-history">📦 納品履歴</a>
+        <a class="btn-staff-manage" href="/">📋 HiBoardに戻る</a>
+      </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="main-content">
+      <!-- 顧客一覧 -->
+      <section id="customer-list-section">
+        <div class="delivery-search-bar">
+          <input type="search" id="customer-search" placeholder="🔍 顧客名で検索">
+          <span id="customer-search-count" class="delivery-search-count"></span>
+        </div>
+
+        <div class="table-container">
+          <table class="projects-table" id="customer-table">
+            <thead>
+              <tr>
+                <th>顧客名</th>
+                <th>案件数</th>
+                <th>納品済み</th>
+                <th>累計数量</th>
+                <th>初回受付</th>
+                <th>最終納品</th>
+                <th>加工種別</th>
+                <th>メモ</th>
+              </tr>
+            </thead>
+            <tbody id="customer-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 顧客詳細 -->
+      <section id="customer-detail-section" style="display:none;">
+        <div class="customer-detail-toolbar">
+          <button type="button" class="btn-small" onclick="customersApp.backToList()">← 顧客一覧へ戻る</button>
+          <h2 id="detail-customer-name"></h2>
+          <span id="detail-customer-summary" class="delivery-search-count"></span>
+        </div>
+
+        <!-- 顧客メモ -->
+        <div class="customer-note-card">
+          <h3>📝 顧客メモ</h3>
+          <form id="customer-note-form" class="project-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label>担当窓口</label>
+                <input type="text" name="contact_person" placeholder="例: 監督の◯◯さん / 総務◯◯様">
+              </div>
+              <div class="form-group">
+                <label>連絡先</label>
+                <input type="text" name="contact_info" placeholder="例: LINE / 電話 / メール など連絡手段のメモ">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>メモ(値引きルール・注意点・好みなど)</label>
+              <textarea name="memo" rows="3"></textarea>
+            </div>
+            <div class="form-actions">
+              <span class="note-save-status" id="note-save-status"></span>
+              <button type="submit" class="btn-primary">メモを保存</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- 案件履歴 -->
+        <div class="table-container">
+          <table class="projects-table" id="customer-projects-table">
+            <thead>
+              <tr>
+                <th>案件名</th>
+                <th>受付日</th>
+                <th>ステータス</th>
+                <th>納品日</th>
+                <th>加工</th>
+                <th>数量</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="customer-projects-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- リピート注文(複製)モーダル(納品履歴ページと同じ挙動) -->
+  <div id="duplicate-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>↻ この案件をもとに新規作成</h2>
+        <button class="btn-close" onclick="customersApp.closeDuplicateModal()">✕</button>
+      </div>
+      <form id="duplicate-form" class="project-form">
+        <p class="folder-notice" id="duplicate-source-info"></p>
+        <div class="form-group">
+          <label>案件名 *</label>
+          <input type="text" name="project_name" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>納期 *</label>
+            <input type="date" name="deadline" required>
+          </div>
+          <div class="form-group">
+            <label>数量 *</label>
+            <input type="number" name="quantity" min="1" required>
+          </div>
+        </div>
+        <p class="folder-notice">顧客名・加工内容・プリント箇所・NASのデザインフォルダは元の案件から引き継がれます。担当者と作業計画は引き継がないため、登録後にHiBoardの画面で設定してください。</p>
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" onclick="customersApp.closeDuplicateModal()">キャンセル</button>
+          <button type="submit" class="btn-primary">複製して登録</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- スクリプト -->
+  <script src="js/utils.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/nas-browse.js"></script>
+  <script src="js/customers.js"></script>
+</body>
+</html>
