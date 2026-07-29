@@ -15,6 +15,7 @@ const { registerDesignerBoardRoutes } = require('./lib/designer-board');
 const { registerOrderStatusRoutes } = require('./lib/order-status');
 const { scheduleDailyBackup } = require('./lib/db-backup');
 const { extractCarriedData, extractCarriedItems } = require('./lib/intake-carry');
+const { completeIntakeTask } = require('./lib/todo-notify');
 const { HOLIDAYS, isJpHoliday } = require('./lib/jp-holidays');
 
 const app = express();
@@ -1910,6 +1911,8 @@ app.post('/api/ai-intake/:id/confirm', (req, res) => {
     if (!intake) return res.status(404).json({ error: 'Intake not found' });
 
     const projectId = confirmAiIntake(req.params.id, req.body);
+    // 対応するTODO行を完了にする(失敗しても登録処理には影響させない)
+    completeIntakeTask(req.params.id, '登録');
     res.status(201).json({ id: projectId, message: 'Project created from intake successfully' });
   } catch (error) {
     sendServerError(res, req, error);
@@ -1922,6 +1925,8 @@ app.post('/api/ai-intake/:id/reject', (req, res) => {
     if (!intake) return res.status(404).json({ error: 'Intake not found' });
 
     db.prepare(`UPDATE ai_extracted_intake SET status = 'rejected' WHERE id = ?`).run(req.params.id);
+    // 対応するTODO行を完了にする(失敗しても却下処理には影響させない)
+    completeIntakeTask(req.params.id, '却下');
     res.json({ message: 'Intake rejected' });
   } catch (error) {
     sendServerError(res, req, error);
