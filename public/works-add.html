@@ -25,9 +25,15 @@
   /* 写真 */
   #drop { border:2px dashed #c8ced6; border-radius:10px; padding:28px 16px; text-align:center; color:var(--sub); font-size:13.5px; cursor:pointer; background:#fafbfc; }
   #drop.over { border-color:var(--accent); background:#eef4ff; color:var(--accent); }
-  #preview { display:none; margin-top:14px; }
-  #preview img { width:100%; max-height:340px; object-fit:contain; border-radius:8px; background:#eceff3; }
-  #fname { font-size:12px; color:var(--sub); margin-top:8px; word-break:break-all; }
+  /* 選んだ写真の一覧（最大3枚。1行＝1枚） */
+  #shots { list-style:none; margin:14px 0 0; padding:0; }
+  #shots li { display:flex; gap:12px; align-items:center; background:#f7f9fb; border:1px solid var(--line); border-radius:8px; padding:10px; margin-bottom:8px; }
+  #shots img { width:96px; height:72px; object-fit:cover; border-radius:6px; background:#eceff3; flex:none; }
+  .shot-body { flex:1; min-width:0; }
+  .shot-name { font-size:12px; color:var(--sub); word-break:break-all; margin-bottom:6px; }
+  .shot-body select { width:auto; min-width:130px; padding:7px 10px; font-size:13px; }
+  .shot-del { background:none; border:0; color:var(--ng); font-size:12px; cursor:pointer; font-family:inherit; font-weight:700; flex:none; align-self:flex-start; }
+  .shot-first { font-size:11px; color:var(--accent); font-weight:700; margin-top:5px; }
 
   /* 加工内容 */
   .mrow { display:flex; gap:8px; align-items:center; margin-bottom:10px; flex-wrap:wrap; }
@@ -78,14 +84,18 @@
   <form id="form">
     <!-- 1. 写真 -->
     <div class="card">
-      <h2><span class="n">1</span>写真</h2>
+      <h2><span class="n">1</span>写真<span class="req">必須</span></h2>
       <div id="drop">
         ここに写真をドラッグ＆ドロップ<br>
         <span style="font-size:12px">またはタップして選択（スマホで撮影した写真もそのままでOK）</span>
       </div>
-      <input type="file" id="file" accept="image/*" hidden>
-      <div id="preview"><img id="pimg" alt="選んだ写真のプレビュー"><div id="fname"></div></div>
-      <p class="hint">トルソーに着せて正面から撮ると、他の実績と揃って見えます。</p>
+      <!-- multiple: 正面・背面・横をまとめて選べる -->
+      <input type="file" id="file" accept="image/*" multiple hidden>
+      <ul id="shots"></ul>
+      <p class="hint" id="shotHint">
+        1枚でも登録できます。<b>正面・背面・横の3枚</b>を入れると、サイトでクリックしたときに
+        スライドで見比べられます。トルソーに着せて撮ると、他の実績と揃って見えます。
+      </p>
     </div>
 
     <!-- 2. 内容 -->
@@ -143,7 +153,8 @@
 
 <script>
 (function () {
-  var meta = null, picked = null, methods = [];
+  // picked は選んだ写真の配列。[{ file, position }] で、並び順がサイトの表示順になる
+  var meta = null, picked = [], methods = [];
   var $ = function (id) { return document.getElementById(id); };
 
   // ---- 選択肢の読み込み ----
@@ -171,6 +182,8 @@
     $('cats').innerHTML = m.categories.map(function (c) {
       return '<label><input type="radio" name="cat" value="' + c.key + '">' + c.label + '</label>';
     }).join('');
+    // 読み込み前に写真を選んでいた場合、向きの選択肢が空のままなので描き直す
+    if (picked.length) drawShots();
   });
 
   // ---- 写真 ----
@@ -182,19 +195,64 @@
   ['dragleave', 'drop'].forEach(function (e) {
     drop.addEventListener(e, function (ev) { ev.preventDefault(); drop.classList.remove('over'); });
   });
-  drop.addEventListener('drop', function (ev) {
-    if (ev.dataTransfer.files.length) setFile(ev.dataTransfer.files[0]);
-  });
+  drop.addEventListener('drop', function (ev) { addFiles(ev.dataTransfer.files); });
   $('file').addEventListener('change', function () {
-    if (this.files.length) setFile(this.files[0]);
+    addFiles(this.files);
+    // 同じファイルを選び直せるように毎回クリアする
+    this.value = '';
   });
-  function setFile(f) {
-    picked = f;
-    $('pimg').src = URL.createObjectURL(f);
-    $('fname').textContent = f.name + '（' + Math.round(f.size / 1024) + 'KB）';
-    $('preview').style.display = 'block';
-    drop.textContent = '別の写真に変える場合はここをタップ';
+
+  /** 選ばれた写真を picked に足す。上限を超えた分は捨てて理由を伝える */
+  function addFiles(files) {
+    var max = (meta && meta.maxPhotos) || 3;
+    var over = false;
+    for (var i = 0; i < files.length; i++) {
+      if (picked.length >= max) { over = true; break; }
+      picked.push({ file: files[i], position: '' });
+    }
+    drawShots();
+    if (over) {
+      $('shotHint').innerHTML = '<b style="color:#c0392b">写真は' + max + '枚までです。</b>'
+        + '超えた分は取り込んでいません。';
+    }
   }
+
+  /** 選んだ写真の一覧を描き直す。並び順がそのままサイトの表示順になる */
+  function drawShots() {
+    var opts = ((meta && meta.photoPositions) || []).map(function (p) {
+      return '<option value="' + p + '">' + p + '</option>';
+    }).join('');
+    $('shots').innerHTML = picked.map(function (p, i) {
+      return '<li>'
+        + '<img src="' + URL.createObjectURL(p.file) + '" alt="' + (i + 1) + '枚目のプレビュー">'
+        + '<div class="shot-body">'
+        + '<div class="shot-name">' + p.file.name + '（' + Math.round(p.file.size / 1024) + 'KB）</div>'
+        + '<select data-i="' + i + '"><option value="">向きを選ぶ（任意）</option>' + opts + '</select>'
+        + (i === 0 ? '<div class="shot-first">この写真が一覧のサムネイルになります</div>' : '')
+        + '</div>'
+        + '<button type="button" class="shot-del" data-i="' + i + '">削除</button>'
+        + '</li>';
+    }).join('');
+    // 再描画で select の値が飛ぶので入れ直す
+    picked.forEach(function (p, i) {
+      var s = $('shots').querySelector('select[data-i="' + i + '"]');
+      if (s) s.value = p.position;
+    });
+    var max = (meta && meta.maxPhotos) || 3;
+    drop.innerHTML = picked.length
+      ? (picked.length < max ? 'あと' + (max - picked.length) + '枚まで追加できます（タップして選択）' : '写真は' + max + '枚そろいました')
+      : 'ここに写真をドラッグ＆ドロップ<br><span style="font-size:12px">またはタップして選択（スマホで撮影した写真もそのままでOK）</span>';
+  }
+
+  $('shots').addEventListener('click', function (e) {
+    if (!e.target.classList.contains('shot-del')) return;
+    picked.splice(Number(e.target.dataset.i), 1);
+    drawShots();
+  });
+  $('shots').addEventListener('change', function (e) {
+    if (e.target.tagName !== 'SELECT') return;
+    picked[Number(e.target.dataset.i)].position = e.target.value;
+  });
 
   // ---- 加工内容 ----
   function redraw() {
@@ -230,7 +288,7 @@
       msg.scrollIntoView({ block: 'center', behavior: 'smooth' });
     }
 
-    if (!picked) return fail('写真を選んでください');
+    if (!picked.length) return fail('写真を選んでください');
     if (!$('client').value.trim()) return fail('取引先を入力してください');
     if (!$('title').value.trim()) return fail('つくったものを入力してください');
     if (!methods.length) return fail('加工内容を1つ以上追加してください');
@@ -241,7 +299,11 @@
     var d = new Date();
     var pad = function (n) { return String(n).padStart(2, '0'); };
     var fd = new FormData();
-    fd.append('photo', picked);
+    // photo と positions は同じ順番で並べる（サーバー側が添字で対応づける）
+    picked.forEach(function (p) {
+      fd.append('photo', p.file);
+      fd.append('positions', p.position);
+    });
     fd.append('client', $('client').value.trim());
     fd.append('title', $('title').value.trim());
     fd.append('method', methods.join('／'));
@@ -261,13 +323,14 @@
           throw e;
         }
         msg.className = 'ok';
-        msg.innerHTML = '<b>登録しました。</b><br>数分後にサイトの制作実績へ反映されます。'
+        var n = (r.j.images && r.j.images.length) || 1;
+        msg.innerHTML = '<b>登録しました（写真' + n + '枚）。</b><br>数分後にサイトの制作実績へ反映されます。'
           + '<br><a href="https://hiyoshi-web.pages.dev/works/" target="_blank" rel="noopener">実績一覧を開く</a>';
         msg.scrollIntoView({ block: 'center', behavior: 'smooth' });
         $('form').reset();
-        picked = null; methods = []; redraw();
-        $('preview').style.display = 'none';
-        drop.innerHTML = 'ここに写真をドラッグ＆ドロップ<br><span style="font-size:12px">またはタップして選択</span>';
+        picked = []; methods = []; redraw(); drawShots();
+        $('shotHint').innerHTML = '1枚でも登録できます。<b>正面・背面・横の3枚</b>を入れると、'
+          + 'サイトでクリックしたときにスライドで見比べられます。';
       })
       .catch(function (err) {
         fail(String(err.message || err));
