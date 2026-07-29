@@ -867,6 +867,8 @@ const app = {
     form.elements['required_skill_tags'].value = '';
     form.elements['estimated_hours'].value = '';
     form.elements['nas_folder_path'].value = '';
+    form.elements['freee_quote_url'].value = '';
+    form.elements['freee_invoice_url'].value = '';
 
     this.setCheckboxGroupValues(form, 'process_type', this.detectProcessType(itemsText));
 
@@ -1154,6 +1156,15 @@ const app = {
   async submitDeliverForm(event) {
     event.preventDefault();
     const form = event.target;
+
+    // 指示書PDFのNAS保存は運用ルール(納品後の履歴をNASフォルダに集約する)。
+    // 例外もあり得るため必須にはせず、未チェック時は確認だけ挟む
+    if (!form.elements['instruction_pdf_saved'].checked) {
+      if (!confirm('goodnoteの指示書PDFがまだ案件のNASフォルダに保存されていません。\nこのまま納品済みにしますか?')) {
+        return;
+      }
+    }
+
     const deliveredBy = form.elements['delivered_by'].value;
     const [deliveredByType, deliveredById] = deliveredBy ? deliveredBy.split('-') : [null, null];
 
@@ -1482,6 +1493,20 @@ const app = {
 
       listContainer.appendChild(item);
     });
+  },
+
+  // Freee見積書/請求書リンクを新しいタブで開く(案件モーダルの「📄 開く」ボタン用)
+  openFreeeLink(inputId) {
+    const url = document.getElementById(inputId)?.value?.trim();
+    if (!url) {
+      alert('リンクが未入力です。Freeeで見積書/請求書を開いたときのURLを貼り付けてください');
+      return;
+    }
+    if (!/^https?:\/\//.test(url)) {
+      alert('URLは https:// から始まる形式で入力してください');
+      return;
+    }
+    window.open(url, '_blank');
   },
 
   async openNasFile(filePath) {

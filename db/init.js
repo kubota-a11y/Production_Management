@@ -25,6 +25,15 @@ function initDatabase(dbFile = dbPath) {
     db.prepare(`ALTER TABLE projects ADD COLUMN nas_folder_path TEXT`).run();
   }
 
+  // 既存DBに freee_quote_url / freee_invoice_url カラムがない場合は追加。
+  // Freee上の見積書・請求書の画面URLを案件に持たせ、納品後もHiBoardから1クリックで辿れるようにする
+  if (!columns.includes('freee_quote_url')) {
+    db.prepare(`ALTER TABLE projects ADD COLUMN freee_quote_url TEXT`).run();
+  }
+  if (!columns.includes('freee_invoice_url')) {
+    db.prepare(`ALTER TABLE projects ADD COLUMN freee_invoice_url TEXT`).run();
+  }
+
   // 既存DBに prep_items カラムがない場合は追加
   if (!columns.includes('prep_items')) {
     db.prepare(`ALTER TABLE projects ADD COLUMN prep_items TEXT`).run();

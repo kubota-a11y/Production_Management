@@ -1541,7 +1541,8 @@ function createProjectRecord(data) {
   const { project_name, received_date, deadline, customer_name, contact_method,
     work_content, process_type, quantity, planned_hours, assigned_staff_id,
     status, priority, reference_link, memo, nas_folder_path, prep_items,
-    required_skill_tags, estimated_hours, assigned_employee_id, project_kind } = data;
+    required_skill_tags, estimated_hours, assigned_employee_id, project_kind,
+    freee_quote_url, freee_invoice_url } = data;
   // 社内デザイン案件は数量・作業予定時間なしで登録できるため、NOT NULL列は0で埋める
   const kind = project_kind === 'INTERNAL_DESIGN' ? 'INTERNAL_DESIGN' : 'NORMAL';
   const now = new Date().toISOString();
@@ -1550,13 +1551,14 @@ function createProjectRecord(data) {
       project_name, received_date, deadline, customer_name, contact_method,
       work_content, process_type, quantity, planned_hours, assigned_staff_id,
       status, priority, reference_link, memo, nas_folder_path, prep_items,
-      required_skill_tags, estimated_hours, assigned_employee_id, project_kind, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      required_skill_tags, estimated_hours, assigned_employee_id, project_kind,
+      freee_quote_url, freee_invoice_url, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(project_name, received_date, deadline, customer_name, contact_method,
     work_content || '', process_type || '', quantity || 0, planned_hours || 0, assigned_staff_id || null,
     status || 'PRE_ORDER', priority || 'MEDIUM', reference_link || '', memo || '',
     nas_folder_path || '', prep_items || '', required_skill_tags || '', estimated_hours || null,
-    assigned_employee_id || null, kind, now, now);
+    assigned_employee_id || null, kind, freee_quote_url || '', freee_invoice_url || '', now, now);
   return result.lastInsertRowid;
 }
 
@@ -1585,7 +1587,8 @@ app.put('/api/projects/:id', (req, res) => {
     const { project_name, received_date, deadline, customer_name, contact_method,
       work_content, process_type, quantity, planned_hours, assigned_staff_id,
       status, priority, reference_link, memo, nas_folder_path, prep_items,
-      required_skill_tags, estimated_hours, assigned_employee_id, project_kind } = req.body;
+      required_skill_tags, estimated_hours, assigned_employee_id, project_kind,
+      freee_quote_url, freee_invoice_url } = req.body;
     const kind = project_kind === 'INTERNAL_DESIGN' ? 'INTERNAL_DESIGN' : 'NORMAL';
     const now = new Date().toISOString();
     db.prepare(`
@@ -1593,12 +1596,14 @@ app.put('/api/projects/:id', (req, res) => {
         project_name=?, received_date=?, deadline=?, customer_name=?, contact_method=?,
         work_content=?, process_type=?, quantity=?, planned_hours=?, assigned_staff_id=?,
         status=?, priority=?, reference_link=?, memo=?, nas_folder_path=?, prep_items=?,
-        required_skill_tags=?, estimated_hours=?, assigned_employee_id=?, project_kind=?, updated_at=?
+        required_skill_tags=?, estimated_hours=?, assigned_employee_id=?, project_kind=?,
+        freee_quote_url=?, freee_invoice_url=?, updated_at=?
       WHERE id=?
     `).run(project_name, received_date, deadline, customer_name, contact_method,
       work_content || '', process_type || '', quantity || 0, planned_hours || 0, assigned_staff_id || null,
       status, priority, reference_link || '', memo || '', nas_folder_path || '', prep_items || '',
-      required_skill_tags || '', estimated_hours || null, assigned_employee_id || null, kind, now, req.params.id);
+      required_skill_tags || '', estimated_hours || null, assigned_employee_id || null, kind,
+      freee_quote_url || '', freee_invoice_url || '', now, req.params.id);
     res.json({ message: 'Project updated successfully' });
   } catch (error) {
     sendServerError(res, req, error);
@@ -1672,6 +1677,7 @@ app.get('/api/delivery-records', (req, res) => {
   try {
     const records = db.prepare(`
       SELECT dr.*, p.project_name, p.customer_name, p.process_type, p.quantity, p.nas_folder_path,
+        p.freee_quote_url, p.freee_invoice_url,
         s.name as delivered_by_staff_name, emp.name as delivered_by_employee_name
       FROM delivery_records dr
       JOIN projects p ON dr.case_id = p.id

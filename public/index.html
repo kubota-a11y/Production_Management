@@ -408,6 +408,24 @@
           <div id="nas-file-list" class="folder-list"></div>
         </div>
 
+        <div class="form-row normal-only">
+          <div class="form-group">
+            <label>Freee見積書リンク</label>
+            <div class="reference-input-group">
+              <input type="text" name="freee_quote_url" id="freee-quote-url" placeholder="https://secure.freee.co.jp/...">
+              <button type="button" class="btn-small" onclick="app.openFreeeLink('freee-quote-url')">📄 開く</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Freee請求書リンク</label>
+            <div class="reference-input-group">
+              <input type="text" name="freee_invoice_url" id="freee-invoice-url" placeholder="https://secure.freee.co.jp/...">
+              <button type="button" class="btn-small" onclick="app.openFreeeLink('freee-invoice-url')">📄 開く</button>
+            </div>
+            <div class="field-hint">Freeeで開いた見積書/請求書画面のURLを貼っておくと、納品後もこの案件から1クリックで開けます</div>
+          </div>
+        </div>
+
         <div class="form-group normal-only">
           <label>作業内容</label>
           <textarea name="work_content" rows="3"></textarea>
@@ -617,6 +635,17 @@
               <input type="text" name="nas_folder_path" placeholder="\\NAS\design\2026\案件名">
             </div>
 
+            <div class="form-row">
+              <div class="form-group">
+                <label>Freee見積書リンク</label>
+                <input type="text" name="freee_quote_url" placeholder="https://secure.freee.co.jp/...">
+              </div>
+              <div class="form-group">
+                <label>Freee請求書リンク</label>
+                <input type="text" name="freee_invoice_url" placeholder="https://secure.freee.co.jp/...">
+              </div>
+            </div>
+
             <div class="form-group">
               <label>作業内容（items）</label>
               <textarea name="work_content" rows="3"></textarea>
@@ -752,6 +781,14 @@
           <select name="delivered_by" id="deliver-staff-select">
             <option value="">未選択</option>
           </select>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-pill">
+            <input type="checkbox" name="instruction_pdf_saved">
+            goodnoteの指示書PDFを案件のNASフォルダに保存した
+          </label>
+          <div class="field-hint">Freeeの見積書・請求書PDFも同じフォルダに入れておくと、後からこの案件だけで履歴をすべて辿れます</div>
         </div>
 
         <div class="form-actions">
