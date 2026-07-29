@@ -8,6 +8,9 @@ const customersApp = {
   // ===== ステート =====
   customers: [],
   searchQuery: '',
+  sortKey: 'default',      // default(APIの直近やりとり順) / project_count / total_quantity / last_delivered_date
+  sortOrder: 'desc',       // desc=多い順(新しい順) / asc=少ない順(古い順)
+  processFilter: '',       // 加工種別コード。空文字はすべて
   currentCustomer: null,
   projects: [],
   duplicateSource: null,
@@ -36,6 +39,21 @@ const customersApp = {
       this.renderList();
     });
 
+    document.getElementById('customer-sort-key').addEventListener('change', (e) => {
+      this.sortKey = e.target.value;
+      this.renderList();
+    });
+
+    document.getElementById('customer-sort-order').addEventListener('change', (e) => {
+      this.sortOrder = e.target.value;
+      this.renderList();
+    });
+
+    document.getElementById('customer-process-filter').addEventListener('change', (e) => {
+      this.processFilter = e.target.value;
+      this.renderList();
+    });
+
     document.getElementById('customer-note-form').addEventListener('submit', (e) => {
       e.preventDefault();
       this.saveNote();
@@ -51,11 +69,69 @@ const customersApp = {
     });
   },
 
-  // ===== 顧客一覧 =====
+  // ===== 顧客一覧(検索・加工種別の絞り込み → 並び替え) =====
   filteredCustomers() {
-    if (!this.searchQuery) return this.customers;
-    const q = this.searchQuery.toLowerCase();
-    return this.customers.filter(c => (c.customer_name || '').toLowerCase().includes(q));
+    let list = this.customers;
+
+    if (this.searchQuery) {
+      const q = this.searchQuery.toLowerCase();
+      list = list.filter(c => (c.customer_name || '').toLowerCase().includes(q));
+    }
+
+    if (this.processFilter) {
+      // process_types はその顧客の全案件の加工種別CSVをGROUP_CONCATしたもの
+      list = list.filter(c => this.processTypeCodes(c.process_types).includes(this.processFilter));
+    }
+
+    return this.sortCustomers(list);
+  },
+
+  processTypeCodes(processTypesCsv) {
+    return (processTypesCsv || '').split(',').map(v => v.trim()).filter(Boolean);
+  },
+
+  sortCustomers(list) {
+    const sorted = [...list];
+    // asc(少ない順/古い順)は小さい値を先頭に、desc(多い順/新しい順)は大きい値を先頭にする
+    const dir = this.sortOrder === 'asc' ? 1 : -1;
+    const compare = (av, bv) => (av < bv ? -1 : 1) * dir;
+
+    if (this.sortKey === 'default') {
+      // APIは「最近やりとりした順」で返すので、少ない順(古い順)を選んだときだけ反転する
+      return this.sortOrder === 'asc' ? sorted.reverse() : sorted;
+    }
+
+    if (this.sortKey === 'last_delivered_date') {
+      // 未納品の顧客は日付を持たないため、昇順・降順どちらでも末尾にまとめる
+      return sorted.sort((a, b) => {
+        const av = a.last_delivered_date;
+        const bv = b.last_delivered_date;
+        if (!av && !bv) return a.customer_name.localeCompare(b.customer_name, 'ja');
+        if (!av) return 1;
+        if (!bv) return -1;
+        if (av === bv) return a.customer_name.localeCompare(b.customer_name, 'ja');
+        return compare(av, bv);
+      });
+    }
+
+    return sorted.sort((a, b) => {
+      const av = a[this.sortKey] || 0;
+      const bv = b[this.sortKey] || 0;
+      if (av === bv) return a.customer_name.localeCompare(b.customer_name, 'ja');
+      return compare(av, bv);
+    });
+  },
+
+  resetFilters() {
+    this.searchQuery = '';
+    this.sortKey = 'default';
+    this.sortOrder = 'desc';
+    this.processFilter = '';
+    document.getElementById('customer-search').value = '';
+    document.getElementById('customer-sort-key').value = 'default';
+    document.getElementById('customer-sort-order').value = 'desc';
+    document.getElementById('customer-process-filter').value = '';
+    this.renderList();
   },
 
   // GROUP_CONCATされた加工種別CSV(重複あり)を、重複を除いた日本語ラベルにする
@@ -69,11 +145,14 @@ const customersApp = {
     tbody.innerHTML = '';
 
     const customers = this.filteredCustomers();
+    const isNarrowed = Boolean(this.searchQuery || this.processFilter);
     const countEl = document.getElementById('customer-search-count');
-    countEl.textContent = this.searchQuery ? `${customers.length}件ヒット` : `全${this.customers.length}顧客`;
+    countEl.textContent = isNarrowed
+      ? `${customers.length}件ヒット(全${this.customers.length}顧客)`
+      : `全${this.customers.length}顧客`;
 
     if (customers.length === 0) {
-      const message = this.searchQuery ? '検索条件に合う顧客はありません' : '顧客データはまだありません(案件を登録すると自動で一覧に載ります)';
+      const message = isNarrowed ? '条件に合う顧客はありません' : '顧客データはまだありません(案件を登録すると自動で一覧に載ります)';
       tbody.innerHTML = `<tr><td colspan="8" class="folder-notice" style="text-align: center;">${message}</td></tr>`;
       return;
     }
@@ -146,7 +225,7 @@ const customersApp = {
     this.projects.forEach(project => {
       const row = document.createElement('tr');
       row.innerHTML = `
-        <td>${this.escapeHtml(project.project_name)}</td>
+        <td><a href="#" class="case-detail-link">${this.escapeHtml(project.project_name)}</a></td>
         <td>${formatDate(project.received_date)}</td>
         <td><span class="status-badge ${getStatusClass(project.status)}">${getStatusLabel(project.status)}</span></td>
         <td>${project.delivered_date ? formatDate(project.delivered_date) : '-'}</td>
@@ -155,7 +234,20 @@ const customersApp = {
         <td class="delivery-actions"></td>
       `;
 
+      // 案件名クリックでも詳細を開けるようにする(操作列の「🔍 詳細」と同じ)
+      row.querySelector('.case-detail-link').addEventListener('click', (e) => {
+        e.preventDefault();
+        CaseDetail.open(project.id);
+      });
+
       const actions = row.querySelector('.delivery-actions');
+      const detailBtn = document.createElement('button');
+      detailBtn.className = 'btn-small';
+      detailBtn.textContent = '🔍 詳細';
+      detailBtn.title = '加工内容・指示書・見積書/請求書をまとめて見る';
+      detailBtn.addEventListener('click', () => CaseDetail.open(project.id));
+      actions.appendChild(detailBtn);
+
       if (project.nas_folder_path) {
         const folderBtn = document.createElement('button');
         folderBtn.className = 'btn-small';

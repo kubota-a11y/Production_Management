@@ -73,7 +73,7 @@ const deliveryHistoryApp = {
       const deliveredByName = record.delivered_by_staff_name || record.delivered_by_employee_name || '-';
       const row = document.createElement('tr');
       row.innerHTML = `
-        <td>${this.escapeHtml(record.project_name)}</td>
+        <td><a href="#" class="case-detail-link">${this.escapeHtml(record.project_name)}</a></td>
         <td>${this.escapeHtml(record.customer_name)}</td>
         <td>${this.escapeHtml(getProcessLabels(record.process_type))}</td>
         <td>${record.quantity ?? '-'}</td>
@@ -83,7 +83,20 @@ const deliveryHistoryApp = {
         <td class="delivery-actions"></td>
       `;
 
+      // 案件名クリックでも詳細を開けるようにする(操作列の「🔍 詳細」と同じ)
+      row.querySelector('.case-detail-link').addEventListener('click', (e) => {
+        e.preventDefault();
+        CaseDetail.open(record.case_id);
+      });
+
       const actions = row.querySelector('.delivery-actions');
+      const detailBtn = document.createElement('button');
+      detailBtn.className = 'btn-small';
+      detailBtn.textContent = '🔍 詳細';
+      detailBtn.title = '加工内容・指示書・見積書/請求書をまとめて見る';
+      detailBtn.addEventListener('click', () => CaseDetail.open(record.case_id));
+      actions.appendChild(detailBtn);
+
       if (record.nas_folder_path) {
         const folderBtn = document.createElement('button');
         folderBtn.className = 'btn-small';

@@ -25,6 +25,27 @@
     }
     .customer-detail-toolbar h2 { margin: 0; }
     .note-save-status { color: var(--gray-600, #4b5563); font-size: 13px; }
+    .customer-filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .customer-filter-bar label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.85rem;
+      color: var(--gray-600, #4b5563);
+      white-space: nowrap;
+    }
+    .customer-filter-bar select {
+      padding: 6px 10px;
+      border: 1px solid var(--gray-300, #d1d5db);
+      border-radius: var(--border-radius, 6px);
+      font-size: 0.9rem;
+    }
   </style>
 </head>
 <body>
@@ -48,6 +69,40 @@
         <div class="delivery-search-bar">
           <input type="search" id="customer-search" placeholder="🔍 顧客名で検索">
           <span id="customer-search-count" class="delivery-search-count"></span>
+        </div>
+
+        <!-- 並び替え・絞り込み -->
+        <div class="customer-filter-bar">
+          <label>
+            並び替え
+            <select id="customer-sort-key">
+              <option value="default">既定(最近やりとりした順)</option>
+              <option value="project_count">取引案件数</option>
+              <option value="total_quantity">取引数量</option>
+              <option value="last_delivered_date">最終納品</option>
+            </select>
+          </label>
+          <label>
+            順序
+            <select id="customer-sort-order">
+              <option value="desc">多い順(新しい順)</option>
+              <option value="asc">少ない順(古い順)</option>
+            </select>
+          </label>
+          <label>
+            加工種別
+            <select id="customer-process-filter">
+              <option value="">すべて</option>
+              <option value="SILK_SCREEN_PRINT">シルクスクリーンプリント</option>
+              <option value="DTF_PRINT">DTFプリント</option>
+              <option value="RUBBER_TRANSFER_PRINT">ラバー転写プリント</option>
+              <option value="SUBLIMATION_PRINT">昇華プリント</option>
+              <option value="STANDARD_EMBROIDERY">通常刺繍</option>
+              <option value="HAT_EMBROIDERY">帽子刺繍</option>
+              <option value="PATCH_EMBROIDERY">ワッペン刺繍</option>
+            </select>
+          </label>
+          <button type="button" class="btn-small" onclick="customersApp.resetFilters()">条件をクリア</button>
         </div>
 
         <div class="table-container">
@@ -159,6 +214,7 @@
   <script src="js/utils.js"></script>
   <script src="js/api.js"></script>
   <script src="js/nas-browse.js"></script>
+  <script src="js/case-detail.js"></script>
   <script src="js/customers.js"></script>
 </body>
 </html>

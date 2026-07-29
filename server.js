@@ -1691,6 +1691,137 @@ app.get('/api/delivery-records', (req, res) => {
   }
 });
 
+// 案件のNASフォルダから書類(PDF・画像)を拾い、ファイル名から種類を推測して返す。
+// 「指示書を見たい」ときにフォルダを掘らずに済むようにするのが目的。
+// 案件フォルダの想定を超えて重くならないよう、深さ2・走査上限つきで打ち切る。
+const DOCUMENT_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png', '.heic', '.webp'];
+const DOCUMENT_SCAN_LIMIT = 600;   // 走査するエントリ数の上限
+const DOCUMENT_RESULT_LIMIT = 40;  // 返す書類数の上限
+
+function classifyDocument(fileName) {
+  const name = fileName.toLowerCase();
+  if (name.includes('指示書') || name.includes('instruction')) return 'instruction';
+  if (name.includes('見積')) return 'quote';
+  if (name.includes('請求')) return 'invoice';
+  return 'other';
+}
+
+function collectCaseDocuments(folderPath) {
+  const result = { documents: [], truncated: false };
+  if (!folderPath) return result;
+
+  const resolvedRoot = path.resolve(path.normalize(folderPath));
+  if (!isWithinBase(resolvedRoot, NAS_BASE_PATH)) return result;
+  if (!fs.existsSync(resolvedRoot) || !fs.statSync(resolvedRoot).isDirectory()) return result;
+
+  let scanned = 0;
+  const walk = (dir, depth) => {
+    if (depth > 2 || scanned >= DOCUMENT_SCAN_LIMIT) return;
+    let entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch (err) {
+      return; // 権限エラー等はその階層を諦めるだけにする
+    }
+    for (const entry of entries) {
+      if (scanned >= DOCUMENT_SCAN_LIMIT) {
+        result.truncated = true;
+        return;
+      }
+      scanned++;
+      if (entry.name.startsWith('._') || entry.name === '.DS_Store') continue;
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(fullPath, depth + 1);
+      } else if (DOCUMENT_EXTENSIONS.includes(path.extname(entry.name).toLowerCase())) {
+        if (result.documents.length >= DOCUMENT_RESULT_LIMIT) {
+          result.truncated = true;
+          continue;
+        }
+        result.documents.push({
+          name: entry.name,
+          path: fullPath,
+          kind: classifyDocument(entry.name),
+        });
+      }
+    }
+  };
+  walk(resolvedRoot, 0);
+
+  // 指示書 → 見積書 → 請求書 → その他 の順に並べ、同種内は名前順
+  const kindOrder = { instruction: 0, quote: 1, invoice: 2, other: 3 };
+  result.documents.sort((a, b) =>
+    (kindOrder[a.kind] - kindOrder[b.kind]) || a.name.localeCompare(b.name, 'ja'));
+  return result;
+}
+
+// 案件1件の詳細(加工内容・アイテム明細・プリント箇所・書類)をまとめて返す。
+// 顧客台帳/納品履歴の「🔍 詳細」から、過去案件が何をどれだけ加工したのかを1画面で確認するために使う
+app.get('/api/projects/:id/detail', (req, res) => {
+  try {
+    const project = db.prepare(`
+      SELECT p.*, s.name AS assigned_staff_name, e.name AS assigned_employee_name
+      FROM projects p
+      LEFT JOIN staff s ON p.assigned_staff_id = s.id
+      LEFT JOIN employees e ON p.assigned_employee_id = e.id
+      WHERE p.id = ?
+    `).get(req.params.id);
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+
+    const printLocations = db.prepare(`
+      SELECT id, case_item_id, location_name, color_count
+      FROM case_print_locations WHERE case_id = ? ORDER BY id ASC
+    `).all(project.id);
+
+    // catalog_json / matrix_json は保存時にJSON文字列化されているので、ここで戻して返す
+    const parseJson = (value, fallback) => {
+      if (!value) return fallback;
+      try { return JSON.parse(value); } catch (err) { return fallback; }
+    };
+    const items = db.prepare(`
+      SELECT * FROM case_items WHERE case_id = ? ORDER BY item_no ASC, id ASC
+    `).all(project.id).map(item => ({
+      id: item.id,
+      item_no: item.item_no,
+      category: item.category,
+      sub_category: item.sub_category,
+      method: item.method,
+      quantity_total: item.quantity_total,
+      catalog_items: parseJson(item.catalog_json, []),
+      matrix: parseJson(item.matrix_json, null),
+      print_locations: printLocations.filter(l => l.case_item_id === item.id),
+    }));
+
+    const delivery = db.prepare(`
+      SELECT dr.delivered_date, dr.delivery_method,
+        s.name AS delivered_by_staff_name, emp.name AS delivered_by_employee_name
+      FROM delivery_records dr
+      LEFT JOIN staff s ON dr.delivered_by_staff_id = s.id
+      LEFT JOIN employees emp ON dr.delivered_by_employee_id = emp.id
+      WHERE dr.case_id = ?
+      ORDER BY dr.delivered_date DESC, dr.id DESC LIMIT 1
+    `).get(project.id) || null;
+
+    const rosterCount = db.prepare('SELECT COUNT(*) AS c FROM case_roster WHERE case_id = ?')
+      .get(project.id).c;
+
+    const { documents, truncated } = collectCaseDocuments(project.nas_folder_path);
+
+    res.json({
+      project,
+      items,
+      // アイテムに紐づかない(レガシー/手動登録の)案件直下のプリント箇所
+      print_locations: printLocations.filter(l => !l.case_item_id),
+      roster_count: rosterCount,
+      delivery,
+      documents,
+      documents_truncated: truncated,
+    });
+  } catch (error) {
+    sendServerError(res, req, error);
+  }
+});
+
 // ===== 顧客台帳 =====
 // 顧客マスタは持たず、projects.customer_name(TRIM)でグルーピングした集計を返す。
 // 社内デザイン案件と顧客名が空の案件は対象外。並びは直近の動き(納品日 or 受付日)が新しい順

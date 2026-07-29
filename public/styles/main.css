@@ -1568,3 +1568,79 @@ html, body {
   vertical-align: middle;
   white-space: nowrap;
 }
+
+/* ===== 案件詳細モーダル(顧客台帳・納品履歴から開く/ js/case-detail.js) ===== */
+.case-detail-section {
+  margin-bottom: 20px;
+}
+.case-detail-section h3 {
+  margin: 0 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--gray-200);
+  font-size: 1rem;
+}
+.case-detail-section h4 {
+  margin: 14px 0 6px;
+  font-size: 0.92rem;
+}
+.case-detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.case-detail-table th,
+.case-detail-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--gray-200);
+  text-align: left;
+  vertical-align: top;
+}
+.case-detail-table th {
+  width: 30%;
+  color: var(--gray-600);
+  font-weight: 600;
+  white-space: nowrap;
+}
+/* 作業内容・メモは入力時の改行をそのまま見せる */
+.case-detail-pre {
+  white-space: pre-wrap;
+}
+.case-detail-list {
+  margin: 0 0 10px;
+  padding-left: 20px;
+  font-size: 0.9rem;
+}
+.case-detail-item {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--gray-50, #f9fafb);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--border-radius);
+}
+.case-detail-item h4 {
+  margin-top: 0;
+}
+.case-detail-chip {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  background: #eef2ff;
+  color: #4338ca;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.case-detail-matrix th {
+  width: auto;
+  white-space: nowrap;
+}
+.case-detail-docs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+/* 書類ボタンはbutton/aが混在するため、aにもボタンと同じ見た目を持たせる */
+.case-detail-docs .btn-small {
+  display: inline-block;
+  text-decoration: none;
+}

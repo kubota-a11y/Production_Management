@@ -292,6 +292,12 @@ const API = {
     return response.json();
   },
 
+  // 案件詳細(加工内容・アイテム明細・プリント箇所・NASフォルダ内の書類)
+  async getProjectDetail(id) {
+    const response = await fetch(`/api/projects/${id}/detail`);
+    return response.json();
+  },
+
   // ===== 顧客台帳 =====
 
   // 顧客一覧(projects.customer_nameのTRIMグルーピング集計)
