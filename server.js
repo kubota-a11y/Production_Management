@@ -13,6 +13,7 @@ const { registerPartnerPortalRoutes } = require('./lib/partner-portal');
 const { registerPartnerOrderRoutes } = require('./lib/partner-order');
 const { registerDesignerBoardRoutes } = require('./lib/designer-board');
 const { registerOrderStatusRoutes } = require('./lib/order-status');
+const { registerWorksRoutes } = require('./lib/works-publish');
 const { scheduleDailyBackup } = require('./lib/db-backup');
 const { extractCarriedData, extractCarriedItems } = require('./lib/intake-carry');
 const { completeIntakeTask } = require('./lib/todo-notify');
@@ -2903,6 +2904,7 @@ registerPartnerOrderRoutes(app, db);
 // リモートのデザイン担当が自分の準備項目をD&Dで日付調整・完了操作・稼働申告できる。
 registerDesignerBoardRoutes(app, db, { syncCaseStatus: syncCaseStatusForPreparationItems });
 registerOrderStatusRoutes(app, db);
+registerWorksRoutes(app);
 
 // 5分ごとにLINEメッセージのAI構造化抽出を実行する。前回の実行が終わっていなければスキップする。
 let aiExtractionRunning = false;

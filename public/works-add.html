@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>実績登録 | HiBoard</title>
+<link rel="stylesheet" href="/styles/common.css">
+<style>
+  :root { --ink:#1f2430; --sub:#5b616b; --line:#e3e6ea; --accent:#2563eb; --ng:#c9482e; --ok:#0f9d58; }
+  body { background:#f5f6f8; color:var(--ink); font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif; margin:0; padding:0 0 60px; }
+  .wrap { max-width:760px; margin:0 auto; padding:0 16px; }
+  h1 { font-size:22px; margin:24px 0 4px; }
+  .lead { font-size:13px; color:var(--sub); margin:0 0 20px; line-height:1.8; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:20px; margin-bottom:16px; }
+  .card h2 { font-size:14px; margin:0 0 14px; display:flex; align-items:center; gap:8px; }
+  .card h2 .n { width:22px; height:22px; border-radius:50%; background:var(--ink); color:#fff; font-size:12px; display:flex; align-items:center; justify-content:center; flex:none; }
+  label { display:block; font-size:12.5px; font-weight:700; margin-bottom:6px; }
+  .req { color:var(--ng); font-size:11px; margin-left:4px; }
+  input[type=text], select, textarea { width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:6px; font-size:15px; font-family:inherit; box-sizing:border-box; background:#fff; }
+  textarea { resize:vertical; min-height:60px; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; }
+  .row > div { flex:1; min-width:190px; }
+  .hint { font-size:11.5px; color:var(--sub); margin-top:6px; line-height:1.7; }
+
+  /* 写真 */
+  #drop { border:2px dashed #c8ced6; border-radius:10px; padding:28px 16px; text-align:center; color:var(--sub); font-size:13.5px; cursor:pointer; background:#fafbfc; }
+  #drop.over { border-color:var(--accent); background:#eef4ff; color:var(--accent); }
+  #preview { display:none; margin-top:14px; }
+  #preview img { width:100%; max-height:340px; object-fit:contain; border-radius:8px; background:#eceff3; }
+  #fname { font-size:12px; color:var(--sub); margin-top:8px; word-break:break-all; }
+
+  /* 加工内容 */
+  .mrow { display:flex; gap:8px; align-items:center; margin-bottom:10px; flex-wrap:wrap; }
+  .mrow select { flex:1; min-width:130px; }
+  .btn-add { background:#eef2f7; border:1px solid var(--line); border-radius:6px; padding:11px 16px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; white-space:nowrap; }
+  .btn-add:hover { background:#e4eaf2; }
+  #mlist { margin:0 0 10px; padding:0; list-style:none; }
+  #mlist li { display:flex; justify-content:space-between; align-items:center; gap:10px; background:#f7f9fb; border:1px solid var(--line); border-radius:6px; padding:9px 12px; margin-bottom:6px; font-size:14px; }
+  #mlist button { background:none; border:0; color:var(--ng); font-size:12px; cursor:pointer; font-family:inherit; font-weight:700; }
+  #mpreview { font-size:13px; background:#111; color:#fff; border-radius:6px; padding:10px 12px; word-break:break-all; min-height:18px; }
+
+  /* カテゴリ */
+  .cats { display:flex; gap:8px; flex-wrap:wrap; }
+  .cats label { display:inline-flex; align-items:center; gap:7px; border:1px solid var(--line); border-radius:6px; padding:11px 16px; cursor:pointer; margin:0; font-size:14px; font-weight:600; background:#fff; }
+  .cats label:has(input:checked) { border-color:var(--ink); background:var(--ink); color:#fff; }
+  .cats input { accent-color:#fff; }
+
+  /* 許可 */
+  .perm { display:flex; align-items:flex-start; gap:10px; background:#fff8e6; border:1px solid #f0d99a; border-radius:8px; padding:14px 16px; }
+  .perm input { margin-top:3px; width:18px; height:18px; flex:none; }
+  .perm span { font-size:13px; line-height:1.8; }
+
+  /* 送信 */
+  #submit { width:100%; padding:17px; background:var(--ink); color:#fff; border:0; border-radius:8px; font-size:16px; font-weight:800; cursor:pointer; font-family:inherit; letter-spacing:.04em; }
+  #submit:disabled { background:#aab1bb; cursor:not-allowed; }
+  #msg { margin-top:14px; padding:14px 16px; border-radius:8px; font-size:13.5px; line-height:1.8; display:none; }
+  #msg.ok { display:block; background:#eaf7ef; border:1px solid #bde5cd; color:#186b3a; }
+  #msg.ng { display:block; background:#fdecea; border:1px solid #f5c6c0; color:#a12b1c; }
+  .warn { background:#fdecea; border:1px solid #f5c6c0; color:#a12b1c; border-radius:8px; padding:12px 14px; font-size:13px; margin-bottom:16px; line-height:1.8; }
+  .back { display:inline-block; margin:18px 0 0; font-size:13px; color:var(--sub); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>制作実績の登録</h1>
+  <p class="lead">
+    入力するとコーポレートサイトの「制作実績」へ追加されます。<br>
+    写真の色補正・明るさ調整は自動で行われます。反映まで数分かかります。
+  </p>
+
+  <div id="notconf" class="warn" style="display:none">
+    GitHubトークンが未設定のため、登録しても公開できません。<br>
+    本番機の <code>.env</code> に <code>WORKS_GITHUB_TOKEN</code> を設定してください。
+  </div>
+
+  <form id="form">
+    <!-- 1. 写真 -->
+    <div class="card">
+      <h2><span class="n">1</span>写真</h2>
+      <div id="drop">
+        ここに写真をドラッグ＆ドロップ<br>
+        <span style="font-size:12px">またはタップして選択（スマホで撮影した写真もそのままでOK）</span>
+      </div>
+      <input type="file" id="file" accept="image/*" hidden>
+      <div id="preview"><img id="pimg" alt="選んだ写真のプレビュー"><div id="fname"></div></div>
+      <p class="hint">トルソーに着せて正面から撮ると、他の実績と揃って見えます。</p>
+    </div>
+
+    <!-- 2. 内容 -->
+    <div class="card">
+      <h2><span class="n">2</span>内容</h2>
+      <div class="row">
+        <div>
+          <label>取引先<span class="req">必須</span></label>
+          <input type="text" id="client" placeholder="山田FC" autocomplete="off">
+          <p class="hint">「様」は自動で付きます</p>
+        </div>
+        <div>
+          <label>つくったもの<span class="req">必須</span></label>
+          <input type="text" id="title" placeholder="練習着の作成" autocomplete="off">
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. 加工内容 -->
+    <div class="card">
+      <h2><span class="n">3</span>加工内容<span class="req">必須</span></h2>
+      <div class="mrow">
+        <select id="pos"></select>
+        <select id="mtd"></select>
+        <button type="button" class="btn-add" id="add">＋ 追加</button>
+      </div>
+      <ul id="mlist"></ul>
+      <div id="mpreview">（ここに掲載される文言が表示されます）</div>
+      <p class="hint">選んで追加するだけです。サイトにはこの文言がそのまま載ります。</p>
+    </div>
+
+    <!-- 4. カテゴリ -->
+    <div class="card">
+      <h2><span class="n">4</span>カテゴリ<span class="req">必須</span></h2>
+      <div class="cats" id="cats"></div>
+      <p class="hint">実績一覧ページで絞り込むときの分類です。</p>
+    </div>
+
+    <!-- 5. 掲載許可 -->
+    <div class="card">
+      <h2><span class="n">5</span>掲載許可</h2>
+      <label class="perm">
+        <input type="checkbox" id="perm">
+        <span><b>お客様から掲載の許可をいただいています。</b><br>
+        チェックが無いと登録できません。許可が取れていない実績は登録しないでください。</span>
+      </label>
+    </div>
+
+    <button type="submit" id="submit">サイトに登録する</button>
+    <div id="msg"></div>
+  </form>
+
+  <a class="back" href="/">← HiBoard トップへ戻る</a>
+</div>
+
+<script>
+(function () {
+  var meta = null, picked = null, methods = [];
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ---- 選択肢の読み込み ----
+  fetch('/api/works/meta').then(function (r) { return r.json(); }).then(function (m) {
+    meta = m;
+    if (!m.configured) $('notconf').style.display = 'block';
+    m.positions.forEach(function (p) { $('pos').add(new Option(p, p)); });
+    m.methods.forEach(function (t) { $('mtd').add(new Option(t, t)); });
+    $('cats').innerHTML = m.categories.map(function (c) {
+      return '<label><input type="radio" name="cat" value="' + c.key + '">' + c.label + '</label>';
+    }).join('');
+  });
+
+  // ---- 写真 ----
+  var drop = $('drop');
+  drop.addEventListener('click', function () { $('file').click(); });
+  ['dragenter', 'dragover'].forEach(function (e) {
+    drop.addEventListener(e, function (ev) { ev.preventDefault(); drop.classList.add('over'); });
+  });
+  ['dragleave', 'drop'].forEach(function (e) {
+    drop.addEventListener(e, function (ev) { ev.preventDefault(); drop.classList.remove('over'); });
+  });
+  drop.addEventListener('drop', function (ev) {
+    if (ev.dataTransfer.files.length) setFile(ev.dataTransfer.files[0]);
+  });
+  $('file').addEventListener('change', function () {
+    if (this.files.length) setFile(this.files[0]);
+  });
+  function setFile(f) {
+    picked = f;
+    $('pimg').src = URL.createObjectURL(f);
+    $('fname').textContent = f.name + '（' + Math.round(f.size / 1024) + 'KB）';
+    $('preview').style.display = 'block';
+    drop.textContent = '別の写真に変える場合はここをタップ';
+  }
+
+  // ---- 加工内容 ----
+  function redraw() {
+    $('mlist').innerHTML = methods.map(function (m, i) {
+      return '<li><span>' + m + '</span><button type="button" data-i="' + i + '">削除</button></li>';
+    }).join('');
+    $('mpreview').textContent = methods.length ? methods.join('／') : '（ここに掲載される文言が表示されます）';
+  }
+  $('add').addEventListener('click', function () {
+    var v = $('pos').value + '：' + $('mtd').value;
+    if (methods.indexOf(v) === -1) methods.push(v);
+    redraw();
+  });
+  $('mlist').addEventListener('click', function (e) {
+    if (e.target.tagName === 'BUTTON') {
+      methods.splice(Number(e.target.dataset.i), 1);
+      redraw();
+    }
+  });
+
+  // ---- 送信 ----
+  $('form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var msg = $('msg');
+    msg.className = '';
+    msg.style.display = 'none';
+
+    function fail(t) { msg.className = 'ng'; msg.textContent = t; }
+
+    if (!picked) return fail('写真を選んでください');
+    if (!$('client').value.trim()) return fail('取引先を入力してください');
+    if (!$('title').value.trim()) return fail('つくったものを入力してください');
+    if (!methods.length) return fail('加工内容を1つ以上追加してください');
+    var cat = document.querySelector('input[name=cat]:checked');
+    if (!cat) return fail('カテゴリを選んでください');
+    if (!$('perm').checked) return fail('掲載許可のチェックを入れてください');
+
+    var d = new Date();
+    var pad = function (n) { return String(n).padStart(2, '0'); };
+    var fd = new FormData();
+    fd.append('photo', picked);
+    fd.append('client', $('client').value.trim());
+    fd.append('title', $('title').value.trim());
+    fd.append('method', methods.join('／'));
+    fd.append('category', cat.value);
+    fd.append('date', d.getFullYear() + '-' + pad(d.getMonth() + 1));
+    fd.append('permission', d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()));
+
+    $('submit').disabled = true;
+    $('submit').textContent = '登録しています…（写真の補正に少しかかります）';
+
+    fetch('/api/works/publish', { method: 'POST', body: fd })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (r) {
+        if (!r.ok) throw new Error(r.j.error || '登録に失敗しました');
+        msg.className = 'ok';
+        msg.innerHTML = '<b>登録しました。</b><br>数分後にサイトの制作実績へ反映されます。'
+          + '<br><a href="https://hiyoshi-web.pages.dev/works/" target="_blank" rel="noopener">実績一覧を開く</a>';
+        $('form').reset();
+        picked = null; methods = []; redraw();
+        $('preview').style.display = 'none';
+        drop.innerHTML = 'ここに写真をドラッグ＆ドロップ<br><span style="font-size:12px">またはタップして選択</span>';
+      })
+      .catch(function (err) { fail(String(err.message || err)); })
+      .finally(function () {
+        $('submit').disabled = false;
+        $('submit').textContent = 'サイトに登録する';
+      });
+  });
+})();
+</script>
+</body>
+</html>
