@@ -11,13 +11,13 @@
   <div class="app-container">
     <header class="app-header no-print">
       <div class="header-content">
-        <h1 class="app-title">📖 HiBoard 使い方ガイド</h1>
-        <p class="app-subtitle">日々の業務の流れと、そのとき使う機能</p>
+        <div>
+          <h1 class="app-title">📖 HiBoard 使い方ガイド</h1>
+          <p class="app-subtitle">日々の業務の流れと、そのとき使う機能</p>
+        </div>
+        <button class="nav-menu-toggle" onclick="window.print()">🖨️ 印刷する</button>
       </div>
-      <div class="header-buttons">
-        <button class="btn-staff-manage" onclick="window.print()">🖨️ 印刷する</button>
-        <a class="btn-staff-manage" href="/">📋 HiBoardに戻る</a>
-      </div>
+      <nav class="header-buttons" data-nav="manual" aria-label="画面の切り替え"></nav>
     </header>
 
     <main class="main-content manual">
@@ -49,7 +49,7 @@
       <!-- ===== 第1章 ===== -->
       <section class="manual-chapter" id="ch1">
         <h2><span class="ch-num">1</span>注文はどこから入ってくる?</h2>
-        <p>HiBoardには<strong>5つの入り口</strong>から注文が入ってきます。どこから来ても、最終的には全部<strong>「📥 コピペ取り込み」タブ</strong>か「➕ 新規案件」に集まります。</p>
+        <p>HiBoardには<strong>5つの入り口</strong>から注文が入ってきます。どこから来ても、最終的には全部<strong>「📥 受注候補の取り込み」タブ</strong>か「➕ 新規案件」に集まります。</p>
 
         <table class="manual-table">
           <thead>
@@ -58,22 +58,22 @@
           <tbody>
             <tr>
               <td><strong>LINE</strong><br><span class="muted">公式LINEのやりとり</span></td>
-              <td>「コピペ取り込み」タブに<br>AIが自動で読み取って並ぶ</td>
+              <td>「受注候補の取り込み」タブに<br>AIが自動で読み取って並ぶ</td>
               <td><span class="muted">お客様の名前</span></td>
             </tr>
             <tr>
               <td><strong>Webのご注文フォーム</strong><br><span class="muted">ホームページから</span></td>
-              <td>同じく「コピペ取り込み」タブ</td>
+              <td>同じく「受注候補の取り込み」タブ</td>
               <td><span class="badge-sample">W-12</span> のような番号</td>
             </tr>
             <tr>
               <td><strong>チーム専用URL</strong><br><span class="muted">既存チームの追加注文</span></td>
-              <td>同じく「コピペ取り込み」タブ</td>
+              <td>同じく「受注候補の取り込み」タブ</td>
               <td><span class="badge-sample">T-5</span> のような番号</td>
             </tr>
             <tr>
               <td><strong>取引先の加工依頼フォーム</strong><br><span class="muted">八木繊維さんなどの取引先から</span></td>
-              <td>同じく「コピペ取り込み」タブ</td>
+              <td>同じく「受注候補の取り込み」タブ</td>
               <td><span class="badge-sample">P-3</span> のような番号</td>
             </tr>
             <tr>
@@ -87,7 +87,7 @@
         <div class="tip">
           <strong>番号の頭文字で入り口が分かります。</strong>
           <strong>W-</strong> はホームページのご注文フォーム、<strong>T-</strong> はチームの追加注文、<strong>P-</strong> は取引先からの加工依頼です。
-          お客様や取引先から「受付番号は W-12 です」と電話が来たら、「コピペ取り込み」タブでその番号を探せば内容が見られます。
+          お客様や取引先から「受付番号は W-12 です」と電話が来たら、「受注候補の取り込み」タブでその番号を探せば内容が見られます。
         </div>
 
         <h3>取引先(P-)の依頼は2種類あります</h3>
@@ -103,7 +103,7 @@
         <p class="when">🕘 <strong>使うタイミング:</strong> 出社したとき、あとは午後にもう一度</p>
 
         <h3>① 赤いバッジを確認する</h3>
-        <p>HiBoardを開いて、上のタブに<strong>「📥 コピペ取り込み <span class="badge-sample red">2</span>」</strong>のような赤い数字が出ていたら、<strong>まだ確認していない注文がその件数ある</strong>という意味です。まずここをクリックします。</p>
+        <p>HiBoardを開いて、上のタブに<strong>「📥 受注候補の取り込み <span class="badge-sample red">2</span>」</strong>のような赤い数字が出ていたら、<strong>まだ確認していない注文がその件数ある</strong>という意味です。まずここをクリックします。</p>
         <p class="muted">※ 赤い数字が出ていなければ、新しい注文はありません。</p>
 
         <div class="tip">
@@ -129,7 +129,7 @@
         <p>AIが自動で拾えなかったやりとりや、メールで来た注文は、こちらを使います。</p>
         <ol class="steps">
           <li>LINEやメールの本文を<strong>コピー</strong>する</li>
-          <li>「コピペ取り込み」タブの下半分にある<strong>「テキストから案件情報を抽出」</strong>の枠に<strong>貼り付け</strong>る</li>
+          <li>「受注候補の取り込み」タブの下半分にある<strong>「テキストから案件情報を抽出」</strong>の枠に<strong>貼り付け</strong>る</li>
           <li><strong>「🔍 テキストから抽出」</strong>を押す → 案件名・顧客名・数量・納期などをAIが自動で読み取ります</li>
           <li>読み取った内容を確認・修正して登録</li>
         </ol>
@@ -259,8 +259,20 @@
         <h2><span class="ch-num">7</span>困ったときのQ&amp;A</h2>
 
         <dl class="faq">
+          <dt>ヘッダーのボタンが減った。従業員の登録などはどこ?</dt>
+          <dd>毎日使うもの(<strong>スケジュール・納品履歴・顧客台帳・使い方</strong>)だけを表に出し、設定や発行の操作は右端の<strong>「⚙ 管理」</strong>にまとめました。押すと、担当者マスタ・従業員マスタ・チーム/取引先/デザイナーのリンク発行・制作実績の登録が出てきます。スマホでは<strong>「☰ メニュー」</strong>を押すと同じものが開きます。</dd>
+
+          <dt>「担当者マスタ」と「従業員マスタ」は何が違う?</dt>
+          <dd><strong>担当者マスタ</strong>は案件の窓口になる人(その案件を誰が見ているか)、<strong>従業員マスタ</strong>は実際に作業する人です。従業員マスタの人は勤務パターンと加工別の生産性を持ち、スケジュールボードの割り当て対象になります。</dd>
+
+          <dt>入力画面(新規案件)の項目が折りたたまれている</dt>
+          <dd>入力する順番どおりに<strong>「1. 基本情報」〜「5. 作業内容・メモ」</strong>に分けました。見出しをクリックすると開閉できます。<strong>「4. データと書類」</strong>(NASフォルダ・Freeeリンク)は使うときだけ開けばよいので、最初は閉じています。<strong>保存ボタンは画面の下に固定</strong>されているので、どこまでスクロールしても押せます。</dd>
+
+          <dt>一覧の行が赤や黄色になっているのは何?</dt>
+          <dd>納期が近い・過ぎている案件です。日付の横に<strong>「納期超過」「3日以内」「7日以内」</strong>と文字でも出るようになりました。色の意味は一覧の上の凡例にも書いてあります。</dd>
+
           <dt>お客様から「W-12」「T-5」「P-3」と番号を言われた</dt>
-          <dd>Webフォーム(W)・チーム追加注文(T)・取引先の加工依頼(P)の受付番号です。「コピペ取り込み」タブで該当のカードを探すと内容が確認できます。すでに案件登録済みの場合は、案件のメモ欄にも同じ番号が記録されています。</dd>
+          <dd>Webフォーム(W)・チーム追加注文(T)・取引先の加工依頼(P)の受付番号です。「受注候補の取り込み」タブで該当のカードを探すと内容が確認できます。すでに案件登録済みの場合は、案件のメモ欄にも同じ番号が記録されています。</dd>
 
           <dt>取引先から「あの案件、今どうなってる?」と聞かれた</dt>
           <dd>取引先には進行状況を見られる専用ページをお渡ししています。HiBoardでステータスを最新にしておけば、そちらで確認していただけます。急ぎでなければ「専用ページでご確認いただけます」とご案内してください。</dd>
@@ -297,5 +309,6 @@
       </footer>
     </main>
   </div>
+  <script src="js/ui.js"></script>
 </body>
 </html>

@@ -38,15 +38,12 @@ const CaseDetail = {
           </div>
           <div id="case-detail-body"></div>
           <div class="form-actions">
-            <button type="button" class="btn-primary" onclick="CaseDetail.close()">閉じる</button>
+            <button type="button" class="btn btn-primary" onclick="CaseDetail.close()">閉じる</button>
           </div>
         </div>
       </div>
     `;
     document.body.appendChild(wrapper.firstElementChild);
-    document.getElementById('case-detail-modal').addEventListener('click', (e) => {
-      if (e.target.id === 'case-detail-modal') this.close();
-    });
   },
 
   async open(projectId) {
@@ -58,7 +55,9 @@ const CaseDetail = {
     try {
       const detail = await API.getProjectDetail(projectId);
       if (!detail || detail.error) {
-        body.innerHTML = `<p class="folder-notice">${this.escapeHtml(detail?.error || '案件詳細を取得できませんでした')}</p>`;
+        // サーバーのエラー文は英語("Project not found"等)なので、そのまま画面に出さない
+        console.warn('案件詳細の取得に失敗:', detail?.error);
+        body.innerHTML = '<p class="empty-notice">この案件の詳細を表示できませんでした。案件が削除されている可能性があります。</p>';
         return;
       }
       this.render(detail);

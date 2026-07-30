@@ -20,7 +20,7 @@ const partnerLinksApp = {
       this.render();
     } catch (e) {
       console.error('取引先リンク一覧の取得に失敗:', e);
-      alert('取引先リンク一覧の取得に失敗しました');
+      HiUI.toast('取引先リンク一覧の取得に失敗しました');
     }
   },
 
@@ -174,7 +174,7 @@ const partnerLinksApp = {
     const action = link.disabled_at ? '再有効化' : '無効化';
     if (!confirm(`「${link.partner_name}」の専用URLを${action}しますか?`)) return;
     const res = await fetch(`/api/partner-links/${link.id}/toggle`, { method: 'POST' });
-    if (!res.ok) { alert(`${action}に失敗しました`); return; }
+    if (!res.ok) { HiUI.toast(`${action}に失敗しました`); return; }
     await this.load();
   },
 
@@ -222,7 +222,7 @@ const partnerLinksApp = {
       await this.load();
     } catch (e) {
       console.error('リンク保存に失敗:', e);
-      alert('保存に失敗しました');
+      HiUI.toast('保存に失敗しました');
     }
   },
 };

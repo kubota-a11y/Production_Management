@@ -45,7 +45,7 @@ const app = {
       this.projects = await API.getAllProjects();
     } catch (error) {
       console.error('案件取得エラー:', error);
-      alert('案件の取得に失敗しました');
+      HiUI.toast('案件の取得に失敗しました');
     }
   },
 
@@ -54,7 +54,7 @@ const app = {
       this.staff = await API.getAllStaff();
     } catch (error) {
       console.error('担当者取得エラー:', error);
-      alert('担当者の取得に失敗しました');
+      HiUI.toast('担当者の取得に失敗しました');
     }
   },
 
@@ -63,7 +63,7 @@ const app = {
       this.employees = await API.getAllEmployees();
     } catch (error) {
       console.error('従業員取得エラー:', error);
-      alert('従業員の取得に失敗しました');
+      HiUI.toast('従業員の取得に失敗しました');
     }
   },
 
@@ -73,7 +73,7 @@ const app = {
       this.renderPrepItemsCheckboxGroup();
     } catch (error) {
       console.error('準備項目マスター取得エラー:', error);
-      alert('準備項目マスターの取得に失敗しました');
+      HiUI.toast('準備項目マスターの取得に失敗しました');
     }
   },
 
@@ -97,7 +97,7 @@ const app = {
       <div class="print-location-row" data-row-key="${rowKey}">
         <input type="text" class="pl-location-name" data-row-key="${rowKey}" placeholder="箇所名(例: 胸ロゴ)" value="${this.escapeHtml(locationName || '')}">
         <select class="pl-color-count" data-row-key="${rowKey}">${options}</select>
-        <button type="button" class="btn-small btn-danger" onclick="app.removePrintLocationRow('${rowKey}', '${containerId}')">🗑️</button>
+        <button type="button" class="btn btn-small btn-danger" onclick="app.removePrintLocationRow('${rowKey}', '${containerId}')" aria-label="このプリント箇所を削除">🗑️</button>
       </div>
     `;
   },
@@ -160,7 +160,7 @@ const app = {
       this.preparationItems = await API.getPreparationItems();
     } catch (error) {
       console.error('準備項目タスク取得エラー:', error);
-      alert('準備項目タスクの取得に失敗しました');
+      HiUI.toast('準備項目タスクの取得に失敗しました');
     }
   },
 
@@ -174,11 +174,14 @@ const app = {
   switchTab(tabName) {
     this.currentTab = tabName;
 
-    // タブボタンのアクティブ状態を更新
+    // タブボタンのアクティブ状態を更新(スクリーンリーダー向けの aria-selected も揃える)
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.classList.remove('active');
+      btn.setAttribute('aria-selected', 'false');
     });
-    document.querySelector(`.tab-btn[data-tab="${tabName}"]`)?.classList.add('active');
+    const activeTabBtn = document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
+    activeTabBtn?.classList.add('active');
+    activeTabBtn?.setAttribute('aria-selected', 'true');
 
     // コンテンツの表示/非表示
     document.querySelectorAll('.tab-content').forEach(content => {
@@ -205,6 +208,7 @@ const app = {
     tbody.innerHTML = '';
 
     this.updateGroupHeaderUI();
+    this.updateSortHeaderUI();
 
     if (this.groupBy === 'deadline') {
       this.renderGroupedRows(tbody, this.groupProjectsByDeadline(projects));
@@ -230,10 +234,12 @@ const app = {
     const kindBadge = project.project_kind === 'INTERNAL_DESIGN'
       ? ' <span class="kind-badge-internal-design">🎨 社内デザイン</span>'
       : '';
+    // 行の背景色だけでは意味が伝わらないため、納期の状態を文字でも併記する
+    const deadlineFlag = this.deadlineFlagHtml(deadlineWarning);
     row.innerHTML = `
       <td class="cell-project-name">${this.escapeHtml(project.project_name)}${kindBadge}</td>
       <td>${formatDate(project.received_date)}</td>
-      <td class="deadline-cell">${formatDate(project.deadline)}</td>
+      <td class="deadline-cell">${formatDate(project.deadline)}${deadlineFlag}</td>
       <td>${this.escapeHtml(project.customer_name)}</td>
       <td>${getProcessLabels(project.process_type)}</td>
       <td class="text-center">${project.quantity}</td>
@@ -249,20 +255,32 @@ const app = {
           ${getPriorityLabel(project.priority)}
         </span>
       </td>
-      <td class="text-center">
-        <button class="btn-small" onclick="app.openProjectModal(${project.id})">
-          ✎ 編集
-        </button>
-        <button class="btn-small" onclick="app.openSuggestModal(${project.id})">
-          🔎 提案
-        </button>
-        <button class="btn-small" onclick="app.openDeliverModal(${project.id})">
-          📦 納品済み
-        </button>
+      <td>
+        <div class="row-actions">
+          <button class="btn btn-small" onclick="app.openProjectModal(${project.id})">
+            ✎ 編集
+          </button>
+          <button class="btn btn-small" onclick="app.openSuggestModal(${project.id})">
+            🔎 提案
+          </button>
+          <button class="btn btn-small" onclick="app.openDeliverModal(${project.id})">
+            📦 納品済み
+          </button>
+        </div>
       </td>
     `;
 
     return row;
+  },
+
+  deadlineFlagHtml(warning) {
+    const flags = {
+      overdue: { cls: 'is-overdue', label: '納期超過' },
+      urgent: { cls: 'is-urgent', label: '3日以内' },
+      warning: { cls: 'is-warning', label: '7日以内' }
+    };
+    const flag = flags[warning];
+    return flag ? ` <span class="deadline-flag ${flag.cls}">${flag.label}</span>` : '';
   },
 
   buildGroupHeaderRow(label, count) {
@@ -339,7 +357,9 @@ const app = {
     if (processFilter) {
       filtered = filtered.filter(p => (p.process_type || '').split(',').map(s => s.trim()).includes(processFilter));
     }
-    if (staffFilter) {
+    if (staffFilter === 'UNASSIGNED') {
+      filtered = filtered.filter(p => !p.assigned_staff_id);
+    } else if (staffFilter) {
       filtered = filtered.filter(p => p.assigned_staff_id == staffFilter);
     }
     if (priorityFilter) {
@@ -371,6 +391,24 @@ const app = {
       this.sortOrder = 'asc';
     }
     this.renderListView();
+  },
+
+  // どの列で並び替え中かを列見出しの矢印で示す(押せる列は ⇅、並び替え中は ▲▼)
+  updateSortHeaderUI() {
+    const columnByThIndex = {
+      0: 'project_name',
+      1: 'received_date',
+      2: 'deadline',
+      5: 'quantity'
+    };
+    document.querySelectorAll('#projects-table thead th').forEach((th, index) => {
+      th.classList.remove('sorted-asc', 'sorted-desc');
+      th.removeAttribute('aria-sort');
+      if (columnByThIndex[index] !== this.sortColumn) return;
+      const isAsc = this.sortOrder === 'asc';
+      th.classList.add(isAsc ? 'sorted-asc' : 'sorted-desc');
+      th.setAttribute('aria-sort', isAsc ? 'ascending' : 'descending');
+    });
   },
 
   // ===== UI: カンバンビュー =====
@@ -477,7 +515,7 @@ const app = {
         console.log(`✓ プロジェクト #${projectId} のステータスを ${newStatus} に更新`);
       } catch (error) {
         console.error('ステータス更新エラー:', error);
-        alert('ステータスの更新に失敗しました');
+        HiUI.toast('ステータスの更新に失敗しました');
       }
     }
   },
@@ -528,7 +566,8 @@ const app = {
           cell.classList.add('empty');
         } else {
           const currentDate = new Date(year, month, date);
-          const dateStr = currentDate.toISOString().split('T')[0];
+          const dateStr = formatDateISO(currentDate);
+          if (dateStr === formatDateISO(new Date())) cell.classList.add('is-today');
 
           // この日付の案件を取得(納品済み(COMPLETED)は一覧ビューと同様に除外する)
           const projectsOnDate = this.projects.filter(p => p.deadline === dateStr && p.status !== 'COMPLETED');
@@ -539,9 +578,12 @@ const app = {
             const itemsDiv = document.createElement('div');
             itemsDiv.className = 'calendar-items';
             projectsOnDate.forEach(p => {
-              const item = document.createElement('div');
-              item.className = 'calendar-item';
+              // 案件バーの色はステータスバッジと同じ配色にする(全部同じ青だと状態が読めない)
+              const item = document.createElement('button');
+              item.type = 'button';
+              item.className = `calendar-item ${getStatusClass(p.status)}`;
               item.textContent = p.project_name.substring(0, 15);
+              item.title = `${p.project_name}（${getStatusLabel(p.status)}）`;
               item.onclick = () => app.openProjectModal(p.id);
               itemsDiv.appendChild(item);
             });
@@ -582,7 +624,7 @@ const app = {
     const text = document.getElementById('import-textarea').value;
 
     if (!text.trim()) {
-      alert('テキストを入力してください');
+      HiUI.toast('テキストを入力してください');
       return;
     }
 
@@ -591,7 +633,7 @@ const app = {
     const extracted = {
       project_name: extractName(text) || '',
       customer_name: extractName(text).split('\n')[0] || '',
-      received_date: new Date().toISOString().split('T')[0],
+      received_date: formatDateISO(),
       deadline: extractDate(text) || '',
       contact_method: 'LINE',
       quantity: extractNumber(text) || 1,
@@ -622,7 +664,7 @@ const app = {
     // 加工種別（複数選択）をカンマ区切りにまとめる
     data.process_type = formData.getAll('process_type').join(',');
     if (!data.process_type) {
-      alert('加工種別を1つ以上選択してください');
+      HiUI.toast('加工種別を1つ以上選択してください');
       return;
     }
 
@@ -640,11 +682,11 @@ const app = {
       document.getElementById('import-preview').style.display = 'none';
       form.reset();
       
-      alert('✓ 案件を登録しました');
+      HiUI.toast('✓ 案件を登録しました');
       this.renderListView();
     } catch (error) {
       console.error('案件登録エラー:', error);
-      alert('案件の登録に失敗しました');
+      HiUI.toast('案件の登録に失敗しました');
     }
   },
 
@@ -751,7 +793,7 @@ const app = {
 
     API.getAiIntake(id).then(intake => {
       if (!intake || intake.error) {
-        alert('AI受注候補の取得に失敗しました');
+        HiUI.toast('AI受注候補の取得に失敗しました');
         this.closeAiIntakeModal();
         return;
       }
@@ -770,7 +812,7 @@ const app = {
       this.prefillAiIntakeForm(intake);
     }).catch(error => {
       console.error('AI受注候補取得エラー:', error);
-      alert('AI受注候補の取得に失敗しました');
+      HiUI.toast('AI受注候補の取得に失敗しました');
       this.closeAiIntakeModal();
     });
   },
@@ -844,7 +886,7 @@ const app = {
     const firstMessage = messages[0];
     const receivedDate = firstMessage
       ? firstMessage.received_at.split('T')[0]
-      : new Date().toISOString().split('T')[0];
+      : formatDateISO();
 
     const itemsText = intake.items || '';
     const quantityRaw = (intake.quantity || '').toString().trim();
@@ -908,7 +950,7 @@ const app = {
 
     data.process_type = formData.getAll('process_type').join(',');
     if (!data.process_type) {
-      alert('加工種別を1つ以上選択してください');
+      HiUI.toast('加工種別を1つ以上選択してください');
       return;
     }
 
@@ -916,6 +958,8 @@ const app = {
     data.planned_hours = parseFloat(data.planned_hours);
     data.assigned_staff_id = data.assigned_staff_id ? parseInt(data.assigned_staff_id) : null;
     data.estimated_hours = data.estimated_hours ? parseFloat(data.estimated_hours) : null;
+    // 必要スキルは複数選択なのでカンマ区切りにまとめる(新規案件モーダルと同じ扱い)
+    data.required_skill_tags = formData.getAll('required_skill_tags').join(',');
     // 新規案件モーダルと同じく、プリント箇所と準備項目も一緒に登録する
     // (print_locations は確定処理が case_print_locations へ引き継ぐ)
     data.print_locations = this.collectPrintLocationData('ai-intake-print-locations-container');
@@ -925,7 +969,7 @@ const app = {
     try {
       const result = await API.confirmAiIntake(this.editingAiIntakeId, data);
       if (result.error) {
-        alert(result.error);
+        HiUI.toast(result.error);
         return;
       }
       console.log(`✓ AI受注候補 #${this.editingAiIntakeId} を案件 #${result.id} として登録`);
@@ -944,10 +988,10 @@ const app = {
       await this.loadProjects();
       this.switchTab('list');
       this.renderListView();
-      alert('✓ 案件として登録しました');
+      HiUI.toast('✓ 案件として登録しました');
     } catch (error) {
       console.error('AI受注候補の登録エラー:', error);
-      alert('案件の登録に失敗しました');
+      HiUI.toast('案件の登録に失敗しました');
     }
   },
 
@@ -962,7 +1006,7 @@ const app = {
       await this.loadAiIntakeList();
     } catch (error) {
       console.error('AI受注候補の却下エラー:', error);
-      alert('却下処理に失敗しました');
+      HiUI.toast('却下処理に失敗しました');
     }
   },
 
@@ -1007,7 +1051,8 @@ const app = {
       const project = this.projects.find(p => p.id === projectId);
       if (project) {
         Object.entries(project).forEach(([key, value]) => {
-          if (key === 'process_type' || key === 'prep_items') return; // チェックボックス群は別途処理
+          // チェックボックス群は NodeList になるため value 代入では設定できない。別途処理する
+          if (key === 'process_type' || key === 'prep_items' || key === 'required_skill_tags') return;
           const field = form.elements[key];
           if (field && key !== 'id') {
             field.value = value || '';
@@ -1015,6 +1060,7 @@ const app = {
         });
         this.setCheckboxGroupValues(form, 'process_type', project.process_type);
         this.setCheckboxGroupValues(form, 'prep_items', project.prep_items);
+        this.setCheckboxGroupValues(form, 'required_skill_tags', project.required_skill_tags);
         form.elements['project_kind'].value = project.project_kind || 'NORMAL';
       }
 
@@ -1035,7 +1081,7 @@ const app = {
       title.textContent = '新規案件';
       deleteBtn.style.display = 'none';
       this.renderPrintLocationRows();
-      form.elements['received_date'].value = new Date().toISOString().split('T')[0];
+      form.elements['received_date'].value = formatDateISO();
 
       document.getElementById('time-allocation-disabled-notice').style.display = 'block';
       document.getElementById('time-allocation-body').style.display = 'none';
@@ -1109,7 +1155,7 @@ const app = {
       // スケジュールボードに本体の作業時間が反映されない不具合があった)
       const result = await API.assignEmployee(projectId, employeeId);
       if (result.error) {
-        alert(result.error);
+        HiUI.toast(result.error);
         return;
       }
       this.closeSuggestModal();
@@ -1118,7 +1164,7 @@ const app = {
       if (this.currentTab === 'kanban') this.renderKanbanView();
     } catch (error) {
       console.error('担当者割り当てエラー:', error);
-      alert('担当者の割り当てに失敗しました');
+      HiUI.toast('担当者の割り当てに失敗しました');
     }
   },
 
@@ -1127,7 +1173,7 @@ const app = {
     this.deliveringProjectId = projectId;
     const form = document.getElementById('deliver-form');
     form.reset();
-    form.elements['delivered_date'].value = new Date().toISOString().split('T')[0];
+    form.elements['delivered_date'].value = formatDateISO();
     this.populateDeliverStaffSelect();
     document.getElementById('deliver-modal').style.display = 'flex';
   },
@@ -1178,7 +1224,7 @@ const app = {
     try {
       const result = await API.deliverProject(this.deliveringProjectId, data);
       if (result.error) {
-        alert(result.error);
+        HiUI.toast(result.error);
         return;
       }
       this.closeDeliverModal();
@@ -1188,7 +1234,7 @@ const app = {
       if (this.currentTab === 'calendar') this.renderCalendarView();
     } catch (error) {
       console.error('納品済み登録エラー:', error);
-      alert('納品済みへの更新に失敗しました');
+      HiUI.toast('納品済みへの更新に失敗しました');
     }
   },
 
@@ -1213,7 +1259,7 @@ const app = {
       this.timeAllocations = await API.getTimeAllocations(projectId);
     } catch (error) {
       console.error('作業計画取得エラー:', error);
-      alert('作業計画の取得に失敗しました');
+      HiUI.toast('作業計画の取得に失敗しました');
       this.timeAllocations = [];
     }
     this.renderTimeAllocationTable();
@@ -1243,7 +1289,7 @@ const app = {
         <td>${this.escapeHtml(allocation.status || '')}</td>
         <td>
           <button class="btn-small" onclick="app.editTimeAllocation(${allocation.id})">✎ 編集</button>
-          <button class="btn-small btn-danger" onclick="app.deleteTimeAllocation(${allocation.id})">🗑️ 削除</button>
+          <button class="btn btn-small btn-danger" onclick="app.deleteTimeAllocation(${allocation.id})">🗑️ 削除</button>
         </td>
       `;
       tbody.appendChild(row);
@@ -1285,7 +1331,7 @@ const app = {
     const plannedHours = document.getElementById('ta-planned-hours').value;
 
     if (!employeeId || !workDate || !plannedHours) {
-      alert('担当従業員・日付・予定時間を入力してください');
+      HiUI.toast('担当従業員・日付・予定時間を入力してください');
       return;
     }
 
@@ -1307,7 +1353,7 @@ const app = {
       await this.loadTimeAllocations(this.editingProjectId);
     } catch (error) {
       console.error('作業計画保存エラー:', error);
-      alert('作業計画の保存に失敗しました');
+      HiUI.toast('作業計画の保存に失敗しました');
     }
   },
 
@@ -1323,7 +1369,7 @@ const app = {
       await this.loadTimeAllocations(this.editingProjectId);
     } catch (error) {
       console.error('作業計画削除エラー:', error);
-      alert('作業計画の削除に失敗しました');
+      HiUI.toast('作業計画の削除に失敗しました');
     }
   },
 
@@ -1499,11 +1545,11 @@ const app = {
   openFreeeLink(inputId) {
     const url = document.getElementById(inputId)?.value?.trim();
     if (!url) {
-      alert('リンクが未入力です。Freeeで見積書/請求書を開いたときのURLを貼り付けてください');
+      HiUI.toast('リンクが未入力です。Freeeで見積書/請求書を開いたときのURLを貼り付けてください');
       return;
     }
     if (!/^https?:\/\//.test(url)) {
-      alert('URLは https:// から始まる形式で入力してください');
+      HiUI.toast('URLは https:// から始まる形式で入力してください');
       return;
     }
     window.open(url, '_blank');
@@ -1515,11 +1561,11 @@ const app = {
       if (result.success) {
         console.log('Opened file in Finder:', filePath);
       } else {
-        alert(result.error || 'ファイルを開くことができませんでした');
+        HiUI.toast(result.error || 'ファイルを開くことができませんでした');
       }
     } catch (error) {
       console.error('NAS open error:', error);
-      alert('ファイルを開くことができませんでした');
+      HiUI.toast('ファイルを開くことができませんでした');
     }
   },
 
@@ -1533,7 +1579,7 @@ const app = {
     // 加工種別（複数選択）をカンマ区切りにまとめる。社内デザイン案件は加工なしでよい
     data.process_type = formData.getAll('process_type').join(',');
     if (!data.process_type && !isInternalDesign) {
-      alert('加工種別を1つ以上選択してください');
+      HiUI.toast('加工種別を1つ以上選択してください');
       return;
     }
 
@@ -1552,8 +1598,10 @@ const app = {
     const prepItemCodes = formData.getAll('prep_items');
     data.prep_items = prepItemCodes.join(',');
 
-    // 必要スキル（カンマ区切り・任意）・見積もり工数（任意）
-    data.required_skill_tags = data.required_skill_tags || '';
+    // 必要スキル（複数選択・任意）はカンマ区切りにまとめる。
+    // 値は加工種別のコード(SILK_SCREEN_PRINT 等)で、従業員の「得意スキル」と突き合わせて
+    // 担当者の自動提案に使われる。見積もり工数（任意）はスケジュール計算には使わない
+    data.required_skill_tags = formData.getAll('required_skill_tags').join(',');
     data.estimated_hours = data.estimated_hours ? parseFloat(data.estimated_hours) : null;
 
     // 数値変換
@@ -1589,7 +1637,7 @@ const app = {
       if (this.currentTab === 'kanban') this.renderKanbanView();
     } catch (error) {
       console.error('案件保存エラー:', error);
-      alert('案件の保存に失敗しました');
+      HiUI.toast('案件の保存に失敗しました');
     }
   },
 
@@ -1608,7 +1656,7 @@ const app = {
       this.renderListView();
     } catch (error) {
       console.error('案件削除エラー:', error);
-      alert('案件の削除に失敗しました');
+      HiUI.toast('案件の削除に失敗しました');
     }
   },
 
@@ -1672,7 +1720,7 @@ const app = {
       this.renderStaffList();
     } catch (error) {
       console.error('スタッフ保存エラー:', error);
-      alert('スタッフの保存に失敗しました');
+      HiUI.toast('スタッフの保存に失敗しました');
     }
   },
 
@@ -1692,7 +1740,7 @@ const app = {
           <button class="btn-small" onclick="app.openStaffFormModal(${staff.id})">
             ✎ 編集
           </button>
-          <button class="btn-small btn-danger" onclick="app.deleteStaff(${staff.id})">
+          <button class="btn btn-small btn-danger" onclick="app.deleteStaff(${staff.id})">
             🗑️ 削除
           </button>
         </div>
@@ -1714,19 +1762,24 @@ const app = {
       this.renderStaffList();
     } catch (error) {
       console.error('スタッフ削除エラー:', error);
-      alert('スタッフの削除に失敗しました');
+      HiUI.toast('スタッフの削除に失敗しました');
     }
   },
 
   updateStaffSelects() {
-    // フォームの担当者セレクトを更新
+    // フォームの担当者セレクトと一覧の絞り込みセレクトを更新する。
+    // 先頭の選択肢は用途が違うので分ける:
+    //   フォーム   … 空欄 = 未割り当てとして保存する
+    //   絞り込み   … 空欄 = すべて表示 / UNASSIGNED = 未割り当ての案件だけ
     const staffSelect = document.getElementById('staff-select');
     const filterStaffSelect = document.getElementById('filter-staff');
 
     [staffSelect, filterStaffSelect].forEach(select => {
       const currentValue = select?.value;
       if (select) {
-        select.innerHTML = '<option value="">未割り当て</option>';
+        select.innerHTML = select === filterStaffSelect
+          ? '<option value="">すべて</option><option value="UNASSIGNED">未割り当てのみ</option>'
+          : '<option value="">未割り当て</option>';
         this.staff.forEach(staff => {
           const option = document.createElement('option');
           option.value = staff.id;
@@ -1749,7 +1802,10 @@ const app = {
 
   handleQueryParams() {
     const params = new URLSearchParams(window.location.search);
-    // No special query params to handle
+    // 他画面のヘッダーメニュー「担当者マスタ」からは /?open=staff で戻ってくる
+    if (params.get('open') === 'staff') {
+      this.openStaffModal();
+    }
   }
 };
 
@@ -1774,23 +1830,8 @@ document.addEventListener('DOMContentLoaded', () => {
     app.filterNasEntries();
   });
 
-  window.addEventListener('click', (e) => {
-    if (e.target.id === 'project-modal') {
-      app.closeProjectModal();
-    }
-    if (e.target.id === 'staff-modal') {
-      app.closeStaffModal();
-    }
-    if (e.target.id === 'staff-form-modal') {
-      app.closeStaffFormModal();
-    }
-    if (e.target.id === 'ai-intake-modal') {
-      app.closeAiIntakeModal();
-    }
-    if (e.target.id === 'deliver-modal') {
-      app.closeDeliverModal();
-    }
-  });
+  // 背景クリック・Escキーでの閉じる処理は js/ui.js が全モーダル共通で行う
+  // (モーダル内の .btn-close をクリックするため、各画面の閉じる処理がそのまま動く)
 
   // アプリ初期化
   app.init();

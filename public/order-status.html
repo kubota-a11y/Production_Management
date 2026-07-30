@@ -5,13 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex">
   <title>ご注文の進捗確認 | HIYOSHI</title>
+  <link rel="stylesheet" href="/styles/tokens.css">
   <style>
     /* お客様向け進捗確認ページ。partner-status.html と同じトーンの単体完結スタイル */
     * { box-sizing: border-box; margin: 0; padding: 0; }
     /* display指定のあるクラス(.meta-row等)がhidden属性を打ち消してしまうため明示的に優先する */
     [hidden] { display: none !important; }
     body {
-      font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
+      font-family: var(--font-sans);
       background: #f1f5f9; color: #0f172a; line-height: 1.6;
       -webkit-font-smoothing: antialiased;
     }

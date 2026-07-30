@@ -9,15 +9,15 @@
 </head>
 <body>
   <div class="app-container">
-    <!-- ヘッダー -->
+    <!-- ヘッダー(ナビゲーションの中身は js/ui.js が data-nav を見て生成する) -->
     <header class="app-header">
       <div class="header-content">
-        <h1 class="app-title">🗓️ 週間作業スケジュールボード</h1>
-        <p class="app-subtitle">Weekly Work Schedule Board</p>
+        <div>
+          <h1 class="app-title">🗓️ 週間作業スケジュールボード</h1>
+          <p class="app-subtitle">Weekly Work Schedule Board</p>
+        </div>
       </div>
-      <div class="header-buttons">
-        <a class="btn-staff-manage" href="/">📋 HiBoardに戻る</a>
-      </div>
+      <nav class="header-buttons" data-nav="schedule" aria-label="画面の切り替え"></nav>
     </header>
 
     <!-- メインコンテンツ -->
@@ -117,7 +117,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h2 id="sb-detail-title">詳細</h2>
-        <button class="btn-close" onclick="scheduleBoard.closeDetailModal()">✕</button>
+        <button class="btn-close" onclick="scheduleBoard.closeDetailModal()" aria-label="閉じる">✕</button>
       </div>
       <div class="sb-detail-body" id="sb-detail-body"></div>
     </div>
@@ -128,7 +128,7 @@
     <div class="modal-content modal-lg">
       <div class="modal-header">
         <h2 id="sb-override-title">勤務時間編集</h2>
-        <button class="btn-close" onclick="scheduleBoard.closeOverrideModal()">✕</button>
+        <button class="btn-close" onclick="scheduleBoard.closeOverrideModal()" aria-label="閉じる">✕</button>
       </div>
       <form id="sb-override-form" class="project-form">
         <div class="form-group">
@@ -139,27 +139,27 @@
 
         <div class="form-row">
           <div class="form-group">
-            <label>出勤時刻</label>
+            <label for="ov-start-time">出勤時刻</label>
             <input type="time" id="ov-start-time">
           </div>
           <div class="form-group">
-            <label>退勤時刻</label>
+            <label for="ov-end-time">退勤時刻</label>
             <input type="time" id="ov-end-time">
           </div>
         </div>
 
         <div class="form-group">
-          <label>休憩時間（分）</label>
+          <label for="ov-break-minutes">休憩時間（分）</label>
           <input type="number" id="ov-break-minutes" min="0" step="5" value="0">
         </div>
 
         <div class="form-group">
-          <label>準備・フォロー予約時間(時間)</label>
+          <label for="ov-reserved-hours">準備・フォロー予約時間(時間)</label>
           <input type="number" id="ov-reserved-hours" min="0" step="0.5" value="0">
         </div>
 
         <div class="form-group sb-allocation-section">
-          <label>案件の割り当て</label>
+          <div class="form-label">案件の割り当て</div>
           <div class="sb-override-summary" id="sb-override-summary"></div>
           <div id="sb-allocation-rows"></div>
           <button type="button" class="btn btn-small btn-secondary sb-add-allocation-btn" onclick="scheduleBoard.addAllocationRow()">
@@ -168,7 +168,7 @@
         </div>
 
         <div class="form-group sb-allocation-section">
-          <label>準備項目タスクの割り当て <span class="field-hint">(【準備】で表示区別)</span></label>
+          <div class="form-label">準備項目タスクの割り当て <span class="field-hint">(【準備】で表示区別)</span></div>
           <div id="sb-prep-item-rows"></div>
           <div class="sb-add-prep-item-row">
             <select id="sb-add-prep-item-select"></select>
@@ -177,8 +177,9 @@
           </div>
         </div>
 
+        <!-- 削除は左端に離して置く(保存の隣だと誤クリックしやすい) -->
         <div class="form-actions">
-          <button type="button" class="btn btn-danger" id="ov-delete-btn" style="display: none;" onclick="scheduleBoard.deleteOverride()">
+          <button type="button" class="btn btn-danger action-destructive" id="ov-delete-btn" style="display: none;" onclick="scheduleBoard.deleteOverride()">
             🗑️ 削除
           </button>
           <button type="button" class="btn btn-secondary" onclick="scheduleBoard.closeOverrideModal()">
@@ -193,6 +194,7 @@
   </div>
 
   <!-- スクリプト -->
+  <script src="js/ui.js"></script>
   <script src="js/utils.js"></script>
   <script src="js/schedule-board.js"></script>
 </body>

@@ -176,7 +176,7 @@ const scheduleBoard = {
       this.employees = all.filter(e => e.is_active);
     } catch (error) {
       console.error('従業員取得エラー:', error);
-      alert('従業員の取得に失敗しました');
+      HiUI.toast('従業員の取得に失敗しました');
     }
   },
 
@@ -192,7 +192,7 @@ const scheduleBoard = {
       });
     } catch (error) {
       console.error('案件取得エラー:', error);
-      alert('案件の取得に失敗しました');
+      HiUI.toast('案件の取得に失敗しました');
       this.projects = [];
     }
   },
@@ -202,7 +202,7 @@ const scheduleBoard = {
       this.scheduleOverrides = await (await fetch('/api/schedule-overrides')).json();
     } catch (error) {
       console.error('勤務時間の個別変更取得エラー:', error);
-      alert('勤務時間の個別変更の取得に失敗しました');
+      HiUI.toast('勤務時間の個別変更の取得に失敗しました');
       this.scheduleOverrides = [];
     }
   },
@@ -234,7 +234,7 @@ const scheduleBoard = {
       this.allocations = await (await fetch(`/api/time-allocations?start=${start}&end=${end}`)).json();
     } catch (error) {
       console.error('作業計画取得エラー:', error);
-      alert('作業計画の取得に失敗しました');
+      HiUI.toast('作業計画の取得に失敗しました');
       this.allocations = [];
     }
   },
@@ -253,7 +253,7 @@ const scheduleBoard = {
       this.carriedPrepItems = carried;
     } catch (error) {
       console.error('準備項目タスク取得エラー:', error);
-      alert('準備項目タスクの取得に失敗しました');
+      HiUI.toast('準備項目タスクの取得に失敗しました');
       this.preparationItems = [];
       this.carriedPrepItems = [];
     }
@@ -303,7 +303,7 @@ const scheduleBoard = {
       ];
     } catch (error) {
       console.error('準備項目タスクの取得エラー:', error);
-      alert('準備項目タスクの取得に失敗しました');
+      HiUI.toast('準備項目タスクの取得に失敗しました');
       this.assignablePrepItems = [];
     }
   },
@@ -313,7 +313,7 @@ const scheduleBoard = {
       this.projectProgress = await (await fetch('/api/stats/project-progress')).json();
     } catch (error) {
       console.error('消化率取得エラー:', error);
-      alert('案件別消化率の取得に失敗しました');
+      HiUI.toast('案件別消化率の取得に失敗しました');
       this.projectProgress = [];
     }
   },
@@ -323,7 +323,7 @@ const scheduleBoard = {
       this.proposals = await (await fetch('/api/proposals')).json();
     } catch (error) {
       console.error('提案一覧取得エラー:', error);
-      alert('提案確認パネルの取得に失敗しました');
+      HiUI.toast('提案確認パネルの取得に失敗しました');
       this.proposals = [];
     }
   },
@@ -362,7 +362,7 @@ const scheduleBoard = {
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || '自動割り当てに失敗しました');
+        HiUI.toast(data.error || '自動割り当てに失敗しました');
         return;
       }
 
@@ -379,10 +379,10 @@ const scheduleBoard = {
       if (data.skipped_expired_count > 0) {
         message += `（納期超過等のため${data.skipped_expired_count}件は対象外）`;
       }
-      alert(message);
+      HiUI.toast(message);
     } catch (error) {
       console.error('自動割り当てエラー:', error);
-      alert('自動割り当てに失敗しました');
+      HiUI.toast('自動割り当てに失敗しました');
     } finally {
       buttonEl.disabled = false;
       buttonEl.innerHTML = originalHtml;
@@ -832,13 +832,13 @@ const scheduleBoard = {
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        alert(data.error || 'ステータスの更新に失敗しました');
+        HiUI.toast(data.error || 'ステータスの更新に失敗しました');
         return;
       }
       await this.onPrepItemChanged();
     } catch (error) {
       console.error('案件ステータス更新エラー:', error);
-      alert('ステータスの更新に失敗しました');
+      HiUI.toast('ステータスの更新に失敗しました');
     }
   },
 
@@ -963,7 +963,7 @@ const scheduleBoard = {
     const employeeId = Number(card.querySelector('.sb-proposal-mobile-employee').value);
     const dateISO = card.querySelector('.sb-proposal-mobile-date').value;
     if (!employeeId || !dateISO) {
-      alert('担当者と日付を選択してください');
+      HiUI.toast('担当者と日付を選択してください');
       return;
     }
     this.confirmProposalAt(caseId, employeeId, dateISO);
@@ -1003,7 +1003,7 @@ const scheduleBoard = {
       const res = await fetch(`/api/projects/${caseId}/move-to-inspection`, { method: 'POST' });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || '検品ステータスへの変更に失敗しました');
+        HiUI.toast(data.error || '検品ステータスへの変更に失敗しました');
         return;
       }
       await this.loadProposals();
@@ -1016,7 +1016,7 @@ const scheduleBoard = {
       this.renderProposals();
     } catch (error) {
       console.error('検品ステータスへの変更エラー:', error);
-      alert('検品ステータスへの変更に失敗しました');
+      HiUI.toast('検品ステータスへの変更に失敗しました');
     }
   },
 
@@ -1194,7 +1194,7 @@ const scheduleBoard = {
       const res = await fetch(`/api/projects/${allocation.case_id}/unschedule`, { method: 'POST' });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data.error || '提案確認へ戻せませんでした');
+        HiUI.toast(data.error || '提案確認へ戻せませんでした');
         return;
       }
       await this.loadWeekAllocations();
@@ -1208,7 +1208,7 @@ const scheduleBoard = {
       this.renderProposals();
     } catch (error) {
       console.error('提案確認へ戻す処理でエラー:', error);
-      alert('提案確認へ戻せませんでした');
+      HiUI.toast('提案確認へ戻せませんでした');
     }
   },
 
@@ -1240,7 +1240,7 @@ const scheduleBoard = {
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || '確定に失敗しました');
+        HiUI.toast(data.error || '確定に失敗しました');
         return;
       }
       await this.loadProposals();
@@ -1253,7 +1253,7 @@ const scheduleBoard = {
       this.renderProposals();
     } catch (error) {
       console.error('ドラッグ&ドロップ確定エラー:', error);
-      alert('確定に失敗しました');
+      HiUI.toast('確定に失敗しました');
     }
   },
 
@@ -1269,7 +1269,7 @@ const scheduleBoard = {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data.error || 'ブロックの移動に失敗しました');
+        HiUI.toast(data.error || 'ブロックの移動に失敗しました');
         return;
       }
       await this.loadWeekAllocations();
@@ -1279,7 +1279,7 @@ const scheduleBoard = {
       this.renderProgress();
     } catch (error) {
       console.error('ブロック移動エラー:', error);
-      alert('ブロックの移動に失敗しました');
+      HiUI.toast('ブロックの移動に失敗しました');
     }
   },
 
@@ -1295,7 +1295,7 @@ const scheduleBoard = {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data.error || '準備項目の移動に失敗しました');
+        HiUI.toast(data.error || '準備項目の移動に失敗しました');
         return;
       }
       await this.loadWeekPreparationItems();
@@ -1303,7 +1303,7 @@ const scheduleBoard = {
       this.renderMobileBoard();
     } catch (error) {
       console.error('準備項目移動エラー:', error);
-      alert('準備項目の移動に失敗しました');
+      HiUI.toast('準備項目の移動に失敗しました');
     }
   },
 
@@ -1348,7 +1348,7 @@ const scheduleBoard = {
             onkeydown="if (event.key === 'Enter') { event.preventDefault(); scheduleBoard.saveActualHours(${a.id}); }"
           >
           <span>h</span>
-          <button type="button" class="btn-small btn-primary" onclick="scheduleBoard.saveActualHours(${a.id})">保存</button>
+          <button type="button" class="btn btn-small btn-primary" onclick="scheduleBoard.saveActualHours(${a.id})">保存</button>
           <span class="sb-actual-save-status" id="sb-actual-save-status-${a.id}"></span>
         </div>
       </div>
@@ -1383,7 +1383,7 @@ const scheduleBoard = {
       console.log(`✓ 準備項目タスクの完了状態を更新 (item #${itemId})`);
     } catch (error) {
       console.error('準備項目タスク完了状態更新エラー:', error);
-      alert(`完了状態の更新に失敗しました: ${error.message}`);
+      HiUI.toast(`完了状態の更新に失敗しました: ${error.message}`);
     } finally {
       // 失敗時もイベントを発火して再取得・再描画させ、チェックボックスの見た目と
       // サーバー上の実際の状態がズレたままにならないようにする
@@ -1407,7 +1407,7 @@ const scheduleBoard = {
     const actualHours = rawValue === '' ? null : parseFloat(rawValue);
 
     if (rawValue !== '' && Number.isNaN(actualHours)) {
-      alert('実績時間には数値を入力してください');
+      HiUI.toast('実績時間には数値を入力してください');
       return;
     }
 
@@ -1434,7 +1434,7 @@ const scheduleBoard = {
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || '実績時間の更新に失敗しました');
+        HiUI.toast(data.error || '実績時間の更新に失敗しました');
         return;
       }
 
@@ -1466,7 +1466,7 @@ const scheduleBoard = {
       console.log(`✓ 実績時間を更新 (allocation #${allocationId})`);
     } catch (error) {
       console.error('実績時間更新エラー:', error);
-      alert('実績時間の更新に失敗しました');
+      HiUI.toast('実績時間の更新に失敗しました');
     }
   },
 
@@ -1577,7 +1577,7 @@ const scheduleBoard = {
           placeholder="予定(h)" value="${plannedHours ?? ''}" oninput="scheduleBoard.updateOverrideSummary()">
         <input type="number" class="sb-alloc-actual" data-row-key="${rowKey}" step="0.5" min="0"
           placeholder="実績(h)" value="${actualHours ?? ''}">
-        <button type="button" class="btn-small btn-danger" onclick="scheduleBoard.removeAllocationRow('${rowKey}')">🗑️</button>
+        <button type="button" class="btn btn-small btn-danger" onclick="scheduleBoard.removeAllocationRow('${rowKey}')" aria-label="この割り当てを削除">🗑️</button>
       </div>
     `;
   },
@@ -1634,7 +1634,7 @@ const scheduleBoard = {
         <span class="sb-prep-item-label">【準備】${this.escapeHtml(row.label)}${row.status === '完了' ? '（完了）' : ''}</span>
         <input type="number" class="sb-prep-hours" data-prep-id="${row.id}" step="0.25" min="0"
           placeholder="工数(h)" value="${row.estimated_hours ?? ''}" oninput="scheduleBoard.updateOverrideSummary()">
-        <button type="button" class="btn-small btn-danger" onclick="scheduleBoard.removePrepItemRow(${row.id})">🗑️ 解除</button>
+        <button type="button" class="btn btn-small btn-danger" onclick="scheduleBoard.removePrepItemRow(${row.id})">🗑️ 解除</button>
       </div>
     `).join('');
   },
@@ -1658,12 +1658,12 @@ const scheduleBoard = {
     const hoursInput = document.getElementById('sb-add-prep-item-hours');
     const itemId = parseInt(select.value, 10);
     if (!itemId) {
-      alert('準備項目タスクを選択してください');
+      HiUI.toast('準備項目タスクを選択してください');
       return;
     }
     const hours = parseFloat(hoursInput.value);
     if (hoursInput.value.trim() === '' || Number.isNaN(hours) || hours <= 0) {
-      alert('準備項目タスクの工数には0より大きい数値を入力してください');
+      HiUI.toast('準備項目タスクの工数には0より大きい数値を入力してください');
       return;
     }
 
@@ -1743,12 +1743,12 @@ const scheduleBoard = {
 
     for (const row of currentRows) {
       if (!row.caseId) {
-        alert('案件の割り当てで、案件が未選択の行があります');
+        HiUI.toast('案件の割り当てで、案件が未選択の行があります');
         return;
       }
       const planned = parseFloat(row.plannedRaw);
       if (row.plannedRaw === '' || Number.isNaN(planned) || planned <= 0) {
-        alert('案件の割り当てで、予定時間には0より大きい数値を入力してください');
+        HiUI.toast('案件の割り当てで、予定時間には0より大きい数値を入力してください');
         return;
       }
     }
@@ -1763,7 +1763,7 @@ const scheduleBoard = {
     for (const row of currentPrepRows) {
       const hours = parseFloat(row.hoursRaw);
       if (row.hoursRaw.trim() === '' || Number.isNaN(hours) || hours <= 0) {
-        alert('準備項目タスクの工数には0より大きい数値を入力してください');
+        HiUI.toast('準備項目タスクの工数には0より大きい数値を入力してください');
         return;
       }
     }
@@ -1880,7 +1880,7 @@ const scheduleBoard = {
       // 複数APIを順に呼ぶため、途中で失敗すると一部だけ保存された状態になりうる。
       // 誤って「保存できた」と思い込まないよう、必ず最新データを取得し直して画面に反映する
       console.error('勤務時間・案件割り当ての保存エラー:', error);
-      alert(`保存に失敗しました: ${error.message}\n画面を最新の状態に更新します。内容を確認してやり直してください。`);
+      HiUI.toast(`保存に失敗しました: ${error.message}\n画面を最新の状態に更新します。内容を確認してやり直してください。`);
       this.closeOverrideModal();
       await this.reloadAll();
     }
@@ -1902,7 +1902,7 @@ const scheduleBoard = {
       console.log('✓ 勤務時間の記録を削除しました');
     } catch (error) {
       console.error('勤務時間の記録削除エラー:', error);
-      alert(`削除に失敗しました: ${error.message}`);
+      HiUI.toast(`削除に失敗しました: ${error.message}`);
       this.closeOverrideModal();
       await this.reloadAll();
     }
@@ -1920,14 +1920,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById(id)?.addEventListener('input', () => scheduleBoard.updateOverrideSummary());
   });
 
-  window.addEventListener('click', (e) => {
-    if (e.target.id === 'sb-detail-modal') {
-      scheduleBoard.closeDetailModal();
-    }
-    if (e.target.id === 'sb-override-modal') {
-      scheduleBoard.closeOverrideModal();
-    }
-  });
+  // 背景クリック・Escキーでの閉じる処理は js/ui.js が全モーダル共通で行う
 
   scheduleBoard.init();
 });

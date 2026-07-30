@@ -24,16 +24,13 @@ const NasBrowse = {
           <div id="nas-browse-loading" class="folder-loading" style="display:none;">読み込み中…</div>
           <div id="nas-browse-list" class="folder-list"></div>
           <div class="form-actions">
-            <button type="button" class="btn-secondary" onclick="NasBrowse.openOnServer()">🖥️ サーバー機のエクスプローラーで開く</button>
-            <button type="button" class="btn-primary" onclick="NasBrowse.close()">閉じる</button>
+            <button type="button" class="btn btn-secondary" onclick="NasBrowse.openOnServer()">🖥️ サーバー機のエクスプローラーで開く</button>
+            <button type="button" class="btn btn-primary" onclick="NasBrowse.close()">閉じる</button>
           </div>
         </div>
       </div>
     `;
     document.body.appendChild(wrapper.firstElementChild);
-    document.getElementById('nas-browse-modal').addEventListener('click', (e) => {
-      if (e.target.id === 'nas-browse-modal') this.close();
-    });
   },
 
   open(nasPath, label = '') {
@@ -131,10 +128,10 @@ const NasBrowse = {
     if (!this.currentPath) return;
     try {
       const result = await API.openNasFile(this.currentPath);
-      if (result.error) alert(`フォルダを開けませんでした: ${result.error}`);
+      if (result.error) HiUI.toast(`フォルダを開けませんでした: ${result.error}`);
     } catch (error) {
       console.error('NASフォルダ表示エラー:', error);
-      alert('フォルダを開けませんでした');
+      HiUI.toast('フォルダを開けませんでした');
     }
   },
 };

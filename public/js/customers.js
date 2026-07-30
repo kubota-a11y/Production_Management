@@ -29,7 +29,7 @@ const customersApp = {
       this.customers = await API.getCustomers();
     } catch (error) {
       console.error('顧客一覧取得エラー:', error);
-      alert('顧客一覧の取得に失敗しました');
+      HiUI.toast('顧客一覧の取得に失敗しました');
     }
   },
 
@@ -62,10 +62,6 @@ const customersApp = {
     document.getElementById('duplicate-form').addEventListener('submit', (e) => {
       e.preventDefault();
       this.submitDuplicate();
-    });
-
-    document.getElementById('duplicate-modal').addEventListener('click', (e) => {
-      if (e.target.id === 'duplicate-modal') this.closeDuplicateModal();
     });
   },
 
@@ -153,7 +149,7 @@ const customersApp = {
 
     if (customers.length === 0) {
       const message = isNarrowed ? '条件に合う顧客はありません' : '顧客データはまだありません(案件を登録すると自動で一覧に載ります)';
-      tbody.innerHTML = `<tr><td colspan="8" class="folder-notice" style="text-align: center;">${message}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="empty-notice">${message}</td></tr>`;
       return;
     }
 
@@ -192,7 +188,7 @@ const customersApp = {
       this.fillNoteForm(note);
     } catch (error) {
       console.error('顧客詳細取得エラー:', error);
-      alert('顧客詳細の取得に失敗しました');
+      HiUI.toast('顧客詳細の取得に失敗しました');
       return;
     }
 
@@ -218,7 +214,7 @@ const customersApp = {
       `全${this.projects.length}案件(納品済み${delivered}件)`;
 
     if (this.projects.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="folder-notice" style="text-align: center;">案件がありません</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-notice">案件がありません</td></tr>';
       return;
     }
 
@@ -306,14 +302,14 @@ const customersApp = {
         memo: form.elements['memo'].value.trim(),
       });
       if (result.error) {
-        alert(`保存に失敗しました: ${result.error}`);
+        HiUI.toast(`保存に失敗しました: ${result.error}`);
         return;
       }
       statusEl.textContent = '✓ 保存しました';
       setTimeout(() => { statusEl.textContent = ''; }, 3000);
     } catch (error) {
       console.error('顧客メモ保存エラー:', error);
-      alert('顧客メモの保存に失敗しました');
+      HiUI.toast('顧客メモの保存に失敗しました');
     }
   },
 
@@ -346,7 +342,7 @@ const customersApp = {
     try {
       const result = await API.duplicateProject(this.duplicateSource.id, data);
       if (result.error) {
-        alert(`登録に失敗しました: ${result.error}`);
+        HiUI.toast(`登録に失敗しました: ${result.error}`);
         return;
       }
       this.closeDuplicateModal();
@@ -355,7 +351,7 @@ const customersApp = {
       }
     } catch (error) {
       console.error('複製エラー:', error);
-      alert('登録に失敗しました');
+      HiUI.toast('登録に失敗しました');
     }
   },
 

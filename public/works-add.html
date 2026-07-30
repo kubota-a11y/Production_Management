@@ -4,73 +4,81 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>実績登録 | HiBoard</title>
-<link rel="stylesheet" href="/styles/common.css">
+<!-- 他の社内画面と同じ共通スタイル。色・余白・文字サイズは tokens.css のトークンを使う
+     (以前は存在しない /styles/common.css を読み込んでおり、この画面だけ別デザインになっていた) -->
+<link rel="stylesheet" href="/styles/main.css">
 <style>
-  :root { --ink:#1f2430; --sub:#5b616b; --line:#e3e6ea; --accent:#2563eb; --ng:#c9482e; --ok:#0f9d58; }
-  body { background:#f5f6f8; color:var(--ink); font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif; margin:0; padding:0 0 60px; }
-  .wrap { max-width:760px; margin:0 auto; padding:0 16px; }
-  h1 { font-size:22px; margin:24px 0 4px; }
-  .lead { font-size:13px; color:var(--sub); margin:0 0 20px; line-height:1.8; }
-  .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:20px; margin-bottom:16px; }
-  .card h2 { font-size:14px; margin:0 0 14px; display:flex; align-items:center; gap:8px; }
-  .card h2 .n { width:22px; height:22px; border-radius:50%; background:var(--ink); color:#fff; font-size:12px; display:flex; align-items:center; justify-content:center; flex:none; }
-  label { display:block; font-size:12.5px; font-weight:700; margin-bottom:6px; }
-  .req { color:var(--ng); font-size:11px; margin-left:4px; }
-  input[type=text], select, textarea { width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:6px; font-size:15px; font-family:inherit; box-sizing:border-box; background:#fff; }
-  textarea { resize:vertical; min-height:60px; }
-  .row { display:flex; gap:12px; flex-wrap:wrap; }
+  /* このページ固有のレイアウト(写真の選択・加工内容の組み立て)だけをここに置く */
+  .wrap { max-width:760px; margin:0 auto; padding:0 var(--space-4) var(--space-8); }
+  .works-lead { font-size:var(--text-sm); color:var(--text-subtle); margin:0 0 var(--space-5); line-height:var(--leading-relaxed); }
+  .card { background:var(--surface); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:var(--space-5); margin-bottom:var(--space-4); }
+  .card h2 { font-size:var(--text-base); margin:0 0 var(--space-3); display:flex; align-items:center; gap:var(--space-2); }
+  .card h2 .n { width:22px; height:22px; border-radius:50%; background:var(--gray-800); color:#fff; font-size:var(--text-xs); display:flex; align-items:center; justify-content:center; flex:none; }
+  .card label { display:block; font-size:var(--text-sm); font-weight:700; margin-bottom:var(--space-1); }
+  .req { color:var(--danger-color); font-size:var(--text-2xs); margin-left:var(--space-1); }
+  .card input[type=text], .card select, .card textarea { width:100%; padding:var(--space-2) var(--space-3); border:1px solid var(--border-strong); border-radius:var(--radius-md); font-size:var(--text-base); font-family:inherit; box-sizing:border-box; background:var(--surface); }
+  .card textarea { resize:vertical; min-height:60px; }
+  .row { display:flex; gap:var(--space-3); flex-wrap:wrap; }
   .row > div { flex:1; min-width:190px; }
-  .hint { font-size:11.5px; color:var(--sub); margin-top:6px; line-height:1.7; }
+  .hint { font-size:var(--text-xs); color:var(--text-subtle); margin-top:var(--space-1); line-height:var(--leading-normal); }
 
   /* 写真 */
-  #drop { border:2px dashed #c8ced6; border-radius:10px; padding:28px 16px; text-align:center; color:var(--sub); font-size:13.5px; cursor:pointer; background:#fafbfc; }
-  #drop.over { border-color:var(--accent); background:#eef4ff; color:var(--accent); }
+  #drop { border:2px dashed var(--border-strong); border-radius:var(--radius-lg); padding:var(--space-6) var(--space-4); text-align:center; color:var(--text-subtle); font-size:var(--text-sm); cursor:pointer; background:var(--surface-muted); }
+  #drop.over { border-color:var(--primary-dark); background:var(--primary-soft); color:var(--primary-darker); }
   /* 選んだ写真の一覧（最大3枚。1行＝1枚） */
-  #shots { list-style:none; margin:14px 0 0; padding:0; }
-  #shots li { display:flex; gap:12px; align-items:center; background:#f7f9fb; border:1px solid var(--line); border-radius:8px; padding:10px; margin-bottom:8px; }
-  #shots img { width:96px; height:72px; object-fit:cover; border-radius:6px; background:#eceff3; flex:none; }
+  #shots { list-style:none; margin:var(--space-3) 0 0; padding:0; }
+  #shots li { display:flex; gap:var(--space-3); align-items:center; background:var(--surface-muted); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:var(--space-2); margin-bottom:var(--space-2); }
+  #shots img { width:96px; height:72px; object-fit:cover; border-radius:var(--radius-md); background:var(--surface-sunken); flex:none; }
   .shot-body { flex:1; min-width:0; }
-  .shot-name { font-size:12px; color:var(--sub); word-break:break-all; margin-bottom:6px; }
-  .shot-body select { width:auto; min-width:130px; padding:7px 10px; font-size:13px; }
-  .shot-del { background:none; border:0; color:var(--ng); font-size:12px; cursor:pointer; font-family:inherit; font-weight:700; flex:none; align-self:flex-start; }
-  .shot-first { font-size:11px; color:var(--accent); font-weight:700; margin-top:5px; }
+  .shot-name { font-size:var(--text-xs); color:var(--text-subtle); word-break:break-all; margin-bottom:var(--space-1); }
+  .shot-body select { width:auto; min-width:130px; padding:var(--space-1) var(--space-2); font-size:var(--text-sm); }
+  .shot-del { background:none; border:0; color:var(--danger-color); font-size:var(--text-xs); cursor:pointer; font-family:inherit; font-weight:700; flex:none; align-self:flex-start; }
+  .shot-first { font-size:var(--text-2xs); color:var(--primary-dark); font-weight:700; margin-top:5px; }
 
   /* 加工内容 */
-  .mrow { display:flex; gap:8px; align-items:center; margin-bottom:10px; flex-wrap:wrap; }
+  .mrow { display:flex; gap:var(--space-2); align-items:center; margin-bottom:var(--space-2); flex-wrap:wrap; }
   .mrow select { flex:1; min-width:130px; }
-  .btn-add { background:#eef2f7; border:1px solid var(--line); border-radius:6px; padding:11px 16px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; white-space:nowrap; }
-  .btn-add:hover { background:#e4eaf2; }
-  #mlist { margin:0 0 10px; padding:0; list-style:none; }
-  #mlist li { display:flex; justify-content:space-between; align-items:center; gap:10px; background:#f7f9fb; border:1px solid var(--line); border-radius:6px; padding:9px 12px; margin-bottom:6px; font-size:14px; }
-  #mlist button { background:none; border:0; color:var(--ng); font-size:12px; cursor:pointer; font-family:inherit; font-weight:700; }
-  #mpreview { font-size:13px; background:#111; color:#fff; border-radius:6px; padding:10px 12px; word-break:break-all; min-height:18px; }
+  #mlist { margin:0 0 var(--space-2); padding:0; list-style:none; }
+  #mlist li { display:flex; justify-content:space-between; align-items:center; gap:var(--space-2); background:var(--surface-muted); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:var(--space-2) var(--space-3); margin-bottom:var(--space-1); font-size:var(--text-base); }
+  #mlist button { background:none; border:0; color:var(--danger-color); font-size:var(--text-xs); cursor:pointer; font-family:inherit; font-weight:700; }
+  #mpreview { font-size:var(--text-sm); background:var(--gray-900); color:#fff; border-radius:var(--radius-md); padding:var(--space-2) var(--space-3); word-break:break-all; min-height:18px; }
 
   /* カテゴリ */
-  .cats { display:flex; gap:8px; flex-wrap:wrap; }
-  .cats label { display:inline-flex; align-items:center; gap:7px; border:1px solid var(--line); border-radius:6px; padding:11px 16px; cursor:pointer; margin:0; font-size:14px; font-weight:600; background:#fff; }
-  .cats label:has(input:checked) { border-color:var(--ink); background:var(--ink); color:#fff; }
-  .cats input { accent-color:#fff; }
+  .cats { display:flex; gap:var(--space-2); flex-wrap:wrap; }
+  .cats label { display:inline-flex; align-items:center; gap:var(--space-1); border:1px solid var(--border-strong); border-radius:var(--radius-pill); padding:var(--space-2) var(--space-4); cursor:pointer; margin:0; font-size:var(--text-base); font-weight:600; background:var(--surface); }
+  .cats label:has(input:checked) { border-color:var(--primary-color); background:var(--primary-color); color:#fff; }
 
   /* 許可 */
-  .perm { display:flex; align-items:flex-start; gap:10px; background:#fff8e6; border:1px solid #f0d99a; border-radius:8px; padding:14px 16px; }
+  .perm { display:flex; align-items:flex-start; gap:var(--space-2); background:var(--warning-soft); border:1px solid #f0d99a; border-radius:var(--radius-lg); padding:var(--space-3) var(--space-4); }
   .perm input { margin-top:3px; width:18px; height:18px; flex:none; }
-  .perm span { font-size:13px; line-height:1.8; }
+  .perm span { font-size:var(--text-sm); line-height:var(--leading-relaxed); }
 
   /* 送信 */
-  #submit { width:100%; padding:17px; background:var(--ink); color:#fff; border:0; border-radius:8px; font-size:16px; font-weight:800; cursor:pointer; font-family:inherit; letter-spacing:.04em; }
-  #submit:disabled { background:#aab1bb; cursor:not-allowed; }
-  #msg { margin-top:14px; padding:14px 16px; border-radius:8px; font-size:13.5px; line-height:1.8; display:none; }
-  #msg.ok { display:block; background:#eaf7ef; border:1px solid #bde5cd; color:#186b3a; }
-  #msg.ng { display:block; background:#fdecea; border:1px solid #f5c6c0; color:#a12b1c; }
-  .warn { background:#fdecea; border:1px solid #f5c6c0; color:#a12b1c; border-radius:8px; padding:12px 14px; font-size:13px; margin-bottom:16px; line-height:1.8; }
-  .back { display:inline-block; margin:18px 0 0; font-size:13px; color:var(--sub); }
+  #submit { width:100%; padding:var(--space-4); background:var(--primary-color); color:#fff; border:0; border-radius:var(--radius-lg); font-size:var(--text-lg); font-weight:800; cursor:pointer; font-family:inherit; letter-spacing:.04em; }
+  #submit:hover { background:var(--primary-dark); }
+  #submit:disabled { background:var(--gray-400); cursor:not-allowed; }
+  #msg { margin-top:var(--space-3); padding:var(--space-3) var(--space-4); border-radius:var(--radius-lg); font-size:var(--text-sm); line-height:var(--leading-relaxed); display:none; }
+  #msg.ok { display:block; background:var(--success-soft); border:1px solid #bde5cd; color:var(--success-text); }
+  #msg.ng { display:block; background:var(--danger-soft); border:1px solid #fecaca; color:var(--danger-text); }
+  .warn { background:var(--danger-soft); border:1px solid #fecaca; color:var(--danger-text); border-radius:var(--radius-lg); padding:var(--space-3); font-size:var(--text-sm); margin-bottom:var(--space-4); line-height:var(--leading-relaxed); }
 </style>
 </head>
 <body>
+<div class="app-container">
+  <!-- 他の社内画面と同じヘッダー(中身は js/ui.js が生成する) -->
+  <header class="app-header">
+    <div class="header-content">
+      <div>
+        <h1 class="app-title">📸 制作実績の登録</h1>
+        <p class="app-subtitle">Works Publishing</p>
+      </div>
+    </div>
+    <nav class="header-buttons" data-nav="works-add" aria-label="画面の切り替え"></nav>
+  </header>
+
+<main class="main-content">
 <div class="wrap">
-  <a class="back" href="/">📋 HiBoardに戻る</a>
-  <h1>制作実績の登録</h1>
-  <p class="lead">
+  <p class="works-lead">
     入力するとコーポレートサイトの「制作実績」へ追加されます。<br>
     写真の色補正・明るさ調整は自動で行われます。反映まで数分かかります。
   </p>
@@ -103,12 +111,12 @@
       <h2><span class="n">2</span>内容</h2>
       <div class="row">
         <div>
-          <label>取引先<span class="req">必須</span></label>
+          <label for="client">取引先<span class="req">必須</span></label>
           <input type="text" id="client" placeholder="山田FC" autocomplete="off">
           <p class="hint">「様」は自動で付きます</p>
         </div>
         <div>
-          <label>つくったもの<span class="req">必須</span></label>
+          <label for="title">つくったもの<span class="req">必須</span></label>
           <input type="text" id="title" placeholder="練習着の作成" autocomplete="off">
         </div>
       </div>
@@ -118,9 +126,11 @@
     <div class="card">
       <h2><span class="n">3</span>加工内容<span class="req">必須</span></h2>
       <div class="mrow">
+        <label for="pos" class="sr-only">加工箇所</label>
         <select id="pos"></select>
+        <label for="mtd" class="sr-only">加工方法</label>
         <select id="mtd"></select>
-        <button type="button" class="btn-add" id="add">＋ 追加</button>
+        <button type="button" class="btn btn-secondary" id="add">＋ 追加</button>
       </div>
       <ul id="mlist"></ul>
       <div id="mpreview">（ここに掲載される文言が表示されます）</div>
@@ -145,12 +155,13 @@
     </div>
 
     <button type="submit" id="submit">サイトに登録する</button>
-    <div id="msg"></div>
+    <div id="msg" role="status"></div>
   </form>
-
-  <a class="back" href="/">← HiBoard トップへ戻る</a>
+</div>
+</main>
 </div>
 
+<script src="/js/ui.js"></script>
 <script>
 (function () {
   // picked は選んだ写真の配列。[{ file, position }] で、並び順がサイトの表示順になる

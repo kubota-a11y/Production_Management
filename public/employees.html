@@ -3,20 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>従業員管理 - Production Management</title>
+  <title>従業員マスタ - Production Management</title>
   <link rel="stylesheet" href="styles/main.css">
 </head>
 <body>
   <div class="app-container">
-    <!-- ヘッダー -->
+    <!-- ヘッダー(ナビゲーションの中身は js/ui.js が data-nav を見て生成する) -->
     <header class="app-header">
       <div class="header-content">
-        <h1 class="app-title">🧑‍🏭 従業員管理</h1>
-        <p class="app-subtitle">Employee Management</p>
+        <div>
+          <h1 class="app-title">🧑‍🏭 従業員マスタ</h1>
+          <p class="app-subtitle">Employee Management</p>
+        </div>
       </div>
-      <div class="header-buttons">
-        <a class="btn-staff-manage" href="/">📋 HiBoardに戻る</a>
-      </div>
+      <nav class="header-buttons" data-nav="employees" aria-label="画面の切り替え"></nav>
     </header>
 
     <!-- メインコンテンツ -->
@@ -26,6 +26,7 @@
           <button class="btn btn-primary" onclick="employeesApp.openEmployeeModal()">
             ➕ 新規従業員
           </button>
+          <p class="empty-notice">実際に作業する人の一覧です。勤務パターンと加工別の生産性を持ち、スケジュールボードの割り当て対象になります。案件の窓口になる「担当者マスタ」とは別の一覧です。</p>
         </div>
 
         <div class="table-container">
@@ -51,17 +52,17 @@
     <div class="modal-content modal-lg">
       <div class="modal-header">
         <h2 id="employee-modal-title">新規従業員</h2>
-        <button class="btn-close" onclick="employeesApp.closeEmployeeModal()">✕</button>
+        <button class="btn-close" onclick="employeesApp.closeEmployeeModal()" aria-label="閉じる">✕</button>
       </div>
       <form id="employee-form" class="project-form">
         <div class="form-row">
           <div class="form-group">
-            <label>名前 *</label>
-            <input type="text" name="name" required>
+            <label for="emp-name">名前 <span class="req-mark" aria-hidden="true">*</span></label>
+            <input type="text" id="emp-name" name="name" required>
           </div>
           <div class="form-group">
-            <label>役割 *</label>
-            <select name="role" required>
+            <label for="emp-role">役割 <span class="req-mark" aria-hidden="true">*</span></label>
+            <select id="emp-role" name="role" required>
               <option value="FULL_TIME">フルタイム</option>
               <option value="PART_TIME">パート</option>
               <option value="PRODUCTION_MANAGER">生産管理</option>
@@ -76,8 +77,8 @@
           </label>
         </div>
 
-        <div class="form-group">
-          <label>得意スキル <span class="field-hint">(対応可能な加工種別、複数選択可)</span></label>
+        <fieldset class="form-group">
+          <legend>得意スキル <span class="field-hint">(対応可能な加工種別、複数選択可)</span></legend>
           <div class="checkbox-group">
             <label class="checkbox-pill"><input type="checkbox" name="skill_tags" value="SILK_SCREEN_PRINT"> シルクスクリーンプリント</label>
             <label class="checkbox-pill"><input type="checkbox" name="skill_tags" value="DTF_PRINT"> DTFプリント</label>
@@ -87,10 +88,10 @@
             <label class="checkbox-pill"><input type="checkbox" name="skill_tags" value="HAT_EMBROIDERY"> 帽子刺繍</label>
             <label class="checkbox-pill"><input type="checkbox" name="skill_tags" value="PATCH_EMBROIDERY"> ワッペン刺繍</label>
           </div>
-        </div>
+        </fieldset>
 
         <div class="form-group">
-          <label>曜日ごとの標準勤務パターン</label>
+          <div class="form-label">曜日ごとの標準勤務パターン</div>
           <table class="projects-table default-schedule-table" id="default-schedule-table">
             <thead>
               <tr>
@@ -108,7 +109,7 @@
         </div>
 
         <div class="form-group">
-          <label>作業別生産性(1時間あたり処理数)</label>
+          <div class="form-label">作業別生産性(1時間あたり処理数)</div>
           <table class="projects-table default-schedule-table" id="process-rate-table">
             <thead>
               <tr>
@@ -121,7 +122,8 @@
           </table>
         </div>
 
-        <div class="form-actions">
+        <!-- 勤務パターンと生産性の表で縦に長くなるため、保存ボタンは下端に固定する -->
+        <div class="form-actions form-actions-sticky">
           <button type="button" class="btn btn-secondary" onclick="employeesApp.closeEmployeeModal()">
             キャンセル
           </button>
@@ -134,6 +136,7 @@
   </div>
 
   <!-- スクリプト -->
+  <script src="js/ui.js"></script>
   <script src="js/utils.js"></script>
   <script src="js/api.js"></script>
   <script src="js/employees.js"></script>

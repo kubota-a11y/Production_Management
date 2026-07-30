@@ -18,7 +18,7 @@ const teamLinksApp = {
       this.render();
     } catch (e) {
       console.error('チームリンク一覧の取得に失敗:', e);
-      alert('チームリンク一覧の取得に失敗しました');
+      HiUI.toast('チームリンク一覧の取得に失敗しました');
     }
   },
 
@@ -118,7 +118,7 @@ const teamLinksApp = {
     const action = link.disabled_at ? '再有効化' : '無効化';
     if (!confirm(`「${link.team_name}」の専用URLを${action}しますか?`)) return;
     const res = await fetch(`/api/team-links/${link.id}/toggle`, { method: 'POST' });
-    if (!res.ok) { alert(`${action}に失敗しました`); return; }
+    if (!res.ok) { HiUI.toast(`${action}に失敗しました`); return; }
     await this.load();
   },
 
@@ -180,7 +180,10 @@ const teamLinksApp = {
 
     const tdDel = document.createElement('td');
     const delBtn = document.createElement('button');
-    delBtn.type = 'button'; delBtn.className = 'btn-close'; delBtn.textContent = '✕';
+    // モーダルの閉じるボタン(.btn-close)とは別のクラスにする。
+    // 同じクラスだとEscキーの共通処理が行削除を閉じる操作と誤認する
+    delBtn.type = 'button'; delBtn.className = 'btn-icon-remove'; delBtn.textContent = '✕';
+    delBtn.setAttribute('aria-label', 'このアイテムを削除');
     delBtn.onclick = () => tr.remove();
     tdDel.appendChild(delBtn);
 
@@ -229,7 +232,7 @@ const teamLinksApp = {
       await this.load();
     } catch (e) {
       console.error('リンク保存に失敗:', e);
-      alert('保存に失敗しました');
+      HiUI.toast('保存に失敗しました');
     }
   },
 };

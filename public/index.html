@@ -8,39 +8,30 @@
 </head>
 <body>
   <div class="app-container">
-    <!-- ヘッダー -->
+    <!-- ヘッダー(ナビゲーションの中身は js/ui.js が data-nav を見て生成する) -->
     <header class="app-header">
       <div class="header-content">
-        <h1 class="app-title">📋 HiBoard</h1>
-        <p class="app-subtitle">Print & Embroidery Project Management</p>
+        <div>
+          <h1 class="app-title">📋 HiBoard</h1>
+          <p class="app-subtitle">Print &amp; Embroidery Project Management</p>
+        </div>
       </div>
-      <div class="header-buttons">
-        <button class="btn-staff-manage" onclick="app.openStaffModal()">👥 担当者管理</button>
-        <a class="btn-staff-manage" href="/employees">🧑‍🏭 従業員管理</a>
-        <a class="btn-staff-manage" href="/schedule">🗓️ スケジュール</a>
-        <a class="btn-staff-manage" href="/delivery-history">📦 納品履歴</a>
-        <a class="btn-staff-manage" href="/customers">📇 顧客台帳</a>
-        <a class="btn-staff-manage" href="/team-links">🔗 チームリンク</a>
-        <a class="btn-staff-manage" href="/manual">📖 使い方</a>
-        <a class="btn-staff-manage" href="/partner-links">🤝 取引先リンク</a>
-        <a class="btn-staff-manage" href="/designer-links">🎨 デザイナーリンク</a>
-        <a class="btn-staff-manage" href="/works-add">📸 制作実績の登録</a>
-      </div>
+      <nav class="header-buttons" data-nav="home" aria-label="画面の切り替え"></nav>
     </header>
 
     <!-- タブナビゲーション -->
-    <nav class="tab-nav">
-      <button class="tab-btn active" data-tab="list" onclick="app.switchTab('list')">
+    <nav class="tab-nav" role="tablist" aria-label="案件の表示方法">
+      <button class="tab-btn active" data-tab="list" role="tab" aria-selected="true" aria-controls="tab-list" onclick="app.switchTab('list')">
         📊 一覧ビュー
       </button>
-      <button class="tab-btn" data-tab="kanban" onclick="app.switchTab('kanban')">
+      <button class="tab-btn" data-tab="kanban" role="tab" aria-selected="false" aria-controls="tab-kanban" onclick="app.switchTab('kanban')">
         🎯 カンバンビュー
       </button>
-      <button class="tab-btn" data-tab="calendar" onclick="app.switchTab('calendar')">
+      <button class="tab-btn" data-tab="calendar" role="tab" aria-selected="false" aria-controls="tab-calendar" onclick="app.switchTab('calendar')">
         📅 カレンダービュー
       </button>
-      <button class="tab-btn" data-tab="import" onclick="app.switchTab('import')">
-        📥 コピペ取り込み
+      <button class="tab-btn" data-tab="import" role="tab" aria-selected="false" aria-controls="tab-import" onclick="app.switchTab('import')">
+        📥 受注候補の取り込み
         <span id="ai-intake-badge" class="tab-badge" style="display: none;">0</span>
       </button>
     </nav>
@@ -49,14 +40,17 @@
     <main class="main-content">
 
       <!-- ===== 一覧ビュー ===== -->
-      <section id="tab-list" class="tab-content active">
+      <section id="tab-list" class="tab-content active" role="tabpanel">
         <div class="list-controls">
           <button class="btn btn-primary" onclick="app.openProjectModal()">
             ➕ 新規案件
           </button>
-          
+
+          <!-- スマホ幅では js/ui.js が open を外して畳む(絞り込みで画面が埋まらないように) -->
+          <details class="mobile-collapsible" open>
+            <summary class="mobile-collapsible-summary">🔍 絞り込み・並び替え</summary>
           <div class="filter-group">
-            <label>ステータス:</label>
+            <label for="filter-status">ステータス:</label>
             <select id="filter-status" onchange="app.applyFilters()">
               <option value="">すべて</option>
               <option value="PRE_ORDER">受注前</option>
@@ -68,7 +62,7 @@
               <option value="DELIVERED">納品待ち</option>
             </select>
 
-            <label>加工種別:</label>
+            <label for="filter-process">加工種別:</label>
             <select id="filter-process" onchange="app.applyFilters()">
               <option value="">すべて</option>
               <option value="SILK_SCREEN_PRINT">シルクスクリーンプリント</option>
@@ -80,12 +74,13 @@
               <option value="PATCH_EMBROIDERY">ワッペン刺繍</option>
             </select>
 
-            <label>担当者:</label>
+            <label for="filter-staff">担当者:</label>
             <select id="filter-staff" onchange="app.applyFilters()">
               <option value="">すべて</option>
+              <option value="UNASSIGNED">未割り当てのみ</option>
             </select>
 
-            <label>優先度:</label>
+            <label for="filter-priority">優先度:</label>
             <select id="filter-priority" onchange="app.applyFilters()">
               <option value="">すべて</option>
               <option value="HIGH">高</option>
@@ -93,21 +88,30 @@
               <option value="LOW">低</option>
             </select>
           </div>
+
+          <!-- 行の色の意味を明示する(色だけで判断させないため) -->
+          <div class="deadline-legend">
+            <span><i style="background:#fef2f2;border-left:4px solid var(--danger-color)"></i>納期超過</span>
+            <span><i style="background:#fffbeb;border-left:4px solid var(--warning-color)"></i>3日以内</span>
+            <span><i style="background:var(--primary-soft);border-left:4px solid var(--primary-color)"></i>7日以内</span>
+            <span>列見出しの ⇅ は並び替え、⊞ はグループ化ができます</span>
+          </div>
+          </details>
         </div>
 
         <div class="table-container">
           <table class="projects-table" id="projects-table">
             <thead>
               <tr>
-                <th onclick="app.sortTable('project_name')">案件名</th>
-                <th onclick="app.sortTable('received_date')">受付日</th>
-                <th id="th-group-deadline" onclick="app.toggleGroupColumn('deadline')">納期</th>
+                <th class="sortable" onclick="app.sortTable('project_name')">案件名</th>
+                <th class="sortable" onclick="app.sortTable('received_date')">受付日</th>
+                <th class="sortable groupable" id="th-group-deadline" onclick="app.toggleGroupColumn('deadline')">納期</th>
                 <th>顧客名</th>
                 <th>加工種別</th>
-                <th onclick="app.sortTable('quantity')">数量</th>
+                <th class="sortable" onclick="app.sortTable('quantity')">数量</th>
                 <th>担当者</th>
                 <th>作業担当者</th>
-                <th id="th-group-status" onclick="app.toggleGroupColumn('status')">ステータス</th>
+                <th class="groupable" id="th-group-status" onclick="app.toggleGroupColumn('status')">ステータス</th>
                 <th>優先度</th>
                 <th>操作</th>
               </tr>
@@ -119,7 +123,7 @@
       </section>
 
       <!-- ===== カンバンビュー ===== -->
-      <section id="tab-kanban" class="tab-content">
+      <section id="tab-kanban" class="tab-content" role="tabpanel">
         <div class="kanban-mobile-tabs" id="kanban-mobile-tabs">
           <!-- モバイル用タブは JavaScript で動的に生成 -->
         </div>
@@ -129,19 +133,19 @@
       </section>
 
       <!-- ===== カレンダービュー ===== -->
-      <section id="tab-calendar" class="tab-content">
+      <section id="tab-calendar" class="tab-content" role="tabpanel">
         <div class="calendar-controls">
-          <button onclick="app.prevMonth()">◀ 前月</button>
+          <button class="btn btn-primary" onclick="app.prevMonth()">◀ 前月</button>
           <h2 id="calendar-month-year"></h2>
-          <button onclick="app.nextMonth()">次月 ▶</button>
+          <button class="btn btn-primary" onclick="app.nextMonth()">次月 ▶</button>
         </div>
         <div class="calendar-container" id="calendar-container">
           <!-- カレンダーは JavaScript で動的に生成 -->
         </div>
       </section>
 
-      <!-- ===== コピペ取り込みビュー ===== -->
-      <section id="tab-import" class="tab-content">
+      <!-- ===== 受注候補の取り込みビュー ===== -->
+      <section id="tab-import" class="tab-content" role="tabpanel">
 
         <!-- LINEから自動収集された受注候補(AI抽出) -->
         <div class="import-section ai-intake-section">
@@ -152,7 +156,7 @@
           </p>
 
           <div id="ai-intake-list" class="ai-intake-grid"></div>
-          <div id="ai-intake-empty" class="folder-notice" style="display: none;">
+          <div id="ai-intake-empty" class="empty-notice" style="display: none;">
             現在、確認待ちのAI受注候補はありません
           </div>
         </div>
@@ -165,6 +169,7 @@
           </p>
 
           <div class="import-form">
+            <label for="import-textarea" class="sr-only">取り込むテキスト</label>
             <textarea
               id="import-textarea"
               placeholder="ここにテキストを貼り付けてください..."
@@ -179,29 +184,31 @@
           <div id="import-preview" class="import-preview" style="display: none;">
             <h3>抽出結果（確認・修正してから登録）</h3>
             <form id="import-form" class="project-form">
-              <div class="form-group">
-                <label>案件名 *</label>
-                <input type="text" name="project_name" required>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="imp-project-name">案件名 <span class="req-mark" aria-hidden="true">*</span></label>
+                  <input type="text" id="imp-project-name" name="project_name" required>
+                </div>
+                <div class="form-group">
+                  <label for="imp-customer-name">顧客名 <span class="req-mark" aria-hidden="true">*</span></label>
+                  <input type="text" id="imp-customer-name" name="customer_name" required>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="imp-received-date">受付日 <span class="req-mark" aria-hidden="true">*</span></label>
+                  <input type="date" id="imp-received-date" name="received_date" required>
+                </div>
+                <div class="form-group">
+                  <label for="imp-deadline">納期 <span class="req-mark" aria-hidden="true">*</span></label>
+                  <input type="date" id="imp-deadline" name="deadline" required>
+                </div>
               </div>
 
               <div class="form-group">
-                <label>顧客名 *</label>
-                <input type="text" name="customer_name" required>
-              </div>
-
-              <div class="form-group">
-                <label>受付日 *</label>
-                <input type="date" name="received_date" required>
-              </div>
-
-              <div class="form-group">
-                <label>納期 *</label>
-                <input type="date" name="deadline" required>
-              </div>
-
-              <div class="form-group">
-                <label>連絡経路 *</label>
-                <select name="contact_method" required>
+                <label for="imp-contact-method">連絡経路 <span class="req-mark" aria-hidden="true">*</span></label>
+                <select id="imp-contact-method" name="contact_method" required>
                   <option value="">選択してください</option>
                   <option value="LINE">LINE</option>
                   <option value="EMAIL">メール</option>
@@ -210,8 +217,8 @@
                 </select>
               </div>
 
-              <div class="form-group">
-                <label>加工種別 * <span class="field-hint">(複数選択可)</span></label>
+              <fieldset class="form-group">
+                <legend>加工種別 <span class="req-mark" aria-hidden="true">*</span> <span class="field-hint">(複数選択可)</span></legend>
                 <div class="checkbox-group">
                   <label class="checkbox-pill"><input type="checkbox" name="process_type" value="SILK_SCREEN_PRINT"> シルクスクリーンプリント</label>
                   <label class="checkbox-pill"><input type="checkbox" name="process_type" value="DTF_PRINT"> DTFプリント</label>
@@ -221,27 +228,28 @@
                   <label class="checkbox-pill"><input type="checkbox" name="process_type" value="HAT_EMBROIDERY"> 帽子刺繍</label>
                   <label class="checkbox-pill"><input type="checkbox" name="process_type" value="PATCH_EMBROIDERY"> ワッペン刺繍</label>
                 </div>
+              </fieldset>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="imp-quantity">数量 <span class="req-mark" aria-hidden="true">*</span></label>
+                  <input type="number" id="imp-quantity" name="quantity" min="1" required>
+                </div>
+                <div class="form-group">
+                  <label for="imp-planned-hours">作業予定時間（分） <span class="req-mark" aria-hidden="true">*</span></label>
+                  <input type="number" id="imp-planned-hours" name="planned_hours" min="1" required>
+                  <div class="field-hint">ボードに置くときの目安。担当者の生産性が登録済みならそちらが優先されます</div>
+                </div>
               </div>
 
               <div class="form-group">
-                <label>数量 *</label>
-                <input type="number" name="quantity" min="1" required>
+                <label for="imp-work-content">作業内容</label>
+                <textarea id="imp-work-content" name="work_content" rows="3"></textarea>
               </div>
 
               <div class="form-group">
-                <label>作業予定時間（分・見積もり参考値） *</label>
-                <input type="number" name="planned_hours" min="1" required>
-                <div class="field-hint">自動割り振りには使われません（実際の所要時間は数量と担当者の生産性から自動計算されます）</div>
-              </div>
-
-              <div class="form-group">
-                <label>作業内容</label>
-                <textarea name="work_content" rows="3"></textarea>
-              </div>
-
-              <div class="form-group">
-                <label>メモ</label>
-                <textarea name="memo" rows="3"></textarea>
+                <label for="imp-memo">メモ</label>
+                <textarea id="imp-memo" name="memo" rows="3"></textarea>
               </div>
 
               <div class="form-actions">
@@ -260,208 +268,240 @@
     </main>
   </div>
 
-  <!-- ===== モーダル: 案件編集 ===== -->
+  <!-- ===== モーダル: 案件の登録・編集 =====
+       入力項目が多いため、業務の順序どおりに折りたたみセクションへ分けている。
+       必須項目は必ず「開いた」セクションに置くこと(閉じた details の中にある
+       required はブラウザ検証でフォーカスできず、送信が無言で止まる) -->
   <div id="project-modal" class="modal">
-    <div class="modal-content">
+    <div class="modal-content modal-lg">
       <div class="modal-header">
         <h2 id="modal-title">新規案件</h2>
-        <button class="btn-close" onclick="app.closeProjectModal()">✕</button>
+        <button class="btn-close" onclick="app.closeProjectModal()" aria-label="閉じる">✕</button>
       </div>
+
       <form id="project-form" class="project-form">
-        <div class="form-group">
-          <label>案件種別 *</label>
+        <fieldset class="form-group">
+          <legend>案件種別 <span class="req-mark" aria-hidden="true">*</span></legend>
           <div class="checkbox-group">
             <label class="checkbox-pill"><input type="radio" name="project_kind" value="NORMAL" checked onchange="app.onProjectKindChange()"> 通常案件</label>
             <label class="checkbox-pill"><input type="radio" name="project_kind" value="INTERNAL_DESIGN" onchange="app.onProjectKindChange()"> 社内デザイン</label>
           </div>
           <div class="field-hint" id="internal-design-hint" style="display:none;">社内デザイン案件（KRATVS・販促物など）は最小限の入力で登録でき、選択した準備項目はデザイン担当者のマイスケジュールボードへ自動で入ります</div>
-        </div>
+        </fieldset>
 
-        <div class="form-row">
-          <div class="form-group">
-            <label>案件名 *</label>
-            <input type="text" name="project_name" required>
-          </div>
-          <div class="form-group normal-only">
-            <label>顧客名 *</label>
-            <input type="text" name="customer_name" required>
-          </div>
-        </div>
+        <!-- 1. 基本情報 -->
+        <details class="form-section" open>
+          <summary>1. 基本情報<span class="form-section-note">案件名・顧客・日付</span></summary>
+          <div class="form-section-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="pf-project-name">案件名 <span class="req-mark" aria-hidden="true">*</span></label>
+                <input type="text" id="pf-project-name" name="project_name" required>
+              </div>
+              <div class="form-group normal-only">
+                <label for="pf-customer-name">顧客名 <span class="req-mark" aria-hidden="true">*</span></label>
+                <input type="text" id="pf-customer-name" name="customer_name" required>
+              </div>
+            </div>
 
-        <div class="form-row">
-          <div class="form-group">
-            <label>受付日 *</label>
-            <input type="date" name="received_date" required>
-          </div>
-          <div class="form-group">
-            <label>納期 *</label>
-            <input type="date" name="deadline" required>
-          </div>
-        </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="pf-received-date">受付日 <span class="req-mark" aria-hidden="true">*</span></label>
+                <input type="date" id="pf-received-date" name="received_date" required>
+              </div>
+              <div class="form-group">
+                <label for="pf-deadline">納期 <span class="req-mark" aria-hidden="true">*</span></label>
+                <input type="date" id="pf-deadline" name="deadline" required>
+              </div>
+            </div>
 
-        <div class="form-row normal-only">
-          <div class="form-group">
-            <label>連絡経路 *</label>
-            <select name="contact_method" required>
-              <option value="">選択してください</option>
-              <option value="LINE">LINE</option>
-              <option value="EMAIL">メール</option>
-              <option value="PHONE">電話</option>
-              <option value="OTHER">その他</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="form-group normal-only">
-          <label>加工種別 * <span class="field-hint">(複数選択可)</span></label>
-          <div class="checkbox-group">
-            <label class="checkbox-pill"><input type="checkbox" name="process_type" value="SILK_SCREEN_PRINT"> シルクスクリーンプリント</label>
-            <label class="checkbox-pill"><input type="checkbox" name="process_type" value="DTF_PRINT"> DTFプリント</label>
-            <label class="checkbox-pill"><input type="checkbox" name="process_type" value="RUBBER_TRANSFER_PRINT"> ラバー転写プリント</label>
-            <label class="checkbox-pill"><input type="checkbox" name="process_type" value="SUBLIMATION_PRINT"> 昇華プリント</label>
-            <label class="checkbox-pill"><input type="checkbox" name="process_type" value="STANDARD_EMBROIDERY"> 通常刺繍</label>
-            <label class="checkbox-pill"><input type="checkbox" name="process_type" value="HAT_EMBROIDERY"> 帽子刺繍</label>
-            <label class="checkbox-pill"><input type="checkbox" name="process_type" value="PATCH_EMBROIDERY"> ワッペン刺繍</label>
-          </div>
-        </div>
-
-        <div class="form-group normal-only">
-          <label>プリント箇所</label>
-          <div class="print-location-rows" id="print-locations-container"></div>
-          <button type="button" class="btn btn-small btn-secondary" onclick="app.addPrintLocationRow()">
-            ➕ 箇所を追加
-          </button>
-        </div>
-
-        <div class="form-group">
-          <label>作業の準備項目 <span class="field-hint">(複数選択可)</span></label>
-          <div class="checkbox-group" id="prep-items-checkbox-group"></div>
-        </div>
-
-        <div class="form-row normal-only">
-          <div class="form-group">
-            <label>数量 *</label>
-            <input type="number" name="quantity" min="1" required>
-          </div>
-          <div class="form-group">
-            <label>作業予定時間（分・見積もり参考値） *</label>
-            <input type="number" name="planned_hours" min="1" required>
-            <div class="field-hint">自動割り振りには使われません（実際の所要時間は数量と担当者の生産性から自動計算されます）</div>
-          </div>
-        </div>
-
-        <div class="form-row normal-only">
-          <div class="form-group">
-            <label>必要スキル <span class="field-hint">(カンマ区切り)</span></label>
-            <input type="text" name="required_skill_tags" placeholder="SILK_SCREEN,DTF">
-          </div>
-          <div class="form-group">
-            <label>見積もり工数（時間）</label>
-            <input type="number" name="estimated_hours" min="0" step="0.5">
-          </div>
-        </div>
-
-        <div class="form-row normal-only">
-          <div class="form-group">
-            <label>担当者</label>
-            <select name="assigned_staff_id" id="staff-select">
-              <option value="">未割り当て</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>ステータス</label>
-            <select name="status">
-              <option value="PRE_ORDER">受注前</option>
-              <option value="CONFIRMED">受注確定</option>
-              <option value="WAITING">生産待ち</option>
-              <option value="PREP_COMPLETE">準備完了</option>
-              <option value="IN_PROGRESS">生産中</option>
-              <option value="INSPECTION">検品</option>
-              <option value="DELIVERED">納品待ち</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label>優先度</label>
-            <select name="priority">
-              <option value="LOW">低</option>
-              <option value="MEDIUM" selected>中</option>
-              <option value="HIGH">高</option>
-            </select>
-          </div>
-          <div class="form-group normal-only">
-            <label>NASデザインフォルダパス</label>
-            <div class="reference-input-group">
-              <input type="text" name="nas_folder_path" id="nas-folder-path" placeholder="/Volumes/disk1/DESIGN/...">
-              <button type="button" class="btn-small" onclick="app.browseNas()">📁 参照...</button>
+            <div class="form-row">
+              <div class="form-group normal-only">
+                <label for="pf-contact-method">連絡経路 <span class="req-mark" aria-hidden="true">*</span></label>
+                <select id="pf-contact-method" name="contact_method" required>
+                  <option value="">選択してください</option>
+                  <option value="LINE">LINE</option>
+                  <option value="EMAIL">メール</option>
+                  <option value="PHONE">電話</option>
+                  <option value="OTHER">その他</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="pf-priority">優先度</label>
+                <select id="pf-priority" name="priority">
+                  <option value="LOW">低</option>
+                  <option value="MEDIUM" selected>中</option>
+                  <option value="HIGH">高</option>
+                </select>
+              </div>
             </div>
           </div>
-        </div>
+        </details>
 
-        <div class="form-group nas-folder-section normal-only">
-          <label>NAS ファイル一覧</label>
-          <div id="nas-folder-status" class="folder-notice">「参照...」でNAS内のフォルダを選択するか、パスを直接入力してください</div>
-          <div id="nas-loading" class="folder-loading" style="display:none;">読み込み中…</div>
-          <div id="nas-breadcrumb" class="folder-breadcrumb"></div>
-          <input type="text" id="nas-search" class="nas-search-input" placeholder="🔍 名前で絞り込み" style="display:none;">
-          <div id="nas-file-list" class="folder-list"></div>
-        </div>
+        <!-- 2. 加工内容 -->
+        <details class="form-section normal-only" open>
+          <summary>2. 加工内容<span class="form-section-note">加工種別・プリント箇所・数量</span></summary>
+          <div class="form-section-body">
+            <fieldset class="form-group">
+              <legend>加工種別 <span class="req-mark" aria-hidden="true">*</span> <span class="field-hint">(複数選択可)</span></legend>
+              <div class="checkbox-group">
+                <label class="checkbox-pill"><input type="checkbox" name="process_type" value="SILK_SCREEN_PRINT"> シルクスクリーンプリント</label>
+                <label class="checkbox-pill"><input type="checkbox" name="process_type" value="DTF_PRINT"> DTFプリント</label>
+                <label class="checkbox-pill"><input type="checkbox" name="process_type" value="RUBBER_TRANSFER_PRINT"> ラバー転写プリント</label>
+                <label class="checkbox-pill"><input type="checkbox" name="process_type" value="SUBLIMATION_PRINT"> 昇華プリント</label>
+                <label class="checkbox-pill"><input type="checkbox" name="process_type" value="STANDARD_EMBROIDERY"> 通常刺繍</label>
+                <label class="checkbox-pill"><input type="checkbox" name="process_type" value="HAT_EMBROIDERY"> 帽子刺繍</label>
+                <label class="checkbox-pill"><input type="checkbox" name="process_type" value="PATCH_EMBROIDERY"> ワッペン刺繍</label>
+              </div>
+            </fieldset>
 
-        <div class="form-row normal-only">
-          <div class="form-group">
-            <label>Freee見積書リンク</label>
-            <div class="reference-input-group">
-              <input type="text" name="freee_quote_url" id="freee-quote-url" placeholder="https://secure.freee.co.jp/...">
-              <button type="button" class="btn-small" onclick="app.openFreeeLink('freee-quote-url')">📄 開く</button>
+            <div class="form-group">
+              <div class="form-label">プリント箇所</div>
+              <div class="print-location-rows" id="print-locations-container"></div>
+              <button type="button" class="btn btn-small btn-secondary" onclick="app.addPrintLocationRow()">
+                ➕ 箇所を追加
+              </button>
+            </div>
+
+            <div class="form-group">
+              <label for="pf-quantity">数量 <span class="req-mark" aria-hidden="true">*</span></label>
+              <input type="number" id="pf-quantity" name="quantity" min="1" required>
             </div>
           </div>
-          <div class="form-group">
-            <label>Freee請求書リンク</label>
-            <div class="reference-input-group">
-              <input type="text" name="freee_invoice_url" id="freee-invoice-url" placeholder="https://secure.freee.co.jp/...">
-              <button type="button" class="btn-small" onclick="app.openFreeeLink('freee-invoice-url')">📄 開く</button>
+        </details>
+
+        <!-- 3. 準備と担当 -->
+        <details class="form-section" open>
+          <summary>3. 準備と担当<span class="form-section-note">準備項目・所要時間・担当者</span></summary>
+          <div class="form-section-body">
+            <fieldset class="form-group">
+              <legend>作業の準備項目 <span class="field-hint">(複数選択可)</span></legend>
+              <div class="checkbox-group" id="prep-items-checkbox-group"></div>
+            </fieldset>
+
+            <div class="form-row normal-only">
+              <div class="form-group">
+                <label for="pf-planned-hours">作業予定時間（分） <span class="req-mark" aria-hidden="true">*</span></label>
+                <input type="number" id="pf-planned-hours" name="planned_hours" min="1" required>
+                <div class="field-hint">スケジュールボードに置くときの目安時間。担当者の生産性が登録されていればそちらが優先されます</div>
+              </div>
+              <div class="form-group">
+                <label for="pf-estimated-hours">見積もり工数（時間）</label>
+                <input type="number" id="pf-estimated-hours" name="estimated_hours" min="0" step="0.5">
+                <div class="field-hint">見積書に載せる総工数の控え。スケジュールの計算には使われません</div>
+              </div>
             </div>
-            <div class="field-hint">Freeeで開いた見積書/請求書画面のURLを貼っておくと、納品後もこの案件から1クリックで開けます</div>
+
+            <fieldset class="form-group normal-only">
+              <legend>必要スキル <span class="field-hint">(担当者の自動提案に使う。従業員の「得意スキル」と突き合わせます)</span></legend>
+              <div class="checkbox-group">
+                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="SILK_SCREEN_PRINT"> シルクスクリーンプリント</label>
+                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="DTF_PRINT"> DTFプリント</label>
+                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="RUBBER_TRANSFER_PRINT"> ラバー転写プリント</label>
+                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="SUBLIMATION_PRINT"> 昇華プリント</label>
+                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="STANDARD_EMBROIDERY"> 通常刺繍</label>
+                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="HAT_EMBROIDERY"> 帽子刺繍</label>
+                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="PATCH_EMBROIDERY"> ワッペン刺繍</label>
+              </div>
+            </fieldset>
+
+            <div class="form-row normal-only">
+              <div class="form-group">
+                <label for="staff-select">担当者 <span class="field-hint">(案件の窓口)</span></label>
+                <select name="assigned_staff_id" id="staff-select">
+                  <option value="">未割り当て</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="pf-status">ステータス</label>
+                <select id="pf-status" name="status">
+                  <option value="PRE_ORDER">受注前</option>
+                  <option value="CONFIRMED">受注確定</option>
+                  <option value="WAITING">生産待ち</option>
+                  <option value="PREP_COMPLETE">準備完了</option>
+                  <option value="IN_PROGRESS">生産中</option>
+                  <option value="INSPECTION">検品</option>
+                  <option value="DELIVERED">納品待ち</option>
+                </select>
+              </div>
+            </div>
           </div>
-        </div>
+        </details>
 
-        <div class="form-group normal-only">
-          <label>作業内容</label>
-          <textarea name="work_content" rows="3"></textarea>
-        </div>
+        <!-- 4. データと書類(必須項目を置かないこと。既定で閉じている) -->
+        <details class="form-section normal-only">
+          <summary>4. データと書類<span class="form-section-note">NASフォルダ・Freeeリンク</span></summary>
+          <div class="form-section-body">
+            <div class="form-group">
+              <label for="nas-folder-path">NASデザインフォルダパス</label>
+              <div class="reference-input-group">
+                <input type="text" name="nas_folder_path" id="nas-folder-path" placeholder="/Volumes/disk1/DESIGN/...">
+                <button type="button" class="btn btn-small btn-secondary" onclick="app.browseNas()">📁 参照...</button>
+              </div>
+            </div>
 
-        <div class="form-group">
-          <label>メモ</label>
-          <textarea name="memo" rows="3"></textarea>
-        </div>
+            <div class="form-group nas-folder-section">
+              <div class="form-label">NAS ファイル一覧</div>
+              <div id="nas-folder-status" class="empty-notice">「参照...」でNAS内のフォルダを選択するか、パスを直接入力してください</div>
+              <div id="nas-loading" class="folder-loading" style="display:none;">読み込み中…</div>
+              <div id="nas-breadcrumb" class="folder-breadcrumb"></div>
+              <label for="nas-search" class="sr-only">NASファイルの絞り込み</label>
+              <input type="text" id="nas-search" class="nas-search-input" placeholder="🔍 名前で絞り込み" style="display:none;">
+              <div id="nas-file-list" class="folder-list"></div>
+            </div>
 
-        <div class="form-actions">
-          <button type="button" class="btn btn-secondary" onclick="app.closeProjectModal()">
-            キャンセル
-          </button>
-          <button type="button" class="btn btn-danger" id="btn-delete" style="display: none;" onclick="app.deleteProject()">
-            削除
-          </button>
-          <button type="submit" class="btn btn-primary">
-            保存
-          </button>
-        </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="freee-quote-url">Freee見積書リンク</label>
+                <div class="reference-input-group">
+                  <input type="text" name="freee_quote_url" id="freee-quote-url" placeholder="https://secure.freee.co.jp/...">
+                  <button type="button" class="btn btn-small btn-secondary" onclick="app.openFreeeLink('freee-quote-url')">📄 開く</button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="freee-invoice-url">Freee請求書リンク</label>
+                <div class="reference-input-group">
+                  <input type="text" name="freee_invoice_url" id="freee-invoice-url" placeholder="https://secure.freee.co.jp/...">
+                  <button type="button" class="btn btn-small btn-secondary" onclick="app.openFreeeLink('freee-invoice-url')">📄 開く</button>
+                </div>
+                <div class="field-hint">Freeeで開いた見積書/請求書画面のURLを貼っておくと、納品後もこの案件から1クリックで開けます</div>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <!-- 5. 作業内容・メモ -->
+        <details class="form-section" open>
+          <summary>5. 作業内容・メモ<span class="form-section-note">現場への申し送り</span></summary>
+          <div class="form-section-body">
+            <div class="form-group normal-only">
+              <label for="pf-work-content">作業内容</label>
+              <textarea id="pf-work-content" name="work_content" rows="3"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="pf-memo">メモ</label>
+              <textarea id="pf-memo" name="memo" rows="3"></textarea>
+            </div>
+          </div>
+        </details>
       </form>
 
       <!-- ===== 作業計画（案件ごとの日付・担当従業員別の予定/実績工数） ===== -->
       <div class="time-allocation-wrapper">
         <h3 class="time-allocation-title">📅 作業計画</h3>
-        <div id="time-allocation-disabled-notice" class="folder-notice">
+        <div id="time-allocation-disabled-notice" class="empty-notice">
           案件を保存すると作業計画を登録できるようになります
         </div>
         <div id="time-allocation-body" style="display: none;">
           <div class="time-allocation-form">
+            <label for="ta-employee-select" class="sr-only">担当従業員</label>
             <select id="ta-employee-select">
               <option value="">担当従業員を選択</option>
             </select>
+            <label for="ta-work-date" class="sr-only">作業日</label>
             <input type="date" id="ta-work-date">
+            <label for="ta-planned-hours" class="sr-only">予定時間(時間)</label>
             <input type="number" id="ta-planned-hours" step="0.5" min="0" placeholder="予定時間(h)">
             <button type="button" class="btn btn-small btn-primary" id="ta-submit-btn" onclick="app.submitTimeAllocation()">
               ➕ 登録
@@ -486,10 +526,24 @@
               <tbody id="time-allocation-tbody"></tbody>
             </table>
           </div>
-          <p class="folder-notice" id="time-allocation-empty" style="display: none;">
+          <p class="empty-notice" id="time-allocation-empty" style="display: none;">
             まだ作業計画が登録されていません
           </p>
         </div>
+      </div>
+
+      <!-- 操作ボタンはフォームの外に置き、下端に固定して常に見えるようにする。
+           form 属性でフォームに紐づけているため submit は従来どおり動く -->
+      <div class="form-actions form-actions-sticky">
+        <button type="button" class="btn btn-danger action-destructive" id="btn-delete" style="display: none;" onclick="app.deleteProject()">
+          🗑 削除
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="app.closeProjectModal()">
+          キャンセル
+        </button>
+        <button type="submit" form="project-form" class="btn btn-primary">
+          保存
+        </button>
       </div>
     </div>
   </div>
@@ -499,7 +553,7 @@
     <div class="modal-content modal-xl">
       <div class="modal-header">
         <h2 id="ai-intake-modal-title">AI受注候補の確認</h2>
-        <button class="btn-close" onclick="app.closeAiIntakeModal()">✕</button>
+        <button class="btn-close" onclick="app.closeAiIntakeModal()" aria-label="閉じる">✕</button>
       </div>
 
       <div class="ai-intake-modal-body">
@@ -515,31 +569,31 @@
           <form id="ai-intake-form" class="project-form">
             <div class="form-row">
               <div class="form-group">
-                <label>案件名 *</label>
-                <input type="text" name="project_name" required>
+                <label for="ai-project-name">案件名 <span class="req-mark" aria-hidden="true">*</span></label>
+                <input type="text" id="ai-project-name" name="project_name" required>
               </div>
               <div class="form-group">
-                <label>顧客名 *</label>
-                <input type="text" name="customer_name" required>
+                <label for="ai-customer-name">顧客名 <span class="req-mark" aria-hidden="true">*</span></label>
+                <input type="text" id="ai-customer-name" name="customer_name" required>
               </div>
             </div>
 
             <div class="form-row">
               <div class="form-group">
-                <label>受付日 *</label>
-                <input type="date" name="received_date" required>
+                <label for="ai-received-date">受付日 <span class="req-mark" aria-hidden="true">*</span></label>
+                <input type="date" id="ai-received-date" name="received_date" required>
               </div>
               <div class="form-group">
-                <label>納期 *</label>
-                <input type="date" name="deadline" required>
+                <label for="ai-deadline">納期 <span class="req-mark" aria-hidden="true">*</span></label>
+                <input type="date" id="ai-deadline" name="deadline" required>
                 <div class="field-hint" id="ai-intake-deadline-hint"></div>
               </div>
             </div>
 
             <div class="form-row">
               <div class="form-group">
-                <label>連絡経路 *</label>
-                <select name="contact_method" required>
+                <label for="ai-contact-method">連絡経路 <span class="req-mark" aria-hidden="true">*</span></label>
+                <select id="ai-contact-method" name="contact_method" required>
                   <option value="">選択してください</option>
                   <option value="LINE">LINE</option>
                   <option value="EMAIL">メール</option>
@@ -547,10 +601,18 @@
                   <option value="OTHER">その他</option>
                 </select>
               </div>
+              <div class="form-group">
+                <label for="ai-priority">優先度</label>
+                <select id="ai-priority" name="priority">
+                  <option value="LOW">低</option>
+                  <option value="MEDIUM" selected>中</option>
+                  <option value="HIGH">高</option>
+                </select>
+              </div>
             </div>
 
-            <div class="form-group">
-              <label>加工種別 * <span class="field-hint">(複数選択可)</span></label>
+            <fieldset class="form-group">
+              <legend>加工種別 <span class="req-mark" aria-hidden="true">*</span> <span class="field-hint">(複数選択可)</span></legend>
               <div class="checkbox-group">
                 <label class="checkbox-pill"><input type="checkbox" name="process_type" value="SILK_SCREEN_PRINT"> シルクスクリーンプリント</label>
                 <label class="checkbox-pill"><input type="checkbox" name="process_type" value="DTF_PRINT"> DTFプリント</label>
@@ -560,57 +622,65 @@
                 <label class="checkbox-pill"><input type="checkbox" name="process_type" value="HAT_EMBROIDERY"> 帽子刺繍</label>
                 <label class="checkbox-pill"><input type="checkbox" name="process_type" value="PATCH_EMBROIDERY"> ワッペン刺繍</label>
               </div>
-            </div>
+            </fieldset>
 
             <!-- 以下は新規案件モーダルと同じ項目。登録後に「編集」で入れ直す二度手間を無くすため、
                  受注候補の確定画面でもまとめて入力できるようにしている(2026-07-28追加) -->
             <div class="form-group">
-              <label>プリント箇所</label>
+              <div class="form-label">プリント箇所</div>
               <div class="print-location-rows" id="ai-intake-print-locations-container"></div>
               <button type="button" class="btn btn-small btn-secondary" onclick="app.addPrintLocationRow('ai-intake-print-locations-container')">
                 ➕ 箇所を追加
               </button>
             </div>
 
-            <div class="form-group">
-              <label>作業の準備項目 <span class="field-hint">(複数選択可)</span></label>
+            <fieldset class="form-group">
+              <legend>作業の準備項目 <span class="field-hint">(複数選択可)</span></legend>
               <div class="checkbox-group" id="ai-intake-prep-items-checkbox-group"></div>
-            </div>
+            </fieldset>
 
             <div class="form-row">
               <div class="form-group">
-                <label>数量 *</label>
-                <input type="number" name="quantity" min="1" required>
+                <label for="ai-quantity">数量 <span class="req-mark" aria-hidden="true">*</span></label>
+                <input type="number" id="ai-quantity" name="quantity" min="1" required>
                 <div class="field-hint" id="ai-intake-quantity-hint"></div>
               </div>
               <div class="form-group">
-                <label>作業予定時間（分・見積もり参考値） *</label>
-                <input type="number" name="planned_hours" min="1" required>
+                <label for="ai-planned-hours">作業予定時間（分） <span class="req-mark" aria-hidden="true">*</span></label>
+                <input type="number" id="ai-planned-hours" name="planned_hours" min="1" required>
                 <div class="field-hint">ボードにドラッグしたとき、担当者の生産性が未登録ならこの時間が使われます</div>
               </div>
             </div>
 
-            <div class="form-row">
-              <div class="form-group">
-                <label>必要スキル <span class="field-hint">(カンマ区切り)</span></label>
-                <input type="text" name="required_skill_tags" placeholder="SILK_SCREEN,DTF">
-              </div>
-              <div class="form-group">
-                <label>見積もり工数（時間）</label>
-                <input type="number" name="estimated_hours" min="0" step="0.5">
-              </div>
+            <div class="form-group">
+              <label for="ai-estimated-hours">見積もり工数（時間）</label>
+              <input type="number" id="ai-estimated-hours" name="estimated_hours" min="0" step="0.5">
+              <div class="field-hint">見積書に載せる総工数の控え。スケジュールの計算には使われません</div>
             </div>
+
+            <fieldset class="form-group">
+              <legend>必要スキル <span class="field-hint">(担当者の自動提案に使う)</span></legend>
+              <div class="checkbox-group">
+                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="SILK_SCREEN_PRINT"> シルクスクリーンプリント</label>
+                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="DTF_PRINT"> DTFプリント</label>
+                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="RUBBER_TRANSFER_PRINT"> ラバー転写プリント</label>
+                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="SUBLIMATION_PRINT"> 昇華プリント</label>
+                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="STANDARD_EMBROIDERY"> 通常刺繍</label>
+                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="HAT_EMBROIDERY"> 帽子刺繍</label>
+                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="PATCH_EMBROIDERY"> ワッペン刺繍</label>
+              </div>
+            </fieldset>
 
             <div class="form-row">
               <div class="form-group">
-                <label>担当者</label>
+                <label for="ai-intake-staff-select">担当者 <span class="field-hint">(案件の窓口)</span></label>
                 <select name="assigned_staff_id" id="ai-intake-staff-select">
                   <option value="">未割り当て</option>
                 </select>
               </div>
               <div class="form-group">
-                <label>ステータス</label>
-                <select name="status">
+                <label for="ai-status">ステータス</label>
+                <select id="ai-status" name="status">
                   <option value="PRE_ORDER">受注前</option>
                   <option value="CONFIRMED">受注確定</option>
                   <option value="WAITING">生産待ち</option>
@@ -623,42 +693,33 @@
             </div>
 
             <div class="form-group">
-              <label>優先度</label>
-              <select name="priority">
-                <option value="LOW">低</option>
-                <option value="MEDIUM" selected>中</option>
-                <option value="HIGH">高</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label>NASデザインフォルダパス</label>
-              <input type="text" name="nas_folder_path" placeholder="\\NAS\design\2026\案件名">
+              <label for="ai-nas-folder-path">NASデザインフォルダパス</label>
+              <input type="text" id="ai-nas-folder-path" name="nas_folder_path" placeholder="\\NAS\design\2026\案件名">
             </div>
 
             <div class="form-row">
               <div class="form-group">
-                <label>Freee見積書リンク</label>
-                <input type="text" name="freee_quote_url" placeholder="https://secure.freee.co.jp/...">
+                <label for="ai-freee-quote-url">Freee見積書リンク</label>
+                <input type="text" id="ai-freee-quote-url" name="freee_quote_url" placeholder="https://secure.freee.co.jp/...">
               </div>
               <div class="form-group">
-                <label>Freee請求書リンク</label>
-                <input type="text" name="freee_invoice_url" placeholder="https://secure.freee.co.jp/...">
+                <label for="ai-freee-invoice-url">Freee請求書リンク</label>
+                <input type="text" id="ai-freee-invoice-url" name="freee_invoice_url" placeholder="https://secure.freee.co.jp/...">
               </div>
             </div>
 
             <div class="form-group">
-              <label>作業内容（items）</label>
-              <textarea name="work_content" rows="3"></textarea>
+              <label for="ai-work-content">作業内容</label>
+              <textarea id="ai-work-content" name="work_content" rows="3"></textarea>
             </div>
 
             <div class="form-group">
-              <label>メモ（notes）</label>
-              <textarea name="memo" rows="3"></textarea>
+              <label for="ai-memo">メモ</label>
+              <textarea id="ai-memo" name="memo" rows="3"></textarea>
             </div>
 
             <div class="form-actions ai-intake-form-actions">
-              <button type="button" class="btn btn-danger" onclick="app.rejectAiIntakeConfirm()">
+              <button type="button" class="btn btn-danger action-destructive" onclick="app.rejectAiIntakeConfirm()">
                 却下
               </button>
               <button type="button" class="btn btn-primary" onclick="app.submitAiIntakeConfirm()">
@@ -673,18 +734,19 @@
 
   <!-- ===== 画像拡大表示（LINE画像サムネイルクリック時） ===== -->
   <div id="image-lightbox" class="image-lightbox" onclick="app.closeImageLightbox()">
-    <img id="image-lightbox-img" src="" alt="">
+    <img id="image-lightbox-img" src="" alt="受注候補に添付された画像の拡大表示">
   </div>
 
-  <!-- ===== モーダル: 担当者管理 ===== -->
+  <!-- ===== モーダル: 担当者マスタ（案件の窓口になる人） ===== -->
   <div id="staff-modal" class="modal">
     <div class="modal-content modal-lg">
       <div class="modal-header">
-        <h2>担当者管理</h2>
-        <button class="btn-close" onclick="app.closeStaffModal()">✕</button>
+        <h2>👥 担当者マスタ</h2>
+        <button class="btn-close" onclick="app.closeStaffModal()" aria-label="閉じる">✕</button>
       </div>
 
       <div class="staff-management">
+        <p class="empty-notice">案件の窓口になる人の一覧です。実際に作業する従業員（勤務時間・生産性を持つ人）は「⚙ 管理 → 従業員マスタ」で登録します。</p>
         <button class="btn btn-primary" onclick="app.openStaffFormModal()">
           ➕ 新規担当者
         </button>
@@ -707,17 +769,17 @@
     <div class="modal-content">
       <div class="modal-header">
         <h2 id="staff-form-title">新規担当者</h2>
-        <button class="btn-close" onclick="app.closeStaffFormModal()">✕</button>
+        <button class="btn-close" onclick="app.closeStaffFormModal()" aria-label="閉じる">✕</button>
       </div>
       <form id="staff-form" class="project-form">
         <div class="form-group">
-          <label>名前 *</label>
-          <input type="text" name="name" required>
+          <label for="sf-name">名前 <span class="req-mark" aria-hidden="true">*</span></label>
+          <input type="text" id="sf-name" name="name" required>
         </div>
 
         <div class="form-group">
-          <label>職種 *</label>
-          <select name="role" required>
+          <label for="sf-role">職種 <span class="req-mark" aria-hidden="true">*</span></label>
+          <select id="sf-role" name="role" required>
             <option value="FULL_TIME">フルタイム</option>
             <option value="PART_TIME">パート</option>
             <option value="PRODUCTION_MANAGER">生産管理</option>
@@ -726,8 +788,8 @@
         </div>
 
         <div class="form-group">
-          <label>1日の稼働可能時間（分）</label>
-          <input type="number" name="capacity_minutes" value="480" min="1">
+          <label for="sf-capacity">1日の稼働可能時間（分）</label>
+          <input type="number" id="sf-capacity" name="capacity_minutes" value="480" min="1">
         </div>
 
         <div class="form-actions">
@@ -747,10 +809,10 @@
     <div class="modal-content">
       <div class="modal-header">
         <h2 id="suggest-modal-title">担当者候補</h2>
-        <button class="btn-close" onclick="app.closeSuggestModal()">×</button>
+        <button class="btn-close" onclick="app.closeSuggestModal()" aria-label="閉じる">✕</button>
       </div>
-      <div id="suggest-modal-body" style="padding: 20px;">
-        <p>読み込み中...</p>
+      <div id="suggest-modal-body" class="staff-management">
+        <p class="folder-loading">読み込み中…</p>
       </div>
     </div>
   </div>
@@ -760,17 +822,17 @@
     <div class="modal-content">
       <div class="modal-header">
         <h2>納品済みにする</h2>
-        <button class="btn-close" onclick="app.closeDeliverModal()">✕</button>
+        <button class="btn-close" onclick="app.closeDeliverModal()" aria-label="閉じる">✕</button>
       </div>
       <form id="deliver-form" class="project-form">
         <div class="form-group">
-          <label>納品日 *</label>
-          <input type="date" name="delivered_date" required>
+          <label for="dl-delivered-date">納品日 <span class="req-mark" aria-hidden="true">*</span></label>
+          <input type="date" id="dl-delivered-date" name="delivered_date" required>
         </div>
 
         <div class="form-group">
-          <label>発送方法 *</label>
-          <select name="delivery_method" required>
+          <label for="dl-delivery-method">発送方法 <span class="req-mark" aria-hidden="true">*</span></label>
+          <select id="dl-delivery-method" name="delivery_method" required>
             <option value="来社納品">来社納品</option>
             <option value="発送">発送</option>
             <option value="持参納品">持参納品</option>
@@ -778,7 +840,7 @@
         </div>
 
         <div class="form-group">
-          <label>納品者</label>
+          <label for="deliver-staff-select">納品者</label>
           <select name="delivered_by" id="deliver-staff-select">
             <option value="">未選択</option>
           </select>
@@ -805,6 +867,7 @@
   </div>
 
   <!-- スクリプト -->
+  <script src="js/ui.js"></script>
   <script src="js/utils.js"></script>
   <script src="js/api.js"></script>
   <script src="js/app.js"></script>

@@ -9,6 +9,14 @@ function formatDate(dateStr) {
   return `${year}年${parseInt(month)}月${parseInt(day)}日`;
 }
 
+// Date → YYYY-MM-DD（ローカル日付）
+// toISOString() はUTC基準のため、日本時間の 0:00〜8:59 では前日になってしまう。
+// カレンダーの日付照合や「今日」の初期値には必ずこちらを使う
+function formatDateISO(date = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 // ISO 8601 → 日本語フォーマット
 function formatDateTime(isoStr) {
   if (!isoStr) return '';

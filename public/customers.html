@@ -5,61 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>顧客台帳 - Production Management</title>
   <link rel="stylesheet" href="styles/main.css">
-  <style>
-    /* 顧客台帳ページ専用の小さめ調整のみ(共通見た目はmain.cssに従う) */
-    .customer-row { cursor: pointer; }
-    .customer-note-card {
-      background: #fff;
-      border: 1px solid var(--gray-200, #e5e7eb);
-      border-radius: 8px;
-      padding: 16px;
-      margin-bottom: 16px;
-    }
-    .customer-note-card h3 { margin: 0 0 12px; font-size: 16px; }
-    .customer-detail-toolbar {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 16px;
-      flex-wrap: wrap;
-    }
-    .customer-detail-toolbar h2 { margin: 0; }
-    .note-save-status { color: var(--gray-600, #4b5563); font-size: 13px; }
-    .customer-filter-bar {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      flex-wrap: wrap;
-      margin-bottom: 16px;
-    }
-    .customer-filter-bar label {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 0.85rem;
-      color: var(--gray-600, #4b5563);
-      white-space: nowrap;
-    }
-    .customer-filter-bar select {
-      padding: 6px 10px;
-      border: 1px solid var(--gray-300, #d1d5db);
-      border-radius: var(--border-radius, 6px);
-      font-size: 0.9rem;
-    }
-  </style>
 </head>
 <body>
   <div class="app-container">
-    <!-- ヘッダー -->
+    <!-- ヘッダー(ナビゲーションの中身は js/ui.js が data-nav を見て生成する) -->
     <header class="app-header">
       <div class="header-content">
-        <h1 class="app-title">📇 顧客台帳</h1>
-        <p class="app-subtitle">Customer Directory</p>
+        <div>
+          <h1 class="app-title">📇 顧客台帳</h1>
+          <p class="app-subtitle">Customer Directory</p>
+        </div>
       </div>
-      <div class="header-buttons">
-        <a class="btn-staff-manage" href="/delivery-history">📦 納品履歴</a>
-        <a class="btn-staff-manage" href="/">📋 HiBoardに戻る</a>
-      </div>
+      <nav class="header-buttons" data-nav="customers" aria-label="画面の切り替え"></nav>
     </header>
 
     <!-- メインコンテンツ -->
@@ -67,13 +24,14 @@
       <!-- 顧客一覧 -->
       <section id="customer-list-section">
         <div class="delivery-search-bar">
+          <label for="customer-search" class="sr-only">顧客名で検索</label>
           <input type="search" id="customer-search" placeholder="🔍 顧客名で検索">
           <span id="customer-search-count" class="delivery-search-count"></span>
         </div>
 
         <!-- 並び替え・絞り込み -->
         <div class="customer-filter-bar">
-          <label>
+          <label for="customer-sort-key">
             並び替え
             <select id="customer-sort-key">
               <option value="default">既定(最近やりとりした順)</option>
@@ -82,14 +40,14 @@
               <option value="last_delivered_date">最終納品</option>
             </select>
           </label>
-          <label>
+          <label for="customer-sort-order">
             順序
             <select id="customer-sort-order">
               <option value="desc">多い順(新しい順)</option>
               <option value="asc">少ない順(古い順)</option>
             </select>
           </label>
-          <label>
+          <label for="customer-process-filter">
             加工種別
             <select id="customer-process-filter">
               <option value="">すべて</option>
@@ -102,7 +60,7 @@
               <option value="PATCH_EMBROIDERY">ワッペン刺繍</option>
             </select>
           </label>
-          <button type="button" class="btn-small" onclick="customersApp.resetFilters()">条件をクリア</button>
+          <button type="button" class="btn btn-small" onclick="customersApp.resetFilters()">条件をクリア</button>
         </div>
 
         <div class="table-container">
@@ -127,7 +85,7 @@
       <!-- 顧客詳細 -->
       <section id="customer-detail-section" style="display:none;">
         <div class="customer-detail-toolbar">
-          <button type="button" class="btn-small" onclick="customersApp.backToList()">← 顧客一覧へ戻る</button>
+          <button type="button" class="btn btn-small" onclick="customersApp.backToList()">← 顧客一覧へ戻る</button>
           <h2 id="detail-customer-name"></h2>
           <span id="detail-customer-summary" class="delivery-search-count"></span>
         </div>
@@ -138,21 +96,21 @@
           <form id="customer-note-form" class="project-form">
             <div class="form-row">
               <div class="form-group">
-                <label>担当窓口</label>
-                <input type="text" name="contact_person" placeholder="例: 監督の◯◯さん / 総務◯◯様">
+                <label for="note-contact-person">担当窓口</label>
+                <input type="text" id="note-contact-person" name="contact_person" placeholder="例: 監督の◯◯さん / 総務◯◯様">
               </div>
               <div class="form-group">
-                <label>連絡先</label>
-                <input type="text" name="contact_info" placeholder="例: LINE / 電話 / メール など連絡手段のメモ">
+                <label for="note-contact-info">連絡先</label>
+                <input type="text" id="note-contact-info" name="contact_info" placeholder="例: LINE / 電話 / メール など連絡手段のメモ">
               </div>
             </div>
             <div class="form-group">
-              <label>メモ(値引きルール・注意点・好みなど)</label>
-              <textarea name="memo" rows="3"></textarea>
+              <label for="note-memo">メモ(値引きルール・注意点・好みなど)</label>
+              <textarea id="note-memo" name="memo" rows="3"></textarea>
             </div>
             <div class="form-actions">
-              <span class="note-save-status" id="note-save-status"></span>
-              <button type="submit" class="btn-primary">メモを保存</button>
+              <span class="note-save-status" id="note-save-status" role="status"></span>
+              <button type="submit" class="btn btn-primary">メモを保存</button>
             </div>
           </form>
         </div>
@@ -183,34 +141,35 @@
     <div class="modal-content">
       <div class="modal-header">
         <h2>↻ この案件をもとに新規作成</h2>
-        <button class="btn-close" onclick="customersApp.closeDuplicateModal()">✕</button>
+        <button class="btn-close" onclick="customersApp.closeDuplicateModal()" aria-label="閉じる">✕</button>
       </div>
       <form id="duplicate-form" class="project-form">
-        <p class="folder-notice" id="duplicate-source-info"></p>
+        <p class="empty-notice" id="duplicate-source-info"></p>
         <div class="form-group">
-          <label>案件名 *</label>
-          <input type="text" name="project_name" required>
+          <label for="dup-project-name">案件名 <span class="req-mark" aria-hidden="true">*</span></label>
+          <input type="text" id="dup-project-name" name="project_name" required>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>納期 *</label>
-            <input type="date" name="deadline" required>
+            <label for="dup-deadline">納期 <span class="req-mark" aria-hidden="true">*</span></label>
+            <input type="date" id="dup-deadline" name="deadline" required>
           </div>
           <div class="form-group">
-            <label>数量 *</label>
-            <input type="number" name="quantity" min="1" required>
+            <label for="dup-quantity">数量 <span class="req-mark" aria-hidden="true">*</span></label>
+            <input type="number" id="dup-quantity" name="quantity" min="1" required>
           </div>
         </div>
-        <p class="folder-notice">顧客名・加工内容・プリント箇所・NASのデザインフォルダは元の案件から引き継がれます。担当者と作業計画は引き継がないため、登録後にHiBoardの画面で設定してください。</p>
+        <p class="empty-notice">顧客名・加工内容・プリント箇所・NASのデザインフォルダは元の案件から引き継がれます。担当者と作業計画は引き継がないため、登録後にHiBoardの画面で設定してください。</p>
         <div class="form-actions">
-          <button type="button" class="btn-secondary" onclick="customersApp.closeDuplicateModal()">キャンセル</button>
-          <button type="submit" class="btn-primary">複製して登録</button>
+          <button type="button" class="btn btn-secondary" onclick="customersApp.closeDuplicateModal()">キャンセル</button>
+          <button type="submit" class="btn btn-primary">複製して登録</button>
         </div>
       </form>
     </div>
   </div>
 
   <!-- スクリプト -->
+  <script src="js/ui.js"></script>
   <script src="js/utils.js"></script>
   <script src="js/api.js"></script>
   <script src="js/nas-browse.js"></script>

@@ -24,7 +24,7 @@ const designerLinksApp = {
       this.render();
     } catch (e) {
       console.error('デザイナーリンク一覧の取得に失敗:', e);
-      alert('デザイナーリンク一覧の取得に失敗しました');
+      HiUI.toast('デザイナーリンク一覧の取得に失敗しました');
     }
   },
 
@@ -134,7 +134,7 @@ const designerLinksApp = {
     const action = link.disabled_at ? '再有効化' : '無効化';
     if (!confirm(`「${link.employee_name}」さんの専用URLを${action}しますか?`)) return;
     const res = await fetch(`/api/designer-links/${link.id}/toggle`, { method: 'POST' });
-    if (!res.ok) { alert(`${action}に失敗しました`); return; }
+    if (!res.ok) { HiUI.toast(`${action}に失敗しました`); return; }
     await this.load();
   },
 
@@ -177,7 +177,7 @@ const designerLinksApp = {
       await this.load();
     } catch (e) {
       console.error('リンク発行に失敗:', e);
-      alert('発行に失敗しました');
+      HiUI.toast('発行に失敗しました');
     }
   },
 

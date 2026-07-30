@@ -4,30 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>デザイナーリンク管理 - Production Management</title>
+  <!-- 3画面で同一だった .link-url / .status-pill / .base-warning 等は main.css に集約済み -->
   <link rel="stylesheet" href="styles/main.css">
-  <style>
-    /* デザイナーリンク管理専用の差分スタイル(取引先リンク管理と同構成) */
-    .link-url { font-family: monospace; font-size: .8rem; color: #475569; word-break: break-all; }
-    .link-disabled-row td { opacity: .55; }
-    .status-pill { font-size: .75rem; font-weight: 700; padding: 2px 10px; border-radius: 999px; }
-    .status-pill.active { color: #166534; background: #dcfce7; }
-    .status-pill.disabled { color: #991b1b; background: #fee2e2; }
-    .copy-done { color: #166534; font-size: .78rem; margin-left: 6px; }
-    .base-warning { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; font-size: .82rem; line-height: 1.6; }
-    .url-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-  </style>
 </head>
 <body>
   <div class="app-container">
-    <!-- ヘッダー -->
+    <!-- ヘッダー(ナビゲーションの中身は js/ui.js が data-nav を見て生成する) -->
     <header class="app-header">
       <div class="header-content">
-        <h1 class="app-title">🎨 デザイナーリンク管理</h1>
-        <p class="app-subtitle">Designer Schedule Links</p>
+        <div>
+          <h1 class="app-title">🎨 デザイナーリンク管理</h1>
+          <p class="app-subtitle">Designer Schedule Links</p>
+        </div>
       </div>
-      <div class="header-buttons">
-        <a class="btn-staff-manage" href="/">📋 HiBoardに戻る</a>
-      </div>
+      <nav class="header-buttons" data-nav="designer-links" aria-label="画面の切り替え"></nav>
     </header>
 
     <!-- メインコンテンツ -->
@@ -35,11 +25,11 @@
       <section>
         <div class="list-controls">
           <button class="btn btn-primary" onclick="designerLinksApp.openModal()">➕ 新規リンク発行</button>
-          <p class="folder-notice">発行したURLをデザイン担当者に共有すると、担当者が社外から自分のスケジュールボード(担当の準備項目)を確認・調整できます。予定の移動・完了操作・稼働申告は本人の担当分に限定されます。<br>また、<b>社内デザイン案件の準備項目は、有効なリンクの担当者へ自動で割り当てられます</b>(複数リンクがある場合は最初に発行されたリンクの担当者)。</p>
+          <p class="empty-notice">発行したURLをデザイン担当者に共有すると、担当者が社外から自分のスケジュールボード(担当の準備項目)を確認・調整できます。予定の移動・完了操作・稼働申告は本人の担当分に限定されます。<br>また、<b>社内デザイン案件の準備項目は、有効なリンクの担当者へ自動で割り当てられます</b>(複数リンクがある場合は最初に発行されたリンクの担当者)。</p>
         </div>
 
         <!-- 配布URLの基準アドレスが未設定のときだけ表示(designer-links.js が制御) -->
-        <div id="base-warning" class="base-warning" style="display:none"></div>
+        <div id="base-warning" class="base-warning" style="display:none" role="alert"></div>
 
         <div class="table-container">
           <table class="projects-table" id="links-table">
@@ -64,21 +54,21 @@
     <div class="modal-content">
       <div class="modal-header">
         <h2>新規リンク発行</h2>
-        <button class="btn-close" onclick="designerLinksApp.closeModal()">✕</button>
+        <button class="btn-close" onclick="designerLinksApp.closeModal()" aria-label="閉じる">✕</button>
       </div>
       <form id="link-form" class="project-form">
         <div class="form-group">
-          <label>担当者(従業員) * <span class="field-hint">(先に従業員管理で登録してください)</span></label>
+          <label for="link-employee-id">担当者(従業員) <span class="req-mark" aria-hidden="true">*</span> <span class="field-hint">(先に従業員マスタで登録してください)</span></label>
           <select id="link-employee-id" required>
             <option value="">選択してください</option>
           </select>
         </div>
         <div class="form-group">
-          <label>メモ <span class="field-hint">(社内用。本人には表示されません)</span></label>
+          <label for="link-memo">メモ <span class="field-hint">(社内用。本人には表示されません)</span></label>
           <input type="text" id="link-memo" maxlength="500" placeholder="例: リモートデザイン担当">
         </div>
 
-        <div class="form-errors" id="link-form-errors" hidden style="color:#b91c1c"></div>
+        <div class="form-errors" id="link-form-errors" hidden role="alert"></div>
 
         <div class="form-actions">
           <button type="button" class="btn btn-secondary" onclick="designerLinksApp.closeModal()">キャンセル</button>
@@ -88,6 +78,7 @@
     </div>
   </div>
 
+  <script src="js/ui.js"></script>
   <script src="js/designer-links.js"></script>
 </body>
 </html>

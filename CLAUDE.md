@@ -36,16 +36,31 @@
 - お客様向け進捗確認ページは `/status`(`lib/order-status.js`)。受付番号(W-/T-/P-)+申込時の電話番号下4桁で照合する。総当たり対策のIP単位レート制限あり(既定10回/10分、.envの`STATUS_LOOKUP_MAX_ATTEMPTS`/`STATUS_LOOKUP_WINDOW_MIN`で調整可)
 - 主要ファイル: `server.js`(全API)、`public/js/schedule-board.js`(週間スケジュールボード)、`lib/order-intake.js`(Web注文フォーム受付)
 
+## 画面を作るときのルール(2026-07-30のUI全面改修で統一)
+
+- **色・余白・文字サイズ・角丸・影・z-index は `public/styles/tokens.css` のトークンだけを使う**。値の直書きを増やさない。グレーは gray 1系統のみ(slate系は使わない)
+- **ヘッダーは書かない**。`<nav class="header-buttons" data-nav="キー">` を置けば `public/js/ui.js` が全画面共通のナビを生成する。リンクを増やすときは ui.js の `navDaily`(日常業務・表に出す) か `navAdmin`(⚙管理メニューに畳む) に足す
+- **モーダルは `.modal > .modal-content > .modal-header(h2 + .btn-close)` の形にする**だけで、Esc・背景クリック・フォーカス管理・`role="dialog"` が ui.js から自動で効く(JS生成モーダルにも効く)。各画面に背景クリック処理を書かない
+- **ヘッダーの閉じるボタン以外に `.btn-close` を使わない**。Escの共通処理が誤爆する(行削除などは `.btn-icon-remove`)
+- **通知は `HiUI.toast()`。`alert()` は使わない**。メッセージ内容から成功/エラー/注意を自動判定する。再読み込みを挟んでも消えない。破壊的操作の `confirm()` はネイティブのままにしている(同期的に真偽値が必要な箇所があるため。意図的な判断)
+- ボタンは `btn` + 色クラス(`btn-primary`/`btn-secondary`/`btn-danger`/`btn-danger-soft`/`btn-ghost`) + `btn-small`。**main.css では色クラスをサイズ修飾子より後に定義する**(順序を崩すと `.btn-small.btn-danger` が灰色になる)
+- 長いフォームは `<details class="form-section">` で分割し、`.form-actions-sticky` で保存ボタンを下端に固定する。**必須項目を閉じた `details` の中に置かない**(ブラウザ検証がフォーカスできず送信が無言で止まる)。削除ボタンは `.action-destructive` で左端に離す
+- 単一の入力に紐づかない見出しは `<label>` ではなく `.form-label`(読み上げの対応先がない誤案内になる)
+- 空状態は `.empty-notice`、読み込み中は `.folder-loading`(スピナー付き)
+- 社内画面のブレークポイントは **767 / 768〜1180 / 480 の3つのみ**
+- **日付は `formatDateISO()`(`public/js/utils.js`)を使う**。`new Date().toISOString().split('T')[0]` はUTC基準なので日本時間の0〜9時に前日になる(カレンダーが1日ずれていた原因)
+
 ## 実装時に踏みやすい罠(過去に実際にやった)
 
 - **公開ページのAPIで5xxを返してはいけない**。Cloudflare(トンネル)がoriginの5xx応答を独自エラーページ(text/plain)に差し替えるため、画面側はJSONとして読めず「通信エラー」しか出せない。想定内の失敗は **200 + `{ok:false, error}`** で返す。4xxは素通しされるので検証エラーは400のままでよい
-- **新しい加工種別を足したら、従業員の「作業別生産性」にその種別の数値を登録しないとボードのドロップで使えない**。案件の作業予定時間(planned_hours)が0/未入力の案件も置けない
+- **新しい加工種別を足したら、従業員の「作業別生産性」にその種別の数値を登録しないとボードのドロップで使えない**。案件の作業予定時間(planned_hours)が0/未入力の案件も置けない。**加工種別を足すときは案件フォームの「必要スキル」チェックボックス(index.html、新規案件・受注候補確定の2箇所)にも追加する**
+- 案件の「必要スキル」(`required_skill_tags`)の値は**加工種別のコード**(`SILK_SCREEN_PRINT` 等)。従業員の「得意スキル」と突き合わせて担当者の自動提案に使うため、別の文字列を入れても一致しない
 - 祝日は `lib/jp-holidays.js` の静的テーブル(2027年分まで)。**毎年、翌年分を手で追加する運用**
 - 公開フォームの誤送信対策は `public/js/form-guard.js` を3フォーム(Web注文/チーム追加/取引先加工依頼)で共有。**Enter送信の無効化と確認ウィンドウは両方必要**(確認ウィンドウだけではEnter2回で送信できてしまう)
 - 受付番号プレフィックスは4系統: W-=Web注文 / T-=チーム追加 / P-=取引先加工依頼 / LINEはバッジなし(`public/js/app.js` の receiptPrefix)
 - 進捗確認URLの案内メールは **`PUBLIC_ORDER_BASE_URL` 未設定だと黙って省略される**ので気づきにくい
 - TODOシート連携はシート行にIDが無く employee_id+タスク本文で同一視するため、**シート側で文言を書き換えると紐づけが外れる**
-- 共有モジュールを壊さない: `js/nas-browse.js`(NASフォルダ閲覧)・`js/case-detail.js`(案件詳細)・`js/form-guard.js`。プリント箇所/準備項目の描画・収集は `containerId` 引数で新規案件モーダルと受注候補確定画面が実装を共有している(片方を直せば両方に効く)
+- 共有モジュールを壊さない: `js/ui.js`(ヘッダー・モーダル・トースト)・`js/nas-browse.js`(NASフォルダ閲覧)・`js/case-detail.js`(案件詳細)・`js/form-guard.js`。プリント箇所/準備項目の描画・収集は `containerId` 引数で新規案件モーダルと受注候補確定画面が実装を共有している(片方を直せば両方に効く)
 - **機能を追加したら社員向けガイド `/manual`(public/manual.html) も更新する**
 - NAS周りの検証は実NASに書かず、`NAS_BASE_PATH=<一時ディレクトリ> PORT=3277 node server.js` で別インスタンスを起動して行う(dotenvは既存の環境変数を上書きしないのでこの方法が使える)
 - 過去の実装経緯・各機能の設計判断は `docs/開発履歴.md`

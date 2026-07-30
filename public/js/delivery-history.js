@@ -23,7 +23,7 @@ const deliveryHistoryApp = {
       this.records = await API.getDeliveryRecords();
     } catch (error) {
       console.error('納品履歴取得エラー:', error);
-      alert('納品履歴の取得に失敗しました');
+      HiUI.toast('納品履歴の取得に失敗しました');
     }
   },
 
@@ -36,11 +36,6 @@ const deliveryHistoryApp = {
     document.getElementById('duplicate-form').addEventListener('submit', (e) => {
       e.preventDefault();
       this.submitDuplicate();
-    });
-
-    // モーダルの背景クリックで閉じる(project-modal等と同じ挙動)
-    document.getElementById('duplicate-modal').addEventListener('click', (e) => {
-      if (e.target.id === 'duplicate-modal') this.closeDuplicateModal();
     });
   },
 
@@ -65,7 +60,7 @@ const deliveryHistoryApp = {
 
     if (records.length === 0) {
       const message = this.searchQuery ? '検索条件に合う納品履歴はありません' : '納品履歴はありません';
-      tbody.innerHTML = `<tr><td colspan="8" class="folder-notice" style="text-align: center;">${message}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="empty-notice">${message}</td></tr>`;
       return;
     }
 
@@ -164,7 +159,7 @@ const deliveryHistoryApp = {
     try {
       const result = await API.duplicateProject(this.duplicateSource.case_id, data);
       if (result.error) {
-        alert(`登録に失敗しました: ${result.error}`);
+        HiUI.toast(`登録に失敗しました: ${result.error}`);
         return;
       }
       this.closeDuplicateModal();
@@ -173,7 +168,7 @@ const deliveryHistoryApp = {
       }
     } catch (error) {
       console.error('複製エラー:', error);
-      alert('登録に失敗しました');
+      HiUI.toast('登録に失敗しました');
     }
   },
 

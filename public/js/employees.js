@@ -32,7 +32,7 @@ const employeesApp = {
       this.employees = await API.getAllEmployees();
     } catch (error) {
       console.error('従業員取得エラー:', error);
-      alert('従業員の取得に失敗しました');
+      HiUI.toast('従業員の取得に失敗しました');
     }
   },
 
@@ -53,10 +53,10 @@ const employeesApp = {
           </span>
         </td>
         <td>
-          <button class="btn-small" onclick="employeesApp.openEmployeeModal(${employee.id})">
+          <button class="btn btn-small" onclick="employeesApp.openEmployeeModal(${employee.id})">
             ✎ 編集
           </button>
-          <button class="btn-small ${isActive ? 'btn-danger' : ''}" onclick="employeesApp.toggleActive(${employee.id})">
+          <button class="btn btn-small ${isActive ? 'btn-danger-soft' : ''}" onclick="employeesApp.toggleActive(${employee.id})">
             ${isActive ? '無効にする' : '有効にする'}
           </button>
         </td>
@@ -161,6 +161,10 @@ const employeesApp = {
       title.textContent = '従業員編集';
       try {
         const employee = await API.getEmployee(employeeId);
+        // 該当が無いと name が undefined のまま入力欄に出てしまうので、その時点で止める
+        if (!employee || employee.error || !employee.name) {
+          throw new Error('従業員が見つかりません');
+        }
         form.elements['name'].value = employee.name;
         form.elements['role'].value = employee.role;
         form.elements['is_active'].checked = !!employee.is_active;
@@ -171,7 +175,7 @@ const employeesApp = {
         this.renderProcessRateRows(rates);
       } catch (error) {
         console.error('従業員取得エラー:', error);
-        alert('従業員情報の取得に失敗しました');
+        HiUI.toast('従業員情報の取得に失敗しました');
         return;
       }
     } else {
@@ -227,7 +231,7 @@ const employeesApp = {
       this.closeEmployeeModal();
     } catch (error) {
       console.error('従業員保存エラー:', error);
-      alert('従業員の保存に失敗しました');
+      HiUI.toast('従業員の保存に失敗しました');
     }
   },
 
@@ -268,7 +272,7 @@ const employeesApp = {
       this.renderEmployeesTable();
     } catch (error) {
       console.error('従業員ステータス更新エラー:', error);
-      alert(`従業員ステータスの更新に失敗しました: ${error.message || ''}`);
+      HiUI.toast(`従業員ステータスの更新に失敗しました: ${error.message || ''}`);
     }
   }
 };
@@ -276,12 +280,6 @@ const employeesApp = {
 // ===== イベントリスナー =====
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('employee-form')?.addEventListener('submit', (e) => employeesApp.submitEmployeeForm(e));
-
-  window.addEventListener('click', (e) => {
-    if (e.target.id === 'employee-modal') {
-      employeesApp.closeEmployeeModal();
-    }
-  });
 
   employeesApp.init();
 });
