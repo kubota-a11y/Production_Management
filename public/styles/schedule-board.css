@@ -559,13 +559,19 @@
   flex: 1;
 }
 
+/* 数値の列は内容に合わせて伸ばす(固定140pxではみ出していた)。
+   案件名の列は狭い画面でも縮められるよう minmax の下限を0にする */
 .sb-progress-item {
   display: grid;
-  grid-template-columns: 220px 1fr 140px;
+  grid-template-columns: minmax(0, 220px) minmax(80px, 1fr) auto;
   align-items: center;
   gap: 16px;
   padding: 10px 0;
   border-bottom: 1px solid var(--gray-200);
+}
+
+.sb-progress-item > * {
+  min-width: 0;
 }
 
 .sb-progress-item:last-child {
@@ -597,9 +603,42 @@
 }
 
 .sb-progress-numbers {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
   font-size: 12px;
   color: var(--gray-600);
   text-align: right;
+}
+
+.sb-progress-hours {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.sb-progress-pct {
+  min-width: 40px;
+  text-align: right;
+  font-weight: 700;
+  color: var(--gray-700);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.sb-progress-pct.is-over {
+  color: var(--danger-color);
+}
+
+/* 担当者の生産性が未登録で、案件の作業予定時間を基準にしている案件の目印 */
+.sb-progress-note {
+  padding: 1px 8px;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--warning-soft, #fef3c7);
+  color: var(--warning-text, #78350f);
+  font-size: 11px;
+  font-weight: 700;
   white-space: nowrap;
 }
 

@@ -477,6 +477,26 @@ function initDatabase(dbFile = dbPath) {
     }
   }
 
+  // 納品済み(COMPLETED)案件に残っている未完了の準備項目を完了にする(2026-07-30)。
+  // 納品時に完了扱いにする処理を入れる前に納品された案件のぶんを1回だけ拾う。
+  // 残っていると準備項目リストの繰り越し・デザイナーのマイボード・勤務時間編集の
+  // 割り当て候補に永久に出続けるため。completed_at は納品日を使う(無ければ現在時刻)。冪等
+  {
+    const closed = db.prepare(`
+      UPDATE case_preparation_items
+      SET status = '完了',
+          completed_at = COALESCE(
+            (SELECT MAX(dr.delivered_date) FROM delivery_records dr WHERE dr.case_id = case_preparation_items.case_id),
+            ?
+          )
+      WHERE status != '完了'
+        AND case_id IN (SELECT id FROM projects WHERE status = 'COMPLETED')
+    `).run(new Date().toISOString());
+    if (closed.changes > 0) {
+      console.log(`✓ 納品済み案件に残っていた準備項目 ${closed.changes}件を完了にしました`);
+    }
+  }
+
   // schedule_overrides の同一従業員×同一日の重複行を解消し、UNIQUE制約を追加(2026-07-27)。
   // 以前は2人が同時に同じ日の勤務時間モーダルを開くと両方がPOSTして重複行が生まれ、
   // 空き時間計算がどちらを使うか不定だった。重複がある場合は最後に保存された行(id最大)を残す。

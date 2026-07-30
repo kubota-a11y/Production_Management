@@ -855,15 +855,22 @@ const scheduleBoard = {
       const barWidth = Math.min(pct, 100);
       const isOver = pct > 100;
       // required_hours(数量÷担当者の生産性)が計算できた案件はそれを基準に表示し、
-      // 担当者未割り当て・生産性未登録でフォールバックした案件だけ「見積もり参考値」と明示する
-      const sourceNote = p.required_hours_source === 'planned_hours' ? '（見積もり参考値）' : '';
+      // 担当者未割り当て・生産性未登録でフォールバックした案件だけ「参考値」バッジで明示する。
+      // 以前は「(見積もり参考値)」を数値と同じ行に入れており、幅が足りず枠外にはみ出していた
+      const sourceNote = p.required_hours_source === 'planned_hours'
+        ? '<span class="sb-progress-note" title="担当者の生産性が未登録のため、案件の「作業予定時間」を基準に計算しています">参考値</span>'
+        : '';
       return `
         <div class="sb-progress-item">
           <div class="sb-progress-name" title="${this.escapeHtml(p.project_name)}">${this.escapeHtml(p.project_name)}</div>
           <div class="sb-progress-bar-track">
             <div class="sb-progress-bar-fill ${isOver ? 'is-over' : ''}" style="width:${barWidth}%;"></div>
           </div>
-          <div class="sb-progress-numbers">${p.actual_hours_total}h / ${p.planned_hours_total.toFixed(1)}h${sourceNote}（${pct.toFixed(0)}%）</div>
+          <div class="sb-progress-numbers">
+            <span class="sb-progress-hours">${p.actual_hours_total}h / ${p.planned_hours_total.toFixed(1)}h</span>
+            <span class="sb-progress-pct${isOver ? ' is-over' : ''}">${pct.toFixed(0)}%</span>
+            ${sourceNote}
+          </div>
         </div>
       `;
     }).join('');

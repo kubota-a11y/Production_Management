@@ -1659,6 +1659,16 @@ app.post('/api/projects/:id/deliver', (req, res) => {
     // 検品を経由せず直接納品した案件の割り当てがボードに残り続けないよう、ここでも削除する
     db.transaction(() => {
       db.prepare('DELETE FROM case_time_allocations WHERE case_id = ?').run(req.params.id);
+      // 納品した案件の準備項目は、チェックが付いていなくても完了として扱う。
+      // 未完了のまま残すと「まだやることがある」扱いのまま、
+      //   ・週間ボードの準備項目リストの繰り越し
+      //   ・デザイナーのマイスケジュールボード「日付が未定のタスク」
+      //   ・勤務時間編集モーダルの割り当て候補プルダウン
+      // の3か所に永久に出続けてしまう(実際に本番で残り続けていた)
+      db.prepare(`
+        UPDATE case_preparation_items SET status='完了', completed_at=?
+        WHERE case_id = ? AND status != '完了'
+      `).run(now, req.params.id);
       db.prepare(`
         INSERT INTO delivery_records
           (case_id, delivered_date, delivery_method, delivered_by_staff_id, delivered_by_employee_id, created_at)
@@ -2578,8 +2588,10 @@ app.get('/api/preparation-items', (req, res) => {
     // 繰り越し: 指定日より前に予定されていて、まだ完了していない準備項目。
     // 週間スケジュールボードは表示中の週のぶんしか取得しないため、前週までに終わらなかった
     // 項目が準備項目リストから消えてしまっていた。その取りこぼしを拾うための条件
+    // 納品済み案件の項目は納品時に完了扱いにしているので通常はここに来ないが、
+    // 万一残っていても繰り越しには混ぜない(納品したものは持ち越さない)
     if (overdue_before) {
-      conditions.push(`cpi.scheduled_date IS NOT NULL AND cpi.scheduled_date < ? AND cpi.status != '完了'`);
+      conditions.push(`cpi.scheduled_date IS NOT NULL AND cpi.scheduled_date < ? AND cpi.status != '完了' AND p.status != 'COMPLETED'`);
       params.push(overdue_before);
     }
 
