@@ -244,7 +244,6 @@ const app = {
       <td>${getProcessLabels(project.process_type)}</td>
       <td class="text-center">${project.quantity}</td>
       <td>${project.assigned_staff_name || '未割り当て'}</td>
-      <td>${project.assigned_employee_name || '未割り当て'}</td>
       <td>
         <span class="status-badge ${getStatusClass(project.status)}">
           ${getStatusLabel(project.status)}
