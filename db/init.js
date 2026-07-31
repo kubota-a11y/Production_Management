@@ -89,6 +89,10 @@ function initDatabase(dbFile = dbPath) {
   if (aiIntakeColumns.length > 0 && !aiIntakeColumns.includes('reference_link')) {
     db.prepare(`ALTER TABLE ai_extracted_intake ADD COLUMN reference_link TEXT`).run();
   }
+  // 紹介コード(紹介キャンペーン)。Web注文フォームの入力値を保持する(2026-07-31 追加)
+  if (aiIntakeColumns.length > 0 && !aiIntakeColumns.includes('referral_code')) {
+    db.prepare(`ALTER TABLE ai_extracted_intake ADD COLUMN referral_code TEXT`).run();
+  }
 
   // 顧客メモ(顧客台帳ページ用)。顧客マスタは持たず projects.customer_name の
   // TRIM値をキーに、担当窓口・連絡先・注意点などを顧客単位で書き残す

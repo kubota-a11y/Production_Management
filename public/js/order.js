@@ -396,6 +396,18 @@
   form.addEventListener('change', scheduleDraftSave);
   restoreDraft();
 
+  // 紹介コード: ?ref= 付きで開かれたら自動入力する(紹介ページ/紹介カードのQR経由)。
+  // 下書き復元より後に実行し、空のときだけ入れる(手入力を上書きしない)
+  (() => {
+    const ref = (new URLSearchParams(location.search).get('ref') || '').trim();
+    if (!ref) return;
+    const el = $('[data-path="referral_code"]');
+    if (el && !el.value) {
+      el.value = ref.slice(0, 20);
+      scheduleDraftSave();
+    }
+  })();
+
   // ===== payload 収集 =====
   function collectCatalog(card) {
     return $$('.catalog-row', card).map(r => ({
@@ -480,6 +492,7 @@
             preferred_time: $('#consultTime').value,
             message: $('#consultMessage').value.trim(),
           },
+          referral_code: val('referral_code'),
           images: imagesMeta,
         },
         files,
@@ -493,6 +506,7 @@
       roster: collectRoster(),
       deadline: { date: $('#deadlineDate').value || '', note: val('deadline.note') },
       remarks: val('remarks'),
+      referral_code: val('referral_code'),
       images: imagesMeta,
     };
 
