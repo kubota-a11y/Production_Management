@@ -31,6 +31,7 @@ const HiUI = {
     { key: 'team-links', href: '/team-links', label: '🔗 チームリンク発行' },
     { key: 'partner-links', href: '/partner-links', label: '🤝 取引先リンク発行' },
     { key: 'designer-links', href: '/designer-links', label: '🎨 デザイナーリンク発行' },
+    { key: 'referral-admin', href: '/referral-admin', label: '🎁 紹介コード発行' },
     { divider: true },
     { key: 'works-add', href: '/works-add', label: '📸 制作実績の登録' },
   ],

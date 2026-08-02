@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>紹介コード発行 - Production Management</title>
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- ヘッダー(ナビゲーションの中身は js/ui.js が data-nav を見て生成する) -->
+    <header class="app-header">
+      <div class="header-content">
+        <div>
+          <h1 class="app-title">🎁 紹介コード発行</h1>
+          <p class="app-subtitle">Referral Partners</p>
+        </div>
+      </div>
+      <nav class="header-buttons" data-nav="referral-admin" aria-label="画面の切り替え"></nav>
+    </header>
+
+    <main class="main-content">
+      <section>
+        <div class="list-controls">
+          <button class="btn btn-primary" onclick="referralApp.openModal()">➕ 紹介コードを発行</button>
+          <p class="empty-notice">
+            発行したコードを紹介カードに書いてお渡しします。受け取った方は紹介ページ
+            (<span id="referral-page-url">—</span>)でコードを入力すると、自分の特典と共有用リンクを確認できます。
+            このコードは注文フォームの「紹介コード」欄と共通です。
+          </p>
+        </div>
+
+        <div class="table-container">
+          <table class="projects-table" id="partners-table">
+            <thead>
+              <tr>
+                <th>紹介コード</th>
+                <th>紹介者名</th>
+                <th>種別</th>
+                <th>共有用リンク</th>
+                <th>ご紹介/成約</th>
+                <th>状態</th>
+                <th>発行日</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="partners-tbody">
+              <tr><td colspan="8" class="folder-loading">読み込み中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ===== モーダル: 発行・編集 ===== -->
+  <div id="partner-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="partner-modal-title">紹介コードを発行</h2>
+        <button class="btn-close" onclick="referralApp.closeModal()" aria-label="閉じる">✕</button>
+      </div>
+      <form id="partner-form" class="project-form">
+        <div class="form-group" id="type-group">
+          <label for="partner-type">種別 <span class="req-mark" aria-hidden="true">*</span>
+            <span class="field-hint">(紹介ページに出す特典の内容が変わります。発行後は変更できません)</span>
+          </label>
+          <select id="partner-type" required>
+            <option value="TEAM">チーム(例: 〇〇FC)</option>
+            <option value="INDIVIDUAL">個人(例: 本田さん)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="partner-name">紹介者名 / チーム名 <span class="req-mark" aria-hidden="true">*</span></label>
+          <input type="text" id="partner-name" maxlength="100" required placeholder="例: 長泉AMiGOS / 本田 太郎">
+        </div>
+
+        <div class="form-group">
+          <label for="partner-memo">メモ <span class="field-hint">(社内用。お客様には表示されません)</span></label>
+          <input type="text" id="partner-memo" maxlength="500" placeholder="例: 代表の勝又さんへ2026-08-05にカードを手渡し">
+        </div>
+
+        <div class="form-errors" id="partner-form-errors" hidden role="alert"></div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" onclick="referralApp.closeModal()">キャンセル</button>
+          <button type="submit" class="btn btn-primary" id="partner-save-btn">発行する</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/ui.js"></script>
+  <script src="js/referral-admin.js"></script>
+</body>
+</html>

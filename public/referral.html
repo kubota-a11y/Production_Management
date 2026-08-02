@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>ご紹介キャンペーン | HIYOSHI</title>
+  <link rel="stylesheet" href="/styles/tokens.css">
+  <style>
+    /* 紹介コードを持つ方だけが開ける非公開ページ。order-status.html と同じトーンの単体完結スタイル */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    [hidden] { display: none !important; }
+    body {
+      font-family: var(--font-sans);
+      background: #f1f5f9; color: #0f172a; line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrap { max-width: 560px; margin: 0 auto; padding: 20px 14px 40px; }
+
+    .page-head { text-align: center; padding: 18px 0 6px; }
+    .brand { font-size: .8rem; letter-spacing: .18em; color: #64748b; font-weight: 700; }
+    .page-head h1 { font-size: 1.35rem; margin-top: 2px; }
+    .page-note { text-align: center; font-size: .85rem; color: #64748b; margin-top: 10px; }
+
+    .card {
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+      padding: 18px 16px; margin-top: 20px; box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+    }
+    .field { display: block; font-size: .88rem; font-weight: 600; color: #334155; }
+    .field input {
+      display: block; width: 100%; margin-top: 6px; padding: 11px 12px;
+      border: 1px solid #cbd5e1; border-radius: 8px;
+      /* 1rem未満にするとiOSで入力時に自動ズームするため16px相当を維持する */
+      font-size: 1rem; font-family: inherit; text-transform: uppercase; letter-spacing: .06em;
+    }
+    .field input:focus { outline: 2px solid #93c5fd; outline-offset: 1px; border-color: #60a5fa; }
+    .field .hint { display: block; font-weight: 400; font-size: .78rem; color: #64748b; margin-top: 6px; }
+
+    .btn-submit {
+      width: 100%; margin-top: 14px; padding: 13px; border: none; border-radius: 8px;
+      background: #1d4ed8; color: #fff; font-size: 1rem; font-weight: 700;
+      font-family: inherit; cursor: pointer;
+    }
+    .btn-submit:disabled { background: #94a3b8; cursor: default; }
+
+    .err {
+      background: #fef2f2; border: 1px solid #fecaca; color: #991b1b;
+      border-radius: 10px; padding: 12px 14px; margin-top: 16px; font-size: .88rem;
+    }
+
+    /* ---- 解錠後 ---- */
+    .who { text-align: center; padding-bottom: 4px; }
+    .who .type { display: inline-block; font-size: .74rem; font-weight: 700; color: #1d4ed8;
+      background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 999px; padding: 2px 12px; }
+    .who .name { font-size: 1.15rem; font-weight: 700; margin-top: 8px; }
+    .who .lead { font-size: .85rem; color: #64748b; margin-top: 4px; }
+
+    .code-box { text-align: center; background: #0f172a; color: #fff; border-radius: 12px; padding: 16px; margin-top: 16px; }
+    .code-box .lb { font-size: .74rem; font-weight: 700; letter-spacing: .1em; color: #fbbf24; }
+    .code-box .cd { font-size: 1.9rem; font-weight: 800; letter-spacing: .12em; margin-top: 4px; }
+    .code-box .nt { font-size: .78rem; color: #cbd5e1; margin-top: 6px; line-height: 1.7; }
+
+    h2.sec-t { font-size: .95rem; margin-top: 22px; display: flex; align-items: center; gap: 8px; }
+    h2.sec-t::before { content: ""; width: 4px; height: 15px; background: #1d4ed8; border-radius: 2px; }
+
+    .ben { border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; margin-top: 10px; background: #fff; }
+    .ben b { display: block; font-size: .92rem; }
+    .ben p { font-size: .82rem; color: #64748b; margin-top: 4px; }
+
+    .share { margin-top: 10px; }
+    .share input {
+      width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px;
+      font-size: .85rem; font-family: inherit; background: #f8fafc; color: #334155;
+    }
+    .share-btns { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+    .btn-ghost {
+      flex: 1; min-width: 130px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px;
+      background: #fff; color: #334155; font-size: .85rem; font-weight: 700; font-family: inherit; cursor: pointer;
+    }
+    .btn-ghost:hover { background: #f8fafc; }
+
+    .stats { display: flex; gap: 10px; margin-top: 10px; }
+    .stat { flex: 1; text-align: center; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 8px; background: #fff; }
+    .stat .n { font-size: 1.4rem; font-weight: 800; }
+    .stat .l { font-size: .74rem; color: #64748b; margin-top: 2px; }
+
+    .foot { text-align: center; font-size: .8rem; color: #64748b; margin-top: 24px; line-height: 1.9; }
+    .foot a { color: #1d4ed8; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="page-head">
+      <p class="brand">HiYOSHi</p>
+      <h1>ご紹介キャンペーン</h1>
+    </header>
+
+    <!-- コード入力 -->
+    <section id="gate">
+      <p class="page-note">お渡ししている<strong>紹介カードの紹介コード</strong>を入力してください。</p>
+      <div class="card">
+        <label class="field">紹介コード
+          <input type="text" id="code" inputmode="latin" autocomplete="off" placeholder="例: HY-T01" maxlength="20">
+          <span class="hint">カードに記載のコードです。半角・大文字小文字はどちらでも構いません。</span>
+        </label>
+        <button type="button" id="submitBtn" class="btn-submit">確認する</button>
+      </div>
+      <div id="err" class="err" hidden></div>
+      <p class="foot">
+        コードをお持ちでない方・ご不明な点は<br>
+        お電話 <a href="tel:055-928-7609">055-928-7609</a>(平日10:00〜17:00)または公式LINEへ
+      </p>
+    </section>
+
+    <!-- 解錠後 -->
+    <section id="panel" hidden>
+      <div class="card who">
+        <span class="type" id="pType"></span>
+        <p class="name" id="pName"></p>
+        <p class="lead">いつもありがとうございます。ご紹介のご案内です。</p>
+      </div>
+
+      <div class="code-box">
+        <p class="lb">あなたの紹介コード</p>
+        <p class="cd" id="pCode"></p>
+        <p class="nt">お知り合いがご注文・ご相談されるときに、このコードをお伝えいただくだけで特典が適用されます。</p>
+      </div>
+
+      <h2 class="sec-t">お知り合いへの共有</h2>
+      <div class="card share">
+        <p style="font-size:.83rem;color:#64748b;margin-bottom:8px;">
+          下のリンクを送ると、注文フォームに紹介コードが自動で入ります。
+        </p>
+        <input type="text" id="shareUrl" readonly>
+        <div class="share-btns">
+          <button type="button" class="btn-ghost" id="copyBtn">リンクをコピー</button>
+          <button type="button" class="btn-ghost" id="shareBtn">送る</button>
+        </div>
+      </div>
+
+      <h2 class="sec-t">ご紹介いただいた方への特典</h2>
+      <div id="benYou"></div>
+
+      <h2 class="sec-t">ご紹介された方への特典</h2>
+      <div id="benFriend"></div>
+
+      <h2 class="sec-t">これまでのご紹介</h2>
+      <div class="stats">
+        <div class="stat"><p class="n" id="stTotal">0</p><p class="l">ご相談・お申し込み</p></div>
+        <div class="stat"><p class="n" id="stConfirmed">0</p><p class="l">うち成約</p></div>
+      </div>
+      <p class="foot">
+        特典はご紹介先のご注文確定(ご入金)をもって適用されます。<br>
+        ご不明な点は お電話 <a href="tel:055-928-7609">055-928-7609</a> または公式LINEへお気軽に。
+      </p>
+    </section>
+  </main>
+
+  <script src="/js/referral.js"></script>
+</body>
+</html>

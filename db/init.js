@@ -277,6 +277,23 @@ function initDatabase(dbFile = dbPath) {
     ON team_order_link_items(link_id)
   `);
 
+  // 紹介パートナー(紹介キャンペーン)。会社が発行したコードを持つ人だけが
+  // 公開ページ /referral を開ける。コードは「解錠キー」と「配布する紹介コード」を兼ねる。
+  // partner_type で特典の出し分けをする: TEAM=チーム単位(例: 〇〇FC) / INDIVIDUAL=個人単位
+  // disabled_at が入っているコードは公開ページで弾く(受注フォーム側の記録は残す)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS referral_partners (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      code TEXT NOT NULL UNIQUE,
+      partner_type TEXT NOT NULL,
+      partner_name TEXT NOT NULL,
+      memo TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      disabled_at TEXT
+    )
+  `);
+
   // 取引先向け 納期確認ページの専用URL(トークン)。disabled_at が入っているリンクは公開ページで404になる。
   // 案件との紐付けは customer_patterns(JSON配列)のいずれかが projects.customer_name に
   // 部分一致するかで自動判定する(例: ["八木繊維"] → 顧客名に「八木繊維」を含む案件が対象)

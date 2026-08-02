@@ -13,6 +13,7 @@ const { registerPartnerPortalRoutes } = require('./lib/partner-portal');
 const { registerPartnerOrderRoutes } = require('./lib/partner-order');
 const { registerDesignerBoardRoutes } = require('./lib/designer-board');
 const { registerOrderStatusRoutes } = require('./lib/order-status');
+const { registerReferralRoutes } = require('./lib/referral');
 const { registerWorksRoutes } = require('./lib/works-publish');
 const { scheduleDailyBackup } = require('./lib/db-backup');
 const { extractCarriedData, extractCarriedItems } = require('./lib/intake-carry');
@@ -309,6 +310,8 @@ const EXTERNAL_ALLOWED_PATTERNS = [
   /^\/guide$/,                       // ご注文の流れ
   /^\/status$/,                      // お客様向け 進捗確認ページ
   /^\/api\/order-status$/,           // 進捗確認の照合API(受付番号+電話下4桁)
+  /^\/referral$/,                    // 紹介ページ(紹介コードを入力した人だけが中身を見られる)
+  /^\/api\/referral\/verify$/,       // 紹介コードの照合API
   /^\/support\/[\w-]+$/,             // 選手応援 特設ページ
   /^\/team\/[\w-]+$/,                // チーム追加注文フォーム
   /^\/partner\/[\w-]+(\/order)?$/,   // 取引先ポータル・加工依頼フォーム
@@ -3147,6 +3150,10 @@ registerPartnerOrderRoutes(app, db);
 // リモートのデザイン担当が自分の準備項目をD&Dで日付調整・完了操作・稼働申告できる。
 registerDesignerBoardRoutes(app, db, { syncCaseStatus: syncCaseStatusForPreparationItems });
 registerOrderStatusRoutes(app, db);
+
+// 紹介キャンペーン(非公開ページ /referral + 社内の発行画面 /referral-admin)。
+// 会社が発行した紹介コードを入力した人だけが、自分の特典・共有用リンクを見られる。
+registerReferralRoutes(app, db);
 registerWorksRoutes(app);
 
 // 5分ごとにLINEメッセージのAI構造化抽出を実行する。前回の実行が終わっていなければスキップする。
