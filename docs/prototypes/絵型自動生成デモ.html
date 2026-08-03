@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>絵型自動生成デモ｜フルオーダーユニフォーム</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --surface: #ffffff;
+    --border: #d8dbe0;
+    --text: #1f2430;
+    --text-sub: #5c6472;
+    --accent: #1b3a8c;
+    --warn-bg: #fff4e5;
+    --warn-border: #e6a23c;
+    --warn-text: #8a5300;
+    --radius: 10px;
+    --shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16181d;
+      --surface: #1f232b;
+      --border: #343a45;
+      --text: #e8eaee;
+      --text-sub: #a3abba;
+      --accent: #7ea2ff;
+      --warn-bg: #3a2c14;
+      --warn-border: #b8862f;
+      --warn-text: #f0c987;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 20px;
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; }
+  header.page { margin-bottom: 18px; }
+  header.page h1 { font-size: 22px; margin: 0 0 6px; }
+  header.page p { margin: 0; color: var(--text-sub); font-size: 13px; }
+  .layout { display: grid; grid-template-columns: 330px 1fr; gap: 18px; align-items: start; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .card h2 {
+    font-size: 14px; margin: 0 0 12px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--border); letter-spacing: .04em;
+  }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 12px; color: var(--text-sub); margin-bottom: 4px; }
+  .field input[type="text"], .field select {
+    width: 100%; padding: 7px 9px; font-size: 14px; font-family: inherit;
+    border: 1px solid var(--border); border-radius: 6px;
+    background: var(--bg); color: var(--text);
+  }
+  .bases { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .base-btn {
+    border: 2px solid var(--border); border-radius: 8px; background: var(--bg);
+    padding: 4px 2px 5px; cursor: pointer; text-align: center; font: inherit; color: var(--text);
+  }
+  .base-btn.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+  .base-btn svg { width: 100%; height: auto; display: block; }
+  .base-btn span { font-size: 10px; color: var(--text-sub); }
+  .base-btn.on span { color: var(--accent); font-weight: 700; }
+  .colors { display: grid; gap: 8px; }
+  .color-row { display: grid; grid-template-columns: 34px 1fr 84px; gap: 8px; align-items: center; }
+  .color-row input[type="color"] {
+    width: 34px; height: 30px; padding: 0; border: 1px solid var(--border);
+    border-radius: 6px; background: none; cursor: pointer;
+  }
+  .color-row .nm { font-size: 12px; }
+  .color-row .hx { font-size: 11px; font-family: ui-monospace, Menlo, monospace; color: var(--text-sub); text-align: right; }
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .preset {
+    display: flex; align-items: center; gap: 5px; cursor: pointer; font: inherit; font-size: 11px;
+    border: 1px solid var(--border); border-radius: 999px; padding: 3px 9px 3px 5px;
+    background: var(--bg); color: var(--text);
+  }
+  .preset i { width: 22px; height: 12px; border-radius: 3px; display: inline-block; border: 1px solid rgba(0,0,0,.15); }
+  .views { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  @media (max-width: 620px) { .views { grid-template-columns: 1fr; } }
+  .view { text-align: center; }
+  .view svg { width: 100%; height: auto; }
+  .view figcaption { font-size: 11px; color: var(--text-sub); margin-top: 2px; }
+  table.spec { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.spec th, table.spec td { border-bottom: 1px solid var(--border); padding: 6px 8px; text-align: left; }
+  table.spec th { color: var(--text-sub); font-weight: 600; font-size: 11.5px; white-space: nowrap; }
+  table.spec td.mono { font-family: ui-monospace, Menlo, monospace; }
+  .swatch { display: inline-block; width: 15px; height: 15px; border-radius: 3px; border: 1px solid rgba(0,0,0,.2); vertical-align: -3px; margin-right: 6px; }
+  .checks { display: grid; gap: 8px; }
+  .chk { font-size: 12.5px; display: flex; gap: 8px; align-items: flex-start; }
+  .chk b { flex: none; }
+  .alert {
+    background: var(--warn-bg); border: 1px solid var(--warn-border); color: var(--warn-text);
+    border-radius: 6px; padding: 8px 10px; font-size: 12.5px;
+  }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+  .btn {
+    font: inherit; font-size: 13px; padding: 7px 14px; border-radius: 6px; cursor: pointer;
+    border: 1px solid var(--accent); background: var(--accent); color: #fff;
+  }
+  .btn.sub { background: transparent; color: var(--accent); }
+  .note { font-size: 11.5px; color: var(--text-sub); margin: 8px 0 0; }
+  pre.hand {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px; font-size: 11.5px; overflow-x: auto; margin: 0;
+    font-family: ui-monospace, Menlo, monospace; white-space: pre-wrap;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="page">
+    <h1>絵型 自動生成デモ（フルオーダーユニフォーム）</h1>
+    <p>ベース型を選び、配色とチーム情報を入れるだけで前身・後身・パンツの絵型と入稿仕様が自動生成されます。デザイン担当の初稿作成工数を置き換えることを想定した試作です。</p>
+  </header>
+
+  <div class="layout">
+    <!-- ============ 入力側 ============ -->
+    <div>
+      <div class="card">
+        <h2>1. ベース型を選ぶ</h2>
+        <div class="bases" id="bases"></div>
+        <p class="note">お客様がフォーム上で選ぶ想定。型を増やすほど手描きが不要になります。</p>
+      </div>
+
+      <div class="card">
+        <h2>2. 配色</h2>
+        <div class="colors" id="colors"></div>
+        <div class="presets" id="presets"></div>
+        <p class="note">実績のある配色をプリセット化しておくと、色決めの往復も減ります。</p>
+      </div>
+
+      <div class="card">
+        <h2>3. チーム情報</h2>
+        <div class="field">
+          <label for="team">チーム名（後身アーチ）</label>
+          <input type="text" id="team" value="FC HIYOSHI" maxlength="18">
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label for="num">背番号</label>
+            <input type="text" id="num" value="10" maxlength="2">
+          </div>
+          <div class="field">
+            <label for="player">選手名</label>
+            <input type="text" id="player" value="TANAKA" maxlength="12">
+          </div>
+        </div>
+        <div class="field">
+          <label for="sponsor">スポンサー表記（前身）</label>
+          <input type="text" id="sponsor" value="HIYOSHI" maxlength="16">
+        </div>
+        <div class="field">
+          <label for="font">書体</label>
+          <select id="font">
+            <option value="Impact, 'Arial Black', sans-serif">Impact 系（太ゴシック）</option>
+            <option value="Georgia, 'Times New Roman', serif">セリフ系</option>
+            <option value="'Trebuchet MS', Verdana, sans-serif">丸みゴシック系</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ 出力側 ============ -->
+    <div>
+      <div class="card">
+        <h2>絵型プレビュー（自動生成）</h2>
+        <div class="views">
+          <figure class="view"><div id="svg-front"></div><figcaption>前身</figcaption></figure>
+          <figure class="view"><div id="svg-back"></div><figcaption>後身</figcaption></figure>
+          <figure class="view"><div id="svg-pants"></div><figcaption>パンツ</figcaption></figure>
+        </div>
+        <div class="btns">
+          <button class="btn" id="dl-svg">絵型SVGを書き出し</button>
+          <button class="btn sub" id="copy-spec">入稿仕様をコピー</button>
+        </div>
+        <p class="note">SVG＝ベクターデータなので、Illustratorでそのまま開いて仕上げ・トレス入稿に回せます。</p>
+      </div>
+
+      <div class="card">
+        <h2>入稿仕様（自動生成）</h2>
+        <table class="spec" id="spec-table"></table>
+        <p class="note">色番（生地・インク）の列はトレス様の色見本と紐付ける想定の空欄です。ここが埋まれば仕様書の手書きが不要になります。</p>
+      </div>
+
+      <div class="card">
+        <h2>自動チェック</h2>
+        <div class="checks" id="checks"></div>
+      </div>
+
+      <div class="card">
+        <h2>トレス入稿メモ（テキスト自動生成）</h2>
+        <pre class="hand" id="handoff"></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   ベース型定義：ここに型を追加するだけで選択肢が増える
+   c1=身生地 / c2=切替・差し色 / c3=ライン / c4=番号・文字
+   ============================================================ */
+const BODY  = "M184,54 L126,52 Q92,86 62,132 Q84,158 104,178 Q112,150 118,132 Q114,230 112,320 Q210,332 308,320 Q306,230 302,132 Q308,150 316,178 Q336,158 358,132 Q328,86 294,52 L236,54 Q210,90 184,54 Z";
+const SLV_L = "M126,52 Q92,86 62,132 Q84,158 104,178 Q112,150 118,132 Q122,90 126,52 Z";
+const SLV_R = "M294,52 Q328,86 358,132 Q336,158 316,178 Q308,150 302,132 Q298,90 294,52 Z";
+
+const BASES = [
+  { code: "D-01", name: "プレーン",       parts: (c) => `` },
+  { code: "D-02", name: "袖切替",         parts: (c) => `
+      <path d="${SLV_L}" fill="${c.c2}"/><path d="${SLV_R}" fill="${c.c2}"/>` },
+  { code: "D-03", name: "ショルダー",     parts: (c) => `
+      <path d="M40,40 H380 V96 H40 Z" fill="${c.c2}" clip-path="url(#clipBody)"/>
+      <path d="M40,100 H380 V110 H40 Z" fill="${c.c3}" clip-path="url(#clipBody)"/>` },
+  { code: "D-04", name: "縦ストライプ",   parts: (c) => {
+      let s = "";
+      for (const x of [132, 176, 220, 264]) s += `<path d="M${x},40 H${x + 22} V336 H${x} Z" fill="${c.c2}" clip-path="url(#clipBody)"/>`;
+      return s; } },
+  { code: "D-05", name: "横ボーダー",     parts: (c) => {
+      let s = "";
+      for (const y of [120, 180, 240, 300]) s += `<path d="M40,${y} H380 V${y + 28} H40 Z" fill="${c.c2}" clip-path="url(#clipBody)"/>`;
+      return s; } },
+  { code: "D-06", name: "斜め切替",       parts: (c) => `
+      <path d="M40,240 L380,150 L380,345 L40,345 Z" fill="${c.c2}" clip-path="url(#clipBody)"/>
+      <path d="M40,240 L380,150" stroke="${c.c3}" stroke-width="8" fill="none" clip-path="url(#clipBody)"/>` },
+  { code: "D-07", name: "Vカット",        parts: (c) => `
+      <path d="M118,48 L210,230 L302,48 L256,48 L210,150 L164,48 Z" fill="${c.c2}" clip-path="url(#clipBody)"/>` },
+  { code: "D-08", name: "サイドライン",   parts: (c) => `
+      <path d="${SLV_L}" fill="${c.c2}"/><path d="${SLV_R}" fill="${c.c2}"/>
+      <path d="M120,132 L140,132 L134,324 L112,324 Z" fill="${c.c2}" clip-path="url(#clipBody)"/>
+      <path d="M300,132 L280,132 L286,324 L308,324 Z" fill="${c.c2}" clip-path="url(#clipBody)"/>
+      <path d="M126,142 L133,142 L129,322 L121,322 Z" fill="${c.c3}" clip-path="url(#clipBody)"/>
+      <path d="M294,142 L287,142 L291,322 L299,322 Z" fill="${c.c3}" clip-path="url(#clipBody)"/>` }
+];
+
+const COLOR_DEFS = [
+  { key: "c1", name: "身生地",      def: "#1b3a8c" },
+  { key: "c2", name: "切替・差し色", def: "#e23b2e" },
+  { key: "c3", name: "ライン",      def: "#ffffff" },
+  { key: "c4", name: "番号・文字",  def: "#ffffff" }
+];
+
+const PRESETS = [
+  { name: "ネイビー×レッド",   c: ["#1b3a8c", "#e23b2e", "#ffffff", "#ffffff"] },
+  { name: "ブラック×ゴールド", c: ["#1a1a1a", "#c8a24a", "#ffffff", "#c8a24a"] },
+  { name: "ホワイト×ネイビー", c: ["#f2f2f2", "#16295e", "#c8102e", "#16295e"] },
+  { name: "ロイヤル×ホワイト", c: ["#0a4bc4", "#ffffff", "#0a2d70", "#ffffff"] },
+  { name: "レッド×ブラック",   c: ["#c8102e", "#1a1a1a", "#ffffff", "#ffffff"] },
+  { name: "グリーン×ホワイト", c: ["#0f6b3a", "#ffffff", "#0a4526", "#ffffff"] }
+];
+
+const state = {
+  base: 1,
+  colors: { c1: "#1b3a8c", c2: "#e23b2e", c3: "#ffffff", c4: "#ffffff" },
+  team: "FC HIYOSHI", num: "10", player: "TANAKA", sponsor: "HIYOSHI",
+  font: "Impact, 'Arial Black', sans-serif"
+};
+
+/* ---------- SVG 組み立て ---------- */
+function defs() {
+  return `<defs><clipPath id="clipBody"><path d="${BODY}"/></clipPath>
+    <path id="archPath" d="M140,172 Q210,112 280,172"/></defs>`;
+}
+function shell(c) {
+  return `<path d="${BODY}" fill="${c.c1}" stroke="#00000022" stroke-width="1.5"/>`;
+}
+function trims(c) {
+  return `
+    <path d="M184,54 Q210,90 236,54" fill="none" stroke="${c.c2}" stroke-width="10"/>
+    <path d="M62,132 Q84,158 104,178" fill="none" stroke="${c.c3}" stroke-width="7"/>
+    <path d="M358,132 Q336,158 316,178" fill="none" stroke="${c.c3}" stroke-width="7"/>
+    <path d="${BODY}" fill="none" stroke="#00000033" stroke-width="1.5"/>`;
+}
+function jerseyFront() {
+  const c = state.colors, f = state.font;
+  return `<svg viewBox="0 0 420 356" xmlns="http://www.w3.org/2000/svg">${defs()}
+    ${shell(c)}
+    ${BASES[state.base].parts(c)}
+    ${trims(c)}
+    <rect x="150" y="132" width="42" height="48" rx="4" fill="none" stroke="${c.c4}" stroke-width="2" stroke-dasharray="5 4"/>
+    <text x="171" y="161" font-size="10" fill="${c.c4}" text-anchor="middle" font-family="sans-serif">EMBLEM</text>
+    <text x="264" y="170" font-size="30" fill="${c.c4}" text-anchor="middle" font-family="${f}">${esc(state.num)}</text>
+    <text x="210" y="248" font-size="26" fill="${c.c4}" text-anchor="middle" font-family="${f}" letter-spacing="2">${esc(state.sponsor)}</text>
+  </svg>`;
+}
+function jerseyBack() {
+  const c = state.colors, f = state.font;
+  return `<svg viewBox="0 0 420 356" xmlns="http://www.w3.org/2000/svg">${defs()}
+    ${shell(c)}
+    ${BASES[state.base].parts(c)}
+    ${trims(c)}
+    <text font-size="21" fill="${c.c4}" font-family="${f}" letter-spacing="1.5">
+      <textPath href="#archPath" startOffset="50%" text-anchor="middle">${esc(state.team)}</textPath>
+    </text>
+    <text x="210" y="272" font-size="112" fill="${c.c4}" text-anchor="middle" font-family="${f}">${esc(state.num)}</text>
+    <text x="210" y="304" font-size="18" fill="${c.c4}" text-anchor="middle" font-family="${f}" letter-spacing="2">${esc(state.player)}</text>
+  </svg>`;
+}
+function pants() {
+  const c = state.colors, f = state.font;
+  const P = "M110,34 L310,34 L318,192 L232,192 L210,124 L188,192 L102,192 Z";
+  const side = `<path d="M118,48 L134,48 L144,190 L126,190 Z" fill="${c.c2}"/>
+                <path d="M302,48 L286,48 L276,190 L294,190 Z" fill="${c.c2}"/>`;
+  return `<svg viewBox="0 0 420 214" xmlns="http://www.w3.org/2000/svg">
+    <path d="${P}" fill="${c.c1}" stroke="#00000022" stroke-width="1.5"/>
+    ${state.base === 0 ? "" : side}
+    <path d="M110,40 L310,40" stroke="${c.c2}" stroke-width="13" fill="none"/>
+    <text x="262" y="124" font-size="38" fill="${c.c4}" text-anchor="middle" font-family="${f}">${esc(state.num)}</text>
+    <path d="${P}" fill="none" stroke="#00000033" stroke-width="1.5"/>
+  </svg>`;
+}
+function thumb(i) {
+  const c = state.colors;
+  return `<svg viewBox="46 36 328 306" xmlns="http://www.w3.org/2000/svg">${defs()}
+    ${shell(c)}${BASES[i].parts(c)}${trims(c)}</svg>`;
+}
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/* ---------- 自動チェック（視認性・色数） ---------- */
+function lum(hex) {
+  const v = [1, 3, 5].map(i => {
+    const n = parseInt(hex.substr(i, 2), 16) / 255;
+    return n <= 0.03928 ? n / 12.92 : Math.pow((n + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+}
+function contrast(a, b) {
+  const l1 = lum(a), l2 = lum(b);
+  return ((Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05));
+}
+function usedColors() {
+  const c = state.colors;
+  // 身生地・切替・番号文字＋袖口パイピング(常に使用)
+  return [...new Set([c.c1, c.c2, c.c4, c.c3].map(x => x.toLowerCase()))];
+}
+// 番号・文字が切替色の上にも乗る型（切替面積が広い型）
+const WIDE_SWITCH = ["D-04", "D-05", "D-06", "D-07"];
+
+/* ---------- 描画 ---------- */
+function render() {
+  document.getElementById("svg-front").innerHTML = jerseyFront();
+  document.getElementById("svg-back").innerHTML = jerseyBack();
+  document.getElementById("svg-pants").innerHTML = pants();
+
+  // ベース型サムネ
+  document.querySelectorAll(".base-btn").forEach((b, i) => {
+    b.classList.toggle("on", i === state.base);
+    b.querySelector(".th").innerHTML = thumb(i);
+  });
+
+  // HEX表示
+  COLOR_DEFS.forEach(d => { document.getElementById("hx-" + d.key).textContent = state.colors[d.key].toUpperCase(); });
+
+  // 仕様表
+  const c = state.colors;
+  const rows = [
+    ["身生地", "前身・後身・パンツ", c.c1],
+    ["切替・差し色", BASES[state.base].name + " の切替部／襟リブ", c.c2],
+    ["ライン", "袖口・パイピング・細ライン", c.c3],
+    ["番号・文字", "背番号／チーム名／選手名／スポンサー", c.c4]
+  ];
+  document.getElementById("spec-table").innerHTML =
+    `<tr><th>部位</th><th>適用箇所</th><th>色</th><th>HEX</th><th>指定色番</th></tr>` +
+    rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td>
+      <td><span class="swatch" style="background:${r[2]}"></span></td>
+      <td class="mono">${r[2].toUpperCase()}</td><td style="color:var(--text-sub)">—</td></tr>`).join("") +
+    `<tr><td>ベース型</td><td colspan="4">${BASES[state.base].code}　${BASES[state.base].name}</td></tr>`;
+
+  // 自動チェック
+  const code = BASES[state.base].code;
+  const wide = WIDE_SWITCH.includes(code);
+  const cb = contrast(c.c4, c.c1), cw = contrast(c.c4, c.c2), cs = contrast(c.c2, c.c1);
+  const n = usedColors().length;
+  const out = [];
+  out.push(chk("使用色数", `${n} 色（シルクスクリーンの版数目安：${n} 版）`));
+  out.push(chk("番号の視認性", `身生地との対比 ${cb.toFixed(1)} : 1${wide ? `／切替色との対比 ${cw.toFixed(1)} : 1` : ""}`));
+  out.push(chk("切替の判別", `身生地との対比 ${cs.toFixed(1)} : 1`));
+  if (cb < 3) out.push(`<div class="alert">番号・文字色が身生地に対して弱く、遠目で視認しづらい配色です。縁取り（フチ）を入れるか色を変更してください。</div>`);
+  if (wide && cw < 3) out.push(`<div class="alert">${BASES[state.base].name}は切替面積が広く、番号・文字が切替色に埋もれます（対比 ${cw.toFixed(1)} : 1）。番号にフチを付けるか、番号色を切替色と変えてください。</div>`);
+  if (cs < 1.6) out.push(`<div class="alert">切替色が身生地とほぼ同じ明度です。絵型上で切替が判別できません。</div>`);
+  if (n >= 5) out.push(`<div class="alert">色数が多く版数・コストが上がります。昇華転写でなければ色を絞る検討を。</div>`);
+  document.getElementById("checks").innerHTML = out.join("");
+
+  // 入稿メモ
+  document.getElementById("handoff").textContent =
+`【フルオーダーユニフォーム 入稿仕様】
+ベース型 : ${BASES[state.base].code} ${BASES[state.base].name}
+身生地   : ${c.c1.toUpperCase()}
+切替色   : ${c.c2.toUpperCase()}
+ライン   : ${c.c3.toUpperCase()}
+番号文字 : ${c.c4.toUpperCase()}（書体：${document.getElementById("font").selectedOptions[0].textContent}）
+使用色数 : ${n} 色
+
+前身 : 左胸エンブレム／右胸 番号（小）／中央 ${state.sponsor || "（なし）"}
+後身 : アーチ ${state.team || "（なし）"}／背番号 ${state.num || "－"}／選手名 ${state.player || "（なし）"}
+パンツ: 右腿 番号／サイドライン（型に準ずる）
+
+※サイズ展開・枚数・納期は案件データから自動転記
+※色番はトレス様色見本と突き合わせ（要記入）`;
+}
+function chk(label, text) {
+  return `<div class="chk"><b>${label}</b><span>${text}</span></div>`;
+}
+
+/* ---------- UI 構築 ---------- */
+document.getElementById("bases").innerHTML = BASES.map((b, i) =>
+  `<button class="base-btn" data-i="${i}"><div class="th"></div><span>${b.code}<br>${b.name}</span></button>`).join("");
+document.querySelectorAll(".base-btn").forEach(b =>
+  b.addEventListener("click", () => { state.base = +b.dataset.i; render(); }));
+
+document.getElementById("colors").innerHTML = COLOR_DEFS.map(d =>
+  `<div class="color-row">
+     <input type="color" id="cp-${d.key}" value="${d.def}">
+     <span class="nm">${d.name}</span>
+     <span class="hx" id="hx-${d.key}">${d.def.toUpperCase()}</span>
+   </div>`).join("");
+COLOR_DEFS.forEach(d => {
+  document.getElementById("cp-" + d.key).addEventListener("input", e => {
+    state.colors[d.key] = e.target.value; render();
+  });
+});
+
+document.getElementById("presets").innerHTML = PRESETS.map((p, i) =>
+  `<button class="preset" data-i="${i}">
+     <i style="background:linear-gradient(90deg,${p.c[0]} 0 50%,${p.c[1]} 50% 100%)"></i>${p.name}
+   </button>`).join("");
+document.querySelectorAll(".preset").forEach(b =>
+  b.addEventListener("click", () => {
+    const p = PRESETS[+b.dataset.i];
+    COLOR_DEFS.forEach((d, i) => {
+      state.colors[d.key] = p.c[i];
+      document.getElementById("cp-" + d.key).value = p.c[i];
+    });
+    render();
+  }));
+
+[["team", "team"], ["num", "num"], ["player", "player"], ["sponsor", "sponsor"]].forEach(([id, key]) => {
+  document.getElementById(id).addEventListener("input", e => { state[key] = e.target.value; render(); });
+});
+document.getElementById("font").addEventListener("change", e => { state.font = e.target.value; render(); });
+
+document.getElementById("dl-svg").addEventListener("click", () => {
+  const svg = `<svg viewBox="0 0 860 580" xmlns="http://www.w3.org/2000/svg">
+    <g>${jerseyFront().replace(/<\/?svg[^>]*>/g, "")}</g>
+    <g transform="translate(430,0)">${jerseyBack().replace(/<\/?svg[^>]*>/g, "")}</g>
+    <g transform="translate(215,360)">${pants().replace(/<\/?svg[^>]*>/g, "")}</g>
+  </svg>`;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+  a.download = `絵型_${BASES[state.base].code}_${state.team || "team"}.svg`;
+  a.click();
+});
+document.getElementById("copy-spec").addEventListener("click", async () => {
+  await navigator.clipboard.writeText(document.getElementById("handoff").textContent);
+  const b = document.getElementById("copy-spec");
+  b.textContent = "コピーしました";
+  setTimeout(() => { b.textContent = "入稿仕様をコピー"; }, 1600);
+});
+
+render();
+</script>
+</body>
+</html>
