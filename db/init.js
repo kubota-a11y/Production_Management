@@ -333,6 +333,25 @@ function initDatabase(dbFile = dbPath) {
   if (!projectColumns.includes('ops_stage_since')) {
     db.prepare(`ALTER TABLE projects ADD COLUMN ops_stage_since TEXT`).run();
   }
+  // 「デザイン案件全般」ボードに載せるかどうかのフラグ(2026-08-03)。
+  // 準備項目からの推測ではなく、案件登録時にチェックした案件だけを載せる(社長判断)
+  if (!projectColumns.includes('is_design_ops')) {
+    db.prepare(`ALTER TABLE projects ADD COLUMN is_design_ops INTEGER NOT NULL DEFAULT 0`).run();
+    // 導入前から表示されていた案件が消えないよう、旧条件(デザイン系準備項目を持つ or 社内デザイン案件)に
+    // 当てはまる未完了案件へ1回だけフラグを立てる。以降は登録時のチェックのみで決まる
+    const migrated = db.prepare(`
+      UPDATE projects SET is_design_ops = 1
+      WHERE ops_stage != 'DONE' AND (
+        project_kind = 'INTERNAL_DESIGN'
+        OR id IN (
+          SELECT cpi.case_id FROM case_preparation_items cpi
+          JOIN preparation_item_master pim ON cpi.preparation_item_id = pim.id
+          WHERE pim.is_designer_item = 1 OR pim.code = 'DESIGN_ROUGH'
+        )
+      )
+    `).run();
+    console.log(`✓ projects.is_design_ops を追加しました(既存の${migrated.changes}件にフラグを設定)`);
+  }
 
   // デザイナーの日別モード申告(この日はデザインに専念したい等)。本人がマイスケジュールボードで
   // 「デザイン」「デザイン関連業務」を選び、社内の週間スケジュールボードにバッジ表示される

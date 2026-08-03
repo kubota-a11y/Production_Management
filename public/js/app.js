@@ -1061,6 +1061,10 @@ const app = {
         this.setCheckboxGroupValues(form, 'prep_items', project.prep_items);
         this.setCheckboxGroupValues(form, 'required_skill_tags', project.required_skill_tags);
         form.elements['project_kind'].value = project.project_kind || 'NORMAL';
+        // 「デザイン案件全般」チェックの復元(このフラグが1の案件だけが専用ボードに載る)
+        if (form.elements['is_design_ops']) {
+          form.elements['is_design_ops'].checked = !!project.is_design_ops;
+        }
       }
 
       try {
