@@ -84,6 +84,17 @@
     .stat .n { font-size: 1.4rem; font-weight: 800; }
     .stat .l { font-size: .74rem; color: #64748b; margin-top: 2px; }
 
+    /* クチコミのお願い(任意。特典の条件ではない) */
+    .review { text-align: center; }
+    .review-tx { font-size: .85rem; color: #475569; line-height: 1.9; }
+    .btn-review {
+      display: block; margin-top: 12px; padding: 12px; border-radius: 8px;
+      background: #fff; border: 1.5px solid #1d4ed8; color: #1d4ed8;
+      font-size: .95rem; font-weight: 700; text-decoration: none;
+    }
+    .btn-review:hover { background: #eff6ff; }
+    .review-note { font-size: .74rem; color: #94a3b8; margin-top: 8px; }
+
     .foot { text-align: center; font-size: .8rem; color: #64748b; margin-top: 24px; line-height: 1.9; }
     .foot a { color: #1d4ed8; font-weight: 700; }
   </style>
@@ -149,6 +160,21 @@
         <div class="stat"><p class="n" id="stTotal">0</p><p class="l">ご相談・お申し込み</p></div>
         <div class="stat"><p class="n" id="stConfirmed">0</p><p class="l">うち成約</p></div>
       </div>
+      <!-- クチコミのお願い(任意)。
+           Googleのポリシーで「特典と引き換えのクチコミ」は禁止されているため、
+           特典の条件にはせず、あくまでお願いとして置く(2026-08-03 社長決定) -->
+      <h2 class="sec-t">よろしければ、クチコミを</h2>
+      <div class="card review">
+        <p class="review-tx">
+          Googleのクチコミは、これから探す方が当社を見つける手がかりになります。
+          仕上がりにご満足いただけましたら、一言だけでも書いていただけるとうれしいです。
+        </p>
+        <a class="btn-review" href="https://g.page/r/CeAlcLt-GhUNEBM/review" target="_blank" rel="noopener">
+          Googleにクチコミを書く
+        </a>
+        <p class="review-note">※ クチコミの有無は特典に一切関係ありません。任意のお願いです。</p>
+      </div>
+
       <p class="foot">
         特典はご紹介先のご注文確定(ご入金)をもって適用されます。<br>
         ご不明な点は お電話 <a href="tel:055-928-7609">055-928-7609</a> または公式LINEへお気軽に。
