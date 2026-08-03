@@ -23,10 +23,13 @@
       <section>
         <div class="list-controls">
           <button class="btn btn-primary" onclick="referralApp.openModal()">➕ 紹介コードを発行</button>
+          <button class="btn btn-secondary" id="sync-sheet-btn" onclick="referralApp.syncSheet()">📋 台帳へ全件送信</button>
           <p class="empty-notice">
             発行したコードを紹介カードに書いてお渡しします。受け取った方は紹介ページ
             (<span id="referral-page-url">—</span>)でコードを入力すると、自分の特典と共有用リンクを確認できます。
-            このコードは注文フォームの「紹介コード」欄と共通です。
+            このコードは注文フォームの「紹介コード」欄と共通です。<br>
+            発行すると、スプレッドシートの「紹介コード台帳」タブへ自動で1行追記されます。
+            連携を始める前に発行した分は「台帳へ全件送信」で入れられます(既にある行は重複しません)。
           </p>
         </div>
 

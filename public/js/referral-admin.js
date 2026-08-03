@@ -95,6 +95,27 @@ const referralApp = {
     });
   },
 
+  // 発行済みコードをまとめて紹介コード台帳(スプレッドシート)へ送る。
+  // 連携を入れる前に発行した分の棚卸しと、送信に失敗した分の入れ直し用。
+  // シート側で既存コードはスキップされるため、何度押しても重複しない
+  async syncSheet() {
+    const btn = document.getElementById('sync-sheet-btn');
+    const label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '送信中...';
+    try {
+      const res = await fetch('/api/referral-partners/sync-sheet', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      HiUI.toast(data.ok ? `台帳へ送信しました(${data.message})` : (data.error || '台帳へ送信できませんでした'));
+    } catch (err) {
+      console.error('台帳への送信に失敗:', err);
+      HiUI.toast('台帳へ送信できませんでした');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = label;
+    }
+  },
+
   async copy(url) {
     try {
       await navigator.clipboard.writeText(url);
