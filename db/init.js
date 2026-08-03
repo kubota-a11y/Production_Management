@@ -317,6 +317,23 @@ function initDatabase(dbFile = dbPath) {
     db.prepare(`ALTER TABLE preparation_item_master ADD COLUMN is_designer_item INTEGER NOT NULL DEFAULT 0`).run();
   }
 
+  // オペレーション段階(2026-08-03)。オペレーション担当(山本さん)のボード用。
+  // 既存の projects.status は生産工程の軸なので触らず、デザイン案件の進行を別軸で持つ。
+  //  ops_stage       BRIEF/DESIGN/REVIEW/PRODUCTION/BILLING/DONE
+  //  ops_wait_on     REVIEW段階のみ YAMAMOTO(社内が動く番)/CUSTOMER(お客様の返事待ち)
+  //  ops_stage_since 現在の段階に入った日時(滞留日数の表示に使う)
+  const projectColumns = db.prepare(`PRAGMA table_info('projects')`).all().map(col => col.name);
+  if (!projectColumns.includes('ops_stage')) {
+    db.prepare(`ALTER TABLE projects ADD COLUMN ops_stage TEXT NOT NULL DEFAULT 'BRIEF'`).run();
+    console.log('✓ projects.ops_stage を追加しました');
+  }
+  if (!projectColumns.includes('ops_wait_on')) {
+    db.prepare(`ALTER TABLE projects ADD COLUMN ops_wait_on TEXT`).run();
+  }
+  if (!projectColumns.includes('ops_stage_since')) {
+    db.prepare(`ALTER TABLE projects ADD COLUMN ops_stage_since TEXT`).run();
+  }
+
   // デザイナーの日別モード申告(この日はデザインに専念したい等)。本人がマイスケジュールボードで
   // 「デザイン」「デザイン関連業務」を選び、社内の週間スケジュールボードにバッジ表示される
   db.exec(`
@@ -403,7 +420,12 @@ function initDatabase(dbFile = dbPath) {
       ['OUTSOURCE_DESIGN_DATA', '外注用デザインデータ作成'],
       ['PROMO_DESIGN_DATA', '販促物用データ作成'],
       ['WORK_INSTRUCTION_CREATION', '作業指示書作成'],
-      ['QUOTATION_CREATION', '見積書作成']
+      ['QUOTATION_CREATION', '見積書作成'],
+      // 2026-08-03 オペレーションボード導入で追加。
+      // デザインラフ作成 = オペレーション担当(山本さん)が描いてデザイナーへ渡す下絵。デザイナー専用項目にはしない
+      ['DESIGN_ROUGH', 'デザインラフ作成'],
+      // 初稿提出 = デザイナーがこれを完了すると、オペ段階が「制作」→「確認」へ自動で進む
+      ['FIRST_DRAFT_SUBMIT', '初稿提出']
     ];
     const existsStmt = db.prepare(`SELECT COUNT(*) as c FROM preparation_item_master WHERE code = ?`);
     const maxOrder = db.prepare(`SELECT COALESCE(MAX(display_order), 0) as m FROM preparation_item_master`).get().m;
@@ -421,7 +443,9 @@ function initDatabase(dbFile = dbPath) {
     // 案件種別を問わず、案件登録時にデザイン担当のマイスケジュールボードへ自動で入る
     const designerItemCodes = [
       'OUTSOURCE_DESIGN_DATA', 'PROMO_DESIGN_DATA', 'DTF_DATA_CREATION',
-      'WORK_INSTRUCTION_CREATION', 'QUOTATION_CREATION'
+      'WORK_INSTRUCTION_CREATION', 'QUOTATION_CREATION',
+      // 初稿提出はデザイナー本人が完了操作をするのでマイボードに自動で入れる(2026-08-03)
+      'FIRST_DRAFT_SUBMIT'
     ];
     const flagged = db.prepare(`
       UPDATE preparation_item_master SET is_designer_item = 1
@@ -495,6 +519,27 @@ function initDatabase(dbFile = dbPath) {
       if (backfilled.changes > 0) {
         console.log(`✓ デザイン系の準備項目 ${backfilled.changes}件をデザイン担当(従業員#${designerLink.employee_id})へ割り当てました`);
       }
+    }
+  }
+
+  // オペレーション段階の初期値を既存案件へ振る(2026-08-03、1回だけ)。
+  // ops_stage_since が未設定の案件を対象にするので冪等。生産工程のステータスから当てはめる:
+  //   納品済み → DONE / 準備完了以降 → PRODUCTION / それ以前 → BRIEF
+  // (デザイン案件かどうかの絞り込みは表示側で行うため、ここでは全案件に入れておく)
+  {
+    const now = new Date().toISOString();
+    const seeded = db.prepare(`
+      UPDATE projects
+      SET ops_stage = CASE
+            WHEN status = 'COMPLETED' THEN 'DONE'
+            WHEN status IN ('PREP_COMPLETE', 'IN_PROGRESS', 'INSPECTION', 'DELIVERED') THEN 'PRODUCTION'
+            ELSE 'BRIEF'
+          END,
+          ops_stage_since = ?
+      WHERE ops_stage_since IS NULL
+    `).run(now);
+    if (seeded.changes > 0) {
+      console.log(`✓ 既存案件 ${seeded.changes}件にオペレーション段階の初期値を設定しました`);
     }
   }
 

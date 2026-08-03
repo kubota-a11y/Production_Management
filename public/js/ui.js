@@ -18,6 +18,7 @@ const HiUI = {
   navDaily: [
     { key: 'schedule', href: '/schedule', label: '🗓️ スケジュール' },
     { key: 'designer-board', href: '/designer', label: '🎨 デザインの予定' },
+    { key: 'ops', href: '/ops', label: '🧭 オペレーション' },
     { key: 'delivery-history', href: '/delivery-history', label: '📦 納品履歴' },
     { key: 'customers', href: '/customers', label: '📇 顧客台帳' },
     { key: 'manual', href: '/manual', label: '📖 使い方' },

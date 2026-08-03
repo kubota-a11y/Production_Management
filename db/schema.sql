@@ -141,7 +141,22 @@ CREATE TABLE IF NOT EXISTS ai_extracted_intake (
   FOREIGN KEY (line_user_id) REFERENCES line_users(line_user_id)
 );
 
+-- 案件ごとのデザインラフ(オペレーション担当が描いてデザイナーへ渡す下絵)。
+-- デザイナーは社外からトークンURLで見るためNASではなくサーバー内に置き、HTTP経由で配信する
+CREATE TABLE IF NOT EXISTS case_rough_files (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  case_id INTEGER NOT NULL,
+  original_name TEXT NOT NULL,
+  stored_name TEXT NOT NULL,
+  mime_type TEXT,
+  byte_size INTEGER,
+  note TEXT,
+  uploaded_at TEXT NOT NULL,
+  FOREIGN KEY (case_id) REFERENCES projects(id)
+);
+
 -- インデックス
+CREATE INDEX IF NOT EXISTS idx_case_rough_files_case_id ON case_rough_files(case_id);
 CREATE INDEX IF NOT EXISTS idx_projects_deadline ON projects(deadline);
 CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);
 CREATE INDEX IF NOT EXISTS idx_projects_assigned_staff ON projects(assigned_staff_id);

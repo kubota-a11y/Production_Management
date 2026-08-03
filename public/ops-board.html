@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>オペレーション - Production Management</title>
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="stylesheet" href="styles/ops-board.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- ヘッダー(ナビゲーションの中身は js/ui.js が data-nav を見て生成する) -->
+    <header class="app-header">
+      <div class="header-content">
+        <div>
+          <h1 class="app-title">🧭 オペレーション</h1>
+          <p class="app-subtitle">デザイン案件が今どこで止まっているか</p>
+        </div>
+      </div>
+      <nav class="header-buttons" data-nav="ops" aria-label="画面の切り替え"></nav>
+    </header>
+
+    <main class="main-content">
+      <!-- 今日やること -->
+      <section id="ops-today-section">
+        <h2 class="ops-section-title">📌 今日やること</h2>
+        <div id="ops-today" class="ops-today-list">
+          <p class="folder-loading">読み込み中…</p>
+        </div>
+      </section>
+
+      <!-- パイプライン -->
+      <section id="ops-pipeline-section">
+        <h2 class="ops-section-title">🗂 案件パイプライン</h2>
+        <p class="empty-notice" id="ops-pipeline-hint">
+          カードを押すと段階の変更・デザインラフの受け渡しができます。
+        </p>
+        <label style="display:inline-flex;align-items:center;gap:8px;margin-bottom:12px;font-size:13px;">
+          <input type="checkbox" id="ops-include-done"> 完了した案件も表示する
+        </label>
+        <div id="ops-pipeline" class="ops-pipeline"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- 案件のオペレーション操作 -->
+  <div id="ops-case-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="ops-modal-title">案件</h2>
+        <button class="btn-close" onclick="opsBoardApp.closeCaseModal()" aria-label="閉じる">✕</button>
+      </div>
+
+      <div class="project-form">
+        <p class="empty-notice" id="ops-modal-summary"></p>
+
+        <div class="form-group">
+          <span class="form-label">いまの段階</span>
+          <div class="ops-stage-picker" id="ops-stage-picker"></div>
+        </div>
+
+        <div class="form-group" id="ops-wait-group" hidden>
+          <span class="form-label">確認の待ち先</span>
+          <div class="ops-wait-picker" id="ops-wait-picker"></div>
+          <p class="empty-notice" id="ops-wait-hint"></p>
+        </div>
+
+        <div class="form-group">
+          <span class="form-label">デザインラフ(鈴木さんへ渡す下絵)</span>
+          <div class="ops-rough-list" id="ops-rough-list"></div>
+          <input type="file" id="ops-rough-input" accept=".jpg,.jpeg,.png,.pdf,.heic,.webp,.gif" multiple>
+          <p class="empty-notice">
+            鈴木さんは会社のNASを見られないため、ラフはここに添付します。添付するとマイスケジュールボードから開けるようになります(1ファイル15MBまで・一度に5件まで)。
+          </p>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" onclick="opsBoardApp.openCaseDetail()">案件の詳細を見る</button>
+          <button type="button" class="btn btn-primary" onclick="opsBoardApp.closeCaseModal()">閉じる</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/ui.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/nas-browse.js"></script>
+  <script src="js/case-detail.js"></script>
+  <script src="js/ops-board.js"></script>
+</body>
+</html>

@@ -55,6 +55,7 @@ const board = {
       this.scheduled = data.scheduled;
       this.unscheduled = data.unscheduled;
       this.sheetTodos = data.sheet_todos ?? null;
+      this.roughFiles = data.rough_files || {};
       this.designerName = data.designer_name;
       this.selectedItemId = null;
       this.selectedTodoText = null;
@@ -307,6 +308,16 @@ const board = {
     await this.load();
   },
 
+  // 社内(山本さん)が添付したデザインラフへのリンク。会社のNASを見られなくても中身を開ける
+  roughLinksHtml(caseId) {
+    const files = (this.roughFiles || {})[caseId];
+    if (!files || !files.length) return '';
+    const links = files.map(f =>
+      `<a href="${f.url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${this.esc(f.original_name)}</a>`
+    ).join('　');
+    return `<div class="chip-meta chip-rough">🖼 ラフ: ${links}</div>`;
+  },
+
   chipHtml(i) {
     const done = i.status === '完了';
     const selected = this.selectedItemId === i.id;
@@ -320,6 +331,7 @@ const board = {
         <div class="chip-main">
           <div class="chip-name">${this.esc(i.project_name)}</div>
           <div class="chip-meta">${this.esc(i.preparation_item_name)} ｜ 納期 <span class="${soon ? 'chip-deadline-soon' : ''}">${deadline}</span></div>
+          ${this.roughLinksHtml(i.case_id)}
         </div>
         <div class="chip-controls" onclick="event.stopPropagation()">
           <select class="chip-date" onchange="board.onItemDateChange(${i.id}, this.value)">

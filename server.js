@@ -12,6 +12,7 @@ const { registerTeamOrderRoutes } = require('./lib/team-order');
 const { registerPartnerPortalRoutes } = require('./lib/partner-portal');
 const { registerPartnerOrderRoutes } = require('./lib/partner-order');
 const { registerDesignerBoardRoutes } = require('./lib/designer-board');
+const { registerOpsBoardRoutes, markBillingOnDeliver } = require('./lib/ops-board');
 const { registerOrderStatusRoutes } = require('./lib/order-status');
 const { registerReferralRoutes } = require('./lib/referral');
 const { registerWorksRoutes } = require('./lib/works-publish');
@@ -1679,6 +1680,8 @@ app.post('/api/projects/:id/deliver', (req, res) => {
       `).run(req.params.id, delivered_date, delivery_method, delivered_by_staff_id || null, delivered_by_employee_id || null, now);
       db.prepare(`UPDATE projects SET status='COMPLETED', updated_at=? WHERE id=?`).run(now, req.params.id);
     })();
+    // 納品したらオペレーション段階を「請求」へ進める(請求済みの記録は山本さんがボードで行う)
+    markBillingOnDeliver(db, parseInt(req.params.id, 10));
     res.json({ message: 'Project marked as delivered' });
   } catch (error) {
     sendServerError(res, req, error);
@@ -2528,9 +2531,25 @@ app.post('/api/projects/:projectId/preparation-items', (req, res) => {
       INSERT INTO case_preparation_items (case_id, preparation_item_id, status, assigned_staff_id)
       VALUES (?, ?, '未着手', ?)
     `);
+    // デザインが絡む案件には「初稿提出」を自動で足す(2026-08-03 社長判断)。
+    // これが無いとオペレーションボードの ②制作 → ③確認 の自動遷移が起きず、
+    // チェックの入れ忘れに気づけないまま案件が制作段階に居座り続けるため。
+    // 対象: 社内デザイン案件、またはデザイン担当専用項目が1つでも選ばれた案件
+    const targetItemIds = [...preparation_item_ids];
+    const firstDraft = db.prepare(
+      `SELECT id FROM preparation_item_master WHERE code = 'FIRST_DRAFT_SUBMIT'`
+    ).get();
+    if (firstDraft) {
+      const hasDesignWork = isInternalDesign || preparation_item_ids.some(id => designerItemIds.has(id));
+      if (hasDesignWork && !targetItemIds.includes(firstDraft.id)) {
+        targetItemIds.push(firstDraft.id);
+        console.log(`[準備項目] 案件#${caseId}: デザイン案件のため「初稿提出」を自動追加しました`);
+      }
+    }
+
     let createdCount = 0;
     let designerCount = 0;
-    preparation_item_ids.forEach(itemId => {
+    targetItemIds.forEach(itemId => {
       if (!existingIds.has(itemId)) {
         const toDesigner = designerEmployeeId && (isInternalDesign || designerItemIds.has(itemId));
         insertStmt.run(caseId, itemId, toDesigner ? designerEmployeeId : null);
@@ -3150,6 +3169,10 @@ registerPartnerOrderRoutes(app, db);
 // リモートのデザイン担当が自分の準備項目をD&Dで日付調整・完了操作・稼働申告できる。
 registerDesignerBoardRoutes(app, db, { syncCaseStatus: syncCaseStatusForPreparationItems });
 registerOrderStatusRoutes(app, db);
+
+// オペレーション担当(山本さん)向けボード /ops。デザイン案件が「いま誰待ちで止まっているか」を
+// 5段階で管理し、デザインラフの受け渡しもここで行う。社内専用(外部公開ガードの許可対象外)
+registerOpsBoardRoutes(app, db);
 
 // 紹介キャンペーン(非公開ページ /referral + 社内の発行画面 /referral-admin)。
 // 会社が発行した紹介コードを入力した人だけが、自分の特典・共有用リンクを見られる。

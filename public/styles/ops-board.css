@@ -1,0 +1,202 @@
+/* オペレーションボード(/ops)専用のレイアウト。色・余白・角丸は tokens.css のトークンだけを使う */
+
+.ops-section-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text-color);
+  margin: var(--space-6) 0 var(--space-3);
+}
+
+#ops-today-section .ops-section-title { margin-top: 0; }
+
+/* ===== 今日やること ===== */
+.ops-today-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ops-today-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+}
+
+.ops-today-row .ops-today-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.ops-today-row .ops-today-title {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.ops-today-row .ops-today-reason {
+  font-size: var(--text-sm);
+  color: var(--text-subtle);
+  margin-top: var(--space-1);
+}
+
+/* ===== 段階バッジ ===== */
+.ops-badge {
+  display: inline-block;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ops-badge-brief { background: var(--purple-soft); color: var(--purple-text); }
+.ops-badge-design { background: var(--info-soft); color: var(--info-text); }
+.ops-badge-review-self { background: var(--warning-soft); color: var(--warning-text); }
+.ops-badge-review-customer { background: var(--gray-200); color: var(--gray-700); }
+.ops-badge-production { background: var(--primary-soft); color: var(--primary-darker); }
+.ops-badge-billing { background: var(--success-soft); color: var(--success-text); }
+.ops-badge-done { background: var(--gray-100); color: var(--text-muted); }
+.ops-badge-alert { background: var(--danger-soft); color: var(--danger-text); }
+
+/* ===== パイプライン ===== */
+.ops-pipeline {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-3);
+  align-items: start;
+}
+
+.ops-pipeline.with-done {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.ops-column {
+  background: var(--surface-muted);
+  border-radius: var(--radius-xl);
+  padding: var(--space-3);
+  min-height: 120px;
+}
+
+.ops-column-head {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-color);
+  margin-bottom: var(--space-1);
+}
+
+.ops-column-owner {
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  margin-bottom: var(--space-3);
+}
+
+.ops-card {
+  width: 100%;
+  text-align: left;
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-2);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.ops-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
+}
+
+.ops-card:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.ops-card-name {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.ops-card-customer {
+  font-size: var(--text-2xs);
+  color: var(--text-subtle);
+  margin-top: 2px;
+}
+
+.ops-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  margin-top: var(--space-2);
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+}
+
+.ops-card-meta .is-overdue { color: var(--danger-dark); font-weight: 600; }
+.ops-card-meta .is-stale { color: var(--warning-text); font-weight: 600; }
+
+/* ===== モーダル内 ===== */
+.ops-stage-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.ops-wait-picker {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.ops-rough-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.ops-rough-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+}
+
+.ops-rough-item a { flex: 1; min-width: 0; word-break: break-all; }
+
+.ops-rough-thumb {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+}
+
+/* タブレット・スマホ: 列を縦に積む */
+@media (max-width: 1180px) {
+  .ops-pipeline,
+  .ops-pipeline.with-done {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .ops-pipeline,
+  .ops-pipeline.with-done {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ops-today-row {
+    flex-wrap: wrap;
+  }
+}
