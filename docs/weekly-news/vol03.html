@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>社内システムお知らせ Vol.3(A4印刷用)</title>
+<style>
+  /* A4印刷用。Chromeのヘッドレス印刷でPDF化する(生成手順はdocs/weekly-news/README.md参照) */
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #1c1917;
+    --text: #44403c;
+    --muted: #78716c;
+    --hairline: #e7e2dc;
+    --accent-bg: #f5f2ee;
+    --ask-bg: #f2f6f3;
+    --ask-line: #cfdfd4;
+    --ask-text: #3f6b50;
+    --serif: "Hiragino Mincho ProN", "Yu Mincho", serif;
+    --sans: "Hiragino Sans", "Noto Sans JP", sans-serif;
+  }
+
+  body {
+    font-family: var(--sans);
+    color: var(--text);
+    line-height: 1.65;
+    font-size: 9pt;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .page {
+    width: 210mm; height: 297mm;
+    padding: 14mm 18mm 13mm;
+    page-break-after: always;
+    position: relative;
+    background: #fff;
+  }
+  .page:last-child { page-break-after: auto; }
+
+  /* ===== ヘッダー ===== */
+  .hero { text-align: center; margin-bottom: 5.5mm; }
+  .overline {
+    font-size: 7pt; letter-spacing: .32em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 2mm;
+  }
+  h1 {
+    font-family: var(--serif); font-size: 19pt; font-weight: 600;
+    letter-spacing: .12em; color: var(--ink);
+  }
+  .hero.sub h1 { font-size: 15pt; }
+  .divider { width: 12mm; height: .35mm; background: var(--ink); margin: 3.2mm auto; }
+  .lead { color: var(--muted); font-size: 8.4pt; }
+
+  .intro {
+    background: var(--accent-bg);
+    border-radius: 1.5mm;
+    padding: 3.2mm 5mm;
+    margin-bottom: 5.5mm;
+    font-size: 8.8pt;
+  }
+  .intro strong { color: var(--ink); }
+
+  /* ===== セクション ===== */
+  .sec { margin-bottom: 4.8mm; }
+  .sec-head {
+    display: flex; align-items: baseline; gap: 3mm;
+    border-bottom: .3mm solid var(--ink);
+    padding-bottom: 1.2mm; margin-bottom: 2mm;
+  }
+  .sec-head h2 {
+    font-family: var(--serif); font-size: 11.5pt; font-weight: 600;
+    letter-spacing: .08em; color: var(--ink);
+  }
+  .sec-head .sub { margin-left: auto; font-size: 7.2pt; color: var(--muted); letter-spacing: .06em; }
+
+  ul.items { list-style: none; }
+  ul.items li {
+    position: relative;
+    padding-left: 4.2mm;
+    margin-bottom: 1.1mm;
+  }
+  ul.items li::before {
+    content: ""; position: absolute; left: .6mm; top: 2mm;
+    width: 1.5mm; height: 1.5mm; border-radius: 50%;
+    background: var(--ink);
+  }
+  ul.items strong { color: var(--ink); font-weight: 600; }
+  .note { color: var(--muted); font-size: 8.2pt; }
+
+  /* ===== テーマ見出し ===== */
+  .theme {
+    display: inline-block;
+    font-size: 7pt; font-weight: 600; letter-spacing: .14em;
+    color: #fff; background: var(--ink);
+    padding: .4mm 2.6mm; border-radius: .8mm;
+    margin-right: 2mm; vertical-align: middle;
+  }
+
+  /* ===== 対象バッジ ===== */
+  .aud {
+    display: inline-block;
+    font-size: 6.8pt; font-weight: 600; letter-spacing: .1em;
+    padding: .3mm 2.2mm; border-radius: 3mm;
+    margin-left: 2mm; vertical-align: middle;
+    white-space: nowrap;
+  }
+  .aud-staff { border: .25mm solid var(--muted); color: var(--muted); background: #fff; }
+  .aud-all { border: .25mm solid var(--ask-line); color: var(--ask-text); background: var(--ask-bg); }
+
+  /* ===== お願いボックス ===== */
+  .ask {
+    background: var(--ask-bg);
+    border: .3mm solid var(--ask-line);
+    border-radius: 1.5mm;
+    padding: 3.2mm 5mm 2.8mm;
+    margin-top: 5mm;
+  }
+  .ask h3 {
+    font-family: var(--serif); font-size: 10.5pt; font-weight: 600;
+    letter-spacing: .1em; color: var(--ask-text); margin-bottom: 1.6mm;
+  }
+  .ask ul.items li::before { background: var(--ask-text); }
+
+  /* ===== フッター ===== */
+  .foot {
+    position: absolute; left: 18mm; right: 18mm; bottom: 9mm;
+    border-top: .3mm solid var(--hairline);
+    padding-top: 2mm;
+    display: flex; justify-content: space-between;
+    font-size: 7.2pt; color: var(--muted); letter-spacing: .06em;
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <header class="hero">
+    <div class="overline">HIYOSHI DX WEEKLY</div>
+    <h1>社内システムお知らせ</h1>
+    <div class="divider"></div>
+    <div class="lead">Vol.3 ─ 2026年8月3日発行 ─ 対象期間:7月27日〜8月3日</div>
+  </header>
+
+  <div class="intro">
+    今回は<strong>変更がとても多い回</strong>です。大きくは3つ。<strong>①リモートワークの鈴木さんの予定表</strong>ができたこと、<strong>②お客様が自分で進み具合を確認できるページ</strong>ができたこと、<strong>③HiBoardの画面全体を作り直して使いやすくした</strong>ことです。<br>
+    各見出しの右にある<span class="aud aud-staff">社員</span><span class="aud aud-all">全従業員</span>は、<strong>その項目を読んでいただきたい方</strong>の目安です。
+  </div>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">スケジュール</span>
+      <h2>リモートワークの鈴木さんの予定表ができました</h2>
+      <span class="aud aud-staff">社員</span>
+      <span class="sub">7/27〜7/29</span>
+    </div>
+    <ul class="items">
+      <li>会社の外で作業している<strong>鈴木さん専用の予定表ページ</strong>を用意しました。専用URLから、<strong>自宅や出先でも自分の作業予定を確認・調整できます</strong>。→ 予定のやり取りを電話やメールで往復する必要がなくなります。</li>
+      <li><strong>社員用TODOリスト(スプレッドシート)の「進行中」のタスクが、この予定表に自動で表示されます</strong>。転記し直す必要はありません。<strong>「日付を選ぶ」から日付を選べば、その日の予定に入ります</strong>(ドラッグでも置けます)。やめるときは「未定に戻す」を押します。</li>
+      <li><strong>予定表から「完了」を押すと、スプレッドシート側も「完了」になります</strong>。→ TODOリストの状況は、今までどおりスプレッドシートを見れば分かります。※取り消しはスプレッドシート側で行ってください。</li>
+      <li><strong>稼働時間の申告が「何時から何時まで」の指定に変わりました</strong>。「午後だけ作業できます」といった実態がそのまま伝わり、<strong>社内の週間スケジュールボードにも同じ時間帯が反映されます</strong>。</li>
+      <li>日ごとに<strong>「🎨 デザイン」「📋 デザイン関連業務」の希望を出せるボタン</strong>を追加しました。押しておくと週間スケジュールボードにもバッジで表示されます。→ <strong>その日に鈴木さんへデザインを頼んでよいかが、社内から見て分かります</strong>。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">スケジュール</span>
+      <h2>週間スケジュールボードの改善</h2>
+      <span class="aud aud-all">全従業員</span>
+      <span class="sub">7/27〜7/28</span>
+    </div>
+    <ul class="items">
+      <li><strong>前の週から終わっていない準備項目が、消えずに繰り越されます</strong>。オレンジの枠と「繰越」バッジが付いて各案件の先頭に出ます。→ <strong>やり残しが埋もれなくなりました</strong>。今週の日付に置き直せます。</li>
+      <li><strong>担当者が決まっていない案件も、そのままボードに置けるようになりました</strong>。これまでは先に担当を割り振らないと置けませんでしたが、置きたい人の列へ直接ドロップできます。</li>
+      <li><strong>ボードから予定を外すのもドラッグでできます</strong>。ボード上のブロックを右の「提案確認パネル」へドラッグすると、その案件の予定がまとめて外れて未定に戻ります。</li>
+      <li><strong>「受注前」の案件もパネルに出るようになりました</strong>。登録したのにどこにも出てこず埋もれる、ということがなくなります。「受注前」バッジで見分けてください。</li>
+      <li><strong>日本の祝日に対応</strong>しました。祝日は自動でお休み扱いになり「祝」バッジが出ます。あわせて、<strong>ボードは60秒ごとに自動で最新になります</strong>(複数人で同時に触っても食い違いにくくなりました)。</li>
+    </ul>
+  </section>
+
+  <div class="foot">
+    <span>株式会社ヒヨシ ─ 社内システムお知らせ Vol.3</span>
+    <span>1 / 3</span>
+  </div>
+</div>
+
+<div class="page">
+  <header class="hero sub">
+    <div class="overline">WEEKLY UPDATE</div>
+    <h1>現場作業・受注まわり</h1>
+    <div class="divider"></div>
+    <div class="lead">Vol.3 ─ 対象期間:7月27日〜8月3日</div>
+  </header>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">現場作業</span>
+      <h2>納品まわり・案件の履歴</h2>
+      <span class="aud aud-staff">社員</span>
+      <span class="sub">7/29〜7/30</span>
+    </div>
+    <ul class="items">
+      <li><strong>納品した案件の準備項目は、自動で完了扱いになります</strong>。これまで納品済みなのに「まだやること」として予定表に残り続けていたものが消えます。過去の分もまとめて整理済みです。</li>
+      <li>納品済みにするときに<strong>「goodnoteの指示書PDFをNASフォルダに保存した」チェック</strong>が出ます。→ <strong>納品前に指示書PDFをNASへ保存する</strong>のを習慣にしてください(未チェックだと確認が出ます)。</li>
+      <li>案件から<strong>NASのフォルダの中身をそのまま一覧・ダウンロードできる</strong>ようになりました。サーバー機の前まで行かなくても、どの端末のブラウザからでも開けます。</li>
+      <li>案件に<strong>Freeeの見積書・請求書のリンク欄</strong>を追加しました。登録しておくと、納品履歴や顧客台帳から📄ボタンでそのまま開けます。</li>
+      <li>加工種別に<strong>「昇華プリント」</strong>を追加しました。新規登録・編集・絞り込み・得意スキルのすべてで選べます。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">受注</span>
+      <h2>お客様が自分で進み具合を確認できるページ</h2>
+      <span class="aud aud-all">全従業員</span>
+      <span class="sub">7/27〜7/28</span>
+    </div>
+    <ul class="items">
+      <li><strong>お客様向けの進捗確認ページ</strong>ができました。<strong>受付番号(W-/T-/P-)+お申し込み時の電話番号の下4桁</strong>を入れると、ご自身で今の状況を確認できます。→ <strong>「上がりはいつ?」の電話が減ります</strong>。</li>
+      <li>表示は<strong>「受付済み → 製作中 → 検品・出荷準備中 → 納品済み」の4段階</strong>です。社内の細かいステータスはお客様には見えません。</li>
+      <li>このページのURLは<strong>お客様への受付控えメールにも、社内への通知メールにも入ります</strong>。→ 問い合わせを受けたときは、社内側もメールのURLから同じ画面をすぐ開けます。</li>
+      <li>各所の案内文を<strong>「担当者から2営業日以内にご連絡」</strong>で統一しました。お客様にご案内するときも、この目安でお伝えください。</li>
+      <li>電話番号が未記入のご注文は照合できません。その場合は<strong>お客様から担当者へご連絡いただく</strong>案内が出ます。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">受注</span>
+      <h2>受注候補・注文フォームまわり</h2>
+      <span class="aud aud-staff">社員</span>
+      <span class="sub">7/27〜8/2</span>
+    </div>
+    <ul class="items">
+      <li><strong>受注候補の確定画面が、新規案件の登録と同じ項目になりました</strong>。プリント箇所・準備項目・必要スキル・見積もり工数・NASフォルダを、その場でまとめて入力できます。→ <strong>登録したあと「編集」で入れ直す二度手間がなくなりました</strong>。</li>
+      <li><strong>受注候補を登録・却下すると、社員TODOの行が自動で完了になります</strong>。処理済みの案件がTODOに残り続けることがなくなりました。</li>
+      <li>お客様が入力途中に<strong>Enterキーで誤送信してしまう事故の対策</strong>を、注文フォーム3種すべてに入れました。送信前に内容の確認ウィンドウも出ます。</li>
+      <li>取引先の加工依頼フォームに<strong>メールアドレス欄(任意)</strong>を追加しました。ご記入があれば、取引先にも受付控えが自動で届きます。</li>
+      <li><strong>紹介キャンペーンが始まりました</strong>。注文フォームに<strong>「紹介コード」欄</strong>があり、入力があると受注候補のメモに<strong>「■紹介: ◯◯さんからのご紹介」</strong>と紹介者名が出ます。→ <strong>紹介コード付きの注文を見たら、特典の適用漏れがないよう台帳を確認</strong>してください。手順は使い方ガイドに載せています。</li>
+    </ul>
+  </section>
+
+  <div class="foot">
+    <span>株式会社ヒヨシ ─ 社内システムお知らせ Vol.3</span>
+    <span>2 / 3</span>
+  </div>
+</div>
+
+<div class="page">
+  <header class="hero sub">
+    <div class="overline">WEEKLY UPDATE</div>
+    <h1>画面の変更・今週のお願い</h1>
+    <div class="divider"></div>
+    <div class="lead">Vol.3 ─ 対象期間:7月27日〜8月3日</div>
+  </header>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">その他</span>
+      <h2>新しい画面が2つ増えました</h2>
+      <span class="aud aud-all">全従業員</span>
+      <span class="sub">7/29</span>
+    </div>
+    <ul class="items">
+      <li><strong>📇 顧客台帳</strong>(ヘッダーから)…お客様ごとに過去の案件をまとめて見られます。案件数・累計数量・最終納品日・加工種別が並び、並び替えと絞り込みもできます。<strong>リピートのご相談を受けたときは、まずここで前回の内容を確認</strong>してください。「↻再注文」からそのまま新しい案件を起こせます。</li>
+      <li>案件名または「🔍 詳細」をクリックすると<strong>案件詳細</strong>が開き、アイテムごとの品番・加工方法・プリント箇所・サイズ×カラー別の枚数まで確認できます。</li>
+      <li><strong>📸 制作実績の登録</strong>(ヘッダーから)…写真と加工内容を登録すると、<strong>会社ホームページの制作実績に自動で公開</strong>されます。写真は最大3枚(正面・背面・横など)。明るさは自動で調整されます。<strong>お客様の掲載許可を得てから</strong>登録してください(許可のチェックがないと登録できません)。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">その他</span>
+      <h2>HiBoardの画面を全体的に作り直しました</h2>
+      <span class="aud aud-all">全従業員</span>
+      <span class="sub">7/30</span>
+    </div>
+    <ul class="items">
+      <li><strong>どの画面からでも、他の画面へ直接移動できます</strong>。これまでは一度トップに戻る必要がありましたが、全画面で同じヘッダーになりました。使用頻度の低いものは<strong>⚙管理メニュー</strong>にまとめてあります。</li>
+      <li><strong>カレンダーの日付が1日ずれていた不具合を修正</strong>しました。朝9時前に見ると納期が翌日のマスに出ていた問題です。→ <strong>今のカレンダーの日付は正しい</strong>ので、そのまま信用して大丈夫です。</li>
+      <li>案件一覧から<strong>「作業担当者」列を外しました</strong>(窓口の「担当者」と紛らわしいため)。実際に作業する人は<strong>スケジュールボードで確認</strong>してください。</li>
+      <li>操作の細かい改善:すべてのウィンドウが<strong>Escキー・背景クリックで閉じる</strong>/お知らせが<strong>画面下のメッセージ表示に変わった</strong>(以前のポップアップと違い、画面を切り替えても消えません)/新規案件の入力欄が5つのまとまりに分かれ、保存ボタンが常に下に出る/スマホでも見やすくなりました。</li>
+      <li>このほか、案件が削除できない・保存できたのに反映されないなど、<strong>細かな不具合をまとめて修正</strong>しています。</li>
+    </ul>
+  </section>
+
+  <div class="ask">
+    <h3>皆さんへのお願い(今週からの動き方)</h3>
+    <ul class="items">
+      <li>鈴木さんへ:<strong>専用URLの予定表を1日1回開いて</strong>ください。TODOの日付入れと完了は、そこから行えます。</li>
+      <li>鈴木さんへデザインを頼むときは、<strong>週間スケジュールボードの稼働時間帯とその日のデザイン希望バッジ</strong>を確認してからにしてください。</li>
+      <li>週間ボードの<strong>オレンジの「繰越」項目</strong>から先に片付けてください。前の週のやり残しです。</li>
+      <li>納品済みにする前に、<strong>goodnoteの指示書PDFをNASフォルダへ保存</strong>してください。</li>
+      <li>納期の問い合わせが来たら、お客様に<strong>進捗確認ページ</strong>をご案内ください。連絡の目安は<strong>2営業日以内</strong>で統一しています。</li>
+      <li><strong>紹介コード</strong>の付いたご注文は、特典の適用漏れがないよう台帳を確認してください。</li>
+      <li>画面が大きく変わっています。迷ったら<strong>「📖 使い方」ガイド</strong>を確認 → それでも分からなければ久保田まで。</li>
+    </ul>
+  </div>
+
+  <div class="foot">
+    <span>株式会社ヒヨシ ─ 社内システムお知らせ Vol.3</span>
+    <span>3 / 3</span>
+  </div>
+</div>
+
+</body>
+</html>
