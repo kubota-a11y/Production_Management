@@ -1007,13 +1007,13 @@ const app = {
       }
       console.log(`✓ AI受注候補 #${this.editingAiIntakeId} を案件 #${result.id} として登録`);
 
-      // 準備項目は案件作成後に別APIでタスク化する(新規案件モーダルと同じ手順)
-      if (prepItemCodes.length > 0) {
-        const codeToId = new Map(this.prepItemsMaster.map(m => [m.code, m.id]));
-        const prepItemIds = prepItemCodes.map(code => codeToId.get(code)).filter(Boolean);
-        if (prepItemIds.length > 0) {
-          await API.registerCasePreparationItems(result.id, prepItemIds);
-        }
+      // 準備項目は案件作成後に別APIでタスク化する(新規案件モーダルと同じ手順)。
+      // デザイン案件全般の案件は、準備項目を1つも選んでいなくても呼ぶ
+      // (サーバー側で「初稿提出」等をデザイン担当へ用意するため)
+      const codeToId = new Map(this.prepItemsMaster.map(m => [m.code, m.id]));
+      const prepItemIds = prepItemCodes.map(code => codeToId.get(code)).filter(Boolean);
+      if (prepItemIds.length > 0 || data.is_design_ops) {
+        await API.registerCasePreparationItems(result.id, prepItemIds);
       }
 
       this.closeAiIntakeModal();
@@ -1675,13 +1675,14 @@ const app = {
         console.log('✓ 新規プロジェクトを作成');
       }
 
-      // 選択された準備項目をタスクとして登録(既に登録済みのものはサーバー側でスキップされる)
-      if (prepItemCodes.length > 0) {
-        const codeToId = new Map(this.prepItemsMaster.map(m => [m.code, m.id]));
-        const prepItemIds = prepItemCodes.map(code => codeToId.get(code)).filter(Boolean);
-        if (prepItemIds.length > 0) {
-          await API.registerCasePreparationItems(projectId, prepItemIds);
-        }
+      // 選択された準備項目をタスクとして登録(既に登録済みのものはサーバー側でスキップされる)。
+      // デザイン案件全般の案件は、準備項目を1つも選んでいなくても呼ぶ。
+      // サーバー側が「初稿提出」等をデザイン担当へ用意するので、
+      // 準備項目も担当者も未選択のまま登録しても鈴木さんのボードに必ずタスクが出る
+      const codeToId = new Map(this.prepItemsMaster.map(m => [m.code, m.id]));
+      const prepItemIds = prepItemCodes.map(code => codeToId.get(code)).filter(Boolean);
+      if (prepItemIds.length > 0 || data.is_design_ops) {
+        await API.registerCasePreparationItems(projectId, prepItemIds);
       }
 
       await API.savePrintLocations(projectId, this.collectPrintLocationData());

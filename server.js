@@ -2531,71 +2531,92 @@ function getDefaultDesignerEmployeeId() {
 //  - 通常案件 → デザイン担当者の専用項目(is_designer_item=1)のみ
 // いずれも予定日は空のまま = 本人のマイスケジュールボード「日付が未定のタスク」に入り、
 // 日付の入れ込みは本人がD&Dで行う
+// 準備項目を登録し、デザイン案件ならデザイン担当へ割り当てる本体。
+// 「デザイン案件全般として管理する」案件と社内デザイン案件は、
+// 準備項目を1つも選ばなくても・担当者を決めていなくても、
+// 鈴木さんのマイスケジュールボードに必ずタスクが出るようにする(2026-08-03 社長指示)。
+function registerPreparationItems(caseId, preparationItemIds = []) {
+  const project = db.prepare(
+    'SELECT project_kind, is_design_ops, ops_flow FROM projects WHERE id = ?'
+  ).get(caseId);
+  if (!project) return { created: 0, assignedToDesigner: 0 };
+
+  const isInternalDesign = project.project_kind === 'INTERNAL_DESIGN';
+  const isDesignOps = project.is_design_ops === 1;
+  const designerEmployeeId = getDefaultDesignerEmployeeId();
+  const existingIds = new Set(
+    db.prepare('SELECT preparation_item_id FROM case_preparation_items WHERE case_id = ?')
+      .all(caseId).map(row => row.preparation_item_id)
+  );
+  const insertStmt = db.prepare(`
+    INSERT INTO case_preparation_items (case_id, preparation_item_id, status, assigned_staff_id)
+    VALUES (?, ?, '未着手', ?)
+  `);
+  const itemIdByCode = code => {
+    const row = db.prepare('SELECT id FROM preparation_item_master WHERE code = ?').get(code);
+    return row ? row.id : null;
+  };
+
+  const targetItemIds = [...preparationItemIds];
+  const pushIfMissing = (id, why) => {
+    if (id && !targetItemIds.includes(id)) {
+      targetItemIds.push(id);
+      console.log(`[準備項目] 案件#${caseId}: ${why}`);
+    }
+  };
+
+  // デザインが絡む案件には「初稿提出」を必ず持たせる。
+  // これが無いと ②制作 → ③確認 の自動遷移が起きず、案件が制作段階に居座り続ける
+  const designerItemIds = new Set(
+    db.prepare('SELECT id FROM preparation_item_master WHERE is_designer_item = 1').all().map(r => r.id)
+  );
+  const hasDesignWork = isInternalDesign || isDesignOps
+    || preparationItemIds.some(id => designerItemIds.has(id));
+  if (hasDesignWork) {
+    pushIfMissing(itemIdByCode('FIRST_DRAFT_SUBMIT'), 'デザイン案件のため「初稿提出」を自動追加しました');
+  }
+  // 紙媒体(入稿で完了)タイプには「入稿完了」も足す。完了で案件が「請求」へ進む
+  if (isDesignOps && project.ops_flow === 'SUBMIT_END') {
+    pushIfMissing(itemIdByCode('SUBMISSION_COMPLETE'), '入稿で完了タイプのため「入稿完了」を自動追加しました');
+  }
+
+  let created = 0;
+  let assignedToDesigner = 0;
+  targetItemIds.forEach(itemId => {
+    if (existingIds.has(itemId)) return;
+    // デザイン案件全般・社内デザイン案件は全項目をデザイン担当へ。
+    // 通常案件はデザイン担当専用項目だけを渡す(従来どおり)
+    const toDesigner = designerEmployeeId
+      && (isDesignOps || isInternalDesign || designerItemIds.has(itemId));
+    insertStmt.run(caseId, itemId, toDesigner ? designerEmployeeId : null);
+    created++;
+    if (toDesigner) assignedToDesigner++;
+  });
+
+  // 既に登録済みの項目も、デザイン案件なら担当が空のものをデザイン担当へ寄せる
+  // (あとから「デザイン案件全般」に切り替えた案件を拾うため)
+  if (designerEmployeeId && (isDesignOps || isInternalDesign)) {
+    const moved = db.prepare(`
+      UPDATE case_preparation_items SET assigned_staff_id = ?
+      WHERE case_id = ? AND assigned_staff_id IS NULL AND status != '完了'
+    `).run(designerEmployeeId, caseId);
+    assignedToDesigner += moved.changes;
+  }
+
+  if (assignedToDesigner > 0) {
+    console.log(`[準備項目] 案件#${caseId}: ${assignedToDesigner}件をデザイン担当(従業員#${designerEmployeeId})へ割り当て`);
+  }
+  return { created, assignedToDesigner };
+}
+
 app.post('/api/projects/:projectId/preparation-items', (req, res) => {
   try {
     const { preparation_item_ids } = req.body;
     if (!Array.isArray(preparation_item_ids)) {
       return res.status(400).json({ error: 'preparation_item_ids は配列で指定してください' });
     }
-    const caseId = req.params.projectId;
-    const project = db.prepare('SELECT project_kind, is_design_ops, ops_flow FROM projects WHERE id = ?').get(caseId);
-    const isInternalDesign = !!(project && project.project_kind === 'INTERNAL_DESIGN');
-    const designerEmployeeId = getDefaultDesignerEmployeeId();
-    const designerItemIds = new Set(
-      db.prepare('SELECT id FROM preparation_item_master WHERE is_designer_item = 1').all().map(r => r.id)
-    );
-    const existingIds = new Set(
-      db.prepare('SELECT preparation_item_id FROM case_preparation_items WHERE case_id = ?')
-        .all(caseId).map(row => row.preparation_item_id)
-    );
-    const insertStmt = db.prepare(`
-      INSERT INTO case_preparation_items (case_id, preparation_item_id, status, assigned_staff_id)
-      VALUES (?, ?, '未着手', ?)
-    `);
-    // デザインが絡む案件には「初稿提出」を自動で足す(2026-08-03 社長判断)。
-    // これが無いとオペレーションボードの ②制作 → ③確認 の自動遷移が起きず、
-    // チェックの入れ忘れに気づけないまま案件が制作段階に居座り続けるため。
-    // 対象: 社内デザイン案件、またはデザイン担当専用項目が1つでも選ばれた案件
-    const targetItemIds = [...preparation_item_ids];
-    const firstDraft = db.prepare(
-      `SELECT id FROM preparation_item_master WHERE code = 'FIRST_DRAFT_SUBMIT'`
-    ).get();
-    if (firstDraft) {
-      const hasDesignWork = isInternalDesign
-        || (project && project.is_design_ops === 1)
-        || preparation_item_ids.some(id => designerItemIds.has(id));
-      if (hasDesignWork && !targetItemIds.includes(firstDraft.id)) {
-        targetItemIds.push(firstDraft.id);
-        console.log(`[準備項目] 案件#${caseId}: デザイン案件のため「初稿提出」を自動追加しました`);
-      }
-    }
-
-    // 紙媒体(入稿で完了)タイプには「入稿完了」も自動で足す(2026-08-03)。
-    // 鈴木さんがマイボードでこれを完了にすると、案件が自動で「請求」へ進む
-    if (project && project.is_design_ops === 1 && project.ops_flow === 'SUBMIT_END') {
-      const submission = db.prepare(
-        `SELECT id FROM preparation_item_master WHERE code = 'SUBMISSION_COMPLETE'`
-      ).get();
-      if (submission && !targetItemIds.includes(submission.id)) {
-        targetItemIds.push(submission.id);
-        console.log(`[準備項目] 案件#${caseId}: 入稿で完了タイプのため「入稿完了」を自動追加しました`);
-      }
-    }
-
-    let createdCount = 0;
-    let designerCount = 0;
-    targetItemIds.forEach(itemId => {
-      if (!existingIds.has(itemId)) {
-        const toDesigner = designerEmployeeId && (isInternalDesign || designerItemIds.has(itemId));
-        insertStmt.run(caseId, itemId, toDesigner ? designerEmployeeId : null);
-        createdCount++;
-        if (toDesigner) designerCount++;
-      }
-    });
-    if (designerCount > 0) {
-      console.log(`[準備項目] 案件#${caseId}: ${designerCount}件をデザイン担当(従業員#${designerEmployeeId})へ自動割り当て`);
-    }
-    res.status(201).json({ created: createdCount, message: 'Preparation items registered successfully' });
+    const result = registerPreparationItems(req.params.projectId, preparation_item_ids);
+    res.status(201).json({ created: result.created, message: 'Preparation items registered successfully' });
   } catch (error) {
     sendServerError(res, req, error);
   }
@@ -3207,7 +3228,7 @@ registerOrderStatusRoutes(app, db);
 
 // オペレーション担当(山本さん)向けボード /ops。デザイン案件が「いま誰待ちで止まっているか」を
 // 5段階で管理し、デザインラフの受け渡しもここで行う。社内専用(外部公開ガードの許可対象外)
-registerOpsBoardRoutes(app, db);
+registerOpsBoardRoutes(app, db, { registerPreparationItems });
 
 // 紹介キャンペーン(非公開ページ /referral + 社内の発行画面 /referral-admin)。
 // 会社が発行した紹介コードを入力した人だけが、自分の特典・共有用リンクを見られる。
