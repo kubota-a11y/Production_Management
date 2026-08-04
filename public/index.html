@@ -304,6 +304,18 @@
               <label class="checkbox-pill"><input type="radio" name="paper_source" value="CARVE"> 🔶 CARVE で受けている案件</label>
             </div>
             <div class="field-hint">CARVE案件はイレギュラー案件として、ボード上で枠を付けて目立たせます</div>
+
+            <div class="form-row" style="margin-top:8px;">
+              <div class="form-group">
+                <label for="pf-first-draft-due">初稿の納期</label>
+                <input type="date" id="pf-first-draft-due" name="first_draft_due">
+              </div>
+              <div class="form-group">
+                <label for="pf-submission-due">入稿の納期</label>
+                <input type="date" id="pf-submission-due" name="submission_due">
+              </div>
+            </div>
+            <div class="field-hint">鈴木さんのマイスケジュールボードでは、各作業カードにこの日付が納期として表示されます（空欄なら案件の納期を使います）</div>
           </div>
         </fieldset>
 
@@ -685,6 +697,17 @@
                 <label class="checkbox-pill"><input type="radio" name="paper_source" value="CARVE"> 🔶 CARVE で受けている案件</label>
               </div>
               <div class="field-hint">紙媒体のときだけ使います。CARVE案件はボード上で枠を付けて目立たせます</div>
+              <div class="form-row" style="margin-top:8px;">
+                <div class="form-group">
+                  <label for="ai-first-draft-due">初稿の納期</label>
+                  <input type="date" id="ai-first-draft-due" name="first_draft_due">
+                </div>
+                <div class="form-group">
+                  <label for="ai-submission-due">入稿の納期</label>
+                  <input type="date" id="ai-submission-due" name="submission_due">
+                </div>
+              </div>
+              <div class="field-hint">紙媒体のときだけ使います。空欄なら案件の納期を使います</div>
             </fieldset>
 
             <div class="form-row">

@@ -321,8 +321,11 @@ const board = {
   chipHtml(i) {
     const done = i.status === '完了';
     const selected = this.selectedItemId === i.id;
-    const deadline = i.deadline ? this.fmtDate(i.deadline) : '—';
-    const soon = i.deadline && !done && this.daysUntil(i.deadline) <= 3;
+    // 紙媒体案件は工程ごとの納期(初稿の納期 / 入稿の納期)が入る。無ければ案件の納期
+    const dueDate = i.due_date || i.deadline;
+    const dueLabel = i.due_label || '納期';
+    const deadline = dueDate ? this.fmtDate(dueDate) : '—';
+    const soon = dueDate && !done && this.daysUntil(dueDate) <= 3;
     return `
       <div class="chip${done ? ' completed' : ''}${selected ? ' selected' : ''}" draggable="true"
            data-item-id="${i.id}"
@@ -330,7 +333,7 @@ const board = {
            onclick="event.stopPropagation(); board.onChipTap(${i.id})">
         <div class="chip-main">
           <div class="chip-name">${this.esc(i.project_name)}</div>
-          <div class="chip-meta">${this.esc(i.preparation_item_name)} ｜ 納期 <span class="${soon ? 'chip-deadline-soon' : ''}">${deadline}</span></div>
+          <div class="chip-meta">${this.esc(i.preparation_item_name)} ｜ ${this.esc(dueLabel)} <span class="${soon ? 'chip-deadline-soon' : ''}">${deadline}</span></div>
           ${this.roughLinksHtml(i.case_id)}
         </div>
         <div class="chip-controls" onclick="event.stopPropagation()">

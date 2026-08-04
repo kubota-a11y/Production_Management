@@ -366,6 +366,17 @@ function initDatabase(dbFile = dbPath) {
     console.log('✓ projects.paper_source を追加しました');
   }
 
+  // 紙媒体案件の工程ごとの納期(2026-08-03)。ops_flow='SUBMIT_END' のときに使う。
+  // 案件全体の納期(deadline)だけだと、鈴木さんが「初稿はいつまで」「入稿はいつまで」を
+  // 判断できないため、工程ごとに分けて持たせる。空なら案件の納期を使う
+  if (!projectColumns.includes('first_draft_due')) {
+    db.prepare(`ALTER TABLE projects ADD COLUMN first_draft_due TEXT`).run();
+    console.log('✓ projects.first_draft_due を追加しました');
+  }
+  if (!projectColumns.includes('submission_due')) {
+    db.prepare(`ALTER TABLE projects ADD COLUMN submission_due TEXT`).run();
+  }
+
   // アイテム名(2026-08-03)。「ドライTシャツ」「az50018 半袖ポロシャツ」など、
   // 何を作る案件なのかを一目で分かるようにするための自由入力。
   // Web注文フォーム由来の案件は case_items を持つのでそちらから補完できるが、

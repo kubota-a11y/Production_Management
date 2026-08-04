@@ -275,6 +275,13 @@
   color: var(--text-muted);
 }
 
+/* 紙媒体案件の工程ごとの納期(初稿 / 入稿) */
+.ops-card-due span {
+  background: var(--surface-muted);
+  border-radius: var(--radius-sm);
+  padding: 1px var(--space-2);
+}
+
 .ops-card-meta .is-overdue { color: var(--danger-dark); font-weight: 600; }
 .ops-card-meta .is-stale { color: var(--warning-text); font-weight: 600; }
 

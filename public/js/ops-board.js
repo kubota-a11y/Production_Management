@@ -207,6 +207,16 @@ const opsBoardApp = {
     return this.isSubmitEnd(c) && c.paper_source === 'CARVE';
   },
 
+  // 紙媒体案件の工程ごとの納期(初稿 / 入稿)。どちらも未設定なら出さない
+  paperDueHtml(c) {
+    if (!this.isSubmitEnd(c)) return '';
+    const parts = [];
+    if (c.first_draft_due) parts.push(`初稿 ${this.esc(c.first_draft_due)}`);
+    if (c.submission_due) parts.push(`入稿 ${this.esc(c.submission_due)}`);
+    if (!parts.length) return '';
+    return `<div class="ops-card-meta ops-card-due">${parts.map(p => `<span>${p}</span>`).join('')}</div>`;
+  },
+
   // 紙媒体案件のバッジ。CARVE案件は出どころが分かるように別表示にする
   flowBadgeHtml(c) {
     if (!this.isSubmitEnd(c)) return '';
@@ -240,6 +250,7 @@ const opsBoardApp = {
           ${c.rough_count ? `<span>ラフ${c.rough_count}件</span>` : ''}
           ${this.flowBadgeHtml(c)}
         </div>
+        ${this.paperDueHtml(c)}
         ${c.ops_stage === 'REVIEW' ? `<div class="ops-card-badge-row">${this.badgeHtml(c)}</div>` : ''}
         ${doneCheck}
       </div>
