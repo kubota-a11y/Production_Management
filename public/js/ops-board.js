@@ -223,12 +223,21 @@ const opsBoardApp = {
     `;
   },
 
-  // 確認段階の待ち先バッジ。それ以外の段階は段階名を出す
+  // 確認段階のステップ定義(サーバーから受け取る)。順番どおりに進む
+  reviewStep(key) {
+    const steps = (this.data && this.data.review_steps) || [];
+    return steps.find(s => s.key === key) || steps[0] || { key: 'SEND', label: '確認', ball: 'US' };
+  },
+
+  // 確認段階はいまどのステップかをバッジに出す。それ以外の段階は段階名を出す
   badgeHtml(c) {
     if (c.ops_stage === 'REVIEW') {
-      return c.ops_wait_on === 'CUSTOMER'
-        ? `<span class="ops-badge ${this.isStale(c) ? 'ops-badge-alert' : 'ops-badge-review-customer'}">お客様の返事待ち</span>`
-        : '<span class="ops-badge ops-badge-review-self">山本さんの番</span>';
+      const step = this.reviewStep(c.ops_wait_on);
+      if (step.ball === 'CUSTOMER') {
+        const cls = this.isStale(c) ? 'ops-badge-alert' : 'ops-badge-review-customer';
+        return `<span class="ops-badge ${cls}">${this.esc(step.label)}</span>`;
+      }
+      return `<span class="ops-badge ops-badge-review-self">${this.esc(step.label)}</span>`;
     }
     const cls = {
       BRIEF: 'ops-badge-brief', DESIGN: 'ops-badge-design',
@@ -239,9 +248,9 @@ const opsBoardApp = {
     return `<span class="ops-badge ${cls}">${this.esc(label)}</span>`;
   },
 
-  // お客様の返事待ちが既定日数を超えたか
+  // お客様の返事待ちのまま既定日数を超えたか
   isStale(c) {
-    return c.ops_stage === 'REVIEW' && c.ops_wait_on === 'CUSTOMER'
+    return c.ops_stage === 'REVIEW' && this.reviewStep(c.ops_wait_on).ball === 'CUSTOMER'
       && c.days_in_stage !== null && c.days_in_stage >= this.data.remind_days;
   },
 
@@ -275,19 +284,22 @@ const opsBoardApp = {
     const waitGroup = document.getElementById('ops-wait-group');
     waitGroup.hidden = c.ops_stage !== 'REVIEW';
     if (c.ops_stage === 'REVIEW') {
-      const options = [
-        { key: 'YAMAMOTO', label: '山本さんが確認中' },
-        { key: 'CUSTOMER', label: 'お客様の返事待ち' },
-      ];
-      document.getElementById('ops-wait-picker').innerHTML = options.map(o => `
-        <button type="button" class="btn btn-small ${o.key === c.ops_wait_on ? 'btn-primary' : 'btn-secondary'}"
-          data-wait="${o.key}">${o.label}</button>
+      const steps = this.data.review_steps || [];
+      const currentIndex = steps.findIndex(s => s.key === c.ops_wait_on);
+      // 実際のやりとりの順番に並べ、済んだところまで進めていく
+      document.getElementById('ops-wait-picker').innerHTML = steps.map((s, i) => `
+        <button type="button" class="btn btn-small ${s.key === c.ops_wait_on ? 'btn-primary' : 'btn-secondary'}"
+          data-wait="${s.key}">${i + 1}. ${this.esc(s.label)}</button>
       `).join('');
       document.getElementById('ops-wait-picker').querySelectorAll('button[data-wait]').forEach(btn => {
         btn.addEventListener('click', () => this.setStage('REVIEW', btn.dataset.wait));
       });
-      document.getElementById('ops-wait-hint').textContent =
-        `お客様へ送ったら「お客様の返事待ち」に切り替えてください。返事がないまま${this.data.remind_days}日を過ぎると、今日やることへ催促として戻ります。`;
+
+      // 最後のステップまで来ていたら、次は入稿・製造へ進む案内を出す
+      const isLast = currentIndex === steps.length - 1;
+      document.getElementById('ops-wait-hint').textContent = isLast
+        ? `お客様からOKをもらったら「入稿・製造」へ進めてください。返事がないまま${this.data.remind_days}日を過ぎると、今日やることへ催促として戻ります。`
+        : `やりとりが進んだら次のステップへ切り替えてください。お客様の返事待ちのまま${this.data.remind_days}日を過ぎると、今日やることへ催促として戻ります。`;
     }
 
     this.loadRough(caseId);

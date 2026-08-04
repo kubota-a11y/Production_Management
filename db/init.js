@@ -333,6 +333,22 @@ function initDatabase(dbFile = dbPath) {
   if (!projectColumns.includes('ops_stage_since')) {
     db.prepare(`ALTER TABLE projects ADD COLUMN ops_stage_since TEXT`).run();
   }
+  // 確認段階の中身を2値(YAMAMOTO/CUSTOMER)から4ステップへ作り替えたための移行(2026-08-03)。
+  // 山本→お客様連絡 / お客様の返事待ち / 位置・大きさの調整 / 最終確認待ち の順に進む。
+  // 旧値は「社内の番」→SEND、「お客様待ち」→REPLY_WAIT に読み替える。冪等
+  if (projectColumns.includes('ops_wait_on')) {
+    const moved = db.prepare(`
+      UPDATE projects SET ops_wait_on = CASE ops_wait_on
+        WHEN 'YAMAMOTO' THEN 'SEND'
+        WHEN 'CUSTOMER' THEN 'REPLY_WAIT'
+        ELSE ops_wait_on END
+      WHERE ops_wait_on IN ('YAMAMOTO', 'CUSTOMER')
+    `).run();
+    if (moved.changes > 0) {
+      console.log(`✓ 確認段階の待ち先 ${moved.changes}件を新しい4ステップへ移行しました`);
+    }
+  }
+
   // アイテム名(2026-08-03)。「ドライTシャツ」「az50018 半袖ポロシャツ」など、
   // 何を作る案件なのかを一目で分かるようにするための自由入力。
   // Web注文フォーム由来の案件は case_items を持つのでそちらから補完できるが、
