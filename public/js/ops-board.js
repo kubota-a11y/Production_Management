@@ -138,7 +138,11 @@ const opsBoardApp = {
     if (!confirm(`「${name}」をこのボードから外します。\n\n案件そのものは消えません（一覧ビューには残ります）。\n戻したいときは案件の「編集」で「デザイン案件全般として管理する」にチェックを入れてください。`)) return;
 
     try {
-      const res = await fetch(`/api/ops/cases/${caseId}/remove`, { method: 'PATCH' });
+      const res = await fetch(`/api/ops/cases/${caseId}/membership`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ include: false }),
+      });
       const json = await res.json();
       if (!json.ok) throw new Error(json.error || '更新に失敗しました');
       HiUI.toast(`「${json.project_name}」をボードから外しました`);

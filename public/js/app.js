@@ -265,11 +265,45 @@ const app = {
           <button class="btn btn-small" onclick="app.openDeliverModal(${project.id})">
             📦 納品済み
           </button>
+          ${this.designOpsButtonHtml(project)}
         </div>
       </td>
     `;
 
     return row;
+  },
+
+  // 「デザイン案件全般」ボードへの載せ替えボタン。
+  // 載っている案件は押すと外れる(ボード側のカード右上「✕」と同じ動き)
+  designOpsButtonHtml(project) {
+    const on = !!project.is_design_ops;
+    return `
+      <button class="btn btn-small ${on ? 'btn-primary' : ''}"
+        onclick="app.toggleDesignOps(${project.id}, ${on ? 'false' : 'true'})"
+        title="${on ? 'デザイン案件全般のボードから外す' : 'デザイン案件全般のボードに載せる'}">
+        🗂 ${on ? '全般から外す' : '全般へ'}
+      </button>
+    `;
+  },
+
+  async toggleDesignOps(projectId, include) {
+    try {
+      const res = await fetch(`/api/ops/cases/${projectId}/membership`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ include }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || '更新に失敗しました');
+      HiUI.toast(include
+        ? `「${json.project_name}」をデザイン案件全般に載せました`
+        : `「${json.project_name}」をデザイン案件全般から外しました`);
+      await this.loadProjects();
+      this.renderListView();
+    } catch (error) {
+      console.error('デザイン案件全般の切り替えエラー:', error);
+      HiUI.toast('切り替えに失敗しました', 'error');
+    }
   },
 
   deadlineFlagHtml(warning) {
@@ -1638,6 +1672,14 @@ const app = {
       this.closeProjectModal();
       this.renderListView();
       if (this.currentTab === 'kanban') this.renderKanbanView();
+
+      // 他画面の「新規案件」ボタンから来た場合は、登録後にその画面へ戻す
+      // (デザイン案件全般ボードから登録したら、そのままボードへ戻る)
+      if (this.returnAfterSave) {
+        const url = this.returnAfterSave;
+        this.returnAfterSave = null;
+        window.location.href = url;
+      }
     } catch (error) {
       console.error('案件保存エラー:', error);
       HiUI.toast('案件の保存に失敗しました');
@@ -1808,6 +1850,21 @@ const app = {
     // 他画面のヘッダーメニュー「担当者マスタ」からは /?open=staff で戻ってくる
     if (params.get('open') === 'staff') {
       this.openStaffModal();
+    }
+
+    // デザイン案件全般ボードの「➕ 新規案件」からは
+    // /?open=new-project&design_ops=1&return=/ops で来る。
+    // 案件登録フォームは1つしかないので複製せず、この画面のモーダルを開いて使ってもらう
+    if (params.get('open') === 'new-project') {
+      // 戻り先は自サイト内の相対パスだけ受け付ける(外部URLへ飛ばさないため)
+      const back = params.get('return');
+      this.returnAfterSave = back && /^\/[^/]/.test(back) ? back : null;
+
+      this.openProjectModal();
+      if (params.get('design_ops') === '1') {
+        const box = document.getElementById('project-form').elements['is_design_ops'];
+        if (box) box.checked = true;
+      }
     }
   }
 };
