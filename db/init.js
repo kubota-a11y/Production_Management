@@ -349,6 +349,15 @@ function initDatabase(dbFile = dbPath) {
     }
   }
 
+  // 進行タイプ(2026-08-03)。デザイン案件全般ボードの流れを案件ごとに分ける。
+  //   FULL       = 加工まで(標準の7段階)
+  //   SUBMIT_END = 紙媒体など。お客様の最終OK後に鈴木さんが入稿し、請求を経て完了
+  //                (検品・納品は通らない。登録時は制作から始まる)
+  if (!projectColumns.includes('ops_flow')) {
+    db.prepare(`ALTER TABLE projects ADD COLUMN ops_flow TEXT NOT NULL DEFAULT 'FULL'`).run();
+    console.log('✓ projects.ops_flow を追加しました');
+  }
+
   // アイテム名(2026-08-03)。「ドライTシャツ」「az50018 半袖ポロシャツ」など、
   // 何を作る案件なのかを一目で分かるようにするための自由入力。
   // Web注文フォーム由来の案件は case_items を持つのでそちらから補完できるが、
@@ -469,7 +478,10 @@ function initDatabase(dbFile = dbPath) {
       // デザインラフ作成 = オペレーション担当(山本さん)が描いてデザイナーへ渡す下絵。デザイナー専用項目にはしない
       ['DESIGN_ROUGH', 'デザインラフ作成'],
       // 初稿提出 = デザイナーがこれを完了すると、オペ段階が「制作」→「確認」へ自動で進む
-      ['FIRST_DRAFT_SUBMIT', '初稿提出']
+      ['FIRST_DRAFT_SUBMIT', '初稿提出'],
+      // 入稿完了 = 紙媒体(入稿で完了)タイプの案件にだけ自動付与。
+      // デザイナーがこれを完了すると、オペ段階が「請求」へ自動で進む(2026-08-03)
+      ['SUBMISSION_COMPLETE', '入稿完了']
     ];
     const existsStmt = db.prepare(`SELECT COUNT(*) as c FROM preparation_item_master WHERE code = ?`);
     const maxOrder = db.prepare(`SELECT COALESCE(MAX(display_order), 0) as m FROM preparation_item_master`).get().m;
@@ -488,8 +500,8 @@ function initDatabase(dbFile = dbPath) {
     const designerItemCodes = [
       'OUTSOURCE_DESIGN_DATA', 'PROMO_DESIGN_DATA', 'DTF_DATA_CREATION',
       'WORK_INSTRUCTION_CREATION', 'QUOTATION_CREATION',
-      // 初稿提出はデザイナー本人が完了操作をするのでマイボードに自動で入れる(2026-08-03)
-      'FIRST_DRAFT_SUBMIT'
+      // 初稿提出・入稿完了はデザイナー本人が完了操作をするのでマイボードに自動で入れる(2026-08-03)
+      'FIRST_DRAFT_SUBMIT', 'SUBMISSION_COMPLETE'
     ];
     const flagged = db.prepare(`
       UPDATE preparation_item_master SET is_designer_item = 1

@@ -106,6 +106,7 @@
 .ops-badge-inspection { background: var(--pink-soft); color: var(--pink-text); }
 .ops-badge-delivery { background: var(--warning-soft); color: var(--warning-text); }
 .ops-badge-done { background: var(--gray-100); color: var(--text-muted); }
+.ops-badge-paper { background: var(--gray-100); color: var(--gray-600); border: 1px solid var(--border-color); }
 .ops-badge-alert { background: var(--danger-soft); color: var(--danger-text); }
 
 /* ===== パイプライン ===== */

@@ -29,7 +29,7 @@ const opsBoardApp = {
     BRIEF: '山本',
     DESIGN: '鈴木',
     REVIEW: '山本 / お客様',
-    PRODUCTION: '外注・三浦',
+    PRODUCTION: '外注・三浦（📄は鈴木）',
     BILLING: '山本',
     INSPECTION: '三浦・渡邉',
     DELIVERY: '山本',
@@ -69,7 +69,7 @@ const opsBoardApp = {
     container.innerHTML = rows.map(c => `
       <button type="button" class="ops-today-card" data-case="${c.id}">
         <div class="ops-today-card-head">
-          ${this.badgeHtml(c)}
+          <span>${this.badgeHtml(c)}${this.isSubmitEnd(c) ? ' <span class="ops-badge ops-badge-paper">📄 入稿で完了</span>' : ''}</span>
           <span class="ops-today-deadline ${this.deadlineClass(c.deadline)}">納期 ${this.esc(c.deadline || '未設定')}</span>
         </div>
         <div class="ops-today-title">${this.esc(c.project_name)}</div>
@@ -197,13 +197,22 @@ const opsBoardApp = {
     });
   },
 
+  // 紙媒体(入稿で完了)タイプかどうか
+  isSubmitEnd(c) {
+    return c.ops_flow === 'SUBMIT_END';
+  },
+
   cardHtml(c) {
     const stale = this.isStale(c);
     const days = c.days_in_stage;
-    // 納品まで来た案件は、カード上のチェックだけで完了にできるようにする
-    const doneCheck = c.ops_stage === 'DELIVERY'
-      ? `<label class="ops-card-done"><input type="checkbox" data-case="${c.id}"> 納品済み・完了にする</label>`
-      : '';
+    // 最終段階まで来た案件は、カード上のチェックだけで完了にできるようにする。
+    // 標準タイプは納品で、紙媒体(入稿で完了)タイプは請求で終わる
+    let doneCheck = '';
+    if (c.ops_stage === 'DELIVERY') {
+      doneCheck = `<label class="ops-card-done"><input type="checkbox" data-case="${c.id}"> 納品済み・完了にする</label>`;
+    } else if (c.ops_stage === 'BILLING' && this.isSubmitEnd(c)) {
+      doneCheck = `<label class="ops-card-done"><input type="checkbox" data-case="${c.id}"> 請求済み・完了にする</label>`;
+    }
     return `
       <div class="ops-card" draggable="true" data-case="${c.id}" tabindex="0" role="button">
         <button type="button" class="btn-icon-remove ops-card-remove" data-remove="${c.id}"
@@ -216,6 +225,7 @@ const opsBoardApp = {
           <span class="${this.deadlineClass(c.deadline)}">納期 ${this.esc(c.deadline || '未設定')}</span>
           ${days !== null ? `<span class="${stale ? 'is-stale' : ''}">${days}日経過</span>` : ''}
           ${c.rough_count ? `<span>ラフ${c.rough_count}件</span>` : ''}
+          ${this.isSubmitEnd(c) ? '<span class="ops-badge ops-badge-paper">📄 入稿で完了</span>' : ''}
         </div>
         ${c.ops_stage === 'REVIEW' ? `<div class="ops-card-badge-row">${this.badgeHtml(c)}</div>` : ''}
         ${doneCheck}

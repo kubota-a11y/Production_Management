@@ -1546,9 +1546,11 @@ function createProjectRecord(data) {
     work_content, process_type, quantity, planned_hours, assigned_staff_id,
     status, priority, reference_link, memo, nas_folder_path, prep_items,
     required_skill_tags, estimated_hours, assigned_employee_id, project_kind,
-    freee_quote_url, freee_invoice_url, is_design_ops, item_name } = data;
+    freee_quote_url, freee_invoice_url, is_design_ops, item_name, ops_flow } = data;
   // 社内デザイン案件は数量・作業予定時間なしで登録できるため、NOT NULL列は0で埋める
   const kind = project_kind === 'INTERNAL_DESIGN' ? 'INTERNAL_DESIGN' : 'NORMAL';
+  // 進行タイプ: FULL=加工まで(標準) / SUBMIT_END=紙媒体・入稿で完了
+  const flow = ops_flow === 'SUBMIT_END' ? 'SUBMIT_END' : 'FULL';
   const now = new Date().toISOString();
   const result = db.prepare(`
     INSERT INTO projects (
@@ -1556,14 +1558,21 @@ function createProjectRecord(data) {
       work_content, process_type, quantity, planned_hours, assigned_staff_id,
       status, priority, reference_link, memo, nas_folder_path, prep_items,
       required_skill_tags, estimated_hours, assigned_employee_id, project_kind,
-      freee_quote_url, freee_invoice_url, is_design_ops, item_name, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      freee_quote_url, freee_invoice_url, is_design_ops, item_name, ops_flow, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(project_name, received_date, deadline, customer_name, contact_method,
     work_content || '', process_type || '', quantity || 0, planned_hours || 0, assigned_staff_id || null,
     status || 'PRE_ORDER', priority || 'MEDIUM', reference_link || '', memo || '',
     nas_folder_path || '', prep_items || '', required_skill_tags || '', estimated_hours || null,
     assigned_employee_id || null, kind, freee_quote_url || '', freee_invoice_url || '',
-    is_design_ops ? 1 : 0, item_name || '', now, now);
+    is_design_ops ? 1 : 0, item_name || '', flow, now, now);
+
+  // 紙媒体(入稿で完了)タイプは鈴木さんの制作から始まる(2026-08-03 社長決定)。
+  // 山本さんのブリーフ・ラフ工程を飛ばして「制作」段階でボードに載せる
+  if (is_design_ops && flow === 'SUBMIT_END') {
+    db.prepare(`UPDATE projects SET ops_stage = 'DESIGN', ops_stage_since = ? WHERE id = ?`)
+      .run(now, result.lastInsertRowid);
+  }
   return result.lastInsertRowid;
 }
 
@@ -1593,7 +1602,7 @@ app.put('/api/projects/:id', (req, res) => {
       work_content, process_type, quantity, planned_hours, assigned_staff_id,
       status, priority, reference_link, memo, nas_folder_path, prep_items,
       required_skill_tags, estimated_hours, assigned_employee_id, project_kind,
-      freee_quote_url, freee_invoice_url, is_design_ops, item_name } = req.body;
+      freee_quote_url, freee_invoice_url, is_design_ops, item_name, ops_flow } = req.body;
     const kind = project_kind === 'INTERNAL_DESIGN' ? 'INTERNAL_DESIGN' : 'NORMAL';
     const now = new Date().toISOString();
     db.prepare(`
@@ -1602,13 +1611,14 @@ app.put('/api/projects/:id', (req, res) => {
         work_content=?, process_type=?, quantity=?, planned_hours=?, assigned_staff_id=?,
         status=?, priority=?, reference_link=?, memo=?, nas_folder_path=?, prep_items=?,
         required_skill_tags=?, estimated_hours=?, assigned_employee_id=?, project_kind=?,
-        freee_quote_url=?, freee_invoice_url=?, is_design_ops=?, item_name=?, updated_at=?
+        freee_quote_url=?, freee_invoice_url=?, is_design_ops=?, item_name=?, ops_flow=?, updated_at=?
       WHERE id=?
     `).run(project_name, received_date, deadline, customer_name, contact_method,
       work_content || '', process_type || '', quantity || 0, planned_hours || 0, assigned_staff_id || null,
       status, priority, reference_link || '', memo || '', nas_folder_path || '', prep_items || '',
       required_skill_tags || '', estimated_hours || null, assigned_employee_id || null, kind,
-      freee_quote_url || '', freee_invoice_url || '', is_design_ops ? 1 : 0, item_name || '', now, req.params.id);
+      freee_quote_url || '', freee_invoice_url || '', is_design_ops ? 1 : 0, item_name || '',
+      ops_flow === 'SUBMIT_END' ? 'SUBMIT_END' : 'FULL', now, req.params.id);
     res.json({ message: 'Project updated successfully' });
   } catch (error) {
     sendServerError(res, req, error);
@@ -2519,7 +2529,7 @@ app.post('/api/projects/:projectId/preparation-items', (req, res) => {
       return res.status(400).json({ error: 'preparation_item_ids は配列で指定してください' });
     }
     const caseId = req.params.projectId;
-    const project = db.prepare('SELECT project_kind FROM projects WHERE id = ?').get(caseId);
+    const project = db.prepare('SELECT project_kind, is_design_ops, ops_flow FROM projects WHERE id = ?').get(caseId);
     const isInternalDesign = !!(project && project.project_kind === 'INTERNAL_DESIGN');
     const designerEmployeeId = getDefaultDesignerEmployeeId();
     const designerItemIds = new Set(
@@ -2542,10 +2552,24 @@ app.post('/api/projects/:projectId/preparation-items', (req, res) => {
       `SELECT id FROM preparation_item_master WHERE code = 'FIRST_DRAFT_SUBMIT'`
     ).get();
     if (firstDraft) {
-      const hasDesignWork = isInternalDesign || preparation_item_ids.some(id => designerItemIds.has(id));
+      const hasDesignWork = isInternalDesign
+        || (project && project.is_design_ops === 1)
+        || preparation_item_ids.some(id => designerItemIds.has(id));
       if (hasDesignWork && !targetItemIds.includes(firstDraft.id)) {
         targetItemIds.push(firstDraft.id);
         console.log(`[準備項目] 案件#${caseId}: デザイン案件のため「初稿提出」を自動追加しました`);
+      }
+    }
+
+    // 紙媒体(入稿で完了)タイプには「入稿完了」も自動で足す(2026-08-03)。
+    // 鈴木さんがマイボードでこれを完了にすると、案件が自動で「請求」へ進む
+    if (project && project.is_design_ops === 1 && project.ops_flow === 'SUBMIT_END') {
+      const submission = db.prepare(
+        `SELECT id FROM preparation_item_master WHERE code = 'SUBMISSION_COMPLETE'`
+      ).get();
+      if (submission && !targetItemIds.includes(submission.id)) {
+        targetItemIds.push(submission.id);
+        console.log(`[準備項目] 案件#${caseId}: 入稿で完了タイプのため「入稿完了」を自動追加しました`);
       }
     }
 

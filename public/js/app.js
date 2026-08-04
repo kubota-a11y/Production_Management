@@ -1099,6 +1099,10 @@ const app = {
         if (form.elements['is_design_ops']) {
           form.elements['is_design_ops'].checked = !!project.is_design_ops;
         }
+        // 進行タイプ(加工まで / 紙媒体・入稿で完了)の復元
+        if (form.elements['ops_flow']) {
+          form.elements['ops_flow'].value = project.ops_flow || 'FULL';
+        }
       }
 
       try {

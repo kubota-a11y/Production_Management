@@ -290,7 +290,13 @@
           <div class="checkbox-group" style="margin-top:8px;">
             <label class="checkbox-pill"><input type="checkbox" name="is_design_ops" value="1"> 🗂 デザイン案件全般として管理する</label>
           </div>
-          <div class="field-hint">チェックすると「🗂 デザイン案件全般」の画面に載り、ブリーフ・ラフ→制作→確認→入稿→請求の5段階で進行を管理します（担当: 山本さん）</div>
+          <div class="field-hint">チェックすると「🗂 デザイン案件全般」の画面に載り、ブリーフ・ラフ→制作→確認→入稿→請求の流れで進行を管理します（担当: 山本さん）</div>
+
+          <div class="checkbox-group" style="margin-top:8px;">
+            <label class="checkbox-pill"><input type="radio" name="ops_flow" value="FULL" checked> 加工まで（標準）</label>
+            <label class="checkbox-pill"><input type="radio" name="ops_flow" value="SUBMIT_END"> 📄 紙媒体・入稿で完了</label>
+          </div>
+          <div class="field-hint">「紙媒体・入稿で完了」は、お客様の最終OK後に鈴木さんが入稿したら請求→完了で終わる案件（ポスター等）。制作から始まり、検品・納品は通りません</div>
         </fieldset>
 
         <!-- 1. 基本情報 -->
@@ -660,7 +666,12 @@
               <div class="checkbox-group">
                 <label class="checkbox-pill"><input type="checkbox" name="is_design_ops" value="1"> 🗂 デザイン案件全般として管理する</label>
               </div>
-              <div class="field-hint">チェックすると「🗂 デザイン案件全般」の画面に載り、5段階で進行を管理します（担当: 山本さん）</div>
+              <div class="field-hint">チェックすると「🗂 デザイン案件全般」の画面に載り、進行を管理します（担当: 山本さん）</div>
+              <div class="checkbox-group" style="margin-top:8px;">
+                <label class="checkbox-pill"><input type="radio" name="ops_flow" value="FULL" checked> 加工まで（標準）</label>
+                <label class="checkbox-pill"><input type="radio" name="ops_flow" value="SUBMIT_END"> 📄 紙媒体・入稿で完了</label>
+              </div>
+              <div class="field-hint">「紙媒体・入稿で完了」は鈴木さんが入稿したら請求→完了で終わる案件（検品・納品なし）</div>
             </fieldset>
 
             <div class="form-row">
