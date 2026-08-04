@@ -236,6 +236,17 @@
   margin-top: 2px;
 }
 
+/* アイテム名(何を作る案件か) */
+.ops-item-name {
+  font-size: var(--text-2xs);
+  color: var(--primary-darker);
+  background: var(--primary-soft);
+  border-radius: var(--radius-sm);
+  padding: 2px var(--space-2);
+  margin-top: var(--space-2);
+  display: inline-block;
+}
+
 .ops-card-meta {
   display: flex;
   flex-wrap: wrap;

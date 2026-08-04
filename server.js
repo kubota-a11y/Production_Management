@@ -1546,7 +1546,7 @@ function createProjectRecord(data) {
     work_content, process_type, quantity, planned_hours, assigned_staff_id,
     status, priority, reference_link, memo, nas_folder_path, prep_items,
     required_skill_tags, estimated_hours, assigned_employee_id, project_kind,
-    freee_quote_url, freee_invoice_url, is_design_ops } = data;
+    freee_quote_url, freee_invoice_url, is_design_ops, item_name } = data;
   // 社内デザイン案件は数量・作業予定時間なしで登録できるため、NOT NULL列は0で埋める
   const kind = project_kind === 'INTERNAL_DESIGN' ? 'INTERNAL_DESIGN' : 'NORMAL';
   const now = new Date().toISOString();
@@ -1556,14 +1556,14 @@ function createProjectRecord(data) {
       work_content, process_type, quantity, planned_hours, assigned_staff_id,
       status, priority, reference_link, memo, nas_folder_path, prep_items,
       required_skill_tags, estimated_hours, assigned_employee_id, project_kind,
-      freee_quote_url, freee_invoice_url, is_design_ops, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      freee_quote_url, freee_invoice_url, is_design_ops, item_name, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(project_name, received_date, deadline, customer_name, contact_method,
     work_content || '', process_type || '', quantity || 0, planned_hours || 0, assigned_staff_id || null,
     status || 'PRE_ORDER', priority || 'MEDIUM', reference_link || '', memo || '',
     nas_folder_path || '', prep_items || '', required_skill_tags || '', estimated_hours || null,
     assigned_employee_id || null, kind, freee_quote_url || '', freee_invoice_url || '',
-    is_design_ops ? 1 : 0, now, now);
+    is_design_ops ? 1 : 0, item_name || '', now, now);
   return result.lastInsertRowid;
 }
 
@@ -1593,7 +1593,7 @@ app.put('/api/projects/:id', (req, res) => {
       work_content, process_type, quantity, planned_hours, assigned_staff_id,
       status, priority, reference_link, memo, nas_folder_path, prep_items,
       required_skill_tags, estimated_hours, assigned_employee_id, project_kind,
-      freee_quote_url, freee_invoice_url, is_design_ops } = req.body;
+      freee_quote_url, freee_invoice_url, is_design_ops, item_name } = req.body;
     const kind = project_kind === 'INTERNAL_DESIGN' ? 'INTERNAL_DESIGN' : 'NORMAL';
     const now = new Date().toISOString();
     db.prepare(`
@@ -1602,13 +1602,13 @@ app.put('/api/projects/:id', (req, res) => {
         work_content=?, process_type=?, quantity=?, planned_hours=?, assigned_staff_id=?,
         status=?, priority=?, reference_link=?, memo=?, nas_folder_path=?, prep_items=?,
         required_skill_tags=?, estimated_hours=?, assigned_employee_id=?, project_kind=?,
-        freee_quote_url=?, freee_invoice_url=?, is_design_ops=?, updated_at=?
+        freee_quote_url=?, freee_invoice_url=?, is_design_ops=?, item_name=?, updated_at=?
       WHERE id=?
     `).run(project_name, received_date, deadline, customer_name, contact_method,
       work_content || '', process_type || '', quantity || 0, planned_hours || 0, assigned_staff_id || null,
       status, priority, reference_link || '', memo || '', nas_folder_path || '', prep_items || '',
       required_skill_tags || '', estimated_hours || null, assigned_employee_id || null, kind,
-      freee_quote_url || '', freee_invoice_url || '', is_design_ops ? 1 : 0, now, req.params.id);
+      freee_quote_url || '', freee_invoice_url || '', is_design_ops ? 1 : 0, item_name || '', now, req.params.id);
     res.json({ message: 'Project updated successfully' });
   } catch (error) {
     sendServerError(res, req, error);

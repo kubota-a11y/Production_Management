@@ -7,6 +7,23 @@ const opsBoardApp = {
   currentCaseId: null,
   draggingCaseId: null,
 
+  // Web注文フォーム由来の案件は case_items にカテゴリのコードが入っているので、
+  // アイテム名が未入力のときの表示用にここで日本語へ直す(lib/order-intake.js と同じ対応)
+  CATEGORY_LABEL: {
+    tshirt: 'Tシャツ', polo: 'ポロシャツ', sweat: 'トレーナー', hoodie: 'パーカー',
+    zip_hoodie: 'ジップアップパーカー', pants: 'パンツ', cap: '帽子', bag: 'バッグ',
+    workwear: '作業着', other: 'その他',
+  },
+
+  // カードに出すアイテム名。①手入力のアイテム名 → ②注文フォームのアイテム情報 の順に使う
+  itemLabel(c) {
+    if (c.item_name) return c.item_name;
+    if (!c.first_item_category) return '';
+    const label = this.CATEGORY_LABEL[c.first_item_category] || c.first_item_category;
+    const more = c.item_count > 1 ? ` ほか${c.item_count - 1}点` : '';
+    return label + more;
+  },
+
   // 各段階の主担当。カード列の副題に出す
   STAGE_OWNER: {
     BRIEF: '山本',
@@ -57,6 +74,7 @@ const opsBoardApp = {
         </div>
         <div class="ops-today-title">${this.esc(c.project_name)}</div>
         <div class="ops-today-customer">${this.esc(c.customer_name)}</div>
+        ${this.itemLabel(c) ? `<div class="ops-item-name">🏷 ${this.esc(this.itemLabel(c))}</div>` : ''}
         <div class="ops-today-reason">${this.esc(c.reason.label)}</div>
       </button>
     `).join('');
@@ -193,6 +211,7 @@ const opsBoardApp = {
           aria-label="${this.esc(c.project_name)} をボードから外す">✕</button>
         <div class="ops-card-name">${this.esc(c.project_name)}</div>
         <div class="ops-card-customer">${this.esc(c.customer_name)}</div>
+        ${this.itemLabel(c) ? `<div class="ops-item-name">🏷 ${this.esc(this.itemLabel(c))}</div>` : ''}
         <div class="ops-card-meta">
           <span class="${this.deadlineClass(c.deadline)}">納期 ${this.esc(c.deadline || '未設定')}</span>
           ${days !== null ? `<span class="${stale ? 'is-stale' : ''}">${days}日経過</span>` : ''}
@@ -238,8 +257,10 @@ const opsBoardApp = {
     this.currentCaseId = caseId;
 
     document.getElementById('ops-modal-title').textContent = c.project_name;
+    const item = this.itemLabel(c);
     document.getElementById('ops-modal-summary').textContent =
-      `${c.customer_name}／納期 ${c.deadline || '未設定'}${c.days_in_stage !== null ? `／この段階に入って${c.days_in_stage}日` : ''}`;
+      `${c.customer_name}${item ? `／${item}` : ''}／納期 ${c.deadline || '未設定'}`
+      + `${c.days_in_stage !== null ? `／この段階に入って${c.days_in_stage}日` : ''}`;
 
     // 段階の切り替えボタン
     document.getElementById('ops-stage-picker').innerHTML = this.data.stages.map(st => `
@@ -280,6 +301,13 @@ const opsBoardApp = {
 
   openCaseDetail() {
     if (this.currentCaseId) CaseDetail.open(this.currentCaseId);
+  },
+
+  // 案件の編集。フォームを複製すると二重メンテになるので、HiBoardの編集モーダルを
+  // 開いて使ってもらい、保存後にこの画面へ戻す(新規案件ボタンと同じ仕組み)
+  editCase() {
+    if (!this.currentCaseId) return;
+    window.location.href = `/?open=edit-project&id=${this.currentCaseId}&return=/ops`;
   },
 
   // モーダルの段階ボタンから呼ぶ。変更後もモーダルを開いたままにする

@@ -1852,18 +1852,24 @@ const app = {
       this.openStaffModal();
     }
 
-    // デザイン案件全般ボードの「➕ 新規案件」からは
-    // /?open=new-project&design_ops=1&return=/ops で来る。
-    // 案件登録フォームは1つしかないので複製せず、この画面のモーダルを開いて使ってもらう
-    if (params.get('open') === 'new-project') {
+    // デザイン案件全般ボードの「➕ 新規案件」「✎ 案件を編集」からは
+    // /?open=new-project&design_ops=1&return=/ops または /?open=edit-project&id=N&return=/ops で来る。
+    // 案件フォームは1つしかないので複製せず、この画面のモーダルを開いて使ってもらう
+    const open = params.get('open');
+    if (open === 'new-project' || open === 'edit-project') {
       // 戻り先は自サイト内の相対パスだけ受け付ける(外部URLへ飛ばさないため)
       const back = params.get('return');
       this.returnAfterSave = back && /^\/[^/]/.test(back) ? back : null;
 
-      this.openProjectModal();
-      if (params.get('design_ops') === '1') {
-        const box = document.getElementById('project-form').elements['is_design_ops'];
-        if (box) box.checked = true;
+      if (open === 'edit-project') {
+        const id = parseInt(params.get('id'), 10);
+        if (Number.isFinite(id)) this.openProjectModal(id);
+      } else {
+        this.openProjectModal();
+        if (params.get('design_ops') === '1') {
+          const box = document.getElementById('project-form').elements['is_design_ops'];
+          if (box) box.checked = true;
+        }
       }
     }
   }

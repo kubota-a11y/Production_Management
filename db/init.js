@@ -333,6 +333,15 @@ function initDatabase(dbFile = dbPath) {
   if (!projectColumns.includes('ops_stage_since')) {
     db.prepare(`ALTER TABLE projects ADD COLUMN ops_stage_since TEXT`).run();
   }
+  // アイテム名(2026-08-03)。「ドライTシャツ」「az50018 半袖ポロシャツ」など、
+  // 何を作る案件なのかを一目で分かるようにするための自由入力。
+  // Web注文フォーム由来の案件は case_items を持つのでそちらから補完できるが、
+  // 手入力で登録した案件には拠り所が無かったため追加した
+  if (!projectColumns.includes('item_name')) {
+    db.prepare(`ALTER TABLE projects ADD COLUMN item_name TEXT`).run();
+    console.log('✓ projects.item_name を追加しました');
+  }
+
   // 「デザイン案件全般」ボードに載せるかどうかのフラグ(2026-08-03)。
   // 準備項目からの推測ではなく、案件登録時にチェックした案件だけを載せる(社長判断)
   if (!projectColumns.includes('is_design_ops')) {
