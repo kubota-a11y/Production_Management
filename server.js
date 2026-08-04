@@ -12,7 +12,7 @@ const { registerTeamOrderRoutes } = require('./lib/team-order');
 const { registerPartnerPortalRoutes } = require('./lib/partner-portal');
 const { registerPartnerOrderRoutes } = require('./lib/partner-order');
 const { registerDesignerBoardRoutes } = require('./lib/designer-board');
-const { registerOpsBoardRoutes, markBillingOnDeliver } = require('./lib/ops-board');
+const { registerOpsBoardRoutes, markDeliveredStage } = require('./lib/ops-board');
 const { registerOrderStatusRoutes } = require('./lib/order-status');
 const { registerReferralRoutes } = require('./lib/referral');
 const { registerWorksRoutes } = require('./lib/works-publish');
@@ -1681,8 +1681,9 @@ app.post('/api/projects/:id/deliver', (req, res) => {
       `).run(req.params.id, delivered_date, delivery_method, delivered_by_staff_id || null, delivered_by_employee_id || null, now);
       db.prepare(`UPDATE projects SET status='COMPLETED', updated_at=? WHERE id=?`).run(now, req.params.id);
     })();
-    // 納品したらオペレーション段階を「請求」へ進める(請求済みの記録は山本さんがボードで行う)
-    markBillingOnDeliver(db, parseInt(req.params.id, 10));
+    // 納品処理をしたらデザイン案件全般ボードの段階を「納品」へ進める。
+    // 完了(DONE)にはしない — 納品欄のチェックボックスで山本さんが締める運用のため
+    markDeliveredStage(db, parseInt(req.params.id, 10));
     res.json({ message: 'Project marked as delivered' });
   } catch (error) {
     sendServerError(res, req, error);

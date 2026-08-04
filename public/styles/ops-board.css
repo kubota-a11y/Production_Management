@@ -9,38 +9,69 @@
 
 #ops-today-section .ops-section-title { margin-top: 0; }
 
-/* ===== 今日やること ===== */
+/* ===== 今日やること(カード) ===== */
 .ops-today-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-3);
 }
 
-.ops-today-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
+.ops-today-card {
+  display: block;
+  width: 100%;
+  text-align: left;
   padding: var(--space-3);
   background: var(--surface);
   border: 1px solid var(--border-color);
+  border-left: 4px solid var(--primary-color);
   border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: var(--transition-fast);
 }
 
-.ops-today-row .ops-today-main {
-  flex: 1;
-  min-width: 0;
+.ops-today-card:hover {
+  border-color: var(--border-strong);
+  border-left-color: var(--primary-dark);
+  box-shadow: var(--shadow-sm);
 }
 
-.ops-today-row .ops-today-title {
+.ops-today-card:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.ops-today-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.ops-today-deadline {
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.ops-today-title {
   font-size: var(--text-base);
   font-weight: 600;
   color: var(--text-color);
 }
 
-.ops-today-row .ops-today-reason {
+.ops-today-customer {
+  font-size: var(--text-2xs);
+  color: var(--text-subtle);
+  margin-top: 2px;
+}
+
+.ops-today-reason {
   font-size: var(--text-sm);
   color: var(--text-subtle);
-  margin-top: var(--space-1);
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-color);
 }
 
 /* ===== 段階バッジ ===== */
@@ -59,26 +90,40 @@
 .ops-badge-review-customer { background: var(--gray-200); color: var(--gray-700); }
 .ops-badge-production { background: var(--primary-soft); color: var(--primary-darker); }
 .ops-badge-billing { background: var(--success-soft); color: var(--success-text); }
+.ops-badge-inspection { background: var(--pink-soft); color: var(--pink-text); }
+.ops-badge-delivery { background: var(--warning-soft); color: var(--warning-text); }
 .ops-badge-done { background: var(--gray-100); color: var(--text-muted); }
 .ops-badge-alert { background: var(--danger-soft); color: var(--danger-text); }
 
 /* ===== パイプライン ===== */
+/* 段階が7つ(+完了)あるため、横スクロールする列レイアウトにする。
+   ページ全体が横に伸びないよう、スクロールはこのコンテナの中だけで起こす */
 .ops-pipeline {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  display: flex;
   gap: var(--space-3);
-  align-items: start;
-}
-
-.ops-pipeline.with-done {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  align-items: stretch;
+  overflow-x: auto;
+  padding-bottom: var(--space-2);
 }
 
 .ops-column {
+  flex: 1 0 190px;
   background: var(--surface-muted);
+  border: 2px solid transparent;
   border-radius: var(--radius-xl);
   padding: var(--space-3);
-  min-height: 120px;
+  min-height: 140px;
+  transition: var(--transition-fast);
+}
+
+/* ドラッグ中のカードを受け取れる列 */
+.ops-column.is-drop-target {
+  background: var(--primary-soft);
+  border-color: var(--primary-color);
+}
+
+.ops-column-body {
+  min-height: 40px;
 }
 
 .ops-column-head {
@@ -103,13 +148,35 @@
   border-radius: var(--radius-lg);
   padding: var(--space-2) var(--space-3);
   margin-bottom: var(--space-2);
-  cursor: pointer;
+  cursor: grab;
   transition: var(--transition-fast);
 }
 
 .ops-card:hover {
   border-color: var(--border-strong);
   box-shadow: var(--shadow-sm);
+}
+
+.ops-card.is-dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+
+.ops-card-badge-row {
+  margin-top: var(--space-2);
+}
+
+/* 納品段階のカードに出す「完了にする」チェック */
+.ops-card-done {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-color);
+  font-size: var(--text-2xs);
+  color: var(--success-dark);
+  cursor: pointer;
 }
 
 .ops-card:focus-visible {
@@ -182,21 +249,19 @@
   border: 1px solid var(--border-color);
 }
 
-/* タブレット・スマホ: 列を縦に積む */
-@media (max-width: 1180px) {
-  .ops-pipeline,
-  .ops-pipeline.with-done {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
+/* スマホ: 列を縦に積む(横スクロールとドラッグの相性が悪いため) */
 @media (max-width: 767px) {
-  .ops-pipeline,
-  .ops-pipeline.with-done {
-    grid-template-columns: minmax(0, 1fr);
+  .ops-pipeline {
+    flex-direction: column;
+    overflow-x: visible;
   }
 
-  .ops-today-row {
-    flex-wrap: wrap;
+  .ops-column {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .ops-today-list {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

@@ -1,9 +1,11 @@
-// オペレーションボード(/ops)。デザイン案件が「いま誰待ちで止まっているか」を5段階で管理する。
-// 段階の定義とサーバー側の遷移は lib/ops-board.js を参照。
+// デザイン案件全般ボード(/ops)。案件が「いま誰待ちで止まっているか」を7段階で管理する。
+// 段階の定義とサーバー側の自動遷移は lib/ops-board.js を参照。
+// 段階の移動はカードのドラッグ&ドロップ、またはカードを開いてボタンで行う。
 
 const opsBoardApp = {
   data: null,
   currentCaseId: null,
+  draggingCaseId: null,
 
   // 各段階の主担当。カード列の副題に出す
   STAGE_OWNER: {
@@ -12,6 +14,8 @@ const opsBoardApp = {
     REVIEW: '山本 / お客様',
     PRODUCTION: '外注・三浦',
     BILLING: '山本',
+    INSPECTION: '三浦・渡邉',
+    DELIVERY: '山本',
     DONE: '',
   },
 
@@ -46,20 +50,18 @@ const opsBoardApp = {
       return;
     }
     container.innerHTML = rows.map(c => `
-      <div class="ops-today-row">
-        ${this.badgeHtml(c)}
-        <div class="ops-today-main">
-          <div class="ops-today-title">${this.esc(c.project_name)}</div>
-          <div class="ops-today-reason">${this.esc(c.customer_name)}／${this.esc(c.reason.label)}</div>
+      <button type="button" class="ops-today-card" data-case="${c.id}">
+        <div class="ops-today-card-head">
+          ${this.badgeHtml(c)}
+          <span class="ops-today-deadline ${this.deadlineClass(c.deadline)}">納期 ${this.esc(c.deadline || '未設定')}</span>
         </div>
-        <div class="ops-card-meta">
-          <span class="${this.deadlineClass(c.deadline)}">納期 ${this.esc(c.deadline || '未設定')}</span>
-        </div>
-        <button type="button" class="btn btn-secondary btn-small" data-case="${c.id}">開く</button>
-      </div>
+        <div class="ops-today-title">${this.esc(c.project_name)}</div>
+        <div class="ops-today-customer">${this.esc(c.customer_name)}</div>
+        <div class="ops-today-reason">${this.esc(c.reason.label)}</div>
+      </button>
     `).join('');
-    container.querySelectorAll('button[data-case]').forEach(btn => {
-      btn.addEventListener('click', () => this.openCaseModal(Number(btn.dataset.case)));
+    container.querySelectorAll('.ops-today-card').forEach(card => {
+      card.addEventListener('click', () => this.openCaseModal(Number(card.dataset.case)));
     });
   },
 
@@ -76,24 +78,87 @@ const opsBoardApp = {
         ? cards.map(c => this.cardHtml(c)).join('')
         : '<p class="empty-notice">なし</p>';
       return `
-        <div class="ops-column">
+        <div class="ops-column" data-stage="${stage.key}">
           <div class="ops-column-head">${this.esc(stage.label)}（${cards.length}）</div>
           <div class="ops-column-owner">${this.esc(this.STAGE_OWNER[stage.key] || '')}</div>
-          ${body}
+          <div class="ops-column-body">${body}</div>
         </div>
       `;
     }).join('');
 
+    this.bindCardEvents(container);
+    this.bindDropTargets(container);
+  },
+
+  // カードのクリック・ドラッグ開始・完了チェックを結び付ける
+  bindCardEvents(container) {
     container.querySelectorAll('.ops-card').forEach(card => {
-      card.addEventListener('click', () => this.openCaseModal(Number(card.dataset.case)));
+      const caseId = Number(card.dataset.case);
+
+      card.addEventListener('click', (e) => {
+        // 完了チェックを押したときはカードを開かない
+        if (e.target.closest('.ops-card-done')) return;
+        this.openCaseModal(caseId);
+      });
+
+      card.addEventListener('dragstart', (e) => {
+        this.draggingCaseId = caseId;
+        card.classList.add('is-dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        // Firefox はデータをセットしないとドラッグが始まらない
+        e.dataTransfer.setData('text/plain', String(caseId));
+      });
+      card.addEventListener('dragend', () => {
+        this.draggingCaseId = null;
+        card.classList.remove('is-dragging');
+        container.querySelectorAll('.ops-column').forEach(col => col.classList.remove('is-drop-target'));
+      });
+    });
+
+    // 納品段階のカードにある「完了にする」チェック
+    container.querySelectorAll('.ops-card-done input').forEach(input => {
+      input.addEventListener('change', () => {
+        this.setStageFor(Number(input.dataset.case), 'DONE');
+      });
+    });
+  },
+
+  // 列へのドロップで段階を変更する。前にも後ろにも動かせる(差し戻しも同じ操作)
+  bindDropTargets(container) {
+    container.querySelectorAll('.ops-column').forEach(col => {
+      col.addEventListener('dragover', (e) => {
+        if (this.draggingCaseId === null) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        col.classList.add('is-drop-target');
+      });
+      col.addEventListener('dragleave', (e) => {
+        // 子要素へ移っただけのときは外さない
+        if (!col.contains(e.relatedTarget)) col.classList.remove('is-drop-target');
+      });
+      col.addEventListener('drop', (e) => {
+        e.preventDefault();
+        col.classList.remove('is-drop-target');
+        const caseId = this.draggingCaseId ?? Number(e.dataTransfer.getData('text/plain'));
+        this.draggingCaseId = null;
+        if (!caseId) return;
+        const target = col.dataset.stage;
+        const current = (this.data.cases.find(c => c.id === caseId) || {}).ops_stage;
+        if (!target || target === current) return;
+        this.setStageFor(caseId, target);
+      });
     });
   },
 
   cardHtml(c) {
     const stale = this.isStale(c);
     const days = c.days_in_stage;
+    // 納品まで来た案件は、カード上のチェックだけで完了にできるようにする
+    const doneCheck = c.ops_stage === 'DELIVERY'
+      ? `<label class="ops-card-done"><input type="checkbox" data-case="${c.id}"> 納品済み・完了にする</label>`
+      : '';
     return `
-      <button type="button" class="ops-card" data-case="${c.id}">
+      <div class="ops-card" draggable="true" data-case="${c.id}" tabindex="0" role="button">
         <div class="ops-card-name">${this.esc(c.project_name)}</div>
         <div class="ops-card-customer">${this.esc(c.customer_name)}</div>
         <div class="ops-card-meta">
@@ -101,8 +166,9 @@ const opsBoardApp = {
           ${days !== null ? `<span class="${stale ? 'is-stale' : ''}">${days}日経過</span>` : ''}
           ${c.rough_count ? `<span>ラフ${c.rough_count}件</span>` : ''}
         </div>
-        ${c.ops_stage === 'REVIEW' ? `<div style="margin-top:6px;">${this.badgeHtml(c)}</div>` : ''}
-      </button>
+        ${c.ops_stage === 'REVIEW' ? `<div class="ops-card-badge-row">${this.badgeHtml(c)}</div>` : ''}
+        ${doneCheck}
+      </div>
     `;
   },
 
@@ -115,7 +181,8 @@ const opsBoardApp = {
     }
     const cls = {
       BRIEF: 'ops-badge-brief', DESIGN: 'ops-badge-design',
-      PRODUCTION: 'ops-badge-production', BILLING: 'ops-badge-billing', DONE: 'ops-badge-done',
+      PRODUCTION: 'ops-badge-production', BILLING: 'ops-badge-billing',
+      INSPECTION: 'ops-badge-inspection', DELIVERY: 'ops-badge-delivery', DONE: 'ops-badge-done',
     }[c.ops_stage] || 'ops-badge-done';
     const label = (this.data.stages.find(s => s.key === c.ops_stage) || {}).label || c.ops_stage;
     return `<span class="ops-badge ${cls}">${this.esc(label)}</span>`;
@@ -183,21 +250,30 @@ const opsBoardApp = {
     if (this.currentCaseId) CaseDetail.open(this.currentCaseId);
   },
 
+  // モーダルの段階ボタンから呼ぶ。変更後もモーダルを開いたままにする
   async setStage(stage, waitOn) {
+    const caseId = this.currentCaseId;
+    if (await this.setStageFor(caseId, stage, waitOn)) this.openCaseModal(caseId);
+  },
+
+  // ドラッグ&ドロップ・完了チェック・モーダルの共通処理
+  async setStageFor(caseId, stage, waitOn) {
     try {
-      const res = await fetch(`/api/ops/cases/${this.currentCaseId}/stage`, {
+      const res = await fetch(`/api/ops/cases/${caseId}/stage`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stage, wait_on: waitOn || null }),
       });
       const json = await res.json();
       if (!json.ok) throw new Error(json.error || '更新に失敗しました');
-      HiUI.toast('段階を変更しました');
-      const caseId = this.currentCaseId;
+      const label = (this.data.stages.find(s => s.key === stage) || {}).label || stage;
+      HiUI.toast(stage === 'DONE' ? '完了にしました' : `「${label}」へ移動しました`);
       await this.load();
-      this.openCaseModal(caseId);
+      return true;
     } catch (err) {
       HiUI.toast(err.message || '更新に失敗しました', 'error');
+      await this.load();  // 失敗したらカードを元の列へ戻す
+      return false;
     }
   },
 
