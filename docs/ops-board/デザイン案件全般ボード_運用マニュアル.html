@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif; color: #1a2733; font-size: 9.1pt; line-height: 1.4; }
+  .page { width: 210mm; min-height: 297mm; padding: 10mm 13mm; page-break-after: always; }
+  .page:last-child { page-break-after: auto; }
+
+  .head { border-bottom: 3px solid #1d4ed8; padding-bottom: 2.4mm; margin-bottom: 3mm; display: flex; justify-content: space-between; align-items: flex-end; }
+  .head h1 { font-size: 15pt; color: #1d4ed8; }
+  .head .meta { font-size: 8pt; color: #667; text-align: right; }
+
+  h2 { font-size: 10.4pt; color: #fff; background: #1d4ed8; padding: 1.3mm 3mm; border-radius: 1.5mm; margin: 2.8mm 0 1.5mm; }
+  h2.y { background: #1d4ed8; }
+  h2.s { background: #9d174d; }
+  h2.c { background: #444; }
+  h3 { font-size: 9.6pt; color: #1d4ed8; margin: 2.2mm 0 1mm; border-left: 3px solid #1d4ed8; padding-left: 2.5mm; }
+  h3.s { color: #9d174d; border-left-color: #9d174d; }
+  h3.c { color: #333; border-left-color: #888; }
+
+  p { margin-bottom: 1.1mm; }
+  ul, ol { margin: 0.8mm 0 1.5mm 5.5mm; }
+  li { margin-bottom: 0.6mm; }
+  strong { color: #0b2a52; }
+
+  table { width: 100%; border-collapse: collapse; margin: 1.2mm 0 1.5mm; font-size: 8.7pt; }
+  th { background: #eef2f9; color: #1d3f74; padding: 1mm 2.5mm; text-align: left; border: 1px solid #cbd5e1; font-weight: 600; }
+  td { border: 1px solid #cbd5e1; padding: 1mm 2.5mm; vertical-align: top; }
+
+  .lead { background: #eef4fd; border-radius: 2mm; padding: 2mm 3mm; margin-bottom: 1.5mm; }
+  .note { background: #fff8e6; border: 1px solid #e6c67a; border-radius: 2mm; padding: 1.6mm 2.6mm; margin: 1.2mm 0; font-size: 8.7pt; }
+  .key { background: #fdeeee; border: 1px solid #e0a3a3; border-radius: 2mm; padding: 1.6mm 2.6mm; margin: 1.2mm 0; font-size: 8.7pt; }
+  .key strong { color: #8a1f1f; }
+  .small { font-size: 8.3pt; color: #556; }
+
+  /* 流れ図 */
+  .flow { display: flex; align-items: stretch; gap: 1.5mm; margin: 2mm 0 1mm; }
+  .step { flex: 1; border-radius: 2mm; padding: 2mm 1.5mm; text-align: center; border: 1.4px solid; }
+  .step .n { font-size: 7.5pt; opacity: .8; }
+  .step .t { font-size: 8.6pt; font-weight: 600; margin: 0.6mm 0; }
+  .step .w { font-size: 7.4pt; }
+  .yam { background: #eaf1fd; border-color: #1d4ed8; color: #12356e; }
+  .suz { background: #fdeaf2; border-color: #9d174d; color: #7a1039; }
+  .oth { background: #f1f1ee; border-color: #8a8a80; color: #3f3f3a; }
+  .legend { display: flex; gap: 4mm; font-size: 8.2pt; margin-top: 1mm; }
+  .legend span i { display: inline-block; width: 3mm; height: 3mm; border-radius: 0.7mm; vertical-align: -0.3mm; margin-right: 1mm; border: 1.2px solid; }
+
+  .cols { display: flex; gap: 4mm; }
+  .cols > div { flex: 1; }
+</style></head><body>
+
+<!-- ============ 1ページ目: 全体像 ============ -->
+<div class="page">
+  <div class="head">
+    <h1>🗂 デザイン案件全般ボード 運用マニュアル</h1>
+    <div class="meta">山本さん・鈴木さん向け<br>2026-08-03　有限会社HiYOSHi</div>
+  </div>
+
+  <p class="lead">
+    <strong>このボードの目的は「いま誰の番で案件が止まっているか」を全員が見える状態にすることです。</strong>
+    これまで口頭やチャットで伝えていた「ステータス変更したのでよろしく」「完了したのでよろしく」という報告は、
+    <strong>ボードが自動で通知するので不要になります</strong>。
+    山本さんと鈴木さんが実際に手を動かし、三浦さんと久保田がその流れを確認します。
+  </p>
+
+  <h2 class="c">案件は7つの段階を進みます</h2>
+
+  <div class="flow">
+    <div class="step yam"><div class="n">①</div><div class="t">ブリーフ・ラフ</div><div class="w">山本</div></div>
+    <div class="step suz"><div class="n">②</div><div class="t">制作</div><div class="w">鈴木</div></div>
+    <div class="step yam"><div class="n">③</div><div class="t">確認</div><div class="w">山本↔お客様</div></div>
+    <div class="step oth"><div class="n">④</div><div class="t">入稿・製造</div><div class="w">外注・三浦</div></div>
+    <div class="step yam"><div class="n">⑤</div><div class="t">請求</div><div class="w">山本</div></div>
+    <div class="step oth"><div class="n">⑥</div><div class="t">検品</div><div class="w">三浦・渡邉</div></div>
+    <div class="step yam"><div class="n">⑦</div><div class="t">納品</div><div class="w">山本</div></div>
+  </div>
+  <div class="legend">
+    <span><i class="yam"></i>山本さんの番</span>
+    <span><i class="suz"></i>鈴木さんの番</span>
+    <span><i class="oth"></i>その他の担当</span>
+    <span>納品まで済んだら、カードのチェックで「完了」にします</span>
+  </div>
+
+  <h3 class="c">段階が自動で進むところ</h3>
+  <table>
+    <tr><th style="width:78mm">きっかけ</th><th>結果</th></tr>
+    <tr><td>鈴木さんが準備項目<strong>「初稿提出」</strong>を完了</td><td>②制作 → ③確認 へ自動で進む</td></tr>
+    <tr><td>鈴木さんが<strong>「外注用デザインデータ作成」</strong>を完了</td><td>③確認 → ④入稿・製造 へ自動で進む</td></tr>
+    <tr><td>鈴木さんが<strong>「入稿完了」</strong>を完了（紙媒体のみ）</td><td>⑤請求 へ自動で進む</td></tr>
+    <tr><td>HiBoardで<strong>「📦 納品済み」</strong>を押す</td><td>⑦納品 へ自動で進む</td></tr>
+  </table>
+  <p class="small">※ 上記以外の移動は、山本さんがカードをドラッグ&ドロップして動かします。</p>
+
+  <h2 class="c">バトンタッチは自動で通知されます</h2>
+  <p>
+    担当が切り替わると、<strong>Google Chat の「デザイン案件」スペースに自動でメッセージが届きます</strong>。
+    たとえばこのような内容です。
+  </p>
+  <table>
+    <tr><td>🎨【○○ユニフォーム】制作のバトンが渡りました → 鈴木さん</td></tr>
+    <tr><td>✅【○○ユニフォーム】初稿が提出されました → 山本さん: お客様へ確認連絡</td></tr>
+    <tr><td>↩️【○○ユニフォーム】修正依頼で制作に戻りました → 鈴木さん</td></tr>
+  </table>
+  <div class="key">
+    <strong>「よろしくお願いします」の連絡はもう不要です。</strong>
+    通知が来ていない = まだ自分の番ではない、と考えて大丈夫です。
+    確認の細かいステップを動かしたときなど、担当が変わらない操作では通知は飛びません。
+  </div>
+
+  <h2 class="c">案件には2つの進行タイプがあります</h2>
+  <table>
+    <tr><th style="width:52mm">タイプ</th><th>流れ</th></tr>
+    <tr>
+      <td><strong>加工まで（標準）</strong><br><span class="small">衣類・ユニフォームなど</span></td>
+      <td>上の①〜⑦をすべて通ります</td>
+    </tr>
+    <tr>
+      <td><strong>📄 紙媒体・入稿で完了</strong><br><span class="small">ポスター・チラシなど</span></td>
+      <td><strong>②制作から始まり</strong>（山本さんのブリーフ・ラフを飛ばす）、お客様の最終OK後に<strong>鈴木さんが入稿</strong>したら⑤請求へ。請求書を発行して完了です。<strong>検品・納品は通りません</strong></td>
+    </tr>
+  </table>
+  <p>
+    紙媒体はさらに<strong>「HiYOSHi からの依頼」</strong>と<strong>「🔶 CARVE で受けている案件」</strong>に分かれます。
+    CARVE案件はイレギュラーなので、<strong>ボード上では紫の枠が付いて目立つ</strong>ようになっています。
+  </p>
+</div>
+
+<!-- ============ 2ページ目: 山本さん編 ============ -->
+<div class="page">
+  <div class="head">
+    <h1>山本さん編 — ボードの使い方</h1>
+    <div class="meta">🗂 デザイン案件全般ボード<br>HiBoard ヘッダーの「🗂 デザイン案件全般」から開きます</div>
+  </div>
+
+  <h2 class="y">画面は上下2つに分かれています</h2>
+  <table>
+    <tr><th style="width:42mm">📌 今日やること</th><td><strong>いま自分が手を動かす案件だけ</strong>がカードで並びます。まずここを空にすることを目指してください。カードを押すと操作画面が開きます</td></tr>
+    <tr><th>🗂 案件パイプライン</th><td>すべての案件が7つの列に並びます。<strong>カードをつまんで別の列に落とすと段階が変わります</strong>（前にも後ろにも動かせるので、差し戻しも同じ操作です）</td></tr>
+  </table>
+
+  <h2 class="y">この画面に案件を載せる・外す</h2>
+  <table>
+    <tr><th style="width:42mm">新しく登録するとき</th><td>ボード左上の<strong>「➕ 新規案件」</strong>を押すと、チェックが入った状態で登録画面が開きます。保存するとこの画面に戻ります</td></tr>
+    <tr><th>既にある案件を載せる</th><td>HiBoard一覧ビューのその案件の行にある<strong>「🗂 全般へ」</strong>ボタンを押します</td></tr>
+    <tr><th>載せる必要がなかった</th><td>カード<strong>右上の「✕」</strong>を押します。<strong>案件そのものは消えません</strong>（一覧ビューには残ります）</td></tr>
+    <tr><th>内容を直したい</th><td>カードを開いて<strong>「✎ 案件を編集」</strong>。納期・数量・アイテム名など全部変えられます</td></tr>
+  </table>
+  <div class="note">
+    <strong>アイテム名を入れておいてください。</strong>（例: ドライTシャツ / az50018 半袖ポロシャツ）
+    カードに 🏷 のタグで表示され、何を作る案件かが一目で分かります。
+    ホームページのご注文フォームから入った案件は自動で表示されるので入力不要です。
+  </div>
+
+  <h2 class="y">①ブリーフ・ラフ — 鈴木さんへ渡すまで</h2>
+  <ol>
+    <li>依頼内容を確定させます（あいまいなまま渡さないのがいちばん大事です）</li>
+    <li>カードを開いて<strong>デザインラフを添付</strong>します。1ファイル15MBまで、一度に5件まで</li>
+    <li>カードを<strong>「制作」の列へドラッグ</strong> → 鈴木さんに自動で通知が飛びます</li>
+  </ol>
+  <div class="key">
+    <strong>鈴木さんは会社のNASを見られません。</strong>
+    ラフや参考画像は必ず<strong>カードに添付</strong>してください。添付すると鈴木さんのマイスケジュールボードに
+    「🖼 ラフ」のリンクが出て、そこから開けるようになります。
+  </div>
+
+  <h2 class="y">③確認 — 4つのステップで進めます</h2>
+  <p>カードを開くと「確認の進み具合」が出ます。やりとりが進むたびに次へ切り替えてください。</p>
+  <table>
+    <tr><th style="width:8mm">1</th><td><strong>お客様へ確認連絡</strong> … 初稿をお客様へ送る</td><td style="width:26mm">自分の番</td></tr>
+    <tr><th>2</th><td><strong>お客様の返事待ち</strong> … 送った後、返事を待つ</td><td>お客様待ち</td></tr>
+    <tr><th>3</th><td><strong>位置・大きさの調整</strong> … 返事をもとに直して、もう一度お客様へ確認</td><td>自分の番</td></tr>
+    <tr><th>4</th><td><strong>最終確認の返事待ち</strong> … OKをもらったら「入稿・製造」へ進める</td><td>お客様待ち</td></tr>
+  </table>
+  <div class="note">
+    <strong>1と3（自分の番）は「今日やること」に出ます。</strong>
+    2と4（お客様の返事待ち）は普段は出ませんが、<strong>返事がないまま7日を過ぎると催促として自動で戻ってきます</strong>。
+    お客様へ送ったら必ず2や4に切り替えてください。切り替えを忘れると、催促のタイミングがずれてしまいます。
+  </div>
+  <p class="small">※ 修正が必要になったら、カードを「制作」の列へ戻せば鈴木さんに修正依頼として通知が飛びます。</p>
+
+  <h2 class="y">⑤請求 → ⑥検品 → ⑦納品 → 完了</h2>
+  <ul>
+    <li>納品まで済んだら、<strong>納品カードの「納品済み・完了にする」チェック</strong>を入れて締めます</li>
+    <li>紙媒体（入稿で完了）の案件は、<strong>請求カードの「請求済み・完了にする」チェック</strong>で締めます</li>
+    <li>完了した案件は画面から消えます（「完了した案件も表示する」で確認できます）</li>
+  </ul>
+</div>
+
+<!-- ============ 3ページ目: 鈴木さん編 ============ -->
+<div class="page">
+  <div class="head">
+    <h1>鈴木さん編 — いつもの画面だけで完結します</h1>
+    <div class="meta">🎨 マイスケジュールボード<br>これまでと同じ、ご自身専用のURLです</div>
+  </div>
+
+  <p class="lead">
+    <strong>鈴木さんが使う画面は、これまでどおりマイスケジュールボードだけです。</strong>
+    社内のボードを開く必要はありません。作業カードの出方と、完了チェックを押したときに何が起きるかが変わりました。
+  </p>
+
+  <h2 class="s">依頼が来たときの流れ</h2>
+  <ol>
+    <li>Google Chat に<strong>「制作のバトンが渡りました」</strong>と通知が届きます</li>
+    <li>マイスケジュールボードに作業カードが出ます（「日付が未定のタスク」に入ります）</li>
+    <li>カードに<strong>「🖼 ラフ: ファイル名」</strong>のリンクがあれば、そこから山本さんの下絵を開けます</li>
+    <li>これまでどおり、日付を選んで自分の予定に入れてください</li>
+  </ol>
+  <div class="key">
+    <strong>会社のNASを開く必要はありません。</strong>
+    山本さんからのラフや参考画像は、すべてこのリンクから見られるようになっています。
+    見当たらない・開けないときは山本さんへお知らせください。
+  </div>
+
+  <h2 class="s">完了チェックが「次の人への連絡」になります</h2>
+  <p>準備項目の完了チェックを押すと、案件が自動で次の段階へ進み、<strong>次の担当者へ通知が飛びます</strong>。</p>
+  <table>
+    <tr><th style="width:52mm">完了にする項目</th><th>起きること</th></tr>
+    <tr>
+      <td><strong>初稿提出</strong></td>
+      <td>案件が「確認」へ進み、<strong>山本さんへ「初稿が提出されました」と自動通知</strong>。山本さんがお客様へ確認します</td>
+    </tr>
+    <tr>
+      <td><strong>外注用デザインデータ作成</strong></td>
+      <td>案件が「入稿・製造」へ進みます。<strong>この案件のカードはマイボードから消えます</strong></td>
+    </tr>
+    <tr>
+      <td><strong>入稿完了</strong><br><span class="small">紙媒体の案件だけに付きます</span></td>
+      <td>案件が「請求」へ進み、<strong>山本さんへ「入稿が完了しました」と自動通知</strong>。カードはマイボードから消えます</td>
+    </tr>
+  </table>
+  <div class="key">
+    <strong>「完了したのでよろしくお願いします」の連絡は不要です。</strong>
+    チェックを押した時点で、システムが山本さんへ伝えています。
+  </div>
+
+  <h2 class="s">カードが消えたら、自分の手を離れたということ</h2>
+  <p>
+    案件が<strong>「入稿・製造」に進むと、その案件の作業カードはマイスケジュールボードから自動で消えます</strong>。
+    入稿が済んだ後は加工の工程に入るため、鈴木さんの作業ではなくなるからです。
+    修正が必要になって差し戻された場合は、また出てきます。
+  </p>
+  <div class="note">
+    <strong>紙媒体（ポスター等）の案件だけは例外です。</strong>
+    入稿作業そのものが鈴木さんの仕事なので、「入稿・製造」の間もカードは表示され続けます。
+    「入稿完了」にチェックを入れると消えます。
+  </div>
+
+  <h2 class="s">変わらないこと</h2>
+  <ul>
+    <li>稼働の申告（この日は何時から何時まで）はこれまでどおりです</li>
+    <li>タスクの日付移動、見込み時間の入力もこれまでどおりです</li>
+    <li>社員用TODOリストの連携もそのままです</li>
+  </ul>
+
+  <h2 class="c">最後に — 2人で共有しておきたいこと</h2>
+  <div class="cols">
+    <div>
+      <h3 class="y">山本さんへ</h3>
+      <ul>
+        <li>渡す前に<strong>依頼内容を確定</strong>させ、ラフを添付する</li>
+        <li>お客様へ送ったら<strong>ステップを切り替える</strong></li>
+        <li>「今日やること」を空にすることを目安に</li>
+      </ul>
+    </div>
+    <div>
+      <h3 class="s">鈴木さんへ</h3>
+      <ul>
+        <li><strong>完了チェックが連絡そのもの</strong>。押し忘れると次が動きません</li>
+        <li>間に合わないと分かった時点で早めに一報を</li>
+        <li>ラフが見当たらないときは遠慮なく確認を</li>
+      </ul>
+    </div>
+  </div>
+  <p class="small" style="margin-top:3mm">
+    ※ 使い方で迷ったら、HiBoardの「📖 使い方」ガイドの「デザイン案件を回す」の章にも同じ内容が載っています。
+    仕組みへの要望・使いにくい点は久保田までお知らせください。
+  </p>
+</div>
+
+</body></html>
