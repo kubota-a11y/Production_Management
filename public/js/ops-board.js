@@ -96,8 +96,8 @@ const opsBoardApp = {
       const caseId = Number(card.dataset.case);
 
       card.addEventListener('click', (e) => {
-        // 完了チェックを押したときはカードを開かない
-        if (e.target.closest('.ops-card-done')) return;
+        // 完了チェック・外すボタンを押したときはカードを開かない
+        if (e.target.closest('.ops-card-done') || e.target.closest('.ops-card-remove')) return;
         this.openCaseModal(caseId);
       });
 
@@ -121,6 +121,31 @@ const opsBoardApp = {
         this.setStageFor(Number(input.dataset.case), 'DONE');
       });
     });
+
+    // カード右上の「✕」= このボードから外す
+    container.querySelectorAll('.ops-card-remove').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.removeFromBoard(Number(btn.dataset.remove));
+      });
+    });
+  },
+
+  // ボードの対象から外す。案件そのものは消さないことを確認文で明示する
+  async removeFromBoard(caseId) {
+    const c = this.data.cases.find(x => x.id === caseId);
+    const name = c ? c.project_name : 'この案件';
+    if (!confirm(`「${name}」をこのボードから外します。\n\n案件そのものは消えません（一覧ビューには残ります）。\n戻したいときは案件の「編集」で「デザイン案件全般として管理する」にチェックを入れてください。`)) return;
+
+    try {
+      const res = await fetch(`/api/ops/cases/${caseId}/remove`, { method: 'PATCH' });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || '更新に失敗しました');
+      HiUI.toast(`「${json.project_name}」をボードから外しました`);
+      await this.load();
+    } catch (err) {
+      HiUI.toast(err.message || 'ボードから外せませんでした', 'error');
+    }
   },
 
   // 列へのドロップで段階を変更する。前にも後ろにも動かせる(差し戻しも同じ操作)
@@ -159,6 +184,9 @@ const opsBoardApp = {
       : '';
     return `
       <div class="ops-card" draggable="true" data-case="${c.id}" tabindex="0" role="button">
+        <button type="button" class="btn-icon-remove ops-card-remove" data-remove="${c.id}"
+          title="この案件をボードから外す（案件そのものは消えません）"
+          aria-label="${this.esc(c.project_name)} をボードから外す">✕</button>
         <div class="ops-card-name">${this.esc(c.project_name)}</div>
         <div class="ops-card-customer">${this.esc(c.customer_name)}</div>
         <div class="ops-card-meta">

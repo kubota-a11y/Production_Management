@@ -162,6 +162,33 @@
   cursor: grabbing;
 }
 
+/* カード右上の「このボードから外す」。案件そのものは消さない */
+.ops-card {
+  position: relative;
+}
+
+.ops-card-remove {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  opacity: 0;
+  transition: var(--transition-fast);
+}
+
+.ops-card:hover .ops-card-remove,
+.ops-card:focus-within .ops-card-remove {
+  opacity: 1;
+}
+
+/* タッチ端末はホバーがないので常に出す */
+@media (hover: none) {
+  .ops-card-remove { opacity: 1; }
+}
+
+.ops-card-name {
+  padding-right: var(--space-5);
+}
+
 .ops-card-badge-row {
   margin-top: var(--space-2);
 }
