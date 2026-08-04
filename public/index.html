@@ -293,10 +293,18 @@
           <div class="field-hint">チェックすると「🗂 デザイン案件全般」の画面に載り、ブリーフ・ラフ→制作→確認→入稿→請求の流れで進行を管理します（担当: 山本さん）</div>
 
           <div class="checkbox-group" style="margin-top:8px;">
-            <label class="checkbox-pill"><input type="radio" name="ops_flow" value="FULL" checked> 加工まで（標準）</label>
-            <label class="checkbox-pill"><input type="radio" name="ops_flow" value="SUBMIT_END"> 📄 紙媒体・入稿で完了</label>
+            <label class="checkbox-pill"><input type="radio" name="ops_flow" value="FULL" checked onchange="app.onOpsFlowChange()"> 加工まで（標準）</label>
+            <label class="checkbox-pill"><input type="radio" name="ops_flow" value="SUBMIT_END" onchange="app.onOpsFlowChange()"> 📄 紙媒体・入稿で完了</label>
           </div>
           <div class="field-hint">「紙媒体・入稿で完了」は、お客様の最終OK後に鈴木さんが入稿したら請求→完了で終わる案件（ポスター等）。制作から始まり、検品・納品は通りません</div>
+
+          <div id="pf-paper-source-group" style="display:none;">
+            <div class="checkbox-group" style="margin-top:8px;">
+              <label class="checkbox-pill"><input type="radio" name="paper_source" value="HIYOSHI" checked> HiYOSHi からの依頼</label>
+              <label class="checkbox-pill"><input type="radio" name="paper_source" value="CARVE"> 🔶 CARVE で受けている案件</label>
+            </div>
+            <div class="field-hint">CARVE案件はイレギュラー案件として、ボード上で枠を付けて目立たせます</div>
+          </div>
         </fieldset>
 
         <!-- 1. 基本情報 -->
@@ -672,6 +680,11 @@
                 <label class="checkbox-pill"><input type="radio" name="ops_flow" value="SUBMIT_END"> 📄 紙媒体・入稿で完了</label>
               </div>
               <div class="field-hint">「紙媒体・入稿で完了」は鈴木さんが入稿したら請求→完了で終わる案件（検品・納品なし）</div>
+              <div class="checkbox-group" style="margin-top:8px;">
+                <label class="checkbox-pill"><input type="radio" name="paper_source" value="HIYOSHI" checked> HiYOSHi からの依頼</label>
+                <label class="checkbox-pill"><input type="radio" name="paper_source" value="CARVE"> 🔶 CARVE で受けている案件</label>
+              </div>
+              <div class="field-hint">紙媒体のときだけ使います。CARVE案件はボード上で枠を付けて目立たせます</div>
             </fieldset>
 
             <div class="form-row">

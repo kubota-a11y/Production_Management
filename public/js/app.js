@@ -1067,6 +1067,15 @@ const app = {
     });
   },
 
+  // ===== 進行タイプの切り替え =====
+  // 紙媒体(入稿で完了)を選んだときだけ、出どころ(HiYOSHi / CARVE)の選択を出す
+  onOpsFlowChange() {
+    const form = document.getElementById('project-form');
+    const group = document.getElementById('pf-paper-source-group');
+    if (!form || !group || !form.elements['ops_flow']) return;
+    group.style.display = form.elements['ops_flow'].value === 'SUBMIT_END' ? 'block' : 'none';
+  },
+
   // ===== UI: モーダル =====
   async openProjectModal(projectId = null) {
     this.editingProjectId = projectId;
@@ -1076,6 +1085,7 @@ const app = {
     const deleteBtn = document.getElementById('btn-delete');
 
     form.reset();
+    this.onOpsFlowChange();  // 前回の表示状態が残らないようリセット直後にも当てる
 
     if (projectId) {
       title.textContent = '案件編集';
@@ -1099,10 +1109,14 @@ const app = {
         if (form.elements['is_design_ops']) {
           form.elements['is_design_ops'].checked = !!project.is_design_ops;
         }
-        // 進行タイプ(加工まで / 紙媒体・入稿で完了)の復元
+        // 進行タイプ(加工まで / 紙媒体・入稿で完了)と、紙媒体の出どころの復元
         if (form.elements['ops_flow']) {
           form.elements['ops_flow'].value = project.ops_flow || 'FULL';
         }
+        if (form.elements['paper_source']) {
+          form.elements['paper_source'].value = project.paper_source || 'HIYOSHI';
+        }
+        this.onOpsFlowChange();
       }
 
       try {

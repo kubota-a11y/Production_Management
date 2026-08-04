@@ -358,6 +358,14 @@ function initDatabase(dbFile = dbPath) {
     console.log('✓ projects.ops_flow を追加しました');
   }
 
+  // 紙媒体案件の出どころ(2026-08-03)。ops_flow='SUBMIT_END' のときだけ意味を持つ。
+  //   HIYOSHI = 弊社から鈴木さんへ依頼している紙媒体
+  //   CARVE   = 鈴木さんがCARVEで受けている紙媒体(イレギュラー案件。ボードで目立たせる)
+  if (!projectColumns.includes('paper_source')) {
+    db.prepare(`ALTER TABLE projects ADD COLUMN paper_source TEXT NOT NULL DEFAULT 'HIYOSHI'`).run();
+    console.log('✓ projects.paper_source を追加しました');
+  }
+
   // アイテム名(2026-08-03)。「ドライTシャツ」「az50018 半袖ポロシャツ」など、
   // 何を作る案件なのかを一目で分かるようにするための自由入力。
   // Web注文フォーム由来の案件は case_items を持つのでそちらから補完できるが、

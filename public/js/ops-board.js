@@ -67,9 +67,9 @@ const opsBoardApp = {
       return;
     }
     container.innerHTML = rows.map(c => `
-      <button type="button" class="ops-today-card" data-case="${c.id}">
+      <button type="button" class="ops-today-card${this.isCarve(c) ? ' is-carve' : ''}" data-case="${c.id}">
         <div class="ops-today-card-head">
-          <span>${this.badgeHtml(c)}${this.isSubmitEnd(c) ? ' <span class="ops-badge ops-badge-paper">📄 入稿で完了</span>' : ''}</span>
+          <span>${this.badgeHtml(c)}${this.isSubmitEnd(c) ? ' ' + this.flowBadgeHtml(c) : ''}</span>
           <span class="ops-today-deadline ${this.deadlineClass(c.deadline)}">納期 ${this.esc(c.deadline || '未設定')}</span>
         </div>
         <div class="ops-today-title">${this.esc(c.project_name)}</div>
@@ -202,6 +202,19 @@ const opsBoardApp = {
     return c.ops_flow === 'SUBMIT_END';
   },
 
+  // 鈴木さんがCARVEで受けている紙媒体か(イレギュラー案件としてカードを目立たせる)
+  isCarve(c) {
+    return this.isSubmitEnd(c) && c.paper_source === 'CARVE';
+  },
+
+  // 紙媒体案件のバッジ。CARVE案件は出どころが分かるように別表示にする
+  flowBadgeHtml(c) {
+    if (!this.isSubmitEnd(c)) return '';
+    return this.isCarve(c)
+      ? '<span class="ops-badge ops-badge-carve">🔶 CARVE・入稿で完了</span>'
+      : '<span class="ops-badge ops-badge-paper">📄 入稿で完了</span>';
+  },
+
   cardHtml(c) {
     const stale = this.isStale(c);
     const days = c.days_in_stage;
@@ -214,7 +227,7 @@ const opsBoardApp = {
       doneCheck = `<label class="ops-card-done"><input type="checkbox" data-case="${c.id}"> 請求済み・完了にする</label>`;
     }
     return `
-      <div class="ops-card" draggable="true" data-case="${c.id}" tabindex="0" role="button">
+      <div class="ops-card${this.isCarve(c) ? ' is-carve' : ''}" draggable="true" data-case="${c.id}" tabindex="0" role="button">
         <button type="button" class="btn-icon-remove ops-card-remove" data-remove="${c.id}"
           title="この案件をボードから外す（案件そのものは消えません）"
           aria-label="${this.esc(c.project_name)} をボードから外す">✕</button>
@@ -225,7 +238,7 @@ const opsBoardApp = {
           <span class="${this.deadlineClass(c.deadline)}">納期 ${this.esc(c.deadline || '未設定')}</span>
           ${days !== null ? `<span class="${stale ? 'is-stale' : ''}">${days}日経過</span>` : ''}
           ${c.rough_count ? `<span>ラフ${c.rough_count}件</span>` : ''}
-          ${this.isSubmitEnd(c) ? '<span class="ops-badge ops-badge-paper">📄 入稿で完了</span>' : ''}
+          ${this.flowBadgeHtml(c)}
         </div>
         ${c.ops_stage === 'REVIEW' ? `<div class="ops-card-badge-row">${this.badgeHtml(c)}</div>` : ''}
         ${doneCheck}
@@ -277,8 +290,9 @@ const opsBoardApp = {
 
     document.getElementById('ops-modal-title').textContent = c.project_name;
     const item = this.itemLabel(c);
+    const flow = this.isCarve(c) ? '🔶 CARVE案件' : (this.isSubmitEnd(c) ? '📄 入稿で完了' : '');
     document.getElementById('ops-modal-summary').textContent =
-      `${c.customer_name}${item ? `／${item}` : ''}／納期 ${c.deadline || '未設定'}`
+      `${c.customer_name}${item ? `／${item}` : ''}${flow ? `／${flow}` : ''}／納期 ${c.deadline || '未設定'}`
       + `${c.days_in_stage !== null ? `／この段階に入って${c.days_in_stage}日` : ''}`;
 
     // 段階の切り替えボタン

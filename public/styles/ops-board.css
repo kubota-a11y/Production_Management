@@ -107,6 +107,24 @@
 .ops-badge-delivery { background: var(--warning-soft); color: var(--warning-text); }
 .ops-badge-done { background: var(--gray-100); color: var(--text-muted); }
 .ops-badge-paper { background: var(--gray-100); color: var(--gray-600); border: 1px solid var(--border-color); }
+.ops-badge-carve { background: var(--purple-soft); color: var(--purple-text); }
+
+/* CARVEで受けている紙媒体はイレギュラー案件なので、枠を付けて一目で分かるようにする */
+.ops-card.is-carve,
+.ops-today-card.is-carve {
+  border: 2px solid var(--purple-text);
+  background: var(--purple-soft);
+}
+
+.ops-today-card.is-carve {
+  border-left-width: 6px;
+}
+
+.ops-card.is-carve:hover,
+.ops-today-card.is-carve:hover {
+  border-color: var(--purple-text);
+  box-shadow: var(--shadow-md);
+}
 .ops-badge-alert { background: var(--danger-soft); color: var(--danger-text); }
 
 /* ===== パイプライン ===== */

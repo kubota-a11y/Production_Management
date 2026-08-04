@@ -1546,11 +1546,13 @@ function createProjectRecord(data) {
     work_content, process_type, quantity, planned_hours, assigned_staff_id,
     status, priority, reference_link, memo, nas_folder_path, prep_items,
     required_skill_tags, estimated_hours, assigned_employee_id, project_kind,
-    freee_quote_url, freee_invoice_url, is_design_ops, item_name, ops_flow } = data;
+    freee_quote_url, freee_invoice_url, is_design_ops, item_name, ops_flow, paper_source } = data;
   // 社内デザイン案件は数量・作業予定時間なしで登録できるため、NOT NULL列は0で埋める
   const kind = project_kind === 'INTERNAL_DESIGN' ? 'INTERNAL_DESIGN' : 'NORMAL';
   // 進行タイプ: FULL=加工まで(標準) / SUBMIT_END=紙媒体・入稿で完了
   const flow = ops_flow === 'SUBMIT_END' ? 'SUBMIT_END' : 'FULL';
+  // 紙媒体の出どころ: HIYOSHI=弊社依頼 / CARVE=鈴木さんがCARVEで受けている案件
+  const paperSrc = paper_source === 'CARVE' ? 'CARVE' : 'HIYOSHI';
   const now = new Date().toISOString();
   const result = db.prepare(`
     INSERT INTO projects (
@@ -1558,14 +1560,15 @@ function createProjectRecord(data) {
       work_content, process_type, quantity, planned_hours, assigned_staff_id,
       status, priority, reference_link, memo, nas_folder_path, prep_items,
       required_skill_tags, estimated_hours, assigned_employee_id, project_kind,
-      freee_quote_url, freee_invoice_url, is_design_ops, item_name, ops_flow, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      freee_quote_url, freee_invoice_url, is_design_ops, item_name, ops_flow, paper_source,
+      created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(project_name, received_date, deadline, customer_name, contact_method,
     work_content || '', process_type || '', quantity || 0, planned_hours || 0, assigned_staff_id || null,
     status || 'PRE_ORDER', priority || 'MEDIUM', reference_link || '', memo || '',
     nas_folder_path || '', prep_items || '', required_skill_tags || '', estimated_hours || null,
     assigned_employee_id || null, kind, freee_quote_url || '', freee_invoice_url || '',
-    is_design_ops ? 1 : 0, item_name || '', flow, now, now);
+    is_design_ops ? 1 : 0, item_name || '', flow, paperSrc, now, now);
 
   // 紙媒体(入稿で完了)タイプは鈴木さんの制作から始まる(2026-08-03 社長決定)。
   // 山本さんのブリーフ・ラフ工程を飛ばして「制作」段階でボードに載せる
@@ -1602,7 +1605,7 @@ app.put('/api/projects/:id', (req, res) => {
       work_content, process_type, quantity, planned_hours, assigned_staff_id,
       status, priority, reference_link, memo, nas_folder_path, prep_items,
       required_skill_tags, estimated_hours, assigned_employee_id, project_kind,
-      freee_quote_url, freee_invoice_url, is_design_ops, item_name, ops_flow } = req.body;
+      freee_quote_url, freee_invoice_url, is_design_ops, item_name, ops_flow, paper_source } = req.body;
     const kind = project_kind === 'INTERNAL_DESIGN' ? 'INTERNAL_DESIGN' : 'NORMAL';
     const now = new Date().toISOString();
     db.prepare(`
@@ -1611,14 +1614,15 @@ app.put('/api/projects/:id', (req, res) => {
         work_content=?, process_type=?, quantity=?, planned_hours=?, assigned_staff_id=?,
         status=?, priority=?, reference_link=?, memo=?, nas_folder_path=?, prep_items=?,
         required_skill_tags=?, estimated_hours=?, assigned_employee_id=?, project_kind=?,
-        freee_quote_url=?, freee_invoice_url=?, is_design_ops=?, item_name=?, ops_flow=?, updated_at=?
+        freee_quote_url=?, freee_invoice_url=?, is_design_ops=?, item_name=?, ops_flow=?, paper_source=?, updated_at=?
       WHERE id=?
     `).run(project_name, received_date, deadline, customer_name, contact_method,
       work_content || '', process_type || '', quantity || 0, planned_hours || 0, assigned_staff_id || null,
       status, priority, reference_link || '', memo || '', nas_folder_path || '', prep_items || '',
       required_skill_tags || '', estimated_hours || null, assigned_employee_id || null, kind,
       freee_quote_url || '', freee_invoice_url || '', is_design_ops ? 1 : 0, item_name || '',
-      ops_flow === 'SUBMIT_END' ? 'SUBMIT_END' : 'FULL', now, req.params.id);
+      ops_flow === 'SUBMIT_END' ? 'SUBMIT_END' : 'FULL',
+      paper_source === 'CARVE' ? 'CARVE' : 'HIYOSHI', now, req.params.id);
     res.json({ message: 'Project updated successfully' });
   } catch (error) {
     sendServerError(res, req, error);
