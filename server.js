@@ -14,6 +14,7 @@ const { registerPartnerOrderRoutes } = require('./lib/partner-order');
 const { registerDesignerBoardRoutes } = require('./lib/designer-board');
 const { registerOpsBoardRoutes, markDeliveredStage } = require('./lib/ops-board');
 const { registerOrderStatusRoutes } = require('./lib/order-status');
+const { registerManualIntakeRoutes } = require('./lib/manual-intake');
 const { registerReferralRoutes } = require('./lib/referral');
 const { registerWorksRoutes } = require('./lib/works-publish');
 const { scheduleDailyBackup } = require('./lib/db-backup');
@@ -3283,6 +3284,11 @@ registerOpsBoardRoutes(app, db, { registerPreparationItems });
 // 会社が発行した紹介コードを入力した人だけが、自分の特典・共有用リンクを見られる。
 registerReferralRoutes(app, db);
 registerWorksRoutes(app);
+
+// メール・電話で受けた注文の受け口(社内画面から使う)。
+// 着地は ai_extracted_intake(line_user_id='MAIL' 受付 M-{id} / 'PHONE' 受付 D-{id})。
+// フォーム以外の注文も同じ振り分けデスクを通すために追加した。
+registerManualIntakeRoutes(app, db);
 
 // 5分ごとにLINEメッセージのAI構造化抽出を実行する。前回の実行が終わっていなければスキップする。
 let aiExtractionRunning = false;

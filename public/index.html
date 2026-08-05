@@ -177,106 +177,79 @@
         </div>
 
         <div class="import-section">
-          <h2>テキストから案件情報を抽出</h2>
+          <h2>📧 メール・チャットの本文から受注候補にする</h2>
           <p class="import-help">
-            LINE、メール、チャットなどの本文をコピーして貼り付けてください。<br>
-            案件名、顧客名、数量、納期などが自動で抽出されます。
+            メールやチャットの本文をコピーして貼り付けてください。AIが読み取って<strong>上の受注候補に追加</strong>します。<br>
+            追加したあと、他の注文と同じように振り分け・登録を行ってください。
           </p>
 
           <div class="import-form">
-            <label for="import-textarea" class="sr-only">取り込むテキスト</label>
+            <label for="import-textarea" class="sr-only">取り込む本文</label>
             <textarea
               id="import-textarea"
-              placeholder="ここにテキストを貼り付けてください..."
+              placeholder="ここに本文を貼り付けてください..."
               rows="8"
             ></textarea>
 
-            <button class="btn btn-secondary" onclick="app.extractFromText()">
-              🔍 テキストから抽出
+            <button class="btn btn-secondary" id="import-paste-btn" onclick="app.submitPastedIntake()">
+              📥 受注候補に追加
             </button>
           </div>
+        </div>
 
-          <div id="import-preview" class="import-preview" style="display: none;">
-            <h3>抽出結果（確認・修正してから登録）</h3>
-            <form id="import-form" class="project-form">
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="imp-project-name">案件名 <span class="req-mark" aria-hidden="true">*</span></label>
-                  <input type="text" id="imp-project-name" name="project_name" required>
-                </div>
-                <div class="form-group">
-                  <label for="imp-customer-name">顧客名 <span class="req-mark" aria-hidden="true">*</span></label>
-                  <input type="text" id="imp-customer-name" name="customer_name" required>
-                </div>
-              </div>
+        <div class="import-section">
+          <h2>📞 電話・口頭で受けた注文をメモする</h2>
+          <p class="import-help">
+            通話しながら分かる範囲で入力してください。<strong>お客様名とご依頼内容の2つだけ</strong>あれば追加できます。<br>
+            足りない項目は、あとから受注候補の確認画面で埋められます。
+          </p>
 
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="imp-received-date">受付日 <span class="req-mark" aria-hidden="true">*</span></label>
-                  <input type="date" id="imp-received-date" name="received_date" required>
-                </div>
-                <div class="form-group">
-                  <label for="imp-deadline">納期 <span class="req-mark" aria-hidden="true">*</span></label>
-                  <input type="date" id="imp-deadline" name="deadline" required>
-                </div>
-              </div>
-
+          <form id="phone-intake-form" class="project-form" onsubmit="return false;">
+            <div class="form-row">
               <div class="form-group">
-                <label for="imp-contact-method">連絡経路 <span class="req-mark" aria-hidden="true">*</span></label>
-                <select id="imp-contact-method" name="contact_method" required>
-                  <option value="">選択してください</option>
-                  <option value="LINE">LINE</option>
-                  <option value="EMAIL">メール</option>
-                  <option value="PHONE">電話</option>
-                  <option value="OTHER">その他</option>
-                </select>
+                <label for="phone-customer-name">お客様名・団体名 <span class="req-mark" aria-hidden="true">*</span></label>
+                <input type="text" id="phone-customer-name" name="customer_name" required placeholder="例: 長泉サッカークラブ">
               </div>
-
-              <fieldset class="form-group">
-                <legend>加工種別 <span class="req-mark" aria-hidden="true">*</span> <span class="field-hint">(複数選択可)</span></legend>
-                <div class="checkbox-group">
-                  <label class="checkbox-pill"><input type="checkbox" name="process_type" value="SILK_SCREEN_PRINT"> シルクスクリーンプリント</label>
-                  <label class="checkbox-pill"><input type="checkbox" name="process_type" value="DTF_PRINT"> DTFプリント</label>
-                  <label class="checkbox-pill"><input type="checkbox" name="process_type" value="RUBBER_TRANSFER_PRINT"> ラバー転写プリント</label>
-                  <label class="checkbox-pill"><input type="checkbox" name="process_type" value="SUBLIMATION_PRINT"> 昇華プリント</label>
-                  <label class="checkbox-pill"><input type="checkbox" name="process_type" value="STANDARD_EMBROIDERY"> 通常刺繍</label>
-                  <label class="checkbox-pill"><input type="checkbox" name="process_type" value="HAT_EMBROIDERY"> 帽子刺繍</label>
-                  <label class="checkbox-pill"><input type="checkbox" name="process_type" value="PATCH_EMBROIDERY"> ワッペン刺繍</label>
-                </div>
-              </fieldset>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="imp-quantity">数量 <span class="req-mark" aria-hidden="true">*</span></label>
-                  <input type="number" id="imp-quantity" name="quantity" min="1" required>
-                </div>
-                <div class="form-group">
-                  <label for="imp-planned-hours">作業予定時間（分） <span class="req-mark" aria-hidden="true">*</span></label>
-                  <input type="number" id="imp-planned-hours" name="planned_hours" min="1" required>
-                  <div class="field-hint">ボードに置くときの目安。担当者の生産性が登録済みならそちらが優先されます</div>
-                </div>
-              </div>
-
               <div class="form-group">
-                <label for="imp-work-content">作業内容</label>
-                <textarea id="imp-work-content" name="work_content" rows="3"></textarea>
+                <label for="phone-contact">折り返し先</label>
+                <input type="text" id="phone-contact" name="contact" placeholder="例: 090-0000-0000 / 担当 田中様">
               </div>
+            </div>
 
+            <div class="form-group">
+              <label for="phone-items">ご依頼内容 <span class="req-mark" aria-hidden="true">*</span></label>
+              <textarea id="phone-items" name="items" rows="2" required placeholder="例: ドライTシャツに胸ロゴのシルクプリント"></textarea>
+            </div>
+
+            <div class="form-row">
               <div class="form-group">
-                <label for="imp-memo">メモ</label>
-                <textarea id="imp-memo" name="memo" rows="3"></textarea>
+                <label for="phone-quantity">数量</label>
+                <input type="text" id="phone-quantity" name="quantity" placeholder="例: 30枚 / 未定">
               </div>
+              <div class="form-group">
+                <label for="phone-deadline">希望納期</label>
+                <input type="text" id="phone-deadline" name="deadline" placeholder="例: 9月10日 / 急ぎ / 未定">
+                <div class="field-hint">聞いた言葉のままで大丈夫です</div>
+              </div>
+            </div>
 
-              <div class="form-actions">
-                <button type="button" class="btn btn-secondary" onclick="app.closeImportForm()">
-                  キャンセル
-                </button>
-                <button type="button" class="btn btn-primary" onclick="app.submitImportedProject()">
-                  登録
-                </button>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="phone-received-by">受けた人</label>
+                <input type="text" id="phone-received-by" name="received_by" placeholder="例: 山本">
               </div>
-            </form>
-          </div>
+              <div class="form-group">
+                <label for="phone-notes">メモ</label>
+                <input type="text" id="phone-notes" name="notes" placeholder="例: 色は要相談。来週折り返し希望">
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary" onclick="app.resetPhoneIntakeForm()">クリア</button>
+              <button type="button" class="btn btn-primary" id="phone-intake-btn" onclick="app.submitPhoneIntake()">📥 受注候補に追加</button>
+            </div>
+          </form>
+
         </div>
       </section>
 

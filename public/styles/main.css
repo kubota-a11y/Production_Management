@@ -1594,17 +1594,6 @@ td.empty-notice {
   resize: vertical;
 }
 
-.import-preview {
-  background: var(--surface-muted);
-  padding: var(--space-4);
-  border-radius: var(--radius-lg);
-  margin-top: var(--space-5);
-}
-
-.import-preview h3 {
-  margin-bottom: var(--space-4);
-}
-
 /* ===== AI受注候補(LINEから自動収集) ===== */
 
 .ai-intake-section {

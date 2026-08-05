@@ -383,6 +383,26 @@ const API = {
     return response.json();
   },
 
+  // メール・チャットの本文を貼り付けて受注候補にする(サーバー側でAIが構造化する)
+  async createPasteIntake(text) {
+    const response = await fetch('/api/intake/paste', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+    return response.json();
+  },
+
+  // 電話・口頭で受けた注文のメモを受注候補にする
+  async createPhoneIntake(data) {
+    const response = await fetch('/api/intake/phone', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return response.json();
+  },
+
   // 振り分けを行う人の候補(案件担当者+従業員の名前を統合したもの)
   async getTriageMembers() {
     const response = await fetch('/api/triage-members');

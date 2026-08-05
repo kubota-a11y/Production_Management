@@ -2,6 +2,11 @@
 // メインアプリケーションロジック
 // ========================================
 
+// 受注候補の受付番号の頭文字。line_users の疑似ユーザーIDと対応する。
+// W-=Web注文 / T-=チーム追加 / P-=取引先加工依頼 / M-=メール貼り付け / D-=電話メモ。
+// LINE由来(実在のLINEユーザーID)はバッジを出さない
+const RECEIPT_PREFIX = { WEB: 'W', TEAM: 'T', PARTNER: 'P', MAIL: 'M', PHONE: 'D' };
+
 const app = {
   // ===== ステート =====
   projects: [],
@@ -656,81 +661,74 @@ const app = {
     return text.includes('刺繍') ? 'STANDARD_EMBROIDERY' : text.includes('帽子') ? 'HAT_EMBROIDERY' : text.includes('ワッペン') ? 'PATCH_EMBROIDERY' : text.includes('DTF') || text.includes('DTFプリント') ? 'DTF_PRINT' : text.includes('ラバー') ? 'RUBBER_TRANSFER_PRINT' : text.includes('昇華') ? 'SUBLIMATION_PRINT' : text.includes('シルク') ? 'SILK_SCREEN_PRINT' : 'STANDARD_EMBROIDERY';
   },
 
-  // ===== UI: コピペ取り込み =====
-  extractFromText() {
-    const text = document.getElementById('import-textarea').value;
+  // ===== UI: メール・電話で受けた注文の取り込み =====
+  // どちらも案件を直接は作らず、他チャネルと同じ受注候補キューへ入れる。
+  // 振り分け(生産/デザイン/要相談)を必ず通すため
 
+  async submitPastedIntake() {
+    const textarea = document.getElementById('import-textarea');
+    const text = textarea.value;
     if (!text.trim()) {
-      HiUI.toast('テキストを入力してください');
+      HiUI.toast('取り込む本文を貼り付けてください');
       return;
     }
 
-    // テキスト解析
-    const detectedProcessType = this.detectProcessType(text);
-    const extracted = {
-      project_name: extractName(text) || '',
-      customer_name: extractName(text).split('\n')[0] || '',
-      received_date: formatDateISO(),
-      deadline: extractDate(text) || '',
-      contact_method: 'LINE',
-      quantity: extractNumber(text) || 1,
-      planned_hours: 60,
-      work_content: text,
-      memo: ''
-    };
-
-    // フォームを填める
-    const form = document.getElementById('import-form');
-    Object.entries(extracted).forEach(([key, value]) => {
-      const field = form.elements[key];
-      if (field) {
-        field.value = value;
-      }
-    });
-    this.setCheckboxGroupValues(form, 'process_type', detectedProcessType);
-
-    // プレビューを表示
-    document.getElementById('import-preview').style.display = 'block';
-  },
-
-  async submitImportedProject() {
-    const form = document.getElementById('import-form');
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData);
-
-    // 加工種別（複数選択）をカンマ区切りにまとめる
-    data.process_type = formData.getAll('process_type').join(',');
-    if (!data.process_type) {
-      HiUI.toast('加工種別を1つ以上選択してください');
-      return;
-    }
-
-    // 数値変換
-    data.quantity = parseInt(data.quantity);
-    data.planned_hours = parseFloat(data.planned_hours);
-    data.assigned_staff_id = data.assigned_staff_id ? parseInt(data.assigned_staff_id) : null;
+    // AI抽出は数秒かかるので、二重送信を防ぎつつ待っていることが分かるようにする
+    const button = document.getElementById('import-paste-btn');
+    const label = button.textContent;
+    button.disabled = true;
+    button.textContent = '読み取り中…';
 
     try {
-      await API.createProject(data);
-      await this.loadProjects();
-      
-      // UIをリセット
-      document.getElementById('import-textarea').value = '';
-      document.getElementById('import-preview').style.display = 'none';
-      form.reset();
-      
-      HiUI.toast('✓ 案件を登録しました');
-      this.renderListView();
+      const result = await API.createPasteIntake(text);
+      if (!result || result.error) {
+        HiUI.toast(result?.error || '受注候補への取り込みに失敗しました');
+        return;
+      }
+      textarea.value = '';
+      HiUI.toast(result.used_ai
+        ? `✓ 受注候補 ${result.receipt_no} に追加しました`
+        : `✓ 受注候補 ${result.receipt_no} に追加しました(AI読み取りなし。内容を確認してください)`);
+      await this.loadAiIntakeList();
     } catch (error) {
-      console.error('案件登録エラー:', error);
-      HiUI.toast('案件の登録に失敗しました');
+      console.error('貼り付け取り込みエラー:', error);
+      HiUI.toast('受注候補への取り込みに失敗しました');
+    } finally {
+      button.disabled = false;
+      button.textContent = label;
     }
   },
 
-  closeImportForm() {
-    document.getElementById('import-preview').style.display = 'none';
-    document.getElementById('import-textarea').value = '';
-    document.getElementById('import-form').reset();
+  async submitPhoneIntake() {
+    const form = document.getElementById('phone-intake-form');
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+
+    const data = Object.fromEntries(new FormData(form));
+    const button = document.getElementById('phone-intake-btn');
+    button.disabled = true;
+
+    try {
+      const result = await API.createPhoneIntake(data);
+      if (!result || result.error) {
+        HiUI.toast(result?.error || '受注候補への取り込みに失敗しました');
+        return;
+      }
+      this.resetPhoneIntakeForm();
+      HiUI.toast(`✓ 受注候補 ${result.receipt_no} に追加しました`);
+      await this.loadAiIntakeList();
+    } catch (error) {
+      console.error('電話メモの取り込みエラー:', error);
+      HiUI.toast('受注候補への取り込みに失敗しました');
+    } finally {
+      button.disabled = false;
+    }
+  },
+
+  resetPhoneIntakeForm() {
+    document.getElementById('phone-intake-form').reset();
   },
 
   // ===== UI: AI受注候補(LINEから自動収集) =====
@@ -800,9 +798,9 @@ const app = {
       const sender = document.createElement('div');
       sender.className = 'ai-intake-card-sender';
       sender.textContent = intake.display_name || '不明な送信者';
-      // Web注文フォーム(W-)・チーム追加注文(T-)・取引先加工依頼(P-)由来の候補には受付番号を併記する。
-      // お客様の完了画面・受付控えメールに表示される番号と同一なので、問い合わせ対応時に突き合わせられる
-      const receiptPrefix = { WEB: 'W', TEAM: 'T', PARTNER: 'P' }[intake.line_user_id];
+      // フォーム由来・手入力由来の候補には受付番号を併記する。
+      // W-/T-/P- はお客様の完了画面・受付控えメールに出る番号と同一なので、問い合わせ対応時に突き合わせられる
+      const receiptPrefix = RECEIPT_PREFIX[intake.line_user_id];
       if (receiptPrefix) {
         const receipt = document.createElement('span');
         receipt.className = 'receipt-badge';
@@ -981,7 +979,7 @@ const app = {
       }
       this.currentAiIntakeDetail = intake;
       // Web注文フォーム(W-)・チーム追加注文(T-)・取引先加工依頼(P-)由来なら、タイトルに受付番号バッジを表示する
-      const modalReceiptPrefix = { WEB: 'W', TEAM: 'T', PARTNER: 'P' }[intake.line_user_id];
+      const modalReceiptPrefix = RECEIPT_PREFIX[intake.line_user_id];
       const title = document.getElementById('ai-intake-modal-title');
       if (modalReceiptPrefix) {
         title.textContent = 'AI受注候補の確認 ';
