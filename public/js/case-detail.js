@@ -214,7 +214,7 @@ const CaseDetail = {
 
     let notice = '';
     if (!p.nas_folder_path) {
-      notice = '<p class="folder-notice">この案件にはNASフォルダが設定されていません</p>';
+      notice = '<p class="folder-notice">この案件には共有ドライブのフォルダが設定されていません</p>';
     } else if (detail.documents.length === 0) {
       notice = '<p class="folder-notice">フォルダ内にPDF・画像が見つかりませんでした(指示書PDFが未保存の可能性があります)</p>';
     } else if (detail.documents_truncated) {

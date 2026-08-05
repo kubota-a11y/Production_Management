@@ -461,22 +461,22 @@
 
         <!-- 4. データと書類(必須項目を置かないこと。既定で閉じている) -->
         <details class="form-section normal-only">
-          <summary>4. データと書類<span class="form-section-note">NASフォルダ・Freeeリンク</span></summary>
+          <summary>4. データと書類<span class="form-section-note">共有ドライブのフォルダ・Freeeリンク</span></summary>
           <div class="form-section-body">
             <div class="form-group">
-              <label for="nas-folder-path">NASデザインフォルダパス</label>
+              <label for="nas-folder-path">共有ドライブのデザインフォルダ</label>
               <div class="reference-input-group">
-                <input type="text" name="nas_folder_path" id="nas-folder-path" placeholder="/Volumes/disk1/DESIGN/...">
+                <input type="text" name="nas_folder_path" id="nas-folder-path" placeholder="G:\共有ドライブ\HiYOSHi共有\DESIGN\...">
                 <button type="button" class="btn btn-small btn-secondary" onclick="app.browseNas()">📁 参照...</button>
               </div>
             </div>
 
             <div class="form-group nas-folder-section">
-              <div class="form-label">NAS ファイル一覧</div>
-              <div id="nas-folder-status" class="empty-notice">「参照...」でNAS内のフォルダを選択するか、パスを直接入力してください</div>
+              <div class="form-label">ファイル一覧</div>
+              <div id="nas-folder-status" class="empty-notice">「参照...」で共有ドライブ内のフォルダを選択するか、パスを直接入力してください</div>
               <div id="nas-loading" class="folder-loading" style="display:none;">読み込み中…</div>
               <div id="nas-breadcrumb" class="folder-breadcrumb"></div>
-              <label for="nas-search" class="sr-only">NASファイルの絞り込み</label>
+              <label for="nas-search" class="sr-only">ファイルの絞り込み</label>
               <input type="text" id="nas-search" class="nas-search-input" placeholder="🔍 名前で絞り込み" style="display:none;">
               <div id="nas-file-list" class="folder-list"></div>
             </div>
@@ -763,8 +763,8 @@
             </div>
 
             <div class="form-group">
-              <label for="ai-nas-folder-path">NASデザインフォルダパス</label>
-              <input type="text" id="ai-nas-folder-path" name="nas_folder_path" placeholder="\\NAS\design\2026\案件名">
+              <label for="ai-nas-folder-path">共有ドライブのデザインフォルダ</label>
+              <input type="text" id="ai-nas-folder-path" name="nas_folder_path" placeholder="G:\共有ドライブ\HiYOSHi共有\DESIGN\2026\案件名">
             </div>
 
             <div class="form-row">
@@ -919,7 +919,7 @@
         <div class="form-group">
           <label class="checkbox-pill">
             <input type="checkbox" name="instruction_pdf_saved">
-            goodnoteの指示書PDFを案件のNASフォルダに保存した
+            goodnoteの指示書PDFを案件の共有ドライブフォルダに保存した
           </label>
           <div class="field-hint">Freeeの見積書・請求書PDFも同じフォルダに入れておくと、後からこの案件だけで履歴をすべて辿れます</div>
         </div>

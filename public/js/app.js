@@ -1445,10 +1445,10 @@ const app = {
     event.preventDefault();
     const form = event.target;
 
-    // 指示書PDFのNAS保存は運用ルール(納品後の履歴をNASフォルダに集約する)。
+    // 指示書PDFの保存は運用ルール(納品後の履歴を案件のフォルダに集約する)。
     // 例外もあり得るため必須にはせず、未チェック時は確認だけ挟む
     if (!form.elements['instruction_pdf_saved'].checked) {
-      if (!confirm('goodnoteの指示書PDFがまだ案件のNASフォルダに保存されていません。\nこのまま納品済みにしますか?')) {
+      if (!confirm('goodnoteの指示書PDFがまだ案件の共有ドライブフォルダに保存されていません。\nこのまま納品済みにしますか?')) {
         return;
       }
     }
@@ -1637,7 +1637,7 @@ const app = {
 
     const folderPath = pathField?.value?.trim();
     if (!folderPath && !forceBrowse) {
-      notice.textContent = '「参照...」でNAS内のフォルダを選択するか、パスを直接入力してください';
+      notice.textContent = '「参照...」で共有ドライブ内のフォルダを選択するか、パスを直接入力してください';
       listContainer.innerHTML = '';
       searchInput.style.display = 'none';
       searchInput.value = '';
@@ -1715,7 +1715,7 @@ const app = {
       console.error('NAS読み込みエラー:', error);
       const loadingEl = document.getElementById('nas-loading');
       loadingEl.style.display = 'none';
-      notice.textContent = error?.message || 'NAS一覧の取得に失敗しました';
+      notice.textContent = error?.message || 'ファイル一覧の取得に失敗しました';
       listContainer.innerHTML = `<div class="folder-notice">エラー: ${error?.message || '取得失敗'}</div>`;
       this.nasEntriesCache = [];
     }

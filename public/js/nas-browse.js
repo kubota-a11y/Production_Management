@@ -59,7 +59,7 @@ const NasBrowse = {
       loadingEl.style.display = 'none';
 
       if (!data || !data.exists) {
-        listEl.innerHTML = '<div class="folder-notice">フォルダが見つかりません(NASに接続できないか、パスが変わっている可能性があります)</div>';
+        listEl.innerHTML = '<div class="folder-notice">フォルダが見つかりません(共有ドライブに接続できていないか、パスが変わっている可能性があります)</div>';
         return;
       }
 
@@ -98,7 +98,7 @@ const NasBrowse = {
     } catch (error) {
       console.error('NAS一覧取得エラー:', error);
       loadingEl.style.display = 'none';
-      listEl.innerHTML = '<div class="folder-notice">NAS一覧の取得に失敗しました</div>';
+      listEl.innerHTML = '<div class="folder-notice">ファイル一覧の取得に失敗しました</div>';
     }
   },
 
