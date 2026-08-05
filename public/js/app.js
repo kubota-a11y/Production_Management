@@ -22,6 +22,10 @@ const app = {
   preparationItems: [],
   aiIntakeList: [],
   editingAiIntakeId: null,
+  // 受注候補の振り分け(2026-08-05)。フィルタは画面の状態、操作者はこの端末の設定としてlocalStorageに残す
+  triageFilter: 'all',
+  // 振り分ける人の候補。タブ切替や振り分けのたびに読み直す必要がないので初回だけ取得する
+  triageMembers: null,
   printLocationRows: [],
   printLocationRowCounter: 0,
 
@@ -739,6 +743,7 @@ const app = {
       console.error('AI受注候補取得エラー:', error);
       this.aiIntakeList = [];
     }
+    this.populateTriageOperatorSelect();
     this.renderAiIntakeList();
   },
 
@@ -748,22 +753,32 @@ const app = {
     const empty = document.getElementById('ai-intake-empty');
     if (!grid) return;
 
-    const count = this.aiIntakeList.length;
+    // タブのバッジは未振り分け件数。「まだ誰も握っていない注文が何件あるか」が一番見たい数字のため
+    const untriagedCount = this.aiIntakeList.filter(i => !i.triage_type).length;
     if (badge) {
-      badge.textContent = count;
-      badge.style.display = count > 0 ? 'inline-flex' : 'none';
+      badge.textContent = untriagedCount;
+      badge.style.display = untriagedCount > 0 ? 'inline-flex' : 'none';
     }
 
+    const visible = this.aiIntakeList.filter(intake => {
+      if (this.triageFilter === 'all') return true;
+      if (this.triageFilter === 'none') return !intake.triage_type;
+      return intake.triage_type === this.triageFilter;
+    });
+
     grid.innerHTML = '';
-    if (count === 0) {
+    if (visible.length === 0) {
       empty.style.display = 'block';
+      empty.textContent = this.aiIntakeList.length === 0
+        ? '現在、確認待ちの受注候補はありません'
+        : 'この絞り込みに該当する受注候補はありません';
       return;
     }
     empty.style.display = 'none';
 
-    this.aiIntakeList.forEach(intake => {
+    visible.forEach(intake => {
       const card = document.createElement('div');
-      card.className = 'ai-intake-card';
+      card.className = intake.triage_type ? 'ai-intake-card' : 'ai-intake-card is-untriaged';
       card.onclick = () => this.openAiIntakeModal(intake.id);
 
       if (intake.thumbnail_path) {
@@ -807,8 +822,142 @@ const app = {
       body.appendChild(dateEl);
 
       card.appendChild(body);
+      card.appendChild(this.buildTriageBar(intake));
       grid.appendChild(card);
     });
+  },
+
+  // ===== 受注候補の振り分け(三浦さん・山本さんの2名で行き先を決める) =====
+
+  TRIAGE_LABELS: {
+    production: { icon: '🏭', text: '生産', hint: '加工のみ・データ支給あり(三浦さん先導)' },
+    design: { icon: '🎨', text: 'デザイン', hint: 'デザイン工程あり(山本さん先導)' },
+    consult: { icon: '🤝', text: '要相談', hint: '二人で決めきれない・社長へ相談' },
+  },
+
+  // カード下部の振り分けバー。未振り分けなら3つのボタン、振り分け済みなら結果と取り消しを出す
+  buildTriageBar(intake) {
+    const bar = document.createElement('div');
+    bar.className = 'triage-bar';
+    // カード全体のクリックは確認モーダルを開くので、バー内のクリックは伝播させない
+    bar.onclick = (e) => e.stopPropagation();
+
+    if (intake.triage_type) {
+      const label = this.TRIAGE_LABELS[intake.triage_type];
+      const done = document.createElement('div');
+      done.className = 'triage-done';
+
+      const chip = document.createElement('span');
+      chip.className = `triage-chip triage-chip-${intake.triage_type}`;
+      chip.textContent = label ? `${label.icon} ${label.text}へ` : intake.triage_type;
+      done.appendChild(chip);
+
+      const by = document.createElement('span');
+      by.className = 'triage-by';
+      by.textContent = intake.triage_by
+        ? `${intake.triage_by} / ${formatDateTime(intake.triage_at)}`
+        : formatDateTime(intake.triage_at);
+      done.appendChild(by);
+
+      bar.appendChild(done);
+
+      const undo = document.createElement('button');
+      undo.type = 'button';
+      undo.className = 'btn btn-small btn-ghost';
+      undo.textContent = '取り消す';
+      undo.onclick = () => this.triageIntake(intake.id, null);
+      bar.appendChild(undo);
+      return bar;
+    }
+
+    const buttons = document.createElement('div');
+    buttons.className = 'triage-buttons';
+    Object.entries(this.TRIAGE_LABELS).forEach(([type, label]) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn-small';
+      btn.textContent = `${label.icon} ${label.text}`;
+      btn.title = label.hint;
+      btn.onclick = () => this.triageIntake(intake.id, type);
+      buttons.appendChild(btn);
+    });
+    bar.appendChild(buttons);
+    return bar;
+  },
+
+  async triageIntake(id, type) {
+    const operator = this.getTriageOperator();
+    if (type && !operator) {
+      HiUI.toast('先に「振り分ける人」を選んでください');
+      document.getElementById('triage-operator-select')?.focus();
+      return;
+    }
+    try {
+      const res = await API.triageAiIntake(id, type, operator);
+      if (!res || res.error) {
+        HiUI.toast(res?.error || '振り分けに失敗しました');
+        return;
+      }
+      const label = type ? this.TRIAGE_LABELS[type] : null;
+      HiUI.toast(label ? `${label.icon} ${label.text}へ振り分けました` : '振り分けを取り消しました');
+      await this.loadAiIntakeList();
+    } catch (error) {
+      console.error('振り分けエラー:', error);
+      HiUI.toast('振り分けに失敗しました');
+    }
+  },
+
+  setTriageFilter(filter) {
+    this.triageFilter = filter;
+    document.querySelectorAll('.triage-filter').forEach(btn => {
+      btn.classList.toggle('is-active', btn.dataset.triageFilter === filter);
+    });
+    this.renderAiIntakeList();
+  },
+
+  // 振り分けた人は端末ごとの設定として覚えておく(HiBoardにログインの仕組みがないため)
+  getTriageOperator() {
+    return document.getElementById('triage-operator-select')?.value || '';
+  },
+
+  saveTriageOperator() {
+    try {
+      localStorage.setItem('hiboard.triageOperator', this.getTriageOperator());
+    } catch {
+      // プライベートモード等でlocalStorageが使えなくても振り分け自体は動かす
+    }
+  },
+
+  async populateTriageOperatorSelect() {
+    const select = document.getElementById('triage-operator-select');
+    if (!select) return;
+    let saved = '';
+    try {
+      saved = localStorage.getItem('hiboard.triageOperator') || '';
+    } catch {
+      saved = '';
+    }
+    const current = select.value || saved;
+
+    if (!this.triageMembers) {
+      try {
+        const fetched = await API.getTriageMembers();
+        this.triageMembers = Array.isArray(fetched) ? fetched : [];
+      } catch (error) {
+        console.error('振り分け担当者の取得エラー:', error);
+        this.triageMembers = [];
+      }
+    }
+    const names = this.triageMembers;
+
+    select.innerHTML = '<option value="">選択してください</option>';
+    names.forEach(name => {
+      const option = document.createElement('option');
+      option.value = name;
+      option.textContent = name;
+      select.appendChild(option);
+    });
+    if (current && names.includes(current)) select.value = current;
   },
 
   openAiIntakeModal(id) {
@@ -833,13 +982,22 @@ const app = {
       this.currentAiIntakeDetail = intake;
       // Web注文フォーム(W-)・チーム追加注文(T-)・取引先加工依頼(P-)由来なら、タイトルに受付番号バッジを表示する
       const modalReceiptPrefix = { WEB: 'W', TEAM: 'T', PARTNER: 'P' }[intake.line_user_id];
+      const title = document.getElementById('ai-intake-modal-title');
       if (modalReceiptPrefix) {
-        const title = document.getElementById('ai-intake-modal-title');
         title.textContent = 'AI受注候補の確認 ';
         const receipt = document.createElement('span');
         receipt.className = 'receipt-badge';
         receipt.textContent = `${modalReceiptPrefix}-${intake.id}`;
         title.appendChild(receipt);
+      }
+      // 振り分け済みならその行き先をタイトルに出す(登録時に判断をなぞり直さなくて済むように)
+      const triageLabel = this.TRIAGE_LABELS[intake.triage_type];
+      if (triageLabel) {
+        const chip = document.createElement('span');
+        chip.className = `triage-chip triage-chip-${intake.triage_type}`;
+        chip.textContent = `${triageLabel.icon} ${triageLabel.text}へ`;
+        title.appendChild(document.createTextNode(' '));
+        title.appendChild(chip);
       }
       this.renderAiIntakeChatTranscript(intake.messages || []);
       this.prefillAiIntakeForm(intake);
@@ -946,6 +1104,12 @@ const app = {
     form.elements['freee_invoice_url'].value = '';
 
     this.setCheckboxGroupValues(form, 'process_type', this.detectProcessType(itemsText));
+
+    // 振り分けで「🎨 デザイン」にした候補は、デザイン案件全般ボード(山本さん)へ載せる前提なので
+    // is_design_ops を既定でONにする。振り分けの判断をここで入れ直さなくて済むようにするため
+    if (form.elements['is_design_ops']) {
+      form.elements['is_design_ops'].checked = intake.triage_type === 'design';
+    }
 
     // 新規案件モーダルと同じ入力欄をここでも用意する(登録後に編集で入れ直す手間を無くすため)。
     // Web注文フォーム由来の候補はプリント箇所が raw_ai_response に入っているので、あれば初期表示する

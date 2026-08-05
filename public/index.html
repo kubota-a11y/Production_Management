@@ -146,17 +146,33 @@
       <!-- ===== 受注候補の取り込みビュー ===== -->
       <section id="tab-import" class="tab-content" role="tabpanel">
 
-        <!-- LINEから自動収集された受注候補(AI抽出) -->
+        <!-- 全チャネル(LINE/Web注文/チーム追加/取引先)の受注候補が集まる振り分けデスク -->
         <div class="import-section ai-intake-section">
-          <h2>🤖 LINEから自動収集された受注候補</h2>
+          <h2>📥 受注候補の振り分け</h2>
           <p class="import-help">
-            LINEでのやり取りをAIが自動で読み取り、受注候補として一時保存したものです。<br>
-            内容を確認・修正のうえ、案件として登録するか却下してください。
+            LINE・Web注文フォーム・チーム追加注文・取引先加工依頼で届いた注文が、すべてここに集まります。<br>
+            内容を見て <strong>🏭 生産</strong> / <strong>🎨 デザイン案件全般</strong> / <strong>🤝 要相談</strong> の行き先を決めてから、案件として登録してください。
           </p>
+
+          <div class="triage-toolbar">
+            <div class="triage-operator">
+              <label class="form-label" for="triage-operator-select">振り分ける人</label>
+              <select id="triage-operator-select" onchange="app.saveTriageOperator()">
+                <option value="">選択してください</option>
+              </select>
+            </div>
+            <div class="triage-filters" role="group" aria-label="受注候補の絞り込み">
+              <button type="button" class="btn btn-small triage-filter is-active" data-triage-filter="all" onclick="app.setTriageFilter('all')">すべて</button>
+              <button type="button" class="btn btn-small triage-filter" data-triage-filter="none" onclick="app.setTriageFilter('none')">未振り分け</button>
+              <button type="button" class="btn btn-small triage-filter" data-triage-filter="production" onclick="app.setTriageFilter('production')">🏭 生産</button>
+              <button type="button" class="btn btn-small triage-filter" data-triage-filter="design" onclick="app.setTriageFilter('design')">🎨 デザイン</button>
+              <button type="button" class="btn btn-small triage-filter" data-triage-filter="consult" onclick="app.setTriageFilter('consult')">🤝 要相談</button>
+            </div>
+          </div>
 
           <div id="ai-intake-list" class="ai-intake-grid"></div>
           <div id="ai-intake-empty" class="empty-notice" style="display: none;">
-            現在、確認待ちのAI受注候補はありません
+            現在、確認待ちの受注候補はありません
           </div>
         </div>
 

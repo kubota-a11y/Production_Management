@@ -93,6 +93,15 @@ function initDatabase(dbFile = dbPath) {
   if (aiIntakeColumns.length > 0 && !aiIntakeColumns.includes('referral_code')) {
     db.prepare(`ALTER TABLE ai_extracted_intake ADD COLUMN referral_code TEXT`).run();
   }
+  // 受注候補の振り分け(2026-08-05 追加)。三浦・山本の2名が全チャネルの注文を一度受け、
+  // 「生産案件 / デザイン案件全般 / 要相談」の行き先を決めてから進行させる運用のため。
+  // status とは別軸で持つ(status='pending' のまま triage_type だけ入る = 行き先決定済み・案件登録前)。
+  if (aiIntakeColumns.length > 0 && !aiIntakeColumns.includes('triage_type')) {
+    db.prepare(`ALTER TABLE ai_extracted_intake ADD COLUMN triage_type TEXT`).run();
+    db.prepare(`ALTER TABLE ai_extracted_intake ADD COLUMN triage_by TEXT`).run();
+    db.prepare(`ALTER TABLE ai_extracted_intake ADD COLUMN triage_at TEXT`).run();
+    console.log('✓ ai_extracted_intake に振り分け列(triage_type/triage_by/triage_at)を追加しました');
+  }
 
   // 顧客メモ(顧客台帳ページ用)。顧客マスタは持たず projects.customer_name の
   // TRIM値をキーに、担当窓口・連絡先・注意点などを顧客単位で書き残す

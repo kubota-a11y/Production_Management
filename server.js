@@ -2068,7 +2068,8 @@ app.get('/api/ai-intake', (req, res) => {
       FROM ai_extracted_intake ai
       LEFT JOIN line_users lu ON ai.line_user_id = lu.line_user_id
       WHERE ai.status = ?
-      ORDER BY ai.extracted_at DESC
+      ORDER BY CASE WHEN ai.triage_type IS NULL OR ai.triage_type = '' THEN 0 ELSE 1 END,
+               ai.extracted_at DESC
     `).all(status);
 
     // 一覧カード用に、各候補の先頭画像(message_idsに含まれる中で最も古い画像メッセージ)のパスも付与する
@@ -2179,6 +2180,54 @@ app.post('/api/ai-intake/:id/confirm', (req, res) => {
     // 対応するTODO行を完了にする(失敗しても登録処理には影響させない)
     completeIntakeTask(req.params.id, '登録');
     res.status(201).json({ id: projectId, message: 'Project created from intake successfully' });
+  } catch (error) {
+    sendServerError(res, req, error);
+  }
+});
+
+// 振り分けを行う人の候補。案件担当者(staff)と従業員(employees)は別テーブルで、
+// 三浦さんは staff 側・山本さんは employees 側にしかいないため、両方から名前を集めて重複を除く。
+app.get('/api/triage-members', (req, res) => {
+  try {
+    const names = db.prepare(`
+      SELECT name FROM staff WHERE is_active = 1
+      UNION
+      SELECT name FROM employees WHERE is_active = 1
+      ORDER BY name ASC
+    `).all().map(row => row.name).filter(Boolean);
+    res.json(names);
+  } catch (error) {
+    sendServerError(res, req, error);
+  }
+});
+
+// 振り分け: 受注候補の行き先(生産 / デザイン案件全般 / 要相談)を記録する。
+// 案件登録の前段で三浦・山本が「握った」ことを表す操作なので、status は pending のまま変えない。
+// design で振り分けた候補は、確認モーダルで is_design_ops が既定ONになる(→ デザイン案件全般ボードへ載る)。
+const TRIAGE_TYPES = new Set(['production', 'design', 'consult']);
+
+app.post('/api/ai-intake/:id/triage', (req, res) => {
+  try {
+    const intake = db.prepare(`SELECT id FROM ai_extracted_intake WHERE id = ?`).get(req.params.id);
+    if (!intake) return res.status(404).json({ error: 'Intake not found' });
+
+    const { triage_type, triage_by } = req.body || {};
+    // 空文字/null は「振り分けを取り消す(未振り分けに戻す)」
+    const type = triage_type ? String(triage_type) : null;
+    if (type && !TRIAGE_TYPES.has(type)) {
+      return res.status(400).json({ error: '振り分け区分の値が不正です' });
+    }
+
+    db.prepare(`
+      UPDATE ai_extracted_intake SET triage_type = ?, triage_by = ?, triage_at = ? WHERE id = ?
+    `).run(
+      type,
+      type ? String(triage_by || '').slice(0, 50) || null : null,
+      type ? new Date().toISOString() : null,
+      req.params.id,
+    );
+
+    res.json({ ok: true, triage_type: type });
   } catch (error) {
     sendServerError(res, req, error);
   }

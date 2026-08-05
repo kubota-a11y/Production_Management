@@ -124,7 +124,10 @@ CREATE TABLE IF NOT EXISTS line_messages (
   FOREIGN KEY (line_user_id) REFERENCES line_users(line_user_id)
 );
 
--- LINEメッセージをAnthropic APIで構造化抽出した受注情報の下書き
+-- LINEメッセージをAnthropic APIで構造化抽出した受注情報の下書き。
+-- triage_* は三浦・山本の2名で受注候補を「生産案件 / デザイン案件全般 / 要相談」に
+-- 振り分けた結果(2026-08-05 追加)。振り分けは status とは別軸で、
+-- status='pending' のまま triage_type が入る = 「握って行き先だけ決めた」状態を表す。
 CREATE TABLE IF NOT EXISTS ai_extracted_intake (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   line_user_id TEXT NOT NULL,
@@ -138,6 +141,9 @@ CREATE TABLE IF NOT EXISTS ai_extracted_intake (
   message_ids TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending',
   case_id INTEGER,
+  triage_type TEXT,
+  triage_by TEXT,
+  triage_at TEXT,
   FOREIGN KEY (line_user_id) REFERENCES line_users(line_user_id)
 );
 

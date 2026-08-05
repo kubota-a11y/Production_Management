@@ -383,6 +383,22 @@ const API = {
     return response.json();
   },
 
+  // 振り分けを行う人の候補(案件担当者+従業員の名前を統合したもの)
+  async getTriageMembers() {
+    const response = await fetch('/api/triage-members');
+    return response.json();
+  },
+
+  // 振り分け(生産 / デザイン案件全般 / 要相談)。type に null を渡すと未振り分けへ戻す
+  async triageAiIntake(id, type, by) {
+    const response = await fetch(`/api/ai-intake/${id}/triage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ triage_type: type, triage_by: by })
+    });
+    return response.json();
+  },
+
   // ===== 統計関連 =====
 
   // 担当者別作業時間
