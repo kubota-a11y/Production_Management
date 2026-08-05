@@ -6,7 +6,7 @@
 ## 移行後の構成
 
 ```
-社員PC → Googleドライブ(デスクトップ版) → G:\共有ドライブ\<ドライブ名>\
+社員PC → Googleドライブ(デスクトップ版) → G:\共有ドライブ\HiYOSHi共有\
 本番Windows機(HiBoard) ┘
         └ 毎晩2:00 rclone で共有ドライブ → サーバー内蔵ディスクへ全件引き落とし
                                             (--backup-dir で削除・上書き分を日付フォルダへ退避)
@@ -68,13 +68,42 @@ dir /s /b "Z:\DESIGN" | find /c /v ""
 
 ## 3. データをコピーする
 
+**移行対象はDESIGNだけではない。** NAS直下には26フォルダ・合計約142GBがある(2026-08-05実測)。
+内訳の主なもの: `DESIGN` 116.0GB / `WEB作成素材` 8.5GB / `動画用音楽` 8.4GB /
+`design print service` 5.4GB / `DTF用 AIデータ` 2.0GB / 残り約1.5GB。
+
+除外するもの:
+
+| フォルダ | 理由 |
+|---|---|
+| `My Mac (kubotayuuyanoMacBook-Pro.local)` | MacのTime Machine用の受け皿。Googleドライブに載せる意味がない(実測0.1GBで実質空) |
+| `ProductionManagement_Backup` | HiBoardのDBバックアップ先。NASに残したまま使い続ける(4-3参照) |
+
+手順:
+
 1. NASを**読み取り専用**にする(移行中に片方だけ更新されるのを防ぐ)
-2. `Z:\DESIGN` の中身を `G:\共有ドライブ\<ドライブ名>\DESIGN\` へコピー
-3. **フォルダ構成は絶対に変えない**。
-   構成を変えると、DBに入っている案件ごとのパスが単純な置換で移行できなくなり、案件1件ずつの手作業になる。
-   フォルダの整理は移行が落ち着いてから別作業でやること
-4. Google側は**1日750GBのアップロード上限**があるため、1TB弱なら2晩かかる。金曜夜に始めて土日で終わらせるのが安全
-5. コピー後、件数と容量が一致することを確認する
+2. まず小さいフォルダ1つ(`価格改定` 0.2GB程度)でテストコピーし、G:に入ることとWeb版ドライブで見えることを確認する
+3. 本番のコピーはエクスプローラーのドラッグではなく robocopy で行う(失敗したファイルがログに残るため):
+
+```bat
+robocopy "Z:\" "G:\共有ドライブ\HiYOSHi共有" /e ^
+  /xd "My Mac (kubotayuuyanoMacBook-Pro.local)" "ProductionManagement_Backup" ^
+  /xf "sync_test_0706.txt.pdf" ^
+  /r:2 /w:5 /tee /log:C:\migration_copy.log
+```
+
+- `/e` … フォルダ構成をそのまま維持する。**構成は絶対に変えない**。
+  変えるとDBに入っている案件ごとのパスが単純な置換で移行できなくなり、案件1件ずつの手作業になる。
+  フォルダの整理は移行が落ち着いてから別作業でやること
+- `/r:2 /w:5` … リトライを2回に制限する。**付けないと1ファイルの失敗で事実上無限に止まる**(既定は100万回)
+- `/mt`(マルチスレッド)は付けない。Googleドライブの仮想ドライブへの並列書き込みは不安定になりやすい
+
+4. **robocopyが終わってもアップロードは終わっていない。**
+   robocopyはローカルのキャッシュに書くところまでで、そこからGoogleへ上がるのは別処理。
+   タスクトレイのGoogleドライブアイコンが「同期完了」になるまで待つ
+5. Google側は**1日750GBのアップロード上限**がある。142GBなら一晩で収まる
+6. コピー中はキャッシュのぶんC:の空きが一時的に減る(2026-08-05時点で366GB空きがあるため問題なし)
+7. コピー後、件数と容量が一致することを確認する
 
 ## 4. HiBoardを切り替える(ここは30分程度)
 
@@ -94,32 +123,33 @@ DBに保存されているパスの「ルート部分」と件数が出る(顧�
 
 ### 4-3. `.env` を書き換える
 
-メモ帳で `C:\Production_Management_v2\.env` を開き、次の4項目を差し替える。**他の項目は触らない。**
+メモ帳で `C:\Production_Management_v2\.env` を開き、次の3項目を差し替える。**他の項目は触らない。**
 
 | 項目 | 変更前(例) | 変更後 |
 |---|---|---|
-| `NAS_BASE_PATH` | `Z:\DESIGN` | `G:\共有ドライブ\<ドライブ名>\DESIGN` |
-| `WEB_ORDER_RECEIVED_PATH` | `\\192.168.1.25\disk1\DESIGN\WEB_ORDER_RECEIVED` | `G:\共有ドライブ\<ドライブ名>\DESIGN\WEB_ORDER_RECEIVED` |
-| `PARTNER_ORDER_RECEIVED_PATH` | `\\192.168.1.25\disk1\DESIGN\PARTNER_ORDER_RECEIVED` | `G:\共有ドライブ\<ドライブ名>\DESIGN\PARTNER_ORDER_RECEIVED` |
-| `DB_BACKUP_EXTRA_DIR` | NAS上のパス | **サーバー内蔵の別ドライブ**(例 `D:\HiBoard_DB_Backup`) |
+| `NAS_BASE_PATH` | `Z:\DESIGN` | `G:\共有ドライブ\HiYOSHi共有\DESIGN` |
+| `WEB_ORDER_RECEIVED_PATH` | `\\192.168.1.25\disk1\DESIGN\WEB_ORDER_RECEIVED` | `G:\共有ドライブ\HiYOSHi共有\DESIGN\WEB_ORDER_RECEIVED` |
+| `PARTNER_ORDER_RECEIVED_PATH` | `\\192.168.1.25\disk1\DESIGN\PARTNER_ORDER_RECEIVED` | `G:\共有ドライブ\HiYOSHi共有\DESIGN\PARTNER_ORDER_RECEIVED` |
 
-> **`DB_BACKUP_EXTRA_DIR` をGoogleドライブ配下にしないこと。**
-> 同期キャッシュを挟むフォルダはDBファイルのコピー先として危険(コピー途中の状態が同期される・
-> ストリーミングだと実体がローカルにない)。DBのバックアップはローカルディスクに置き、
-> クラウドへは手順6のrcloneでまとめて送る。
+> **`DB_BACKUP_EXTRA_DIR` は変更しない。**
+> NASは廃棄せず、rcloneのバックアップ先として残す(手順6)。DBのバックアップ先も
+> `Z:\ProductionManagement_Backup` のまま据え置きでよい。
+>
+> **Googleドライブ配下には絶対に向けないこと。** 同期キャッシュを挟むフォルダは
+> DBファイルのコピー先として危険(コピー途中の状態が同期される・ストリーミングだと実体がローカルにない)。
 
 ### 4-4. DBに保存されたパスを一括置換する
 
 まずドライラン(DBは変更されない)。
 
 ```bat
-node scripts/migrate-storage-path.js --from "Z:\DESIGN" --to "G:\共有ドライブ\<ドライブ名>\DESIGN"
+node scripts/migrate-storage-path.js --from "Z:\DESIGN" --to "G:\共有ドライブ\HiYOSHi共有\DESIGN"
 ```
 
 対象件数が想定どおりなら、`--apply` を付けて本実行する(自動でDBバックアップを取ってから書き換える)。
 
 ```bat
-node scripts/migrate-storage-path.js --from "Z:\DESIGN" --to "G:\共有ドライブ\<ドライブ名>\DESIGN" --apply
+node scripts/migrate-storage-path.js --from "Z:\DESIGN" --to "G:\共有ドライブ\HiYOSHi共有\DESIGN" --apply
 ```
 
 置き換わるのは次の5箇所:
@@ -160,45 +190,146 @@ npm start
    - ピン留めしたフォルダはローカル並みの速度になる。作業中の案件フォルダだけ指定するのがコツ
    - ディスク空き容量に注意
 
-## 6. Windowsサーバーへの毎晩のバックアップ(rclone)
+## 6. NASへの毎晩のバックアップ(rclone)
 
-8/5に設置したWindowsサーバーをそのまま使う。**引き落とす向き**になる点だけが当初案と逆。
+**バックアップ先はNASを再利用する**(2026-08-05判断)。本番機とサーバー機は同一のPCで、
+ドライブはC:1本しかないため、C:内にバックアップを置いても同じディスクの道連れになる。
+NASは本番機とは独立した別の機械なので、外付けHDDを買い足さずにこの条件を満たせる。
 
-1. `C:\rclone\rclone.exe` を配置(既設のものを流用)
-2. `rclone config` で Google Drive のリモートを作る。`scope` は `drive`、**チームドライブ(共有ドライブ)を選択**する
-3. 設定は `C:\rclone\rclone.conf` の固定パスに置く
-4. バッチを作る(例 `C:\rclone\nightly-backup.bat`):
+**引き落とす向き**になる点だけが当初のDropbox案と逆になる。
+
+### 6-0. NASの空き容量を確認する(最初にやる)
+
+検証期間中はNASに旧データ(約142GB)が残ったままなので、バックアップぶんを足すと約284GB必要になる。
+
+```powershell
+Get-PSDrive Z | Select-Object @{n='使用GB';e={[math]::Round($_.Used/1GB,1)}},@{n='空きGB';e={[math]::Round($_.Free/1GB,1)}}
+```
+
+空きが150GB未満なら、旧データを消す(=検証期間の終了)まで夜間バックアップの開始を待つ。
+
+### 6-1. rclone を配置する
+
+[rclone.org/downloads](https://rclone.org/downloads/) から Windows AMD64 版のzipを取得し、
+`rclone.exe` を `C:\rclone\rclone.exe` に置く。
+
+### 6-2. リモートを設定する
+
+```bat
+C:\rclone\rclone.exe config --config C:\rclone\rclone.conf
+```
+
+対話形式で進む。要点だけ:
+
+| 質問 | 答え |
+|---|---|
+| n/s/q | `n` (New remote) |
+| name | `gdrive` |
+| Storage | `drive` (Google Drive) |
+| client_id / client_secret | 空のままEnter |
+| scope | **`2` (drive.readonly)** |
+| service_account_file | 空のままEnter |
+| Edit advanced config | `n` |
+| Use auto config | `y` → ブラウザが開くのでログイン |
+| Configure this as a Shared Drive (Team Drive) | **`y`** → `HiYOSHi共有` を選ぶ |
+
+> **scope は必ず `drive.readonly` にする。** バックアップはGoogleから読むだけなので書き込み権限は不要。
+> 読み取り専用にしておけば、設定ミスやコマンドの打ち間違いでGoogle側のデータが消える事故が原理的に起きない。
+
+接続確認:
+
+```bat
+C:\rclone\rclone.exe lsd gdrive: --config C:\rclone\rclone.conf
+```
+
+共有ドライブ直下のフォルダ一覧(`DESIGN` など)が出れば成功。
+
+### 6-3. 置き場を作る
+
+```bat
+mkdir Z:\_Backup\SharedDrive
+mkdir Z:\_Backup\_deleted
+mkdir C:\rclone\logs
+```
+
+### 6-4. バッチを作る
+
+`C:\rclone\nightly-backup.bat` をメモ帳で作成する。
+**バッチ内のパスに日本語を含めないこと**(日本語WindowsでのバッチのエンコードはCP932依存で事故りやすい。
+`gdrive:` は共有ドライブのルートを指すので、日本語のパスを書く必要はない)。
 
 ```bat
 @echo off
+setlocal
 set RCLONE=C:\rclone\rclone.exe
 set CONF=C:\rclone\rclone.conf
-set STAMP=%date:~0,4%%date:~5,2%%date:~8,2%
-%RCLONE% sync gdrive: D:\Backup\SharedDrive --config %CONF% ^
-  --backup-dir D:\Backup\_deleted\%STAMP% ^
-  --log-file C:\rclone\logs\%STAMP%.log --log-level INFO
-%RCLONE% sync D:\HiBoard_DB_Backup D:\Backup\HiBoard_DB --config %CONF%
+for /f %%i in ('powershell -NoProfile -Command "Get-Date -Format yyyyMMdd"') do set STAMP=%%i
+"%RCLONE%" sync gdrive: "Z:\_Backup\SharedDrive" --config "%CONF%" ^
+  --backup-dir "Z:\_Backup\_deleted\%STAMP%" ^
+  --log-file "C:\rclone\logs\%STAMP%.log" --log-level INFO ^
+  --transfers 4 --checkers 8
+endlocal
 ```
 
-5. タスクスケジューラで毎晩2:00に実行するよう登録する
-6. サーバーのディスクは **BitLocker必須**
-7. 初回は全件ダウンロードになるため、時間に余裕のある日に手動で1回流しておく
+- 日付は `%date%` から切り出さずPowerShellで作る(`%date%` の書式はロケール依存で壊れやすい)
+- `sync` + `--backup-dir` の組み合わせで、Google側で消えた・上書きされたファイルは
+  削除されずに `_deleted\日付\` へ退避される
 
-## 7. NASを廃止する
+### 6-5. 手動で初回実行する
 
-- 移行後**2〜4週間は読み取り専用でNASを残す**(取りこぼしの確認期間)
-- 期間中に「あのファイルがない」が出なければ電源を落とす
-- 廃止前に一度だけ、NASとGoogle側のファイル数を突き合わせる
+```bat
+C:\rclone\nightly-backup.bat
+```
+
+初回は約142GBの全件ダウンロードなので数時間かかる。時間に余裕のある日に流す。
+
+### 6-6. タスクスケジューラに登録する
+
+タスクスケジューラ → 基本タスクの作成:
+
+- 名前: `rclone-nightly-backup`
+- トリガー: 毎日 2:00
+- 操作: プログラムの開始 → `C:\rclone\nightly-backup.bat`
+- **「ユーザーがログオンしているときのみ実行する」を選ぶ**
+  - Z:のネットワークドライブはログオンセッションにしか存在しない。
+    「ユーザーがログオンしているかどうかにかかわらず実行する」にするとZ:が見えず失敗する。
+    HiBoardをサービス化できないのとまったく同じ理由(`docs/Windowsサービス化手順.md`)
+- プロパティ → 条件 → 「**タスクを実行するためにスリープを解除する**」にチェック
+
+### 6-7. 運用上の注意
+
+- 翌朝 `C:\rclone\logs\<日付>.log` を確認する。`ERROR` が出ていないこと
+- `Z:\_Backup\_deleted\` は日付フォルダが増え続ける。**3ヶ月をめどに古いものを手で削除する**
+- NAS本体のディスクエラーログを一度確認しておく(バックアップ先として使い続けられる状態か)
+
+> **ランサムウェア対策としては不完全**。NASは常時マウントされているため、
+> 本番機が汚染されればNAS側も巻き込まれうる。より強くするなら、
+> 外付けドライブを月1回だけ繋いで世代を取り、普段は外しておく運用を足す。
+
+## 7. NASを「共有フォルダ」としては廃止する
+
+NAS本体はバックアップ先として残るが、**社員がファイルを置く場所としては廃止する**。
+
+- 移行後**2〜4週間は読み取り専用でNASの旧データを残す**(取りこぼしの確認期間)
+- 期間中に「あのファイルがない」が出なければ、旧データを消して手順6のバックアップ専用機に切り替える
+- 切り替え前に一度だけ、NASとGoogle側のファイル数を突き合わせる
+
+> **既知の差分(2026-08-05)**: NAS側だけに残るファイルが1件ある。
+> `Z:\DESIGN\真義\真義様手提げバッグ\` にスペース有り・無しの同名PDFが2つあり、
+> スペース無しのほうはコピー済み、スペース有りのほうは重複のため意図的にコピーしていない
+> (社長判断)。ファイル数を突き合わせたときに1件ズレるのはこれが理由。
 
 ---
 
 ## 動作確認チェックリスト
 
-- [ ] `dir /s /b "Z:\DESIGN" | find /c /v ""` が40万未満
-- [ ] 共有ドライブに本番Windows機のアカウントの権限がある
-- [ ] Googleドライブのドライブ文字が `G:` に固定されている
+- [x] `dir /s /b "Z:\DESIGN" | find /c /v ""` が40万未満 → **25,580件**(2026-08-05実測)
+- [x] NAS全体の容量を把握した → **約142GB**(うちDESIGN 116GB)
+- [x] 共有ドライブに本番Windows機のアカウントの権限がある → `HiYOSHi共有`
+- [x] `dir G:\` で `共有ドライブ`(日本語表記)を確認した
+- [ ] Googleドライブのドライブ文字が `G:` に**明示指定**されている(「自動」のままにしない)
 - [ ] ログオン時にGoogleドライブが自動起動する
-- [ ] `.env` の4項目を書き換えた
+- [ ] `.env` の3項目を書き換えた
 - [ ] `migrate-storage-path.js --scan` の結果が想定どおり
 - [ ] `--apply` 実行後、案件詳細からフォルダが開ける
 - [ ] 注文フォームのテスト送信で画像が共有ドライブに保存される(→テストデータ削除)
