@@ -229,6 +229,7 @@ const partnerOrder = {
       ['メールアドレス', document.getElementById('contactEmail').value || '(未入力)'],
       ['持ち込み予定', document.getElementById('dropoffDate').value || '(未入力)'],
       ['指図書番号', document.getElementById('instructionNo').value || '(なし)'],
+      ['ユーザー名', document.getElementById('userName').value || '(未入力)'],
       ['品物', items.length ? `${items.length}点` : '(未入力)'],
       ['希望納期', document.getElementById('deadlineDate').value || document.getElementById('deadlineNote').value || '(指定なし)'],
       ['添付ファイル', fileCount ? `${fileCount}点` : '(なし)'],
@@ -243,6 +244,8 @@ const partnerOrder = {
     const payload = {
       order_type: 'new',
       website: document.getElementById('website').value,
+      // ユーザー名 = 着用される会社・団体名(取引先のエンドユーザー)。任意
+      user_name: document.getElementById('userName').value,
       dropoff: {
         date: document.getElementById('dropoffDate').value,
         instruction_no: document.getElementById('instructionNo').value,
@@ -317,6 +320,7 @@ const partnerOrder = {
       ['ご担当者名', contactName],
       ['メールアドレス', document.getElementById('a_contactEmail').value || '(未入力)'],
       ['指図書番号', document.getElementById('a_instructionNo').value || '(なし)'],
+      ['ユーザー名', document.getElementById('a_userName').value || '(未入力)'],
       ['指図書の添付', `${files.length}点`],
       ['希望納期', document.getElementById('a_deadlineDate').value || document.getElementById('a_deadlineNote').value || '(指定なし)'],
     ], () => this.sendAdditional());
@@ -332,6 +336,8 @@ const partnerOrder = {
     const payload = {
       order_type: 'additional',
       website: document.getElementById('a_website').value,
+      // ユーザー名 = 着用される会社・団体名(取引先のエンドユーザー)。任意
+      user_name: document.getElementById('a_userName').value,
       dropoff: {
         contact_name: contactName,
         phone: document.getElementById('a_contactPhone').value,
