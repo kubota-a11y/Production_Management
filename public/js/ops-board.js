@@ -39,6 +39,13 @@ const opsBoardApp = {
   async init() {
     document.getElementById('ops-include-done').addEventListener('change', () => this.load());
     document.getElementById('ops-rough-input').addEventListener('change', (e) => this.uploadRough(e));
+    // 製造の準備項目マスター。入稿・製造に入った案件のカードから選定するために使う
+    try {
+      this.prepMaster = await API.getPreparationItemsMaster();
+    } catch (err) {
+      this.prepMaster = [];
+      console.error('準備項目マスター取得エラー:', err);
+    }
     await this.load();
   },
 
@@ -207,22 +214,41 @@ const opsBoardApp = {
     return this.isSubmitEnd(c) && c.paper_source === 'CARVE';
   },
 
-  // 紙媒体案件の工程ごとの納期(初稿 / 入稿)。どちらも未設定なら出さない
+  // 紙媒体案件の工程ごとの納期(初校 / 入稿)。どちらも未設定なら出さない
   paperDueHtml(c) {
     if (!this.isSubmitEnd(c)) return '';
     const parts = [];
-    if (c.first_draft_due) parts.push(`初稿 ${this.esc(c.first_draft_due)}`);
+    if (c.first_draft_due) parts.push(`初校 ${this.esc(c.first_draft_due)}`);
     if (c.submission_due) parts.push(`入稿 ${this.esc(c.submission_due)}`);
     if (!parts.length) return '';
     return `<div class="ops-card-meta ops-card-due">${parts.map(p => `<span>${p}</span>`).join('')}</div>`;
   },
 
-  // 紙媒体案件のバッジ。CARVE案件は出どころが分かるように別表示にする
+  // CARVE案件の作業段階(ラフアップ→写真入れアップ→修正アップ→入稿)。サーバーから受け取る
+  carveStage(key) {
+    const stages = (this.data && this.data.carve_stages) || [];
+    return stages.find(s => s.key === key) || stages[0] || { key: 'ROUGH', label: 'ラフアップ' };
+  },
+
+  // 紙媒体案件のバッジ。CARVE案件は出どころ+いまの作業段階が分かるように別表示にする
   flowBadgeHtml(c) {
     if (!this.isSubmitEnd(c)) return '';
     return this.isCarve(c)
-      ? '<span class="ops-badge ops-badge-carve">🔶 CARVE・入稿で完了</span>'
+      ? `<span class="ops-badge ops-badge-carve">🔶 CARVE・${this.esc(this.carveStage(c.carve_stage).label)}</span>`
       : '<span class="ops-badge ops-badge-paper">📄 入稿で完了</span>';
+  },
+
+  // 製造(三浦さん管轄)の準備項目がまだ選ばれていない「入稿・製造」以降の案件か。
+  // デザイン案件全般は登録時に準備項目を選ばない運用のため、ここで選定を促す
+  // (紙媒体は鈴木さんが入稿して終わるので対象外)
+  needsPrepSelect(c) {
+    return c.ops_stage === 'PRODUCTION' && !this.isSubmitEnd(c) && !c.mfg_prep_count;
+  },
+
+  // 製造の準備項目を選べる段階か(入稿・製造〜納品の間は追加できる)
+  canSelectPrep(c) {
+    return !this.isSubmitEnd(c)
+      && ['PRODUCTION', 'BILLING', 'INSPECTION', 'DELIVERY'].includes(c.ops_stage);
   },
 
   cardHtml(c) {
@@ -249,6 +275,7 @@ const opsBoardApp = {
           ${days !== null ? `<span class="${stale ? 'is-stale' : ''}">${days}日経過</span>` : ''}
           ${c.rough_count ? `<span>ラフ${c.rough_count}件</span>` : ''}
           ${this.flowBadgeHtml(c)}
+          ${this.needsPrepSelect(c) ? '<span class="ops-badge ops-badge-alert">⚠️ 準備項目 未選定</span>' : ''}
         </div>
         ${this.paperDueHtml(c)}
         ${c.ops_stage === 'REVIEW' ? `<div class="ops-card-badge-row">${this.badgeHtml(c)}</div>` : ''}
@@ -301,7 +328,9 @@ const opsBoardApp = {
 
     document.getElementById('ops-modal-title').textContent = c.project_name;
     const item = this.itemLabel(c);
-    const flow = this.isCarve(c) ? '🔶 CARVE案件' : (this.isSubmitEnd(c) ? '📄 入稿で完了' : '');
+    const flow = this.isCarve(c)
+      ? `🔶 CARVE案件(${this.carveStage(c.carve_stage).label})`
+      : (this.isSubmitEnd(c) ? '📄 入稿で完了' : '');
     document.getElementById('ops-modal-summary').textContent =
       `${c.customer_name}${item ? `／${item}` : ''}${flow ? `／${flow}` : ''}／納期 ${c.deadline || '未設定'}`
       + `${c.days_in_stage !== null ? `／この段階に入って${c.days_in_stage}日` : ''}`;
@@ -337,8 +366,97 @@ const opsBoardApp = {
         : `やりとりが進んだら次のステップへ切り替えてください。お客様の返事待ちのまま${this.data.remind_days}日を過ぎると、今日やることへ催促として戻ります。`;
     }
 
+    // CARVE案件のときだけ作業段階の切り替えを出す
+    const carveGroup = document.getElementById('ops-carve-group');
+    carveGroup.hidden = !this.isCarve(c);
+    if (this.isCarve(c)) {
+      const stages = this.data.carve_stages || [];
+      document.getElementById('ops-carve-picker').innerHTML = stages.map((s, i) => `
+        <button type="button" class="btn btn-small ${s.key === c.carve_stage ? 'btn-primary' : 'btn-secondary'}"
+          data-carve="${s.key}">${i + 1}. ${this.esc(s.label)}</button>
+      `).join('');
+      document.getElementById('ops-carve-picker').querySelectorAll('button[data-carve]').forEach(btn => {
+        btn.addEventListener('click', () => this.setCarveStage(btn.dataset.carve));
+      });
+    }
+
+    // 入稿・製造以降の(紙媒体でない)案件には、製造の準備項目の選定欄を出す
+    const prepGroup = document.getElementById('ops-prep-group');
+    prepGroup.hidden = !this.canSelectPrep(c);
+    if (this.canSelectPrep(c)) this.loadPrepSelection(caseId);
+
     this.loadRough(caseId);
     document.getElementById('ops-case-modal').style.display = 'flex';
+  },
+
+  // CARVE案件の作業段階を切り替える。変更後もモーダルを開いたままにする
+  async setCarveStage(stage) {
+    const caseId = this.currentCaseId;
+    try {
+      const res = await fetch(`/api/ops/cases/${caseId}/carve-stage`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || '更新に失敗しました');
+      HiUI.toast(`CARVEの作業段階を「${this.carveStage(stage).label}」にしました`);
+      await this.load();
+      this.openCaseModal(caseId);
+    } catch (err) {
+      HiUI.toast(err.message || '更新に失敗しました', 'error');
+    }
+  },
+
+  // ===== 製造の準備項目の選定 =====
+  // デザイン案件全般は登録時に準備項目を選ばないため、製造のターンに入ってからここで選ぶ。
+  // 既に登録済みの項目は一覧表示し、未登録の製造系項目だけをチェックボックスに出す
+  async loadPrepSelection(caseId) {
+    const registeredBox = document.getElementById('ops-prep-registered');
+    const choicesBox = document.getElementById('ops-prep-choices');
+    const addBtn = document.getElementById('ops-prep-add-btn');
+    registeredBox.innerHTML = '<p class="folder-loading">読み込み中…</p>';
+    choicesBox.innerHTML = '';
+    addBtn.style.display = 'none';
+    try {
+      const items = await API.getPreparationItems({ case_id: caseId });
+      const registeredIds = new Set(items.map(i => i.preparation_item_id));
+      // 製造系の項目 = デザイナー専用でなく、デザインラフ作成でもないもの
+      const mfgMaster = (this.prepMaster || [])
+        .filter(m => !m.is_designer_item && m.code !== 'DESIGN_ROUGH');
+
+      const registered = mfgMaster.filter(m => registeredIds.has(m.id));
+      registeredBox.innerHTML = registered.length
+        ? `<p class="ops-prep-registered-list">登録済み: ${registered.map(m => this.esc(m.name)).join('・')}</p>`
+        : '<p class="empty-notice">製造の準備項目はまだ選ばれていません。必要な項目にチェックして登録してください。</p>';
+
+      const choices = mfgMaster.filter(m => !registeredIds.has(m.id));
+      choicesBox.innerHTML = choices.map(m => `
+        <label class="checkbox-pill"><input type="checkbox" name="ops_prep_item" value="${m.id}"> ${this.esc(m.name)}</label>
+      `).join('');
+      addBtn.style.display = choices.length ? '' : 'none';
+    } catch (err) {
+      registeredBox.innerHTML = '<p class="empty-notice">準備項目の読み込みに失敗しました。</p>';
+    }
+  },
+
+  async registerPrepItems() {
+    const caseId = this.currentCaseId;
+    const checked = Array.from(
+      document.querySelectorAll('#ops-prep-choices input[name="ops_prep_item"]:checked')
+    ).map(el => Number(el.value));
+    if (!checked.length) {
+      HiUI.toast('登録する準備項目にチェックを入れてください', 'error');
+      return;
+    }
+    try {
+      await API.registerCasePreparationItems(caseId, checked);
+      HiUI.toast(`準備項目を${checked.length}件登録しました`);
+      await this.load();
+      this.openCaseModal(caseId);
+    } catch (err) {
+      HiUI.toast('準備項目の登録に失敗しました', 'error');
+    }
   },
 
   closeCaseModal() {

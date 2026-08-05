@@ -71,6 +71,22 @@
           <p class="empty-notice" id="ops-wait-hint"></p>
         </div>
 
+        <!-- CARVE案件(鈴木で始まり鈴木で終わる案件)だけに出す作業段階の切り替え -->
+        <div class="form-group" id="ops-carve-group" hidden>
+          <span class="form-label">🔶 CARVEの作業段階</span>
+          <div class="ops-wait-picker" id="ops-carve-picker"></div>
+          <p class="empty-notice">ラフアップ→写真入れアップ→修正アップ→入稿 の4段階。カードのバッジに表示されます（鈴木さんもマイスケジュールボードから切り替えられます）</p>
+        </div>
+
+        <!-- 製造(三浦さん管轄)の準備項目。登録時には選ばず、入稿・製造に入ってからここで選ぶ -->
+        <div class="form-group" id="ops-prep-group" hidden>
+          <span class="form-label">製造の準備項目</span>
+          <div id="ops-prep-registered" class="ops-prep-registered"></div>
+          <div class="checkbox-group" id="ops-prep-choices"></div>
+          <button type="button" class="btn btn-small btn-primary" id="ops-prep-add-btn" onclick="opsBoardApp.registerPrepItems()">選んだ項目を登録する</button>
+          <p class="empty-notice">登録すると案件の準備項目リストに入り、週間スケジュールボードで製造の段取りに使えます</p>
+        </div>
+
         <div class="form-group">
           <span class="form-label">デザインラフ(鈴木さんへ渡す下絵)</span>
           <div class="ops-rough-list" id="ops-rough-list"></div>

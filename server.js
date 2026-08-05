@@ -2615,7 +2615,7 @@ function registerPreparationItems(caseId, preparationItemIds = []) {
     }
   };
 
-  // デザインが絡む案件には「初稿提出」を必ず持たせる。
+  // デザインが絡む案件には「初校提出」を必ず持たせる。
   // これが無いと ②制作 → ③確認 の自動遷移が起きず、案件が制作段階に居座り続ける
   const designerItemIds = new Set(
     db.prepare('SELECT id FROM preparation_item_master WHERE is_designer_item = 1').all().map(r => r.id)
@@ -2623,7 +2623,7 @@ function registerPreparationItems(caseId, preparationItemIds = []) {
   const hasDesignWork = isInternalDesign || isDesignOps
     || preparationItemIds.some(id => designerItemIds.has(id));
   if (hasDesignWork) {
-    pushIfMissing(itemIdByCode('FIRST_DRAFT_SUBMIT'), 'デザイン案件のため「初稿提出」を自動追加しました');
+    pushIfMissing(itemIdByCode('FIRST_DRAFT_SUBMIT'), 'デザイン案件のため「初校提出」を自動追加しました');
   }
   // 紙媒体(入稿で完了)タイプには「入稿完了」も足す。完了で案件が「請求」へ進む
   if (isDesignOps && project.ops_flow === 'SUBMIT_END') {

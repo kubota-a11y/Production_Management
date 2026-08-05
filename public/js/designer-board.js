@@ -56,6 +56,7 @@ const board = {
       this.unscheduled = data.unscheduled;
       this.sheetTodos = data.sheet_todos ?? null;
       this.roughFiles = data.rough_files || {};
+      this.carveStages = data.carve_stages || [];
       this.designerName = data.designer_name;
       this.selectedItemId = null;
       this.selectedTodoText = null;
@@ -318,25 +319,44 @@ const board = {
     return `<div class="chip-meta chip-rough">🖼 ラフ: ${links}</div>`;
   },
 
+  // CARVE案件の作業段階(ラフアップ→写真入れアップ→修正アップ→入稿)のバッジ。
+  // 切り替えは chip-controls のプルダウンから本人が行う(社内側もボードから切り替えられる)
+  carveStageLabel(key) {
+    const st = (this.carveStages || []).find(s => s.key === key);
+    return st ? st.label : 'ラフアップ';
+  },
+
+  carveSelectHtml(i) {
+    if (!i.is_carve) return '';
+    const options = (this.carveStages || []).map((s, idx) =>
+      `<option value="${s.key}" ${s.key === i.carve_stage ? 'selected' : ''}>${idx + 1}. ${this.esc(s.label)}</option>`
+    ).join('');
+    return `
+      <select class="carve-stage-select" title="CARVEの作業段階"
+              onchange="board.onCarveStageChange(${i.case_id}, this.value)">${options}</select>
+    `;
+  },
+
   chipHtml(i) {
     const done = i.status === '完了';
     const selected = this.selectedItemId === i.id;
-    // 紙媒体案件は工程ごとの納期(初稿の納期 / 入稿の納期)が入る。無ければ案件の納期
+    // 紙媒体案件は工程ごとの納期(初校の納期 / 入稿の納期)が入る。無ければ案件の納期
     const dueDate = i.due_date || i.deadline;
     const dueLabel = i.due_label || '納期';
     const deadline = dueDate ? this.fmtDate(dueDate) : '—';
     const soon = dueDate && !done && this.daysUntil(dueDate) <= 3;
     return `
-      <div class="chip${done ? ' completed' : ''}${selected ? ' selected' : ''}" draggable="true"
+      <div class="chip${done ? ' completed' : ''}${selected ? ' selected' : ''}${i.is_carve ? ' is-carve' : ''}" draggable="true"
            data-item-id="${i.id}"
            ondragstart="board.onChipDragStart(event, ${i.id})" ondragend="board.onChipDragEnd(event)"
            onclick="event.stopPropagation(); board.onChipTap(${i.id})">
         <div class="chip-main">
-          <div class="chip-name">${this.esc(i.project_name)}</div>
+          <div class="chip-name">${this.esc(i.project_name)} ${i.is_carve ? `<span class="carve-badge">🔶 ${this.esc(this.carveStageLabel(i.carve_stage))}</span>` : ''}</div>
           <div class="chip-meta">${this.esc(i.preparation_item_name)} ｜ ${this.esc(dueLabel)} <span class="${soon ? 'chip-deadline-soon' : ''}">${deadline}</span></div>
           ${this.roughLinksHtml(i.case_id)}
         </div>
         <div class="chip-controls" onclick="event.stopPropagation()">
+          ${this.carveSelectHtml(i)}
           <select class="chip-date" onchange="board.onItemDateChange(${i.id}, this.value)">
             ${this.dateOptionsHtml(i.scheduled_date)}
           </select>
@@ -371,6 +391,27 @@ const board = {
   async onItemDateChange(itemId, value) {
     await this.updateItem(itemId, { scheduled_date: value || null },
       value ? `${this.fmtDate(value)} に移動しました` : '日付を未定に戻しました');
+  },
+
+  // CARVE案件の作業段階を切り替える(同じ案件のチップすべてに反映される)
+  async onCarveStageChange(caseId, stage) {
+    try {
+      const res = await fetch(`/api/designer/${this.token}/cases/${caseId}/carve-stage`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        this.toast(data.error || '保存に失敗しました');
+      } else {
+        this.toast(`作業段階を「${this.carveStageLabel(stage)}」にしました`);
+      }
+    } catch (e) {
+      console.error(e);
+      this.toast('通信エラーで保存できませんでした');
+    }
+    await this.load();
   },
 
   async onTodoDateChange(encodedTask, value) {

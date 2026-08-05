@@ -66,6 +66,16 @@
     .chip-meta { font-size: .74rem; color: #64748b; }
     .chip-rough { margin-top: 2px; }
     .chip-rough a { color: #2563eb; text-decoration: underline; }
+    /* CARVE案件(鈴木さん自身の案件)は枠色とバッジで区別し、作業段階を本人が切り替えられる */
+    .chip.is-carve { border-left-color: #7c3aed; background: #faf5ff; }
+    .carve-badge {
+      font-size: .72rem; font-weight: 700; padding: 2px 10px; border-radius: 999px;
+      color: #6d28d9; background: #ede9fe; border: 1px solid #c4b5fd; white-space: nowrap;
+    }
+    .carve-stage-select {
+      padding: 4px 6px; border: 1px solid #c4b5fd; border-radius: 6px;
+      font-size: .8rem; background: #fff; color: #6d28d9; font-family: inherit; max-width: 140px;
+    }
     .chip-deadline-soon { color: #b45309; font-weight: 700; }
     .chip-controls { display: flex; align-items: center; gap: 8px; }
     .chip-hours { width: 60px; padding: 4px 6px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: .85rem; }

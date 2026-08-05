@@ -1108,6 +1108,7 @@ const app = {
     if (form.elements['is_design_ops']) {
       form.elements['is_design_ops'].checked = intake.triage_type === 'design';
     }
+    this.onIntakeDesignOpsChange();
 
     // 新規案件モーダルと同じ入力欄をここでも用意する(登録後に編集で入れ直す手間を無くすため)。
     // Web注文フォーム由来の候補はプリント箇所が raw_ai_response に入っているので、あれば初期表示する
@@ -1171,7 +1172,7 @@ const app = {
 
       // 準備項目は案件作成後に別APIでタスク化する(新規案件モーダルと同じ手順)。
       // デザイン案件全般の案件は、準備項目を1つも選んでいなくても呼ぶ
-      // (サーバー側で「初稿提出」等をデザイン担当へ用意するため)
+      // (サーバー側で「初校提出」等をデザイン担当へ用意するため)
       const codeToId = new Map(this.prepItemsMaster.map(m => [m.code, m.id]));
       const prepItemIds = prepItemCodes.map(code => codeToId.get(code)).filter(Boolean);
       if (prepItemIds.length > 0 || data.is_design_ops) {
@@ -1238,6 +1239,28 @@ const app = {
     group.style.display = form.elements['ops_flow'].value === 'SUBMIT_END' ? 'block' : 'none';
   },
 
+  // ===== 「デザイン案件全般」チェックの切り替え =====
+  // デザイン案件全般の登録時は版下データを作る工程なので、準備項目はここでは選ばせない。
+  // 準備項目が要るのは製造(三浦さん管轄)に入ってからで、その選定は
+  // デザイン案件全般ボードのカード(入稿・製造の段階)から行う(2026-08-05 社長指示)
+  toggleDesignOpsPrepSection(checkbox, sectionId, hintId) {
+    const section = document.getElementById(sectionId);
+    const hint = document.getElementById(hintId);
+    if (!checkbox || !section || !hint) return;
+    section.style.display = checkbox.checked ? 'none' : '';
+    hint.style.display = checkbox.checked ? 'block' : 'none';
+  },
+
+  onDesignOpsChange() {
+    const form = document.getElementById('project-form');
+    this.toggleDesignOpsPrepSection(form?.elements['is_design_ops'], 'pf-prep-section', 'pf-prep-deferred-hint');
+  },
+
+  onIntakeDesignOpsChange() {
+    const form = document.getElementById('ai-intake-form');
+    this.toggleDesignOpsPrepSection(form?.elements['is_design_ops'], 'ai-prep-section', 'ai-prep-deferred-hint');
+  },
+
   // ===== UI: モーダル =====
   async openProjectModal(projectId = null) {
     this.editingProjectId = projectId;
@@ -1247,7 +1270,8 @@ const app = {
     const deleteBtn = document.getElementById('btn-delete');
 
     form.reset();
-    this.onOpsFlowChange();  // 前回の表示状態が残らないようリセット直後にも当てる
+    this.onOpsFlowChange();      // 前回の表示状態が残らないようリセット直後にも当てる
+    this.onDesignOpsChange();    // 準備項目セクションの表示も同様にリセットする
 
     if (projectId) {
       title.textContent = '案件編集';
@@ -1271,6 +1295,7 @@ const app = {
         if (form.elements['is_design_ops']) {
           form.elements['is_design_ops'].checked = !!project.is_design_ops;
         }
+        this.onDesignOpsChange();
         // 進行タイプ(加工まで / 紙媒体・入稿で完了)と、紙媒体の出どころの復元
         if (form.elements['ops_flow']) {
           form.elements['ops_flow'].value = project.ops_flow || 'FULL';
@@ -1839,7 +1864,7 @@ const app = {
 
       // 選択された準備項目をタスクとして登録(既に登録済みのものはサーバー側でスキップされる)。
       // デザイン案件全般の案件は、準備項目を1つも選んでいなくても呼ぶ。
-      // サーバー側が「初稿提出」等をデザイン担当へ用意するので、
+      // サーバー側が「初校提出」等をデザイン担当へ用意するので、
       // 準備項目も担当者も未選択のまま登録しても鈴木さんのボードに必ずタスクが出る
       const codeToId = new Map(this.prepItemsMaster.map(m => [m.code, m.id]));
       const prepItemIds = prepItemCodes.map(code => codeToId.get(code)).filter(Boolean);
@@ -2050,6 +2075,7 @@ const app = {
         if (params.get('design_ops') === '1') {
           const box = document.getElementById('project-form').elements['is_design_ops'];
           if (box) box.checked = true;
+          this.onDesignOpsChange();
         }
       }
     }

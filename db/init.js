@@ -384,9 +384,18 @@ function initDatabase(dbFile = dbPath) {
     console.log('✓ projects.paper_source を追加しました');
   }
 
+  // CARVE案件の作業段階(2026-08-05)。paper_source='CARVE' のときだけ意味を持つ。
+  // 鈴木さんがCARVEで受けている案件は ラフアップ→写真入れアップ→修正アップ→入稿 の
+  // 4段階で進むため、いまどこかをカード上のバッジで示す(値は lib/ops-board.js の CARVE_STAGES)
+  if (!projectColumns.includes('carve_stage')) {
+    db.prepare(`ALTER TABLE projects ADD COLUMN carve_stage TEXT NOT NULL DEFAULT 'ROUGH'`).run();
+    console.log('✓ projects.carve_stage を追加しました');
+  }
+
   // 紙媒体案件の工程ごとの納期(2026-08-03)。ops_flow='SUBMIT_END' のときに使う。
-  // 案件全体の納期(deadline)だけだと、鈴木さんが「初稿はいつまで」「入稿はいつまで」を
+  // 案件全体の納期(deadline)だけだと、鈴木さんが「初校はいつまで」「入稿はいつまで」を
   // 判断できないため、工程ごとに分けて持たせる。空なら案件の納期を使う
+  // (列名の first_draft は導入時の名残。画面上の表記は「初校」)
   if (!projectColumns.includes('first_draft_due')) {
     db.prepare(`ALTER TABLE projects ADD COLUMN first_draft_due TEXT`).run();
     console.log('✓ projects.first_draft_due を追加しました');
@@ -514,8 +523,8 @@ function initDatabase(dbFile = dbPath) {
       // 2026-08-03 オペレーションボード導入で追加。
       // デザインラフ作成 = オペレーション担当(山本さん)が描いてデザイナーへ渡す下絵。デザイナー専用項目にはしない
       ['DESIGN_ROUGH', 'デザインラフ作成'],
-      // 初稿提出 = デザイナーがこれを完了すると、オペ段階が「制作」→「確認」へ自動で進む
-      ['FIRST_DRAFT_SUBMIT', '初稿提出'],
+      // 初校提出 = デザイナーがこれを完了すると、オペ段階が「制作」→「確認」へ自動で進む
+      ['FIRST_DRAFT_SUBMIT', '初校提出'],
       // 入稿完了 = 紙媒体(入稿で完了)タイプの案件にだけ自動付与。
       // デザイナーがこれを完了すると、オペ段階が「請求」へ自動で進む(2026-08-03)
       ['SUBMISSION_COMPLETE', '入稿完了']
@@ -537,7 +546,7 @@ function initDatabase(dbFile = dbPath) {
     const designerItemCodes = [
       'OUTSOURCE_DESIGN_DATA', 'PROMO_DESIGN_DATA', 'DTF_DATA_CREATION',
       'WORK_INSTRUCTION_CREATION', 'QUOTATION_CREATION',
-      // 初稿提出・入稿完了はデザイナー本人が完了操作をするのでマイボードに自動で入れる(2026-08-03)
+      // 初校提出・入稿完了はデザイナー本人が完了操作をするのでマイボードに自動で入れる(2026-08-03)
       'FIRST_DRAFT_SUBMIT', 'SUBMISSION_COMPLETE'
     ];
     const flagged = db.prepare(`
@@ -546,6 +555,17 @@ function initDatabase(dbFile = dbPath) {
     `).run(...designerItemCodes);
     if (flagged.changes > 0) {
       console.log(`✓ デザイン担当者の専用項目フラグを ${flagged.changes}件に付与しました`);
+    }
+
+    // 正しい校正用語に訂正: 「初稿提出」→「初校提出」(2026-08-05 社長指示)。
+    // 既存DBには旧名のままマスターが入っているため、冪等なUPDATEで名前だけ直す
+    // (コード FIRST_DRAFT_SUBMIT は変えないので、案件データや自動遷移には影響しない)
+    const renamed = db.prepare(`
+      UPDATE preparation_item_master SET name = '初校提出'
+      WHERE code = 'FIRST_DRAFT_SUBMIT' AND name = '初稿提出'
+    `).run();
+    if (renamed.changes > 0) {
+      console.log('✓ 準備項目「初稿提出」を「初校提出」に改名しました');
     }
   }
 

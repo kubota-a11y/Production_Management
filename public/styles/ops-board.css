@@ -127,6 +127,13 @@
 }
 .ops-badge-alert { background: var(--danger-soft); color: var(--danger-text); }
 
+/* 製造の準備項目の選定(カードモーダル内)。登録済みの項目は文字だけで示す */
+.ops-prep-registered-list {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  margin-bottom: var(--space-2);
+}
+
 /* ===== パイプライン ===== */
 /* 段階が7つ(+完了)あるため、横スクロールする列レイアウトにする。
    ページ全体が横に伸びないよう、スクロールはこのコンテナの中だけで起こす */
@@ -275,7 +282,7 @@
   color: var(--text-muted);
 }
 
-/* 紙媒体案件の工程ごとの納期(初稿 / 入稿) */
+/* 紙媒体案件の工程ごとの納期(初校 / 入稿) */
 .ops-card-due span {
   background: var(--surface-muted);
   border-radius: var(--radius-sm);

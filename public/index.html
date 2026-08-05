@@ -277,7 +277,7 @@
           <div class="field-hint" id="internal-design-hint" style="display:none;">社内デザイン案件（KRATVS・販促物など）は最小限の入力で登録でき、選択した準備項目はデザイン担当者のマイスケジュールボードへ自動で入ります</div>
 
           <div class="checkbox-group" style="margin-top:8px;">
-            <label class="checkbox-pill"><input type="checkbox" name="is_design_ops" value="1"> 🗂 デザイン案件全般として管理する</label>
+            <label class="checkbox-pill"><input type="checkbox" name="is_design_ops" value="1" onchange="app.onDesignOpsChange()"> 🗂 デザイン案件全般として管理する</label>
           </div>
           <div class="field-hint">チェックすると「🗂 デザイン案件全般」の画面に載り、ブリーフ・ラフ→制作→確認→入稿→請求の流れで進行を管理します（担当: 山本さん）</div>
 
@@ -296,7 +296,7 @@
 
             <div class="form-row" style="margin-top:8px;">
               <div class="form-group">
-                <label for="pf-first-draft-due">初稿の納期</label>
+                <label for="pf-first-draft-due">初校の納期</label>
                 <input type="date" id="pf-first-draft-due" name="first_draft_due">
               </div>
               <div class="form-group">
@@ -399,10 +399,16 @@
         <details class="form-section" open>
           <summary>3. 準備と担当<span class="form-section-note">準備項目・所要時間・担当者</span></summary>
           <div class="form-section-body">
-            <fieldset class="form-group">
+            <fieldset class="form-group" id="pf-prep-section">
               <legend>作業の準備項目 <span class="field-hint">(複数選択可)</span></legend>
               <div class="checkbox-group" id="prep-items-checkbox-group"></div>
             </fieldset>
+            <!-- デザイン案件全般は登録時=版下データを作る工程なので、準備項目はここでは選ばない。
+                 製造(三浦さん管轄)に入るタイミングで、デザイン案件全般ボードのカードから選ぶ -->
+            <div class="field-hint" id="pf-prep-deferred-hint" style="display:none;">
+              デザイン案件全般の案件は、登録時に準備項目を選ぶ必要はありません。
+              製造に入るタイミングで「🗂 デザイン案件全般」ボードのカードから選べます（初校提出などのデザイン作業は自動で登録されます）
+            </div>
 
             <div class="form-row normal-only">
               <div class="form-group">
@@ -665,15 +671,19 @@
               </button>
             </div>
 
-            <fieldset class="form-group">
+            <fieldset class="form-group" id="ai-prep-section">
               <legend>作業の準備項目 <span class="field-hint">(複数選択可)</span></legend>
               <div class="checkbox-group" id="ai-intake-prep-items-checkbox-group"></div>
             </fieldset>
+            <div class="field-hint" id="ai-prep-deferred-hint" style="display:none;">
+              デザイン案件全般の案件は、登録時に準備項目を選ぶ必要はありません。
+              製造に入るタイミングで「🗂 デザイン案件全般」ボードのカードから選べます（初校提出などのデザイン作業は自動で登録されます）
+            </div>
 
             <fieldset class="form-group">
               <legend>デザイン案件全般</legend>
               <div class="checkbox-group">
-                <label class="checkbox-pill"><input type="checkbox" name="is_design_ops" value="1"> 🗂 デザイン案件全般として管理する</label>
+                <label class="checkbox-pill"><input type="checkbox" name="is_design_ops" value="1" onchange="app.onIntakeDesignOpsChange()"> 🗂 デザイン案件全般として管理する</label>
               </div>
               <div class="field-hint">チェックすると「🗂 デザイン案件全般」の画面に載り、進行を管理します（担当: 山本さん）</div>
               <div class="checkbox-group" style="margin-top:8px;">
@@ -688,7 +698,7 @@
               <div class="field-hint">紙媒体のときだけ使います。CARVE案件はボード上で枠を付けて目立たせます</div>
               <div class="form-row" style="margin-top:8px;">
                 <div class="form-group">
-                  <label for="ai-first-draft-due">初稿の納期</label>
+                  <label for="ai-first-draft-due">初校の納期</label>
                   <input type="date" id="ai-first-draft-due" name="first_draft_due">
                 </div>
                 <div class="form-group">
