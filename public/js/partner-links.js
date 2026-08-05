@@ -66,6 +66,13 @@ const partnerLinksApp = {
         memo.textContent = link.memo;
         tdName.appendChild(memo);
       }
+      // 依頼フォーム送信時の自動返信が設定されているかを一覧で分かるようにする
+      // (アドレス自体は編集モーダルでのみ表示する)
+      const notifyCount = (link.notify_emails || []).length;
+      const notify = document.createElement('div');
+      notify.style.cssText = 'font-size:.75rem;color:#6b7280';
+      notify.textContent = notifyCount ? `✉️ 受付控えの自動返信: ${notifyCount}件` : '✉️ 受付控えの自動返信: なし';
+      tdName.appendChild(notify);
 
       const tdUrl = document.createElement('td');
       tdUrl.append(
@@ -185,6 +192,7 @@ const partnerLinksApp = {
     document.getElementById('link-modal-title').textContent = link ? 'リンクを編集' : '新規リンク発行';
     document.getElementById('link-partner-name').value = link ? link.partner_name : '';
     document.getElementById('link-patterns').value = link ? (link.customer_patterns || []).join('、') : '';
+    document.getElementById('link-notify-emails').value = link ? (link.notify_emails || []).join('、') : '';
     document.getElementById('link-memo').value = link ? (link.memo || '') : '';
     document.getElementById('link-form-errors').hidden = true;
     document.getElementById('link-modal').style.display = 'flex';
@@ -201,6 +209,9 @@ const partnerLinksApp = {
       // 読点・カンマのどちらでも区切れるようにする
       customer_patterns: document.getElementById('link-patterns').value
         .split(/[、,]/).map(v => v.trim()).filter(Boolean),
+      // 受付控えメールの送信先。読点・カンマ・空白のどれで区切っても受け付ける
+      notify_emails: document.getElementById('link-notify-emails').value
+        .split(/[、,\s]+/).map(v => v.trim()).filter(Boolean),
       memo: document.getElementById('link-memo').value,
     };
     const url = this.editingId ? `/api/partner-links/${this.editingId}` : '/api/partner-links';

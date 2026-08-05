@@ -17,6 +17,8 @@ const partnerOrder = {
       badge.hidden = false;
       document.getElementById('leadText').textContent = '持ち込み品の加工依頼をお送りいただけます。まずご依頼の種類をお選びください。';
       const statusHref = `/partner/${encodeURIComponent(this.token)}`;
+      // 種別の選択画面・両フォーム・送信完了画面のどこからでも納期確認ページへ行けるようにする
+      document.getElementById('c_statusLink').href = statusHref;
       document.getElementById('statusLink').href = statusHref;
       document.getElementById('a_statusLink').href = statusHref;
       document.getElementById('doneStatusLink').href = statusHref;
@@ -54,6 +56,46 @@ const partnerOrder = {
     document.getElementById('a_formErrors').hidden = true;
     document.getElementById('typeChooser').hidden = false;
     window.scrollTo(0, 0);
+  },
+
+  // 送信完了画面から、続けて次の依頼を入力する。
+  // 1件ごとにページを開き直す手間をなくすため、入力欄を空に戻して指定の種別のフォームを出す
+  continueEntry(type) {
+    this.resetForms();
+    document.getElementById('donePanel').hidden = true;
+    document.getElementById('typeChooser').hidden = true;
+    this.chooseType(type);
+    window.scrollTo(0, 0);
+  },
+
+  // 両方のフォームを未入力の状態に戻す。
+  // ご担当者名・電話番号・メールアドレスは同じ方が続けて入力するため引き継ぐ
+  // (引き継ぐ旨は完了画面に明記している)。品物行・添付ファイルは必ず消す
+  resetForms() {
+    const val = id => document.getElementById(id).value.trim();
+    const keep = {
+      name: val('contactName') || val('a_contactName'),
+      phone: val('contactPhone') || val('a_contactPhone'),
+      email: val('contactEmail') || val('a_contactEmail'),
+    };
+
+    // reset() で入力値と添付ファイル(file input)を既定値に戻す
+    document.getElementById('partnerOrderForm').reset();
+    document.getElementById('additionalForm').reset();
+
+    // 動的に足した品物行は reset() では消えないため、明示的に作り直す
+    document.getElementById('procContainer').innerHTML = '';
+    this.rowSeq = 0;
+
+    document.getElementById('formErrors').hidden = true;
+    document.getElementById('a_formErrors').hidden = true;
+
+    document.getElementById('contactName').value = keep.name;
+    document.getElementById('contactPhone').value = keep.phone;
+    document.getElementById('contactEmail').value = keep.email;
+    document.getElementById('a_contactName').value = keep.name;
+    document.getElementById('a_contactPhone').value = keep.phone;
+    document.getElementById('a_contactEmail').value = keep.email;
   },
 
   addRow() {

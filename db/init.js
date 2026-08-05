@@ -319,6 +319,15 @@ function initDatabase(dbFile = dbPath) {
     )
   `);
 
+  // 取引先ごとの受付控えメールの送信先(JSON配列)。加工依頼フォームの送信時に、
+  // フォームのメール欄への入力の有無にかかわらずこのアドレス全員へ控えを送る。
+  // (例: 八木繊維の窓口2名。誰が入力しても両名に届くようにするための設定)
+  const partnerLinkColumns = db.prepare(`PRAGMA table_info('partner_links')`).all().map(col => col.name);
+  if (!partnerLinkColumns.includes('notify_emails')) {
+    db.prepare(`ALTER TABLE partner_links ADD COLUMN notify_emails TEXT NOT NULL DEFAULT '[]'`).run();
+    console.log('✓ partner_links.notify_emails を追加しました');
+  }
+
   // 既存DBに preparation_item_master.is_designer_item カラムがない場合は追加。
   // 1の項目は「デザイン担当者の専用項目」= どの案件種別でも登録時にデザイン担当へ自動割り当てされる
   const prepMasterColumns = db.prepare(`PRAGMA table_info('preparation_item_master')`).all().map(col => col.name);

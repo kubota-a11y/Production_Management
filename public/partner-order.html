@@ -39,6 +39,13 @@
     .submit-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; align-items: center; }
     .form-note { font-size: .85rem; color: #475569; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; line-height: 1.7; margin-bottom: 12px; }
     /* 送信前の確認ウィンドウは js/form-guard.js が生成する(スタイルも同ファイル内) */
+    /* 送信完了画面の導線(続けて登録・納期確認ページ) */
+    .done-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 20px; }
+    .btn-continue { border: 1px solid #93c5fd; background: #eff6ff; color: #1d4ed8; border-radius: 999px; padding: 12px 22px; font-size: .95rem; font-weight: 700; cursor: pointer; }
+    .btn-continue:hover { background: #dbeafe; }
+    .btn-status { display: inline-block; border: 1px solid #cbd5e1; background: #fff; color: #475569; border-radius: 999px; padding: 12px 22px; font-size: .95rem; font-weight: 700; text-decoration: none; }
+    .btn-status:hover { background: #f1f5f9; }
+    .done-note { font-size: .82rem; color: #64748b; margin-top: 14px; line-height: 1.7; }
     .site-footer { border-top: 1px solid #e2e8f0; margin-top: 40px; padding: 20px 16px 8px; text-align: center; font-size: .82rem; color: #64748b; line-height: 1.9; }
     .site-footer .company { font-size: .92rem; font-weight: 700; color: #334155; }
     .site-footer a { color: #2563eb; text-decoration: none; }
@@ -65,6 +72,7 @@
         <span class="type-title">🆕 新規案件(詳細入力)</span>
         <span class="type-desc">新しい案件。行き違いを防ぐため、加工内容を詳しくご入力いただきます。</span>
       </button>
+      <p class="status-link"><a id="c_statusLink" href="#">→ 進行状況・納期の確認ページを見る</a></p>
     </div>
 
     <!-- 追加案件(簡易版): 指図書の添付が主。加工内容の詳細入力は不要 -->
@@ -186,7 +194,14 @@
       <p class="done-receipt">受付番号: <strong id="doneReceiptNo"></strong><br>
         <small>お問い合わせの際にこの番号をお伝えいただくとスムーズです。</small></p>
       <p>内容を確認のうえ、弊社にて作業指示書を作成し製作に入ります。進行状況は確認ページでご覧いただけます。</p>
-      <p class="status-link"><a id="doneStatusLink" href="#">→ 進行状況・納期の確認ページを見る</a></p>
+
+      <!-- 続けて登録: 画面を読み込み直さずに次の依頼を入力できるようにする -->
+      <div class="done-actions">
+        <button type="button" class="btn-continue" onclick="partnerOrder.continueEntry('additional')">🔁 続けて登録(追加案件)</button>
+        <button type="button" class="btn-continue" onclick="partnerOrder.continueEntry('new')">🆕 続けて登録(新規案件)</button>
+        <a class="btn-status" id="doneStatusLink" href="#">📋 納期確認ページを見る</a>
+      </div>
+      <p class="done-note">「続けて登録」を押すと入力欄を空にして次のご依頼を受け付けます(ご担当者名・電話番号・メールアドレスはそのまま引き継ぎます)。</p>
     </div>
 
     <footer class="site-footer">
