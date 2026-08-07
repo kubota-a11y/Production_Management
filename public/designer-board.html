@@ -76,6 +76,27 @@
       padding: 4px 6px; border: 1px solid #c4b5fd; border-radius: 6px;
       font-size: .8rem; background: #fff; color: #6d28d9; font-family: inherit; max-width: 140px;
     }
+    /* 校正の状態バッジ(初校/修正/校了)。3つとも常に出し、選択中のものだけ塗る(2026-08-07) */
+    .proof-row { display: flex; gap: 6px; margin-top: 5px; flex-wrap: wrap; }
+    .proof-badge {
+      font-size: .74rem; font-weight: 700; padding: 3px 12px; border-radius: 999px;
+      border: 1px solid #cbd5e1; background: #fff; color: #64748b;
+      cursor: pointer; white-space: nowrap; font-family: inherit;
+    }
+    .proof-badge:hover { background: #f8fafc; color: #0f172a; }
+    .proof-badge.active { border-color: #db2777; background: #fce7f3; color: #9d174d; }
+    .chip.completed .proof-badge { opacity: .6; }
+
+    /* 未定タスクの中で CARVE案件のかたまりを区切る小見出し(2026-08-07) */
+    .chip-group-title {
+      display: flex; align-items: center; gap: 8px;
+      font-size: .82rem; font-weight: 700; color: #6d28d9;
+      margin-top: 6px; padding-top: 10px; border-top: 1px dashed #c4b5fd;
+    }
+    .chip-group-count {
+      font-size: .74rem; font-weight: 700; color: #6d28d9; background: #ede9fe;
+      border: 1px solid #c4b5fd; border-radius: 999px; padding: 1px 10px;
+    }
     .chip-deadline-soon { color: #b45309; font-weight: 700; }
     .chip-controls { display: flex; align-items: center; gap: 8px; }
     .chip-hours { width: 60px; padding: 4px 6px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: .85rem; }

@@ -392,6 +392,15 @@ function initDatabase(dbFile = dbPath) {
     console.log('✓ projects.carve_stage を追加しました');
   }
 
+  // 校正の状態(2026-08-07 社長指示)。初校 → 修正 → 校了 のどこまで進んだかを
+  // 鈴木さんのマイスケジュールボードのタスクカードにバッジで出し、本人が切り替える。
+  // 案件単位(同じ案件のカードは全部同じ状態)。未選択の状態があるので NULL 許容
+  // (値は lib/designer-board.js の PROOF_STAGES)
+  if (!projectColumns.includes('proof_stage')) {
+    db.prepare(`ALTER TABLE projects ADD COLUMN proof_stage TEXT`).run();
+    console.log('✓ projects.proof_stage を追加しました');
+  }
+
   // 紙媒体案件の工程ごとの納期(2026-08-03)。ops_flow='SUBMIT_END' のときに使う。
   // 案件全体の納期(deadline)だけだと、鈴木さんが「初校はいつまで」「入稿はいつまで」を
   // 判断できないため、工程ごとに分けて持たせる。空なら案件の納期を使う

@@ -57,6 +57,7 @@ const board = {
       this.sheetTodos = data.sheet_todos ?? null;
       this.roughFiles = data.rough_files || {};
       this.carveStages = data.carve_stages || [];
+      this.proofStages = data.proof_stages || [];
       this.designerName = data.designer_name;
       this.selectedItemId = null;
       this.selectedTodoText = null;
@@ -93,9 +94,14 @@ const board = {
     const first = this.days[0].date, last = this.days[6].date;
     document.getElementById('week-label').textContent = `${this.fmtDate(first)} 〜 ${this.fmtDate(last)}`;
 
-    // 未予定タスク
+    // 未予定タスク。CARVE案件は小見出しを挟んで下側にまとめる(2026-08-07 社長指示)。
+    // グループ内の並び順(納期の早い順)はサーバーから来た順のまま
     const uc = document.getElementById('unscheduled-chips');
-    uc.innerHTML = this.unscheduled.map(i => this.chipHtml(i)).join('');
+    const normalItems = this.unscheduled.filter(i => !i.is_carve);
+    const carveItems = this.unscheduled.filter(i => i.is_carve);
+    uc.innerHTML = normalItems.map(i => this.chipHtml(i)).join('')
+      + (carveItems.length ? `<div class="chip-group-title">🔶 CARVE案件 <span class="chip-group-count">${carveItems.length}</span></div>` : '')
+      + carveItems.map(i => this.chipHtml(i)).join('');
     document.getElementById('unscheduled-count').textContent = this.unscheduled.length;
     document.getElementById('unscheduled-empty').style.display = this.unscheduled.length ? 'none' : 'block';
 
@@ -337,6 +343,42 @@ const board = {
     `;
   },
 
+  // 校正の状態バッジ(初校/修正/校了)。3つとも常に出し、押すとその状態になる。
+  // 選択中のバッジをもう一度押すと未選択に戻る(日別モードのボタンと同じ操作感)。
+  // 案件単位なので、同じ案件のカードが複数あればすべて同時に切り替わる
+  proofBadgesHtml(i) {
+    const buttons = (this.proofStages || []).map(p => `
+      <button type="button" class="proof-badge${i.proof_stage === p.key ? ' active' : ''}"
+              onclick="event.stopPropagation(); board.onProofStageChange(${i.case_id}, '${p.key}')"
+              title="校正の状態を「${this.esc(p.label)}」にします（もう一度押すと未選択）">${this.esc(p.label)}</button>
+    `).join('');
+    return `<div class="proof-row" onclick="event.stopPropagation()">${buttons}</div>`;
+  },
+
+  // 校正の状態を切り替える。選択中のものを押したら未選択(空)にする
+  async onProofStageChange(caseId, stage) {
+    const current = [...this.unscheduled, ...this.scheduled].find(i => i.case_id === caseId);
+    const next = current && current.proof_stage === stage ? '' : stage;
+    try {
+      const res = await fetch(`/api/designer/${this.token}/cases/${caseId}/proof-stage`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage: next }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        this.toast(data.error || '保存に失敗しました');
+      } else {
+        const label = (this.proofStages || []).find(p => p.key === stage);
+        this.toast(next ? `校正の状態を「${label ? label.label : stage}」にしました` : '校正の状態を未選択に戻しました');
+      }
+    } catch (e) {
+      console.error(e);
+      this.toast('通信エラーで保存できませんでした');
+    }
+    await this.load();
+  },
+
   chipHtml(i) {
     const done = i.status === '完了';
     const selected = this.selectedItemId === i.id;
@@ -354,6 +396,7 @@ const board = {
           <div class="chip-name">${this.esc(i.project_name)} ${i.is_carve ? `<span class="carve-badge">🔶 ${this.esc(this.carveStageLabel(i.carve_stage))}</span>` : ''}</div>
           <div class="chip-meta">${this.esc(i.preparation_item_name)} ｜ ${this.esc(dueLabel)} <span class="${soon ? 'chip-deadline-soon' : ''}">${deadline}</span></div>
           ${this.roughLinksHtml(i.case_id)}
+          ${this.proofBadgesHtml(i)}
         </div>
         <div class="chip-controls" onclick="event.stopPropagation()">
           ${this.carveSelectHtml(i)}
