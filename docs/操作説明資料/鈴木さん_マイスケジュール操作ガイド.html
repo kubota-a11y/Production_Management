@@ -7,6 +7,8 @@
   body { font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif; color: #1a2733; font-size: 9pt; line-height: 1.4; background: #f1f5f9; }
   .page { width: 210mm; min-height: 297mm; padding: 11mm 13mm; page-break-after: always; background: #fff; margin: 0 auto 6mm; }
   .page:last-child { page-break-after: auto; }
+  /* 画面で見るときのページ間の隙間は印刷では消す(残すと余白だけの最終ページができる) */
+  @media print { body { background: #fff; } .page { margin: 0; } }
 
   .head { border-bottom: 3px solid #db2777; padding-bottom: 2.4mm; margin-bottom: 3mm; display: flex; justify-content: space-between; align-items: flex-end; }
   .head h1 { font-size: 15pt; color: #9d174d; }

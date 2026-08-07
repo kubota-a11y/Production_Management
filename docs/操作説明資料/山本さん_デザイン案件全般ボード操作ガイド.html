@@ -7,6 +7,8 @@
   body { font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif; color: #1a2733; font-size: 9pt; line-height: 1.4; background: #f1f5f9; }
   .page { width: 210mm; min-height: 297mm; padding: 11mm 13mm; page-break-after: always; background: #fff; margin: 0 auto 6mm; }
   .page:last-child { page-break-after: auto; }
+  /* 画面で見るときのページ間の隙間は印刷では消す(残すと余白だけの最終ページができる) */
+  @media print { body { background: #fff; } .page { margin: 0; } }
 
   .head { border-bottom: 3px solid #1d4ed8; padding-bottom: 2.4mm; margin-bottom: 3mm; display: flex; justify-content: space-between; align-items: flex-end; }
   .head h1 { font-size: 15pt; color: #1d4ed8; }
@@ -182,6 +184,11 @@
     <tr><td class="k">ボードから外す</td><td>カード右上の<strong>「✕」</strong>。案件そのものは消えず、一覧には残ります</td></tr>
   </table>
 
+  <p class="small" style="margin-top:2mm;">
+    <strong>1日の使い方（おすすめ）</strong>　朝＝「📌 今日やること」を上から片づける／
+    随時＝やりとりが進んだら「確認の進み具合」を切り替え、修正指示が来たら「✏️ 修正で鈴木さんへ戻す」／
+    夕方＝パイプラインを眺めて「◯日経過」が伸びている案件がないか確認する。
+  </p>
 </div>
 
 <!-- ============ 3ページ目 ============ -->
@@ -244,11 +251,6 @@
     <tr><td class="k">修正の往復が多い案件がある</td><td><span class="bd bd-rev">🔁 修正◯回目</span> の数字が目印。回数がかさむ案件は久保田社長へ共有してください</td></tr>
   </table>
 
-  <p class="small" style="margin-top:2mm;">
-    <strong>1日の使い方（おすすめ）</strong>　朝＝「📌 今日やること」を上から片づける／
-    随時＝やりとりが進んだら「確認の進み具合」を切り替え、修正指示が来たら「✏️ 修正で鈴木さんへ戻す」／
-    夕方＝パイプラインを眺めて「◯日経過」が伸びている案件がないか確認する。
-  </p>
 </div>
 
 </body></html>

@@ -12,7 +12,25 @@
 
 QRコード(qr-line.png / qr-form.png)はリンク先が変わらない限り再生成不要。
 
-## 2. HiBoard紹介資料(16:9スライド・ブログ/WEB掲載用)
+## 2. 担当者別の操作説明資料(A4・社内配布用)
+
+`操作説明資料/` のHTMLを編集してから、**そのフォルダで**:
+
+```
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu --no-pdf-header-footer --print-to-pdf="鈴木さん_マイスケジュール操作ガイド.pdf" "file://$PWD/鈴木さん_マイスケジュール操作ガイド.html"
+```
+
+```
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu --no-pdf-header-footer --print-to-pdf="山本さん_デザイン案件全般ボード操作ガイド.pdf" "file://$PWD/山本さん_デザイン案件全般ボード操作ガイド.html"
+```
+
+- 各 `.page` は A4(210mm × 297mm)ちょうど。**内容がはみ出すと空白ページが1枚増える**ので、
+  出力後に `mdls -name kMDItemNumberOfPages <ファイル>.pdf` でページ数を確認する
+  (鈴木さん用=3ページ / 山本さん用=3ページ)
+- ブラウザで確認するときは、各ページの中身が上端から **1081px 以内**に収まっていればOK
+- 画面表示用のページ間の隙間は `@media print` で消してある(残すと最終ページが余白だけになる)
+
+## 3. HiBoard紹介資料(16:9スライド・ブログ/WEB掲載用)
 
 `紹介資料_slides.html` を編集してから:
 
