@@ -401,6 +401,17 @@ function initDatabase(dbFile = dbPath) {
     console.log('✓ projects.proof_stage を追加しました');
   }
 
+  // デザインの修正往復(2026-08-07 社長指示)。お客様確認後の修正指示で「確認→制作」へ
+  // 戻した回数と、直近の修正指示メモ。全般ボードの「✏️ 修正で鈴木さんへ戻す」ボタンで更新される
+  if (!projectColumns.includes('design_revision_round')) {
+    db.prepare(`ALTER TABLE projects ADD COLUMN design_revision_round INTEGER NOT NULL DEFAULT 0`).run();
+    console.log('✓ projects.design_revision_round を追加しました');
+  }
+  if (!projectColumns.includes('design_revision_note')) {
+    db.prepare(`ALTER TABLE projects ADD COLUMN design_revision_note TEXT`).run();
+    console.log('✓ projects.design_revision_note を追加しました');
+  }
+
   // 紙媒体案件の工程ごとの納期(2026-08-03)。ops_flow='SUBMIT_END' のときに使う。
   // 案件全体の納期(deadline)だけだと、鈴木さんが「初校はいつまで」「入稿はいつまで」を
   // 判断できないため、工程ごとに分けて持たせる。空なら案件の納期を使う

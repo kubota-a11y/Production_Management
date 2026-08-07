@@ -393,8 +393,9 @@ const board = {
            ondragstart="board.onChipDragStart(event, ${i.id})" ondragend="board.onChipDragEnd(event)"
            onclick="event.stopPropagation(); board.onChipTap(${i.id})">
         <div class="chip-main">
-          <div class="chip-name">${this.esc(i.project_name)} ${i.is_carve ? `<span class="carve-badge">🔶 ${this.esc(this.carveStageLabel(i.carve_stage))}</span>` : ''}</div>
+          <div class="chip-name">${this.esc(i.project_name)} ${i.is_carve ? `<span class="carve-badge">🔶 ${this.esc(this.carveStageLabel(i.carve_stage))}</span>` : ''}${i.revision_round ? ` <span class="revision-badge">🔁 修正${i.revision_round}回目</span>` : ''}</div>
           <div class="chip-meta">${this.esc(i.preparation_item_name)} ｜ ${this.esc(dueLabel)} <span class="${soon ? 'chip-deadline-soon' : ''}">${deadline}</span></div>
+          ${i.revision_round && i.revision_note ? `<div class="chip-meta chip-revision-note">✏️ 修正指示: ${this.esc(i.revision_note)}</div>` : ''}
           ${this.roughLinksHtml(i.case_id)}
           ${this.proofBadgesHtml(i)}
         </div>

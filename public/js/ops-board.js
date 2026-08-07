@@ -275,6 +275,7 @@ const opsBoardApp = {
           ${days !== null ? `<span class="${stale ? 'is-stale' : ''}">${days}日経過</span>` : ''}
           ${c.rough_count ? `<span>ラフ${c.rough_count}件</span>` : ''}
           ${this.flowBadgeHtml(c)}
+          ${c.design_revision_round ? `<span class="ops-badge ops-badge-revision">🔁 修正${c.design_revision_round}回目</span>` : ''}
           ${this.needsPrepSelect(c) ? '<span class="ops-badge ops-badge-alert">⚠️ 準備項目 未選定</span>' : ''}
         </div>
         ${this.paperDueHtml(c)}
@@ -333,7 +334,8 @@ const opsBoardApp = {
       : (this.isSubmitEnd(c) ? '📄 入稿で完了' : '');
     document.getElementById('ops-modal-summary').textContent =
       `${c.customer_name}${item ? `／${item}` : ''}${flow ? `／${flow}` : ''}／納期 ${c.deadline || '未設定'}`
-      + `${c.days_in_stage !== null ? `／この段階に入って${c.days_in_stage}日` : ''}`;
+      + `${c.days_in_stage !== null ? `／この段階に入って${c.days_in_stage}日` : ''}`
+      + `${c.design_revision_round ? `／🔁 修正${c.design_revision_round}回目` : ''}`;
 
     // 段階の切り替えボタン
     document.getElementById('ops-stage-picker').innerHTML = this.data.stages.map(st => `
@@ -366,6 +368,16 @@ const opsBoardApp = {
         : `やりとりが進んだら次のステップへ切り替えてください。お客様の返事待ちのまま${this.data.remind_days}日を過ぎると、今日やることへ催促として戻ります。`;
     }
 
+    // 確認段階のときだけ「修正で鈴木さんへ戻す」を出す(修正指示を受けたときの1クリック操作)
+    const revisionGroup = document.getElementById('ops-revision-group');
+    revisionGroup.hidden = c.ops_stage !== 'REVIEW';
+    document.getElementById('ops-revision-note').value = '';
+    const revisionInfo = document.getElementById('ops-revision-info');
+    revisionInfo.textContent = c.design_revision_round && c.design_revision_note
+      ? `直近の指示(${c.design_revision_round}回目): ${c.design_revision_note}`
+      : '';
+    revisionInfo.style.display = revisionInfo.textContent ? '' : 'none';
+
     // CARVE案件のときだけ作業段階の切り替えを出す
     const carveGroup = document.getElementById('ops-carve-group');
     carveGroup.hidden = !this.isCarve(c);
@@ -387,6 +399,31 @@ const opsBoardApp = {
 
     this.loadRough(caseId);
     document.getElementById('ops-case-modal').style.display = 'flex';
+  },
+
+  // お客様の修正指示で鈴木さんへ戻す。段階を「制作」へ戻し、初校提出のチェックを外し、
+  // 修正回数+1・校正バッジ「修正」までまとめてサーバー側が行う(バトンタッチ通知も自動)
+  async returnForRevision() {
+    const caseId = this.currentCaseId;
+    const c = this.data.cases.find(x => x.id === caseId);
+    if (!c) return;
+    const note = document.getElementById('ops-revision-note').value.trim();
+    const round = (c.design_revision_round || 0) + 1;
+    if (!confirm(`「${c.project_name}」を修正${round}回目として鈴木さんへ戻します。\n\n・段階が「制作」に戻ります\n・「初校提出」の完了チェックが外れ、マイスケジュールに再び出ます${note ? '\n・修正指示メモも鈴木さんのカードに表示されます' : ''}`)) return;
+    try {
+      const res = await fetch(`/api/ops/cases/${caseId}/return-for-revision`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || '更新に失敗しました');
+      HiUI.toast(`修正${json.design_revision_round}回目として鈴木さんへ戻しました`);
+      await this.load();
+      this.openCaseModal(caseId);
+    } catch (err) {
+      HiUI.toast(err.message || '修正戻しに失敗しました', 'error');
+    }
   },
 
   // CARVE案件の作業段階を切り替える。変更後もモーダルを開いたままにする

@@ -71,6 +71,19 @@
           <p class="empty-notice" id="ops-wait-hint"></p>
         </div>
 
+        <!-- 確認段階だけに出す「修正で鈴木さんへ戻す」。修正往復を1クリックで回すための操作 -->
+        <div class="form-group" id="ops-revision-group" hidden>
+          <span class="form-label">✏️ お客様から修正指示が来たとき</span>
+          <p class="empty-notice" id="ops-revision-info" style="display:none;"></p>
+          <textarea id="ops-revision-note" rows="2" maxlength="500"
+            placeholder="修正指示のメモ(任意)。例: 背番号を大きく、袖のロゴは白に"></textarea>
+          <button type="button" class="btn btn-small btn-primary" onclick="opsBoardApp.returnForRevision()">✏️ 修正で鈴木さんへ戻す</button>
+          <p class="empty-notice">
+            段階が「制作」に戻り、「初校提出」の完了チェックが外れて鈴木さんのマイスケジュールに再び出ます。
+            メモを入れるとカードに表示されます（画像で伝えたいときは下のラフ添付へ）。修正回数は自動で数えます。
+          </p>
+        </div>
+
         <!-- CARVE案件(鈴木で始まり鈴木で終わる案件)だけに出す作業段階の切り替え -->
         <div class="form-group" id="ops-carve-group" hidden>
           <span class="form-label">🔶 CARVEの作業段階</span>

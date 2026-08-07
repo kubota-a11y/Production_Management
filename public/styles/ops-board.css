@@ -108,6 +108,8 @@
 .ops-badge-done { background: var(--gray-100); color: var(--text-muted); }
 .ops-badge-paper { background: var(--gray-100); color: var(--gray-600); border: 1px solid var(--border-color); }
 .ops-badge-carve { background: var(--purple-soft); color: var(--purple-text); }
+/* 修正往復の回数。何往復もしている案件が一目で分かるようにする(2026-08-07) */
+.ops-badge-revision { background: var(--warning-soft); color: var(--warning-text); }
 
 /* CARVEで受けている紙媒体はイレギュラー案件なので、枠を付けて一目で分かるようにする */
 .ops-card.is-carve,

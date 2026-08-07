@@ -76,6 +76,13 @@
       padding: 4px 6px; border: 1px solid #c4b5fd; border-radius: 6px;
       font-size: .8rem; background: #fff; color: #6d28d9; font-family: inherit; max-width: 140px;
     }
+    /* 修正往復のバッジと修正指示メモ。山本さんが「修正で戻す」と付く(2026-08-07) */
+    .revision-badge {
+      font-size: .72rem; font-weight: 700; padding: 2px 10px; border-radius: 999px;
+      color: #b45309; background: #fef3c7; border: 1px solid #fcd34d; white-space: nowrap;
+    }
+    .chip-revision-note { color: #b45309; margin-top: 2px; }
+
     /* 校正の状態バッジ(初校/修正/校了)。3つとも常に出し、選択中のものだけ塗る(2026-08-07) */
     .proof-row { display: flex; gap: 6px; margin-top: 5px; flex-wrap: wrap; }
     .proof-badge {
