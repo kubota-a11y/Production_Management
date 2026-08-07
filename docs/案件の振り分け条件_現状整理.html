@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<title>案件の振り分け条件 現状整理</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif; color: #1a2733; font-size: 8.9pt; line-height: 1.36; background: #f1f5f9; }
+  .page { width: 210mm; min-height: 297mm; padding: 10mm 13mm; page-break-after: always; background: #fff; margin: 0 auto 6mm; }
+  .page:last-child { page-break-after: auto; }
+
+  .head { border-bottom: 3px solid #7c3aed; padding-bottom: 2.4mm; margin-bottom: 3mm; display: flex; justify-content: space-between; align-items: flex-end; }
+  .head h1 { font-size: 15pt; color: #7c3aed; }
+  .head .meta { font-size: 8pt; color: #667; text-align: right; }
+
+  h2 { font-size: 10.2pt; color: #fff; background: #7c3aed; padding: 1.1mm 3mm; border-radius: 1.5mm; margin: 3mm 0 1.3mm; }
+  h2.c { background: #444; }
+  h2.s { background: #9d174d; }
+  h2.y { background: #1d4ed8; }
+  h3 { font-size: 9.6pt; color: #7c3aed; margin: 2.4mm 0 1mm; border-left: 3px solid #7c3aed; padding-left: 2.5mm; }
+  h3.s { color: #9d174d; border-left-color: #9d174d; }
+  h3.y { color: #1d4ed8; border-left-color: #1d4ed8; }
+
+  p { margin-bottom: 1.1mm; }
+  ul, ol { margin: 0.8mm 0 1.5mm 5.5mm; }
+  li { margin-bottom: 0.5mm; }
+  strong { color: #0b2a52; }
+  code { font-family: "SF Mono", Menlo, monospace; font-size: 8.1pt; background: #f1f5f9; border: 1px solid #dbe2ea; border-radius: 1mm; padding: 0 1mm; color: #334155; }
+
+  table { width: 100%; border-collapse: collapse; margin: 1.2mm 0 1.8mm; font-size: 8.7pt; }
+  th { background: #f3eefe; color: #4c1d95; padding: 1mm 2.5mm; text-align: left; border: 1px solid #cbd5e1; font-weight: 600; }
+  td { border: 1px solid #cbd5e1; padding: 1mm 2.5mm; vertical-align: top; }
+  td.ok { background: #f0fdf4; }
+  td.no { background: #fef2f2; }
+
+  .lead { background: #f5f0ff; border-radius: 2mm; padding: 2mm 3mm; margin-bottom: 1.5mm; }
+  .note { background: #fff8e6; border: 1px solid #e6c67a; border-radius: 2mm; padding: 1.6mm 2.6mm; margin: 1.2mm 0; font-size: 8.7pt; }
+  .key { background: #fdeeee; border: 1px solid #e0a3a3; border-radius: 2mm; padding: 1.6mm 2.6mm; margin: 1.2mm 0; font-size: 8.7pt; }
+  .key strong { color: #8a1f1f; }
+  .small { font-size: 8.3pt; color: #556; }
+
+  .cols { display: flex; gap: 4mm; }
+  .cols > div { flex: 1; }
+  .box { border: 1.4px solid; border-radius: 2mm; padding: 2mm 2.6mm; }
+  .box h4 { font-size: 9.2pt; margin-bottom: 1mm; }
+  .box-a { background: #eaf1fd; border-color: #1d4ed8; }
+  .box-a h4 { color: #12356e; }
+  .box-b { background: #fdeaf2; border-color: #9d174d; }
+  .box-b h4 { color: #7a1039; }
+
+  .flow { display: flex; align-items: stretch; gap: 1.5mm; margin: 2mm 0 1mm; }
+  .step { flex: 1; border-radius: 2mm; padding: 2mm 1.5mm; text-align: center; border: 1.4px solid; }
+  .step .n { font-size: 7.5pt; opacity: .8; }
+  .step .t { font-size: 8.6pt; font-weight: 600; margin: 0.6mm 0; }
+  .step .w { font-size: 7.4pt; }
+  .on { background: #eaf1fd; border-color: #1d4ed8; color: #12356e; }
+  .off { background: #f1f1ee; border-color: #8a8a80; color: #3f3f3a; }
+
+  .caseblk { border: 1px solid #cbd5e1; border-radius: 2mm; padding: 2mm 2.6mm; margin-bottom: 1.6mm; }
+  .caseblk .ttl { font-weight: 600; color: #4c1d95; margin-bottom: 0.8mm; }
+  .tag { display: inline-block; font-size: 7.6pt; font-weight: 600; border-radius: 999px; padding: 0.3mm 2.2mm; vertical-align: 0.2mm; }
+  .tag-a { background: #dbeafe; color: #1d4ed8; border: 1px solid #93c5fd; }
+  .tag-b { background: #fce7f3; color: #9d174d; border: 1px solid #f9a8d4; }
+  .tag-x { background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; }
+</style></head><body>
+
+<!-- ============ 1ページ目 ============ -->
+<div class="page">
+  <div class="head">
+    <h1>案件はどこに出るのか — 振り分け条件の現状整理</h1>
+    <div class="meta">2026-08-07 現在のシステムの実装<br>有限会社HiYOSHi　HiBoard</div>
+  </div>
+
+  <p class="lead">
+    「🗂 デザイン案件全般ボード」と「🎨 鈴木さんのマイスケジュール」は、<strong>別々の仕組みで動いていて連動していません</strong>。
+    そのため「マイスケにだけ出る案件」「全般ボードにだけ出る案件」が生まれます。この資料は、いまシステムが実際にどう判定しているかを書き出したものです。<br>
+    <strong>2026-08-07 変更：</strong>全般ボードに載せた案件は、マイスケジュールに<strong>「② 制作」の段階のあいだだけ</strong>出るようになりました（以前はブリーフ・ラフ／制作／確認の3つ）。この資料は変更後の状態です。
+  </p>
+
+  <h2 class="c">いちばん大事な違い</h2>
+
+  <div class="cols">
+    <div class="box box-a">
+      <h4>🗂 デザイン案件全般ボード</h4>
+      <p><strong>案件まるごと1つ</strong>を載せる／載せないで決まる。</p>
+      <p>判定は<strong>チェックボックス1つだけ</strong>。準備項目の中身は一切見ていない。</p>
+      <p class="small">※ 推測方式にすると普通のプリント案件まで載って山本さんが見るべき案件が埋もれるため、2026-08-03にこの方式へ決めた経緯があります</p>
+    </div>
+    <div class="box box-b">
+      <h4>🎨 鈴木さんのマイスケジュール</h4>
+      <p><strong>案件の中の「作業1つ1つ」</strong>（準備項目）が単位。</p>
+      <p>その作業の担当者が鈴木さんになっていれば出る。<strong>案件単位ではない。</strong></p>
+      <p class="small">※ 1つの案件から「初校提出」「見積書作成」のように複数のカードが出ることがあります</p>
+    </div>
+  </div>
+
+  <div class="key">
+    <strong>つまり、片方に出て片方に出ないのは不具合ではなく、判定している対象がそもそも違うからです。</strong>
+    2つを揃えたい場合は、どちらかの条件を変えるルール決めが必要になります。
+  </div>
+
+  <h2 class="y">🗂 デザイン案件全般ボードに載る条件</h2>
+
+  <p>条件は<strong>「デザイン案件全般として管理する」にチェックが入っているか</strong>、これ1つだけです。</p>
+
+  <h3 class="y">チェックが入る（＝載る）3つの操作</h3>
+  <table>
+    <tr><th style="width:34%">操作</th><th>いつ</th></tr>
+    <tr><td><strong>案件登録画面でチェック</strong></td><td>新規案件を作るとき、「🗂 デザイン案件全般として管理する」を自分でONにする</td></tr>
+    <tr><td><strong>AI受注候補を「🎨 デザイン」で振り分け</strong></td><td>受注候補の行き先をデザインにして確定すると、確認画面でチェックが<strong>最初からON</strong>になっている（外すこともできる）</td></tr>
+    <tr><td><strong>案件一覧の「🗂 全般へ」ボタン</strong></td><td>あとから載せる。このとき鈴木さんの準備項目（初校提出など）も同時に用意される</td></tr>
+  </table>
+
+  <h3 class="y">載ったあとの見え方</h3>
+  <p>載った案件は7つの段階を進み、「完了（DONE）」にすると一覧から消えます（「完了も表示」で見返せます）。<strong>鈴木さんのマイスケジュールに出るのは「② 制作」のときだけ</strong>です。</p>
+  <div class="flow">
+    <div class="step off"><div class="n">①</div><div class="t">ブリーフ・ラフ</div><div class="w">山本</div></div>
+    <div class="step on"><div class="n">②</div><div class="t">制作</div><div class="w">鈴木 ★マイスケに出る</div></div>
+    <div class="step off"><div class="n">③</div><div class="t">確認</div><div class="w">山本↔お客様</div></div>
+    <div class="step off"><div class="n">④</div><div class="t">入稿・製造</div><div class="w">外注・三浦</div></div>
+    <div class="step off"><div class="n">⑤</div><div class="t">請求</div><div class="w">山本</div></div>
+    <div class="step off"><div class="n">⑥⑦</div><div class="t">検品・納品</div><div class="w">三浦・渡邉</div></div>
+  </div>
+
+  <div class="note">
+    <strong>注意：「社内デザイン」という案件種別とは別物です。</strong>
+    案件種別を「社内デザイン」にしただけでは、このボードには載りません。載せたい場合はチェックも必要です。
+  </div>
+
+  <h3 class="y">外すとき</h3>
+  <p>ボードのカード右上の「✕」を押します。案件そのものは消えず、ボードから降りるだけです。
+     鈴木さんに渡っている作業も残ります（＝マイスケジュールには出続けます）。</p>
+</div>
+
+<!-- ============ 2ページ目 ============ -->
+<div class="page">
+  <div class="head">
+    <h1>案件はどこに出るのか — 振り分け条件の現状整理（2）</h1>
+    <div class="meta">2026-08-07 現在のシステムの実装<br>有限会社HiYOSHi　HiBoard</div>
+  </div>
+
+  <h2 class="s">🎨 鈴木さんのマイスケジュールに出る条件</h2>
+
+  <p>2段階で決まります。<strong>①どの作業が鈴木さんに渡るか</strong> → <strong>②渡ったもののうち、いま画面に出すのはどれか</strong>。</p>
+
+  <h3 class="s">① 鈴木さんに渡る作業（案件登録・準備項目登録のときに自動で決まる）</h3>
+  <table>
+    <tr><th style="width:38%">案件の状態</th><th>鈴木さんに渡る作業</th></tr>
+    <tr><td><strong>🗂 デザイン案件全般にチェックあり</strong></td><td class="ok"><strong>その案件の作業すべて</strong></td></tr>
+    <tr><td><strong>案件種別が「社内デザイン」</strong></td><td class="ok"><strong>その案件の作業すべて</strong></td></tr>
+    <tr><td>上記どちらでもない通常案件</td><td><strong>デザイン担当専用の7項目だけ</strong>（下記）</td></tr>
+  </table>
+  <p class="small">
+    <strong>デザイン担当専用の7項目</strong>＝外注用デザインデータ作成／販促物用データ作成／DTFデータ作成／作業指示書作成／見積書作成／初校提出／入稿完了。<br>
+    さらに、デザインが絡む案件には「初校提出」が自動で追加され、紙媒体（入稿で完了）タイプにはそれに加えて「入稿完了」も自動追加されます。
+  </p>
+  <p class="small">※ ここでいう「鈴木さん」は、有効なデザイナーリンクを持っている社員のことです（複数あれば最初に発行したリンクの人）。</p>
+
+  <h3 class="s">② 渡ったもののうち、実際に画面に出るもの</h3>
+  <table>
+    <tr><th style="width:38%">条件</th><th>マイスケジュールでの扱い</th></tr>
+    <tr><td>作業が「完了」になった／案件が納品済み</td><td class="no">出ない</td></tr>
+    <tr><td><strong>全般ボードに載っている案件</strong>（チェックあり）</td><td>段階が<strong>「制作」のときだけ</strong>出る。ブリーフ・ラフと確認は山本さんの番なので出ない<span class="small">（2026-08-07 変更。以前はブリーフ・ラフ／制作／確認の3つで出ていた）</span></td></tr>
+    <tr><td>　└ ただし紙媒体（入稿で完了）タイプ</td><td class="ok">入稿作業自体が鈴木さんの仕事なので、<strong>「入稿・製造」の間も残る</strong>（入稿完了のチェックで請求へ進み、そこで消える）</td></tr>
+    <tr><td><strong>全般ボードに載っていない案件</strong></td><td>段階の概念がないので、<strong>完了するまでずっと出続ける</strong></td></tr>
+    <tr><td>紙媒体タイプの「入稿完了」カード</td><td>段階が「入稿・製造」に入るまで出さない。<strong>制作中は「初校提出」だけが見える</strong></td></tr>
+  </table>
+
+  <div class="key">
+    <strong>修正で戻すときは2つ必要です。</strong>
+    段階を「② 制作」に戻す<strong>＋</strong>「初校提出」の完了チェックを外す。
+    段階を戻すだけでは、完了した項目は表示されないのでカードが出てきません。
+  </div>
+</div>
+
+<!-- ============ 3ページ目 ============ -->
+<div class="page">
+  <div class="head">
+    <h1>案件はどこに出るのか — 振り分け条件の現状整理（3）</h1>
+    <div class="meta">2026-08-07 現在のシステムの実装<br>有限会社HiYOSHi　HiBoard</div>
+  </div>
+
+  <h2 class="c">結果：どのパターンでどこに出るか</h2>
+
+  <table>
+    <tr>
+      <th style="width:40%">案件のパターン</th>
+      <th style="width:30%">🗂 全般ボード</th>
+      <th style="width:30%">🎨 マイスケジュール</th>
+    </tr>
+    <tr>
+      <td>「デザイン案件全般」にチェックあり<br><span class="small">（段階が「② 制作」）</span></td>
+      <td class="ok">出る</td>
+      <td class="ok">出る（作業すべて）</td>
+    </tr>
+    <tr>
+      <td>「デザイン案件全般」にチェックあり<br><span class="small">（ブリーフ・ラフ／確認／入稿・製造以降。紙媒体以外）</span></td>
+      <td class="ok">出る</td>
+      <td class="no">出ない</td>
+    </tr>
+    <tr>
+      <td>紙媒体（入稿で完了）タイプ<br><span class="small">CARVE案件を含む</span></td>
+      <td class="ok">出る</td>
+      <td class="ok">制作＋入稿・製造で出る<br><span class="small">（入稿完了のチェックで請求へ進み、そこで消える）</span></td>
+    </tr>
+    <tr>
+      <td>案件種別「社内デザイン」<br><span class="small">チェックは入れていない</span></td>
+      <td class="no">出ない</td>
+      <td class="ok">出る（作業すべて）</td>
+    </tr>
+    <tr>
+      <td>通常のプリント案件で、<br>デザイン専用7項目のどれかを選んだ<br><span class="small">例：Tシャツ案件で「外注用デザインデータ作成」</span></td>
+      <td class="no">出ない</td>
+      <td class="ok">出る（その項目だけ）</td>
+    </tr>
+    <tr>
+      <td>通常のプリント案件で、<br>デザイン専用7項目を1つも選んでいない</td>
+      <td class="no">出ない</td>
+      <td class="no">出ない</td>
+    </tr>
+  </table>
+
+  <h2 class="c">いま起きている「ズレ」は3つ</h2>
+
+  <div class="caseblk">
+    <div class="ttl">ズレ①　マイスケジュールにだけ出る案件がある <span class="tag tag-b">鈴木さんだけが知っている状態</span></div>
+    <p>
+      通常のプリント案件で「外注用デザインデータ作成」などデザイン専用項目を選ぶと、その作業は鈴木さんに自動で渡ります。
+      でも案件自体は全般ボードに載っていないので、<strong>山本さんの画面には一切現れません</strong>。
+    </p>
+    <p class="small">→ 鈴木さんの手元の仕事量が、全般ボードを見ているだけでは把握できません。</p>
+  </div>
+
+  <div class="caseblk">
+    <div class="ttl">ズレ②　「社内デザイン」と「デザイン案件全般」が別スイッチ <span class="tag tag-x">つけ忘れが起きやすい</span></div>
+    <p>
+      案件種別を「社内デザイン」にすると鈴木さんには全作業が渡りますが、<strong>全般ボードには載りません</strong>。
+      両方に出したければ、種別とチェックの<strong>2つとも</strong>設定する必要があります。
+    </p>
+    <p class="small">→ 名前が似ているので、片方だけ設定されている案件が生まれやすい構造です。</p>
+  </div>
+
+  <div class="caseblk">
+    <div class="ttl">ズレ③　全般ボードにだけ残る案件がある <span class="tag tag-a">意図的な仕様</span></div>
+    <p>
+      全般ボードに載せた案件は、<strong>「② 制作」のあいだだけ鈴木さんのマイスケジュールに出ます</strong>（2026-08-07 社長指示で変更）。
+      ブリーフ・ラフと確認は山本さんの番なので出しません。鈴木さんが「初校提出」を完了すると自動で確認へ進むため、その時点でカードが消えます。
+    </p>
+    <p class="small">
+      → 修正で戻すときは<strong>段階を「制作」に戻す＋初校提出の完了チェックを外す</strong>の2つが必要です。段階を戻すだけではカードは出てきません。<br>
+      → 紙媒体（CARVE含む）は例外で、入稿作業自体が鈴木さんの仕事なので「入稿・製造」の間も出ます。
+    </p>
+  </div>
+
+  <h2 class="c">今後、整理し直すなら</h2>
+  <p>
+    <strong>「マイスケジュールから消すタイミング」は2026-08-07に決着しました</strong>（制作の段階だけ出す）。
+    残っているのは全般ボード側の基準です。
+  </p>
+  <ul>
+    <li><strong>全般ボードに載せる基準を広げるか</strong> — 例：「社内デザイン」の案件は自動で載せる／鈴木さんに作業が渡った案件は自動で載せる、など</li>
+  </ul>
+  <p class="small">システム側で変えられます。運用としてどうしたいかが決まれば、それに合わせて調整します。</p>
+</div>
+
+</body></html>
