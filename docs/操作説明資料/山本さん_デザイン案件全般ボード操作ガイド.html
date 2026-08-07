@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<title>山本さん デザイン案件全般ボード操作ガイド</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif; color: #1a2733; font-size: 9pt; line-height: 1.4; background: #f1f5f9; }
+  .page { width: 210mm; min-height: 297mm; padding: 11mm 13mm; page-break-after: always; background: #fff; margin: 0 auto 6mm; }
+  .page:last-child { page-break-after: auto; }
+
+  .head { border-bottom: 3px solid #1d4ed8; padding-bottom: 2.4mm; margin-bottom: 3mm; display: flex; justify-content: space-between; align-items: flex-end; }
+  .head h1 { font-size: 15pt; color: #1d4ed8; }
+  .head .meta { font-size: 8pt; color: #667; text-align: right; }
+
+  h2 { font-size: 10.4pt; color: #fff; background: #1d4ed8; padding: 1.2mm 3mm; border-radius: 1.5mm; margin: 3.4mm 0 1.4mm; }
+  h2.c { background: #444; }
+  h2.s { background: #9d174d; }
+  h3 { font-size: 9.7pt; color: #1d4ed8; margin: 2.6mm 0 1mm; border-left: 3px solid #1d4ed8; padding-left: 2.5mm; }
+
+  p { margin-bottom: 1.2mm; }
+  ul, ol { margin: 1mm 0 1.6mm 5.5mm; }
+  li { margin-bottom: 0.6mm; }
+  strong { color: #0b2a52; }
+
+  table { width: 100%; border-collapse: collapse; margin: 1.3mm 0 1.8mm; font-size: 8.7pt; }
+  th { background: #eef2f9; color: #1d3f74; padding: 1.1mm 2.5mm; text-align: left; border: 1px solid #cbd5e1; font-weight: 600; }
+  td { border: 1px solid #cbd5e1; padding: 1.1mm 2.5mm; vertical-align: top; }
+  td.k { background: #fafafa; font-weight: 600; white-space: nowrap; }
+  td.auto { background: #f0fdf4; }
+
+  .lead { background: #eef4fd; border-radius: 2mm; padding: 2mm 3mm; margin-bottom: 1.6mm; }
+  .note { background: #fff8e6; border: 1px solid #e6c67a; border-radius: 2mm; padding: 1.7mm 2.6mm; margin: 1.3mm 0; font-size: 8.7pt; }
+  .key { background: #fdeeee; border: 1px solid #e0a3a3; border-radius: 2mm; padding: 1.7mm 2.6mm; margin: 1.3mm 0; font-size: 8.7pt; }
+  .key strong { color: #8a1f1f; }
+  .small { font-size: 8.3pt; color: #556; }
+
+  .flow { display: flex; align-items: stretch; gap: 1.4mm; margin: 2mm 0 1mm; }
+  .step { flex: 1; border-radius: 2mm; padding: 1.8mm 1.2mm; text-align: center; border: 1.3px solid; }
+  .step .n { font-size: 7.4pt; opacity: .8; }
+  .step .t { font-size: 8.5pt; font-weight: 600; margin: 0.5mm 0; }
+  .step .w { font-size: 7.2pt; }
+  .yam { background: #eaf1fd; border-color: #1d4ed8; color: #12356e; }
+  .suz { background: #fdeaf2; border-color: #9d174d; color: #7a1039; }
+  .oth { background: #f1f1ee; border-color: #8a8a80; color: #3f3f3a; }
+  .loop { text-align: center; font-size: 8.4pt; color: #9d174d; font-weight: 700; margin-top: 0.6mm; }
+
+  .bd { display: inline-block; font-size: 7.6pt; font-weight: 700; border-radius: 999px; padding: 0.3mm 2.2mm; vertical-align: 0.2mm; white-space: nowrap; }
+  .bd-rev { background: #fef3c7; color: #b45309; border: 1px solid #fcd34d; }
+  .bd-carve { background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; }
+  .bd-alert { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+  .bd-paper { background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; }
+  .btn { display: inline-block; background: #1d4ed8; color: #fff; border-radius: 1.4mm; padding: 0.4mm 2.4mm; font-size: 8pt; font-weight: 700; white-space: nowrap; }
+
+  .cols { display: flex; gap: 4mm; }
+  .cols > div { flex: 1; }
+</style></head><body>
+
+<!-- ============ 1ページ目 ============ -->
+<div class="page">
+  <div class="head">
+    <h1>🗂 デザイン案件全般ボード 操作ガイド</h1>
+    <div class="meta">山本さん用／2026-08-07 版<br>有限会社HiYOSHi　HiBoard</div>
+  </div>
+
+  <p class="lead">
+    このボードの役目は<strong>「いま誰の番で案件が止まっているか」を全員に見える状態にすること</strong>です。
+    段階を切り替えると<strong>Google Chatへ自動で通知が飛ぶ</strong>ので、「渡しました」「終わりました」の連絡は不要です。
+    画面は上が<strong>📌 今日やること</strong>、下が<strong>🗂 案件パイプライン</strong>の2段構成です。
+  </p>
+
+  <h2 class="c">案件は7つの段階を進みます</h2>
+  <div class="flow">
+    <div class="step yam"><div class="n">①</div><div class="t">ブリーフ・ラフ</div><div class="w">山本</div></div>
+    <div class="step suz"><div class="n">②</div><div class="t">制作</div><div class="w">鈴木</div></div>
+    <div class="step yam"><div class="n">③</div><div class="t">確認</div><div class="w">山本↔お客様</div></div>
+    <div class="step oth"><div class="n">④</div><div class="t">入稿・製造</div><div class="w">外注・三浦</div></div>
+    <div class="step yam"><div class="n">⑤</div><div class="t">請求</div><div class="w">山本</div></div>
+    <div class="step oth"><div class="n">⑥⑦</div><div class="t">検品・納品</div><div class="w">三浦・渡邉</div></div>
+  </div>
+  <div class="loop">↑ ②制作 ⇄ ③確認 は、修正指示のたびに何回でも往復します（後述）</div>
+
+  <h3>段階が自動で進むところ／手で動かすところ</h3>
+  <table>
+    <tr><th style="width:30%">きっかけ</th><th style="width:34%">どう動く</th><th>操作する人</th></tr>
+    <tr><td class="k">「鈴木さんへ渡す」</td><td>①ブリーフ・ラフ → ②制作</td><td>山本さん（手動）</td></tr>
+    <tr><td class="k">鈴木さんが「初校提出」を完了</td><td class="auto">②制作 → ③確認（自動）</td><td>—</td></tr>
+    <tr><td class="k"><span class="btn">✏️ 修正で鈴木さんへ戻す</span></td><td class="auto">③確認 → ②制作（自動・回数カウント）</td><td>山本さん（ボタン1つ）</td></tr>
+    <tr><td class="k">お客様の最終OK</td><td>③確認 → ④入稿・製造</td><td>山本さん（手動）</td></tr>
+    <tr><td class="k">鈴木さんが「外注用デザインデータ作成」を完了</td><td class="auto">→ ④入稿・製造（自動）</td><td>—</td></tr>
+    <tr><td class="k">鈴木さんが「入稿完了」を完了<span class="small">（紙媒体のみ）</span></td><td class="auto">→ ⑤請求（自動）</td><td>—</td></tr>
+    <tr><td class="k">案件一覧で納品処理</td><td class="auto">→ ⑦納品（自動）</td><td>—</td></tr>
+    <tr><td class="k">請求済み／納品済みのチェック</td><td>→ 完了（一覧から消える）</td><td>山本さん（カードのチェック）</td></tr>
+  </table>
+  <p class="small">※ 段階はカードを<strong>ドラッグ&amp;ドロップ</strong>で前にも後ろにも動かせます。カードを押すと操作モーダルが開きます。</p>
+
+  <h2>📌 今日やること — ここだけ見れば手は止まりません</h2>
+  <p>いま社内が動く番の案件だけが自動で並びます。カードを押すとそのまま操作モーダルが開きます。</p>
+  <table>
+    <tr><th style="width:38%">出てくる理由</th><th>やること</th></tr>
+    <tr><td class="k">ブリーフとラフを作って鈴木さんへ渡す</td><td>ラフを添付して、段階を「制作」へ</td></tr>
+    <tr><td class="k">お客様へ確認連絡</td><td>初校をお客様へ送る</td></tr>
+    <tr><td class="k">位置・大きさの調整</td><td>プリント位置や大きさを詰めて再確認</td></tr>
+    <tr><td class="k">◯◯のまま△日ありません。催促する</td><td><strong>お客様の返事待ちが7日を超えた</strong>サイン。催促の連絡を入れる</td></tr>
+    <tr><td class="k">製造の準備項目を選ぶ</td><td>カードを開いて製造の項目をチェック（後述）</td></tr>
+    <tr><td class="k">請求書を発行する／検品する／お渡し・発送</td><td>そのとおりに進めて、済んだら完了にする</td></tr>
+  </table>
+  <p class="small">※ お客様の返事待ちの間は普段は出てきません。放置されたときだけ催促として戻ります。</p>
+
+  <h2 class="c">カードのバッジ一覧</h2>
+  <table>
+    <tr><th style="width:26%">バッジ</th><th>意味</th></tr>
+    <tr><td class="k"><span class="bd bd-rev">🔁 修正3回目</span></td><td>お客様の修正指示で鈴木さんへ戻した回数。<strong>往復が多い案件が一目で分かります</strong></td></tr>
+    <tr><td class="k"><span class="bd bd-carve">🔶 CARVE・写真入れアップ</span></td><td>鈴木さんがCARVEで受けている案件と、その作業段階。カードに紫の枠も付きます</td></tr>
+    <tr><td class="k"><span class="bd bd-paper">📄 入稿で完了</span></td><td>紙媒体の案件。入稿したら請求へ進み、検品・納品は通りません</td></tr>
+    <tr><td class="k"><span class="bd bd-alert">⚠️ 準備項目 未選定</span></td><td>入稿・製造に入ったのに製造の準備項目が未選択。カードを開いて選んでください</td></tr>
+    <tr><td class="k">◯日経過</td><td>その段階に入ってからの日数。お客様の返事待ちで7日を超えると色が変わります</td></tr>
+  </table>
+</div>
+
+<!-- ============ 2ページ目 ============ -->
+<div class="page">
+  <div class="head">
+    <h1>🗂 デザイン案件全般ボード 操作ガイド（2）</h1>
+    <div class="meta">山本さん用／2026-08-07 版<br>有限会社HiYOSHi　HiBoard</div>
+  </div>
+
+  <h2 class="s">✏️ 修正指示が来たとき（2026-08-07 から・いちばん変わったところ）</h2>
+  <p>
+    デザインは一度で決まらず、<strong>提出 → お客様確認 → 修正指示 → 再提出</strong>を何回か繰り返してから
+    位置・大きさの確認に進みます。この往復を<strong>ボタン1つ</strong>で回せるようにしました。
+  </p>
+
+  <h3>操作</h3>
+  <ol>
+    <li>「確認」段階のカードを押してモーダルを開く</li>
+    <li><strong>「✏️ お客様から修正指示が来たとき」</strong>の欄にメモを書く（任意）<br>
+      <span class="small">例: 背番号を大きく、袖のロゴは白に　／　画像で伝えたいときは下の「デザインラフ」に添付</span></li>
+    <li><span class="btn">✏️ 修正で鈴木さんへ戻す</span> を押す → 確認ダイアログでOK</li>
+  </ol>
+
+  <h3>押すと自動で起きること（4つ）</h3>
+  <table>
+    <tr><th style="width:34%">起きること</th><th>意味</th></tr>
+    <tr><td class="k">段階が「②制作」に戻る</td><td class="auto">Google Chatへのバトンタッチ通知も自動で飛びます</td></tr>
+    <tr><td class="k">「初校提出」の完了チェックが外れ、予定日もクリア</td><td class="auto">鈴木さんの<strong>「日付が未定のタスク」に再登場</strong>し、本人が日程を組み直します</td></tr>
+    <tr><td class="k">修正回数が +1</td><td class="auto">両方のボードのカードに <span class="bd bd-rev">🔁 修正◯回目</span> が付きます</td></tr>
+    <tr><td class="k">校正バッジが「修正」になる</td><td class="auto">鈴木さんのカードの 初校／修正／校了 が自動で切り替わります</td></tr>
+  </table>
+
+  <div class="key">
+    <strong>段階を手で「制作」に戻すだけでは、鈴木さんのカードは出てきません。</strong>
+    完了チェックが付いたままだと表示対象にならないためです。
+    <strong>修正で戻すときは必ずこのボタンを使ってください。</strong>
+  </div>
+
+  <p>
+    鈴木さんが直して「初校提出」を完了すると、<strong>また自動で「確認」へ進みます</strong>。この往復は何回でも回せます。
+    メモは<strong>直近の1件だけ</strong>が保存され、モーダルとカードに「直近の指示（◯回目）」として表示されます。
+  </p>
+
+  <h2>鈴木さんのマイスケジュールに出る条件（2026-08-07 変更）</h2>
+  <p>このボードに載せた案件は、<strong>「②制作」の段階のあいだだけ</strong>鈴木さんの画面に出ます。</p>
+  <table>
+    <tr><th style="width:34%">段階</th><th>鈴木さんの画面</th></tr>
+    <tr><td class="k">① ブリーフ・ラフ</td><td>出ない（山本さんの番のため）</td></tr>
+    <tr><td class="k">② 制作</td><td class="auto"><strong>出る</strong></td></tr>
+    <tr><td class="k">③ 確認</td><td>出ない（山本さん↔お客様の番のため）</td></tr>
+    <tr><td class="k">④ 入稿・製造 以降</td><td>出ない。<strong>ただし紙媒体（CARVE含む）は「入稿完了」のカードが出ます</strong></td></tr>
+  </table>
+  <div class="note">
+    <b>このボードに載せていない案件は今までどおりです。</b>
+    通常のプリント案件のデザイン作業（外注用デザインデータ作成 など）や社内デザイン案件は段階を持たないので、
+    完了するまで鈴木さんの画面に出続けます。
+  </div>
+
+  <h2>案件をこのボードに載せる・外す</h2>
+  <table>
+    <tr><th style="width:34%">やりたいこと</th><th>操作</th></tr>
+    <tr><td class="k">新しく載せる</td><td>ボード上部の<strong>「➕ 新規案件」</strong>（チェックが入った状態で開きます）</td></tr>
+    <tr><td class="k">受注候補から載せる</td><td>受注候補の取り込みで<strong>「🎨 デザイン」に振り分け</strong>て確定（チェックが既定でON）</td></tr>
+    <tr><td class="k">あとから載せる</td><td>HiBoard案件一覧の<strong>「🗂 全般へ」ボタン</strong>。鈴木さんの準備項目も同時に用意されます</td></tr>
+    <tr><td class="k">ボードから外す</td><td>カード右上の<strong>「✕」</strong>。案件そのものは消えず、一覧には残ります</td></tr>
+  </table>
+
+</div>
+
+<!-- ============ 3ページ目 ============ -->
+<div class="page">
+  <div class="head">
+    <h1>🗂 デザイン案件全般ボード 操作ガイド（3）</h1>
+    <div class="meta">山本さん用／2026-08-07 版<br>有限会社HiYOSHi　HiBoard</div>
+  </div>
+
+  <h2>③確認 — 4つのステップで進めます</h2>
+  <p>モーダルの「確認の進み具合」を、やりとりが進むたびに切り替えてください。</p>
+  <table>
+    <tr><th style="width:38%">ステップ</th><th>状態</th></tr>
+    <tr><td class="k">1. お客様へ確認連絡</td><td>社内が動く番 → 今日やることに出ます</td></tr>
+    <tr><td class="k">2. お客様の返事待ち</td><td>待ち。7日を超えると催促として今日やることに戻ります</td></tr>
+    <tr><td class="k">3. 位置・大きさの調整</td><td>社内が動く番 → 今日やることに出ます</td></tr>
+    <tr><td class="k">4. 最終確認の返事待ち</td><td>待ち。OKをもらったら「入稿・製造」へ進めます</td></tr>
+  </table>
+  <p class="small">※ 途中で修正指示が来たら、ステップを進めずに<strong>「✏️ 修正で鈴木さんへ戻す」</strong>を使ってください。</p>
+
+  <h2>デザインラフの渡し方</h2>
+  <p>
+    <strong>鈴木さんは会社の共有ドライブを見られません。</strong>ラフや修正指示の画像は、カードモーダルの
+    <strong>「デザインラフ」</strong>欄に添付してください。鈴木さんのカードに<strong>「🖼 ラフ」のリンク</strong>が出て、そこから開けます。
+  </p>
+  <p class="small">
+    対応形式は JPG / PNG / PDF / HEIC / WebP / GIF。1ファイル15MBまで・一度に5件まで。添付するとカードに「ラフ◯件」と出ます。
+  </p>
+
+  <h2>製造の準備項目を選ぶ</h2>
+  <p>
+    デザイン案件全般は<strong>登録時に準備項目を選びません</strong>（登録時点は版下データを作る工程のため）。
+    案件が<strong>「④ 入稿・製造」に進んだとき</strong>に、製造（三浦さん管轄）の項目をここで選びます。
+  </p>
+  <ol>
+    <li>カードに <span class="bd bd-alert">⚠️ 準備項目 未選定</span> が付き、今日やることに「製造の準備項目を選ぶ」が出る</li>
+    <li>カードを開いて<strong>「製造の準備項目」</strong>欄のチェックボックスから必要な項目を選ぶ</li>
+    <li>「選んだ項目を登録する」を押す → 週間スケジュールボードで製造の段取りに使えるようになります</li>
+  </ol>
+  <p class="small">※ 紙媒体（入稿で完了）タイプは製造を通らないので、この欄は出ません。</p>
+
+  <h2>🔶 CARVE案件</h2>
+  <p>
+    鈴木さんがCARVEで受けている紙媒体の案件です（<strong>カードに紫の枠</strong>が付きます）。作業段階は
+    <strong>ラフアップ→写真入れアップ→修正アップ→入稿</strong>の4段階。モーダルの「🔶 CARVEの作業段階」から切り替えられます（本人も切り替え可）。
+  </p>
+  <div class="note">
+    <b>CARVE案件は鈴木さんの画面で下にまとめて表示されます。</b>「日付が未定のタスク」の中で
+    「🔶 CARVE案件」の見出しから下にグループ化され、HiYOSHiの案件と混ざりません。
+  </div>
+
+  <h2 class="c">気をつけたいこと</h2>
+  <table>
+    <tr><th style="width:38%">こんなとき</th><th>どうする</th></tr>
+    <tr><td class="k">修正で鈴木さんに戻したい</td><td><strong>必ず「✏️ 修正で鈴木さんへ戻す」ボタン</strong>を使う。段階を手で戻すだけではカードが出ません</td></tr>
+    <tr><td class="k">鈴木さんから「カードが無い」と言われた</td><td>案件がいま何段階かを確認。<strong>制作以外にいると出ません</strong>。渡すなら段階を「制作」へ</td></tr>
+    <tr><td class="k">お客様の返事が来ない</td><td>7日で今日やることに催促として戻ります。それを待たずに動いてもかまいません</td></tr>
+    <tr><td class="k">押し間違えて段階を進めた</td><td>ドラッグ&amp;ドロップで前の段階へ戻せます。通知は段階が変わったときだけ飛びます</td></tr>
+    <tr><td class="k">ボードから消したい／消してしまった</td><td>カード右上「✕」で外す。戻すときは案件の「編集」で「デザイン案件全般として管理する」にチェック</td></tr>
+    <tr><td class="k">修正の往復が多い案件がある</td><td><span class="bd bd-rev">🔁 修正◯回目</span> の数字が目印。回数がかさむ案件は久保田社長へ共有してください</td></tr>
+  </table>
+
+  <p class="small" style="margin-top:2mm;">
+    <strong>1日の使い方（おすすめ）</strong>　朝＝「📌 今日やること」を上から片づける／
+    随時＝やりとりが進んだら「確認の進み具合」を切り替え、修正指示が来たら「✏️ 修正で鈴木さんへ戻す」／
+    夕方＝パイプラインを眺めて「◯日経過」が伸びている案件がないか確認する。
+  </p>
+</div>
+
+</body></html>

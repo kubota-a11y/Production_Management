@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<title>鈴木さん マイスケジュール操作ガイド</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif; color: #1a2733; font-size: 9pt; line-height: 1.4; background: #f1f5f9; }
+  .page { width: 210mm; min-height: 297mm; padding: 11mm 13mm; page-break-after: always; background: #fff; margin: 0 auto 6mm; }
+  .page:last-child { page-break-after: auto; }
+
+  .head { border-bottom: 3px solid #db2777; padding-bottom: 2.4mm; margin-bottom: 3mm; display: flex; justify-content: space-between; align-items: flex-end; }
+  .head h1 { font-size: 15pt; color: #9d174d; }
+  .head .meta { font-size: 8pt; color: #667; text-align: right; }
+
+  h2 { font-size: 10.4pt; color: #fff; background: #db2777; padding: 1.2mm 3mm; border-radius: 1.5mm; margin: 3.4mm 0 1.4mm; }
+  h2.c { background: #444; }
+  h3 { font-size: 9.7pt; color: #9d174d; margin: 2.6mm 0 1mm; border-left: 3px solid #db2777; padding-left: 2.5mm; }
+
+  p { margin-bottom: 1.2mm; }
+  ul, ol { margin: 1mm 0 1.6mm 5.5mm; }
+  li { margin-bottom: 0.6mm; }
+  strong { color: #0b2a52; }
+
+  table { width: 100%; border-collapse: collapse; margin: 1.3mm 0 1.8mm; font-size: 8.7pt; }
+  th { background: #fdf2f8; color: #9d174d; padding: 1.1mm 2.5mm; text-align: left; border: 1px solid #cbd5e1; font-weight: 600; }
+  td { border: 1px solid #cbd5e1; padding: 1.1mm 2.5mm; vertical-align: top; }
+  td.k { background: #fafafa; font-weight: 600; white-space: nowrap; }
+
+  .lead { background: #fdf2f8; border-radius: 2mm; padding: 2mm 3mm; margin-bottom: 1.6mm; }
+  .note { background: #fff8e6; border: 1px solid #e6c67a; border-radius: 2mm; padding: 1.7mm 2.6mm; margin: 1.3mm 0; font-size: 8.7pt; }
+  .key { background: #fdeeee; border: 1px solid #e0a3a3; border-radius: 2mm; padding: 1.7mm 2.6mm; margin: 1.3mm 0; font-size: 8.7pt; }
+  .key strong { color: #8a1f1f; }
+  .small { font-size: 8.3pt; color: #556; }
+
+  .cols { display: flex; gap: 4mm; }
+  .cols > div { flex: 1; }
+
+  /* 画面のイメージ */
+  .mock { border: 1.4px solid #cbd5e1; border-radius: 2mm; padding: 2mm 2.4mm; background: #f8fafc; margin: 1.4mm 0; }
+  .mock-sec { font-weight: 700; font-size: 9pt; margin-bottom: 1mm; }
+  .chip {
+    background: #fff; border: 1px solid #e2e8f0; border-left: 3.5px solid #db2777; border-radius: 2mm;
+    padding: 1.6mm 2.4mm; margin-bottom: 1.2mm; font-size: 8.5pt;
+  }
+  .chip.carve { border-left-color: #7c3aed; background: #faf5ff; }
+  .chip-name { font-weight: 700; font-size: 9pt; }
+  .chip-meta { font-size: 8pt; color: #64748b; }
+  .chip-rev { font-size: 8pt; color: #b45309; }
+  .bd { display: inline-block; font-size: 7.6pt; font-weight: 700; border-radius: 999px; padding: 0.3mm 2.2mm; vertical-align: 0.2mm; }
+  .bd-carve { background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; }
+  .bd-rev { background: #fef3c7; color: #b45309; border: 1px solid #fcd34d; }
+  .bd-off { background: #fff; color: #64748b; border: 1px solid #cbd5e1; }
+  .bd-on { background: #fce7f3; color: #9d174d; border: 1px solid #f9a8d4; }
+  .bd-ctl { background: #fff; color: #334155; border: 1px solid #cbd5e1; border-radius: 1mm; padding: 0.3mm 2mm; font-size: 7.6pt; }
+  .grp { color: #6d28d9; font-weight: 700; font-size: 8.3pt; border-top: 1px dashed #c4b5fd; padding-top: 1.2mm; margin: 1.2mm 0; }
+
+  .num { counter-reset: st; }
+  .num > li { margin-bottom: 1mm; }
+</style></head><body>
+
+<!-- ============ 1ページ目 ============ -->
+<div class="page">
+  <div class="head">
+    <h1>🎨 マイスケジュール 操作ガイド</h1>
+    <div class="meta">鈴木さん用／2026-08-07 版<br>有限会社HiYOSHi　HiBoard</div>
+  </div>
+
+  <p class="lead">
+    この画面でやることは<strong>3つだけ</strong>です。<strong>①予定を組む　②進んだら更新する　③稼働できない日を伝える</strong>。<br>
+    ここで動かした予定は社内の週間スケジュールボードにそのまま出るので、<strong>別途の報告連絡は要りません</strong>。
+    URLはご自身専用です。他の方には共有しないでください。
+  </p>
+
+  <h2 class="c">画面は上から3つのブロックです</h2>
+  <table>
+    <tr><th style="width:30%">ブロック</th><th>中身</th></tr>
+    <tr><td class="k">🗓 今週の予定</td><td>月〜日の日付カード。ここにタスクを置いて「その日にやる」を決めます。稼働の申告もここから</td></tr>
+    <tr><td class="k">📥 日付が未定のタスク</td><td>社内から届いた案件の作業。<strong>CARVE案件は「🔶 CARVE案件」の見出しから下にまとめて</strong>表示されます</td></tr>
+    <tr><td class="k">📝 TODOリスト</td><td>社員用TODOスプレッドシートの<strong>「進行中」だけ</strong>が自動で出ます（未着手は出ません）</td></tr>
+  </table>
+
+  <h2>タスクカードの見方</h2>
+
+  <div class="mock">
+    <div class="mock-sec">📥 日付が未定のタスク　2</div>
+    <div class="chip">
+      <div class="chip-name">長泉AMiGOS 2026新ユニフォーム <span class="bd bd-rev">🔁 修正2回目</span></div>
+      <div class="chip-meta">初校提出 ｜ 納期 8/25</div>
+      <div class="chip-rev">✏️ 修正指示: 背番号を大きく、袖のロゴは白に</div>
+      <div style="margin-top:1mm;"><span class="bd bd-off">初校</span> <span class="bd bd-on">修正</span> <span class="bd bd-off">校了</span>
+        　<span class="bd-ctl">日付を選ぶ ▼</span> <span class="bd-ctl">h</span> <span class="bd-ctl">☐ 完了</span></div>
+    </div>
+    <div class="grp">🔶 CARVE案件　1</div>
+    <div class="chip carve">
+      <div class="chip-name">◯◯高校 卒業記念パンフレット <span class="bd bd-carve">🔶 写真入れアップ</span></div>
+      <div class="chip-meta">初校提出 ｜ 初校の納期 8/8</div>
+      <div style="margin-top:1mm;"><span class="bd bd-off">初校</span> <span class="bd bd-off">修正</span> <span class="bd bd-off">校了</span>
+        　<span class="bd-ctl">2. 写真入れアップ ▼</span> <span class="bd-ctl">日付を選ぶ ▼</span> <span class="bd-ctl">h</span> <span class="bd-ctl">☐ 完了</span></div>
+    </div>
+  </div>
+
+  <table>
+    <tr><th style="width:26%">パーツ</th><th>意味・操作</th></tr>
+    <tr><td class="k">案件名</td><td>その下が<strong>作業の種類</strong>（初校提出／見積書作成 など）と<strong>納期</strong>。紙媒体の案件は「初校の納期」「入稿の納期」と工程ごとに出ます。納期が3日以内になると色が変わります</td></tr>
+    <tr><td class="k"><span class="bd bd-rev">🔁 修正◯回目</span></td><td>お客様の修正指示で戻ってきた案件。何往復目かが分かります</td></tr>
+    <tr><td class="k">✏️ 修正指示</td><td>山本さんが書いた<strong>直近の修正指示メモ</strong>。画像がある場合は「🖼 ラフ」のリンクが別行に出ます</td></tr>
+    <tr><td class="k"><span class="bd bd-off">初校</span><span class="bd bd-off">修正</span><span class="bd bd-off">校了</span></td><td><strong>校正がどこまで進んだかの申告</strong>。押すとその状態になり、もう一度押すと未選択に戻ります。<strong>案件ごと</strong>なので、同じ案件のカードが複数あればまとめて変わります</td></tr>
+    <tr><td class="k"><span class="bd bd-carve">🔶 CARVE</span></td><td>CARVE案件の作業段階。<strong>ラフアップ→写真入れアップ→修正アップ→入稿</strong>の4段階をプルダウンで切り替えます</td></tr>
+    <tr><td class="k">日付を選ぶ ▼</td><td>やる日を決めます。<strong>上の日付カードへドラッグ</strong>してもOK（スマホは<strong>カードをタップ→日付をタップ</strong>）</td></tr>
+    <tr><td class="k">h</td><td>見込み時間（0.5刻み）。日カードの「◯h / 6h」がその日の詰まり具合。<strong>超えると赤字</strong>＝入れすぎのサイン</td></tr>
+    <tr><td class="k">☐ 完了</td><td>終わったらチェック。<strong>これが社内への連絡になります</strong>（取り消しも可）</td></tr>
+    <tr><td class="k">↩︎ 未定に戻す</td><td>日付カードに置いたタスクを「日付が未定」へ戻します</td></tr>
+  </table>
+
+  <div class="note">
+    <b>TODOリストのカードだけ少し違います。</b>「進行中」バッジと<strong>「✓ 完了」ボタン</strong>が付いていて、
+    完了を押すと<strong>スプレッドシート側も「完了」になります</strong>（取り消しはシートで行ってください）。
+    校正バッジや修正バッジは案件のカードにだけ付きます。
+  </div>
+</div>
+
+<!-- ============ 2ページ目 ============ -->
+<div class="page">
+  <div class="head">
+    <h1>🎨 マイスケジュール 操作ガイド（2）</h1>
+    <div class="meta">鈴木さん用／2026-08-07 版<br>有限会社HiYOSHi　HiBoard</div>
+  </div>
+
+  <h2>① 週のはじめ：今週の予定を組む</h2>
+  <ol class="num">
+    <li>「📥 日付が未定のタスク」と「📝 TODOリスト」をひととおり見る</li>
+    <li>各カードの<strong>「日付を選ぶ」でやる日を決める</strong>（日付カードへドラッグでも可）</li>
+    <li><strong>見込み時間（h）を入れる</strong> — 日カードの「◯h / 6h」で詰まり具合が見えます。6hを超えて赤字になったら入れすぎです</li>
+    <li>稼働できない日・短い日は<strong>「⚙ 稼働変更」で先に申告</strong>する</li>
+    <li>その日の仕事の種類を<strong>「🎨 デザイン」「📋 デザイン関連業務」</strong>で表明する（もう一度押すと解除）</li>
+  </ol>
+  <p class="small">※ 来週以降に置きたいときは「次週 →」で表示を切り替えてから日付を選びます。</p>
+
+  <h2>② 日々：進めながら更新する</h2>
+  <ul>
+    <li>校正が進んだら <span class="bd bd-off">初校</span> <span class="bd bd-off">修正</span> <span class="bd bd-off">校了</span> を押して状態を更新する</li>
+    <li>CARVE案件は<strong>4段階のプルダウン</strong>も進める</li>
+    <li>作業が終わったら<strong>「完了」にチェック</strong> → 社内へ自動で伝わります</li>
+    <li>予定がずれたら日付プルダウンで別の日へ。白紙に戻すなら<strong>「↩︎ 未定に戻す」</strong></li>
+  </ul>
+
+  <div class="key">
+    <strong>「初校提出」を完了にすると、その案件のカードは画面から消えます。</strong>
+    社内（山本さん）の確認ターンに移ったためで、正常な動きです。
+    修正が出たら、山本さんが戻した時点で<strong>また「日付が未定のタスク」に現れます</strong>。
+  </div>
+
+  <h2>③ 修正が戻ってきたとき（2026-08-07 から）</h2>
+  <p>
+    デザインは一度で決まらないのが普通なので、<strong>「提出 → お客様確認 → 修正指示 → 再提出」の往復</strong>が
+    仕組みとして入りました。山本さんが「修正で戻す」操作をすると、次の状態でカードが戻ってきます。
+  </p>
+  <table>
+    <tr><th style="width:34%">戻ってきたときの状態</th><th>意味</th></tr>
+    <tr><td class="k">「日付が未定のタスク」に再登場</td><td>前に入れた予定日はクリアされています。<strong>改めて、やる日を決め直してください</strong></td></tr>
+    <tr><td class="k"><span class="bd bd-rev">🔁 修正◯回目</span> が付く</td><td>何往復目かが自動で数えられます（社内のボードにも同じ数字が出ます）</td></tr>
+    <tr><td class="k">✏️ 修正指示のメモ</td><td>山本さんが書いた指示。画像があれば「🖼 ラフ」のリンクから開けます</td></tr>
+    <tr><td class="k">校正バッジが「修正」に</td><td>自動で切り替わります。必要なら手で押し直してかまいません</td></tr>
+    <tr><td class="k">完了チェックが外れている</td><td>もう一度「初校提出」を完了にすれば、また社内の確認に回ります</td></tr>
+  </table>
+  <p>この往復は<strong>何回でも回せます</strong>。修正が終わって位置・大きさの確認までOKになると、案件は次の工程へ進みます。</p>
+
+  <h2>④ 稼働できない日を伝える</h2>
+  <p>日付カードの<strong>「⚙ 稼働変更」</strong>から3つが選べます。</p>
+  <table>
+    <tr><th style="width:26%">選択肢</th><th>使うとき</th></tr>
+    <tr><td class="k">稼働なし（終日）</td><td>その日は作業できない。日カードが「稼働なし」になります</td></tr>
+    <tr><td class="k">時間帯を指定</td><td>短い日。開始〜終了を入れると稼働時間が自動計算されます</td></tr>
+    <tr><td class="k">通常に戻す</td><td>申告を取り消して、いつもの勤務時間に戻します</td></tr>
+  </table>
+  <div class="key">
+    <strong>間に合わなそうなときは、分かった時点ですぐ動かす＋伝える。</strong>
+    ①ボードでタスクを後ろの日へ動かす → ②朝会かLINEでひとこと。
+    早く分かれば納期の再調整やお客様への先回り連絡ができます。<strong>申告にペナルティはありません。</strong>
+  </div>
+
+</div>
+
+<!-- ============ 3ページ目 ============ -->
+<div class="page">
+  <div class="head">
+    <h1>🎨 マイスケジュール 操作ガイド（3）</h1>
+    <div class="meta">鈴木さん用／2026-08-07 版<br>有限会社HiYOSHi　HiBoard</div>
+  </div>
+
+  <h2 class="c">困ったとき</h2>
+  <table>
+    <tr><th style="width:38%">こんなとき</th><th>どうする</th></tr>
+    <tr><td class="k">案件のカードが見当たらない</td><td>その案件が<strong>「制作」以外の段階</strong>にいる可能性が高いです（社内の確認中など）。自分の番になれば自動で出ます。急ぐときは山本さんへ</td></tr>
+    <tr><td class="k">TODOが出てこない</td><td>スプレッドシートの状態が<strong>「進行中」になっているか</strong>確認してください。未着手は表示されません（反映まで最大1分）</td></tr>
+    <tr><td class="k">TODOが二重に見える</td><td>シートに同じ文言の行が複数あると1件にまとめられます。別々の仕事なら「◯◯①」「◯◯②」のように名前を分けてもらってください</td></tr>
+    <tr><td class="k">日付を決めたTODOが未定に戻った</td><td>シート側で<strong>タスク名が書き換えられた</strong>ときに起こります。名前で紐づけているためです。ボードで日付を入れ直してください</td></tr>
+    <tr><td class="k">「通信エラー」と出る</td><td>電波状況を確認して画面を再読み込みしてください。操作は保存されていないので、やり直しで大丈夫です</td></tr>
+  </table>
+</div>
+
+</body></html>
