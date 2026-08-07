@@ -590,6 +590,14 @@ html, body {
    一覧・テーブル
    ======================================== */
 
+/* 「➕ 新規案件」と検索ボックスの行。絞り込みと違って畳まず常に出す */
+.list-controls-top {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .filter-group {
   display: flex;
   gap: var(--space-3);
@@ -1149,6 +1157,46 @@ td.empty-notice {
   box-shadow: var(--shadow-lg);
   /* 画面幅が狭いときに横スクロールを出さない */
   overscroll-behavior: contain;
+}
+
+/* 一覧の行から開く「⋯ その他」メニュー。
+   1操作 = 1行で、何が起きるかの説明を必ず添える */
+.action-list {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-4) var(--space-5);
+  gap: var(--space-2);
+}
+
+.action-list-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  text-align: left;
+  padding: var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font: inherit;
+  transition: var(--transition-fast);
+}
+
+.action-list-item:hover,
+.action-list-item:focus-visible {
+  background: var(--primary-soft);
+  border-color: var(--primary-color);
+}
+
+.action-list-label {
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.action-list-note {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
 }
 
 .modal-lg {
@@ -1942,6 +1990,8 @@ td.empty-notice {
    納品履歴・顧客台帳
    ======================================== */
 
+/* 検索バーは納品履歴と案件一覧で共通(.search-bar が汎用の名前) */
+.search-bar,
 .delivery-search-bar {
   display: flex;
   align-items: center;
@@ -1950,6 +2000,13 @@ td.empty-notice {
   flex-wrap: wrap;
 }
 
+/* 一覧側は「➕ 新規案件」と横並びにするため、下の余白は親側で取る */
+.search-bar {
+  margin-bottom: 0;
+  flex: 1;
+}
+
+.search-bar input[type="search"],
 .delivery-search-bar input[type="search"] {
   flex: 1;
   min-width: 220px;
@@ -1961,6 +2018,7 @@ td.empty-notice {
   font-size: var(--text-base);
 }
 
+.search-count,
 .delivery-search-count {
   color: var(--text-muted);
   font-size: var(--text-sm);

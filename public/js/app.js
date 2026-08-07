@@ -219,13 +219,29 @@ const app = {
     this.updateGroupHeaderUI();
     this.updateSortHeaderUI();
 
-    if (this.groupBy === 'deadline') {
+    if (projects.length === 0) {
+      // 「案件が1件も無い」のか「絞り込みで消えた」のかで案内を変える
+      const hasAny = this.projects.some(p => p.status !== 'COMPLETED');
+      tbody.innerHTML = `<tr><td colspan="10" class="empty-notice">${hasAny
+        ? 'この検索・絞り込みに該当する案件はありません'
+        : '進行中の案件はありません。「➕ 新規案件」から登録できます'}</td></tr>`;
+    } else if (this.groupBy === 'deadline') {
       this.renderGroupedRows(tbody, this.groupProjectsByDeadline(projects));
     } else if (this.groupBy === 'status') {
       this.renderGroupedRows(tbody, this.groupProjectsByStatus(projects));
     } else {
       projects.forEach(project => tbody.appendChild(this.buildProjectRow(project)));
     }
+
+    this.updateFilterCount(projects.length);
+  },
+
+  // 絞り込みの結果が0件のとき、「案件が無い」のか「絞り込みで消えた」のかを区別できるようにする
+  updateFilterCount(shownCount) {
+    const countEl = document.getElementById('filter-count');
+    if (!countEl) return;
+    const total = this.projects.filter(p => p.status !== 'COMPLETED').length;
+    countEl.textContent = shownCount === total ? `全${total}件` : `${shownCount}件 / 全${total}件`;
   },
 
   buildProjectRow(project) {
@@ -246,7 +262,10 @@ const app = {
     // 行の背景色だけでは意味が伝わらないため、納期の状態を文字でも併記する
     const deadlineFlag = this.deadlineFlagHtml(deadlineWarning);
     row.innerHTML = `
-      <td class="cell-project-name">${this.escapeHtml(project.project_name)}${kindBadge}</td>
+      <td class="cell-project-name">
+        <button type="button" class="link-cell" onclick="CaseDetail.open(${project.id})"
+          title="案件の詳細を見る">${this.escapeHtml(project.project_name)}</button>${kindBadge}
+      </td>
       <td>${formatDate(project.received_date)}</td>
       <td class="deadline-cell">${formatDate(project.deadline)}${deadlineFlag}</td>
       <td>${this.escapeHtml(project.customer_name)}</td>
@@ -268,13 +287,10 @@ const app = {
           <button class="btn btn-small" onclick="app.openProjectModal(${project.id})">
             ✎ 編集
           </button>
-          <button class="btn btn-small" onclick="app.openSuggestModal(${project.id})">
-            🔎 提案
+          <button class="btn btn-small" onclick="app.openRowActionsModal(${project.id})"
+            title="この案件でできる他の操作">
+            ⋯ その他
           </button>
-          <button class="btn btn-small" onclick="app.openDeliverModal(${project.id})">
-            📦 納品済み
-          </button>
-          ${this.designOpsButtonHtml(project)}
         </div>
       </td>
     `;
@@ -282,17 +298,62 @@ const app = {
     return row;
   },
 
-  // 「デザイン案件全般」ボードへの載せ替えボタン。
-  // 載っている案件は押すと外れる(ボード側のカード右上「✕」と同じ動き)
-  designOpsButtonHtml(project) {
-    const on = !!project.is_design_ops;
-    return `
-      <button class="btn btn-small ${on ? 'btn-primary' : ''}"
-        onclick="app.toggleDesignOps(${project.id}, ${on ? 'false' : 'true'})"
-        title="${on ? 'デザイン案件全般のボードから外す' : 'デザイン案件全般のボードに載せる'}">
-        🗂 ${on ? '全般から外す' : '全般へ'}
-      </button>
+  // ===== 行の「⋯ その他」メニュー =====
+  //
+  // 以前は編集・提案・納品済み・全般へ の4ボタンを全行に並べていたが、
+  // 毎日使うのは「編集」だけで、残り3つは押す頻度が低いわりに幅を取り、
+  // ラベルだけでは何が起きるか読み取れなかった(特に「🔎 提案」)。
+  // ドロップダウンは .table-container の overflow に切られるため、
+  // 説明文を添えられるモーダルにしている(Esc・背景クリックは js/ui.js が面倒を見る)
+  rowActionsProjectId: null,
+
+  openRowActionsModal(projectId) {
+    const project = this.projects.find(p => p.id == projectId);
+    if (!project) return;
+    this.rowActionsProjectId = projectId;
+
+    const onBoard = !!project.is_design_ops;
+    document.getElementById('row-actions-title').textContent = project.project_name;
+    document.getElementById('row-actions-body').innerHTML = `
+      <div class="action-list">
+        <button type="button" class="action-list-item" onclick="app.runRowAction('detail')">
+          <span class="action-list-label">🔍 案件の詳細を見る</span>
+          <span class="action-list-note">加工内容・数量・指示書や見積書などの書類をまとめて確認します</span>
+        </button>
+        <button type="button" class="action-list-item" onclick="app.runRowAction('suggest')">
+          <span class="action-list-label">🔎 担当者の候補を出す</span>
+          <span class="action-list-note">この案件の加工に必要なスキルを持つ従業員を、空き状況から順に並べます</span>
+        </button>
+        <button type="button" class="action-list-item" onclick="app.runRowAction('design-ops')">
+          <span class="action-list-label">🗂 ${onBoard ? 'デザイン案件全般から外す' : 'デザイン案件全般に載せる'}</span>
+          <span class="action-list-note">${onBoard
+            ? '「デザイン案件全般」のボードからこの案件のカードを外します'
+            : '「デザイン案件全般」のボードに載せ、ブリーフ・ラフ→制作→…の流れで進行を管理します'}</span>
+        </button>
+        <button type="button" class="action-list-item" onclick="app.runRowAction('deliver')">
+          <span class="action-list-label">📦 納品済みにする</span>
+          <span class="action-list-note">納品日と発送方法を記録して、この案件を一覧から片付けます</span>
+        </button>
+      </div>
     `;
+    document.getElementById('row-actions-modal').style.display = 'flex';
+  },
+
+  closeRowActionsModal() {
+    document.getElementById('row-actions-modal').style.display = 'none';
+    this.rowActionsProjectId = null;
+  },
+
+  runRowAction(action) {
+    const projectId = this.rowActionsProjectId;
+    if (!projectId) return;
+    const project = this.projects.find(p => p.id == projectId);
+    this.closeRowActionsModal();
+
+    if (action === 'detail') CaseDetail.open(projectId);
+    else if (action === 'suggest') this.openSuggestModal(projectId);
+    else if (action === 'deliver') this.openDeliverModal(projectId);
+    else if (action === 'design-ops') this.toggleDesignOps(projectId, !project?.is_design_ops);
   },
 
   async toggleDesignOps(projectId, include) {
@@ -389,10 +450,17 @@ const app = {
     const processFilter = document.getElementById('filter-process').value;
     const staffFilter = document.getElementById('filter-staff').value;
     const priorityFilter = document.getElementById('filter-priority').value;
+    const keyword = (document.getElementById('filter-keyword')?.value || '').trim().toLowerCase();
 
     // 納品済み(COMPLETED)の案件は、削除はせず記録を残したまま一覧ビューには表示しない
     let filtered = this.projects.filter(p => p.status !== 'COMPLETED');
 
+    // 案件名・顧客名・アイテム名のどれかに含まれていれば残す
+    if (keyword) {
+      filtered = filtered.filter(p =>
+        [p.project_name, p.customer_name, p.item_name]
+          .some(value => (value || '').toLowerCase().includes(keyword)));
+    }
     if (statusFilter) {
       filtered = filtered.filter(p => p.status === statusFilter);
     }

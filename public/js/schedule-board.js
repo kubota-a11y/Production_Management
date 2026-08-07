@@ -514,7 +514,8 @@ const scheduleBoard = {
         <span class="sb-day-header-date">${d.getMonth() + 1}/${d.getDate()}</span>
         ${holidayName ? `<span class="sb-day-holiday" title="${this.escapeHtml(holidayName)}">祝</span>` : ''}
         <button type="button" class="sb-auto-propose-day-btn"
-                onclick="scheduleBoard.autoProposeDay('${dateISO}', this)" title="この日を自動割り当て">🤖 自動割当</button>
+                onclick="scheduleBoard.autoProposeDay('${dateISO}', this)"
+                title="この日の割り当て案を作ります。まだ確定ではなく、確認してから確定します">🤖 提案</button>
       </th>
     `;
     }).join('');
@@ -634,8 +635,8 @@ const scheduleBoard = {
 
     return `
       ${dayModeBadge}
-      ${isShort ? `<div class="sb-cell-warning" title="計画時間(${this.roundHours(plannedTotal)}h)が勤務時間(${this.roundHours(referenceHours)}h)に不足しています">⚠️ 計画不足</div>` : ''}
-      ${plannedTotal > referenceHours + 0.01 ? `<div class="sb-cell-warning sb-cell-overload" title="計画時間(${this.roundHours(plannedTotal)}h)が勤務時間(${this.roundHours(referenceHours)}h)を超えています">🔥 過負荷</div>` : ''}
+      ${isShort ? `<div class="sb-cell-warning" title="この日はまだ${this.roundHours(referenceHours - plannedTotal)}h ぶんの余裕があります(予定${this.roundHours(plannedTotal)}h / 勤務${this.roundHours(referenceHours)}h)。案件を追加で置けます">🕗 空きあり</div>` : ''}
+      ${plannedTotal > referenceHours + 0.01 ? `<div class="sb-cell-warning sb-cell-overload" title="予定(${this.roundHours(plannedTotal)}h)が勤務時間(${this.roundHours(referenceHours)}h)を超えています。この日には入りきりません">🔥 入りきらない</div>` : ''}
       <div class="sb-cell-hours-label">${this.roundHours(plannedTotal)}h / ${this.roundHours(referenceHours)}h</div>
       <div class="sb-bar-track" onclick="event.stopPropagation(); scheduleBoard.openDetailModal(${employee.id}, '${dateISO}')">
         ${segments}
@@ -685,7 +686,8 @@ const scheduleBoard = {
           ${dayLabel} <span class="sb-day-header-date">${date.getMonth() + 1}/${date.getDate()}</span>
           ${(this.holidays || {})[dateISO] ? `<span class="sb-day-holiday" title="${this.escapeHtml(this.holidays[dateISO])}">祝</span>` : ''}
           <button type="button" class="sb-auto-propose-day-btn"
-                  onclick="event.stopPropagation(); scheduleBoard.autoProposeDay('${dateISO}', this)" title="この日を自動割り当て">🤖 自動割当</button>
+                  onclick="event.stopPropagation(); scheduleBoard.autoProposeDay('${dateISO}', this)"
+                  title="この日の割り当て案を作ります。まだ確定ではなく、確認してから確定します">🤖 提案</button>
         </div>
         ${content}
       </div>
@@ -748,12 +750,28 @@ const scheduleBoard = {
       if (!seen.has(a.case_id)) seen.set(a.case_id, a.project_name);
     });
 
+    // 破線枠=提案中 という区別は見た目だけでは伝わらないため、案件の色より先に必ず出す。
+    // 「予定から外す方法」も、以前はホバーしないと分からなかったのでここに書く
+    const fixedItems = `
+      <div class="sb-legend-item">
+        <span class="sb-legend-swatch sb-legend-swatch-proposed"></span>
+        破線わく = 提案中(ドラッグで置くと確定)
+      </div>
+      <div class="sb-legend-item">
+        <span class="sb-legend-swatch"></span>
+        ふちなし = 確定した予定
+      </div>
+      <div class="sb-legend-item sb-legend-hint">
+        予定から外すときは、ブロックを右の「📝 提案確認」へドラッグします
+      </div>
+    `;
+
     if (seen.size === 0) {
-      legend.innerHTML = '';
+      legend.innerHTML = fixedItems;
       return;
     }
 
-    legend.innerHTML = [...seen.entries()].map(([caseId, name]) => `
+    legend.innerHTML = fixedItems + [...seen.entries()].map(([caseId, name]) => `
       <div class="sb-legend-item">
         <span class="sb-legend-swatch" style="background:${this.getProjectColor(caseId)};"></span>
         ${this.escapeHtml(name)}
@@ -812,18 +830,33 @@ const scheduleBoard = {
           `).join('')}
         </div>
         <div class="sb-prep-card-actions">
-          <button type="button" class="btn-small" onclick="scheduleBoard.setProjectStatus(${group.caseId}, 'PREP_COMPLETE')">準備完了</button>
-          <button type="button" class="btn-small" onclick="scheduleBoard.setProjectStatus(${group.caseId}, 'INSPECTION')">検品へ</button>
+          <button type="button" class="btn btn-small btn-secondary"
+            onclick="scheduleBoard.setProjectStatus(${group.caseId}, 'PREP_COMPLETE')"
+            title="この案件を「準備完了」にして、準備項目リストから片付けます">✓ 準備完了にする</button>
+          <button type="button" class="btn btn-small btn-secondary"
+            onclick="scheduleBoard.setProjectStatus(${group.caseId}, 'INSPECTION')"
+            title="この案件を「検品」に進めて、準備項目リストから片付けます">▶ 検品へ進める</button>
         </div>
       </div>
     `).join('');
   },
 
-  // 準備項目リストの「準備完了」「検品」ボタン。未完了の準備項目が残っていても、
-  // 押した時点で強制的に案件ステータスを変更する(case_preparation_itemsの
-  // チェック状態には触れない)。変更後はonPrepItemChanged()と同じ再取得・再描画で
-  // ボード/モーダル/リストを更新し、対象案件を準備項目リストから消す
+  // 準備項目リストの「準備完了」「検品へ」ボタン。未完了の準備項目が残っていても
+  // そのまま案件ステータスを変更する(case_preparation_itemsのチェック状態には触れない)。
+  // 変更後はonPrepItemChanged()と同じ再取得・再描画でボード/モーダル/リストを更新し、
+  // 対象案件を準備項目リストから消す
   async setProjectStatus(caseId, status) {
+    // 押すとカードがリストから消え、元に戻す導線が画面にない。
+    // 未完了の項目が残っていても止まらないため、その数も添えて確認する
+    const group = [...this.preparationItems, ...this.carriedPrepItems].filter(i => i.case_id === caseId);
+    const projectName = group[0]?.project_name || 'この案件';
+    const remaining = group.filter(i => i.status !== '完了').length;
+    const label = status === 'PREP_COMPLETE' ? '準備完了' : '検品';
+    const warning = remaining > 0
+      ? `\n\n未完了の準備項目が ${remaining}件 残っていますが、そのまま進みます。`
+      : '';
+    if (!confirm(`「${projectName}」を「${label}」にしますか?${warning}\n\nこの案件は準備項目リストから外れます。`)) return;
+
     try {
       const response = await fetch(`/api/projects/${caseId}/status`, {
         method: 'PUT',
@@ -953,7 +986,10 @@ const scheduleBoard = {
           <div class="sb-proposal-card-meta">担当 ${p.employee_name ? this.escapeHtml(p.employee_name) : '未定'} ・ スコア ${scoreLabel} ・ 空き ${availableLabel}</div>
           <div class="sb-proposal-card-actions">
             <span class="sb-proposal-card-hint">🖱️ ドラッグしてボードへ</span>
-            <button type="button" class="btn btn-danger btn-small" onclick="scheduleBoard.moveToInspection(${p.case_id})">検品へ</button>
+            <!-- 準備項目リストの同じ操作と見た目を揃える(以前は赤で、削除ボタンに見えていた) -->
+            <button type="button" class="btn btn-secondary btn-small"
+              onclick="scheduleBoard.moveToInspection(${p.case_id})"
+              title="この案件を「検品」に進めて、提案の一覧から外します">▶ 検品へ進める</button>
           </div>
           <div class="sb-proposal-mobile-confirm">
             <select class="sb-proposal-mobile-employee">${employeeOptions}</select>
@@ -1430,7 +1466,13 @@ const scheduleBoard = {
         );
         const checkData = await checkRes.json();
         if (checkRes.ok && checkData.reached) {
-          moveToInspection = confirm('検品ステータスに変更しますか？');
+          // 実績を入れただけのつもりで出るダイアログなので、なぜ聞かれているかを本文に書く
+          const name = allocation.project_name || 'この案件';
+          moveToInspection = confirm(
+            `「${name}」の実績時間が、予定していた作業時間に達しました。\n\n`
+            + 'この案件を「検品」に進めますか?\n'
+            + '(「キャンセル」を押しても、いま入力した実績時間は保存されます)'
+          );
         }
       }
 

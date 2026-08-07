@@ -36,8 +36,10 @@
             <button class="btn btn-secondary" onclick="scheduleBoard.prevWeek()">◀ 前週</button>
             <h2 id="sb-week-label"></h2>
             <div class="sb-week-nav-right">
+              <!-- 作られるのは「提案」であって確定ではない。ラベルでそれが分かるようにしている -->
               <button type="button" class="btn btn-primary" id="sb-auto-propose-week-btn"
-                      onclick="scheduleBoard.autoProposeWeek()">🤖 今週を自動割り当て</button>
+                      onclick="scheduleBoard.autoProposeWeek()"
+                      title="今週ぶんの割り当て案を作ります。まだ確定ではなく、確認してから確定します">🤖 今週の割り当てを提案</button>
               <button class="btn btn-secondary" onclick="scheduleBoard.nextWeek()">次週 ▶</button>
             </div>
           </section>

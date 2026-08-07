@@ -68,6 +68,18 @@
   height: 10px;
   border-radius: 50%;
   flex-shrink: 0;
+  background: var(--gray-400);
+}
+
+/* 凡例の「提案中」チップ。ボード上のブロックと同じ破線で示す */
+.sb-legend-swatch-proposed {
+  background: transparent;
+  border: 1px dashed var(--gray-600);
+  border-radius: 3px;
+}
+
+.sb-legend-hint {
+  color: var(--text-muted);
 }
 
 .sb-board-table th,
@@ -130,20 +142,22 @@
   font-size: 12px;
 }
 
+/* 既定は「空きあり」= ただのお知らせ。手を打つ必要がある日ではないので、
+   警告色(黄)ではなく中立の色にする。危険な側は .sb-cell-overload が上書きする */
 .sb-cell-warning {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   font-size: 11px;
-  color: #92400e;
-  background: #fef3c7;
+  color: var(--text-muted);
+  background: var(--gray-100);
   padding: 2px 6px;
   border-radius: 4px;
   margin-bottom: 4px;
   cursor: default;
 }
 
-/* 勤務時間を超えて計画が積まれている日(計画不足と逆方向の警告) */
+/* 勤務時間を超えて予定が積まれている日(「空きあり」と逆方向。こちらは本当の警告) */
 .sb-cell-overload {
   color: #991b1b;
   background: #fee2e2;
