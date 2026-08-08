@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<title>三浦さん・山本さん HiBoard改善点ガイド 2026-08</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif; color: #1a2733; font-size: 9pt; line-height: 1.4; background: #f1f5f9; }
+  .page { width: 210mm; min-height: 297mm; padding: 11mm 13mm; page-break-after: always; background: #fff; margin: 0 auto 6mm; }
+  .page:last-child { page-break-after: auto; }
+  @media print { body { background: #fff; } .page { margin: 0; } }
+
+  .head { border-bottom: 3px solid #1d4ed8; padding-bottom: 2.4mm; margin-bottom: 3mm; display: flex; justify-content: space-between; align-items: flex-end; }
+  .head h1 { font-size: 15pt; color: #1d4ed8; }
+  .head .meta { font-size: 8pt; color: #667; text-align: right; }
+
+  h2 { font-size: 10.4pt; color: #fff; background: #1d4ed8; padding: 1.2mm 3mm; border-radius: 1.5mm; margin: 3.4mm 0 1.4mm; }
+  h2.c { background: #444; }
+  h2.m { background: #b45309; }
+  h3 { font-size: 9.7pt; color: #1d4ed8; margin: 2.6mm 0 1mm; border-left: 3px solid #1d4ed8; padding-left: 2.5mm; }
+
+  p { margin-bottom: 1.2mm; }
+  ul, ol { margin: 1mm 0 1.6mm 5.5mm; }
+  li { margin-bottom: 0.6mm; }
+  strong { color: #0b2a52; }
+
+  table { width: 100%; border-collapse: collapse; margin: 1.3mm 0 1.8mm; font-size: 8.7pt; }
+  th { background: #eef2f9; color: #1d3f74; padding: 1.1mm 2.5mm; text-align: left; border: 1px solid #cbd5e1; font-weight: 600; }
+  td { border: 1px solid #cbd5e1; padding: 1.1mm 2.5mm; vertical-align: top; }
+  td.k { background: #fafafa; font-weight: 600; white-space: nowrap; }
+  td.old { background: #fafafa; color: #777; }
+  td.new { background: #f0fdf4; }
+
+  .lead { background: #eef4fd; border-radius: 2mm; padding: 2mm 3mm; margin-bottom: 1.6mm; }
+  .note { background: #fff8e6; border: 1px solid #e6c67a; border-radius: 2mm; padding: 1.7mm 2.6mm; margin: 1.3mm 0; font-size: 8.7pt; }
+  .key { background: #fdeeee; border: 1px solid #e0a3a3; border-radius: 2mm; padding: 1.7mm 2.6mm; margin: 1.3mm 0; font-size: 8.7pt; }
+  .key strong { color: #8a1f1f; }
+  .small { font-size: 8.3pt; color: #556; }
+  .who { display: inline-block; font-size: 8pt; font-weight: 700; border-radius: 1.2mm; padding: 0.3mm 2mm; margin-left: 1.5mm; vertical-align: 0.3mm; }
+  .who-mi { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+  .who-ya { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+
+  /* 画面の再現(モック) */
+  .mock { border: 1px solid #cbd5e1; border-radius: 2mm; overflow: hidden; margin: 1.6mm 0; background: #f8fafc; }
+  .mock-cap { background: #334155; color: #fff; font-size: 7.8pt; padding: 0.9mm 2.5mm; font-weight: 600; }
+  .mock-body { padding: 2.2mm 2.5mm; }
+  .mock-nav { display: flex; gap: 1mm; background: #2563eb; padding: 1.6mm 2mm; flex-wrap: wrap; }
+  .mock-nav span { background: rgba(255,255,255,.16); color: #fff; font-size: 7.4pt; border-radius: 1.2mm; padding: 0.7mm 1.6mm; border: 1px solid rgba(255,255,255,.35); white-space: nowrap; }
+  .mock-nav span.hl { background: #fff; color: #1d4ed8; font-weight: 700; }
+
+  .sel { border-left: 3px solid #f59e0b; background: #fff; padding: 2mm 2.6mm; border-radius: 1.4mm; }
+  .sel-t { font-size: 9.4pt; font-weight: 700; }
+  .sel-n { font-size: 8pt; color: #556; margin: 0.8mm 0 1.4mm; }
+  .sel-card { background: #fef3c7; border-radius: 1.4mm; padding: 1.6mm 2.2mm; display: flex; justify-content: space-between; align-items: center; gap: 2mm; }
+  .sel-card .nm { font-weight: 700; font-size: 8.8pt; }
+  .sel-card .mt { font-size: 7.8pt; color: #667; }
+
+  .btn { display: inline-block; background: #1d4ed8; color: #fff; border-radius: 1.4mm; padding: 0.7mm 2.4mm; font-size: 8pt; font-weight: 700; white-space: nowrap; }
+  .bd { display: inline-block; font-size: 7.6pt; font-weight: 700; border-radius: 999px; padding: 0.3mm 2.2mm; white-space: nowrap; }
+  .bd-alert { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+
+  /* パイプラインの畳み込み再現 */
+  .pipe { display: flex; gap: 1.2mm; align-items: stretch; }
+  /* 畳まれた段階の縦書き見出し。writing-mode は印刷時にページ高が狂うため使わず、
+     細い幅で1文字ずつ折り返させて同じ見た目にする */
+  .pcol { background: #f1f5f9; border-radius: 1.4mm; padding: 1.6mm 0.8mm; text-align: center; font-size: 7.2pt; color: #64748b; width: 7mm; line-height: 1.15; }
+  .pcol span { display: block; word-break: break-all; overflow-wrap: anywhere; }
+  .pcol.on { background: #eef4fd; width: auto; flex: 1; display: block; text-align: left; padding: 1.6mm 2mm; color: #1a2733; }
+  .pcol.on .ph { font-size: 8.4pt; font-weight: 700; margin-bottom: 1mm; }
+  .pcard { background: #fff; border: 1px solid #cbd5e1; border-radius: 1.2mm; padding: 1.4mm 1.8mm; font-size: 8pt; }
+
+  .steps { counter-reset: s; margin: 1.4mm 0; }
+  .step { display: flex; gap: 2mm; margin-bottom: 1.4mm; align-items: flex-start; }
+  .step .no { flex: 0 0 5mm; height: 5mm; border-radius: 50%; background: #1d4ed8; color: #fff; font-size: 8pt; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .step .tx { flex: 1; padding-top: 0.4mm; }
+
+  .cols { display: flex; gap: 4mm; }
+  .cols > div { flex: 1; }
+</style></head><body>
+
+<!-- ============ 1ページ目: 共通 ============ -->
+<div class="page">
+  <div class="head">
+    <h1>HiBoard 改善点ガイド（2026年8月）</h1>
+    <div class="meta">三浦さん・山本さん用／2026-08-09 版<br>有限会社HiYOSHi　HiBoard</div>
+  </div>
+
+  <p class="lead">
+    HiBoardを改良しました。<strong>操作が変わったところ</strong>と<strong>新しく画面に出るもの</strong>をまとめています。
+    <strong>今までのデータややり方が使えなくなることはありません。</strong>
+    2ページ目は<span class="who who-mi">三浦さん向け</span>、3ページ目は<span class="who who-ya">山本さん向け</span>です。
+  </p>
+
+  <h2>① 画面の名前が変わりました</h2>
+  <p>上の青いメニューの名前です。押したときに開く画面は今までと同じです。</p>
+  <table>
+    <tr><th style="width:32%">今までの名前</th><th style="width:32%">新しい名前</th><th>どんな画面か</th></tr>
+    <tr><td class="old">🎨 デザインの予定</td><td class="new"><strong>🎨 鈴木さんの作業予定</strong></td><td>鈴木さんが「今日どの作業をするか」を見る画面</td></tr>
+    <tr><td class="old">🗂 デザイン案件全般</td><td class="new"><strong>🗂 デザイン進行ボード</strong></td><td>案件が「いま誰の番で止まっているか」を見る画面</td></tr>
+  </table>
+  <div class="mock">
+    <div class="mock-cap">画面のいちばん上（メニュー）</div>
+    <div class="mock-nav">
+      <span>📋 HiBoard</span><span>🗓️ スケジュール</span>
+      <span class="hl">🎨 鈴木さんの作業予定</span><span class="hl">🗂 デザイン進行ボード</span>
+      <span>📦 納品履歴</span><span>📇 顧客台帳</span><span>📖 使い方</span><span>⚙ 管理</span>
+    </div>
+  </div>
+  <p class="small">※ 「鈴木さんの」はデザイナーリンクを発行している人の名前が自動で入ります。</p>
+
+  <h2>② 案件を登録するとき、最初に「案件の型」を1回選ぶだけになりました</h2>
+  <p class="small">今まで縦に3つ並んでいた切り替えを、<strong>下の4つから1つ選ぶだけ</strong>にまとめました。</p>
+  <table>
+    <tr><th style="width:30%">選ぶカード</th><th style="width:36%">どんな案件か</th><th>準備項目の欄</th></tr>
+    <tr><td class="k">🏭 通常の加工案件</td><td>プリント・刺繍の加工だけ。デザインの進行管理はしない</td><td class="new"><strong>出る</strong>（その場で入れる）</td></tr>
+    <tr><td class="k">🎨 デザインから入る加工案件</td><td>ラフ作成→お客様確認を経て加工する。進行ボードで管理</td><td>出ない（後で三浦さんが）</td></tr>
+    <tr><td class="k">📄 紙媒体（入稿で完了）</td><td>ポスター・チラシなど。入稿→請求で終わり</td><td>出ない（製造を通らない）</td></tr>
+    <tr><td class="k">🖌 社内デザイン</td><td>KRATVS・販促物など社内向け。顧客名・数量なしでOK</td><td>出る</td></tr>
+  </table>
+  <p class="small">※ 4つに当てはまらない案件を開いたときは「詳細設定」が自動で開き、今までどおり設定できます。</p>
+
+  <h2 class="c">③ 案件一覧（HiBoard トップ）で使いやすくなったところ</h2>
+  <table>
+    <tr><th style="width:26%">場所</th><th>変わったこと</th></tr>
+    <tr><td class="k">案件名</td><td><strong>押すと案件の詳細が開きます</strong>（今までは押しても何も起きませんでした）</td></tr>
+    <tr><td class="k">操作の列</td><td>4つ並んでいたボタンを<strong>「✎ 編集」と「⋯ その他」の2つ</strong>に。納品済み・担当者の提案・進行ボードへの載せ外しは「⋯ その他」の中です</td></tr>
+    <tr><td class="k">上の検索窓</td><td><strong>案件名・顧客名・アイテム名で検索</strong>できます。右に「3件 / 全20件」と出ます</td></tr>
+  </table>
+
+  <h2 class="c">④ スケジュール画面の言葉を、実態に合わせて直しました</h2>
+  <table>
+    <tr><th style="width:34%">今までの表示</th><th style="width:30%">新しい表示</th><th>理由</th></tr>
+    <tr><td class="old">🤖 今週を自動割り当て</td><td class="new"><strong>🤖 今週の割り当てを提案</strong></td><td>作られるのは<strong>提案</strong>で、確定ではないため</td></tr>
+    <tr><td class="old">⚠️ 計画不足</td><td class="new"><strong>🕗 空きあり</strong></td><td>本当の意味は「まだ空き時間が残っている」。黄色い警告色もやめました</td></tr>
+    <tr><td class="old">🔥 過負荷</td><td class="new"><strong>🔥 入りきらない</strong></td><td>同じ意味を分かりやすい言葉に</td></tr>
+  </table>
+  <p class="small">※ 凡例に「破線わく＝提案中／ふちなし＝確定した予定」と、予定から外す方法も常に出るようにしました。</p>
+</div>
+
+<!-- ============ 2ページ目: 三浦さん向け ============ -->
+<div class="page">
+  <div class="head">
+    <h1>🏭 準備項目は「いつ・誰が」入れるのか<span class="who who-mi">三浦さん向け</span></h1>
+    <div class="meta">三浦さん・山本さん用／2026-08-09 版<br>有限会社HiYOSHi　HiBoard</div>
+  </div>
+
+  <p class="lead">
+    案件の入り方によって、<strong>準備項目を入れるタイミングと人が変わります</strong>。ここが分かりにくくなっていたので、画面に出るようにしました。
+  </p>
+
+  <h2 class="m">まず結論 — 2つのパターンだけです</h2>
+  <table>
+    <tr><th style="width:30%">案件の入り方</th><th style="width:30%">登録するとき</th><th>準備項目を入れる人・タイミング</th></tr>
+    <tr>
+      <td class="k">三浦さんが<br>生産案件として登録<br><span class="small">（🏭 通常の加工案件）</span></td>
+      <td>登録画面に準備項目の欄が<strong>出ます</strong></td>
+      <td class="new"><strong>三浦さんが、その場で入れます</strong><br><span class="small">（今までどおりです）</span></td>
+    </tr>
+    <tr>
+      <td class="k">山本さんが<br>デザイン案件として振り分け<br><span class="small">（🎨 デザインから入る）</span></td>
+      <td>準備項目の欄は<strong>出ません</strong><br><span class="small">入れずに鈴木さんへ渡します</span></td>
+      <td class="new">鈴木さん・山本さんで<strong>デザインが固まって<br>「④ 入稿・製造」に進んでから、三浦さんが</strong>入れます</td>
+    </tr>
+  </table>
+  <p class="small">下のパターンは<strong>「デザインが固まるまで、何の製版が要るか決まらない」</strong>ためです。決まっていない段階で入れる必要はありません。</p>
+
+  <h2 class="m">その合図が、週間スケジュールボードに出るようになりました</h2>
+  <p>
+    三浦さんが毎日見ている<strong>週間スケジュールボード</strong>の、
+    <strong>従業員の表と「🗂️ 準備項目リスト」のあいだ</strong>に、下の帯が出ます。
+  </p>
+  <div class="mock">
+    <div class="mock-cap">週間スケジュールボード ＞ 従業員の表のすぐ下</div>
+    <div class="mock-body">
+      <div class="sel">
+        <div class="sel-t">🏭 製造の準備項目 選定待ち <span class="small" style="font-weight:400">担当: 三浦さん</span></div>
+        <div class="sel-n">デザインが固まって「入稿・製造」に進んだ案件です。製版・シート出力などの準備項目をここで選ぶと、週の予定に置けるようになります。</div>
+        <div class="sel-card">
+          <div><span class="nm">エスパルス　ビブス60枚</span> <span class="mt">納期 2026年7月1日 ・製造に入って5日</span></div>
+          <div><span class="btn">準備項目を選ぶ</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="key">
+    <strong>いま画面を見ても、この帯が出ていないことがあります。それで正常です。</strong><br>
+    この帯は<strong>「入稿・製造に進んだのに準備項目がまだ0件」の案件があるときだけ</strong>出ます。
+    該当する案件が1件も無いときは、帯ごと表示されません（画面を無駄に埋めないためです）。
+    <strong>選び終わった案件も、この帯から自動で消えます。</strong>
+  </div>
+
+  <h2 class="m">やることは4ステップです</h2>
+  <div class="steps">
+    <div class="step"><div class="no">1</div><div class="tx">週間スケジュールボードに<strong>🏭 の帯</strong>が出ているのに気づく</div></div>
+    <div class="step"><div class="no">2</div><div class="tx"><span class="btn">準備項目を選ぶ</span> を押す → <strong>デザイン進行ボードの、その案件のカードが直接開きます</strong>（案件を探す必要はありません）</div></div>
+    <div class="step"><div class="no">3</div><div class="tx">「製造の準備項目」の欄で、必要な項目（シルクスクリーン製版・DTFシート出力など）に<strong>チェック</strong>を入れて、<strong>「選んだ項目を登録する」</strong>を押す</div></div>
+    <div class="step"><div class="no">4</div><div class="tx">スケジュールに戻って、<strong>「🤖 今週の割り当てを提案」か、日付のマスへ置いて予定を決めます</strong></div></div>
+  </div>
+  <div class="note">
+    <strong>③で登録しただけでは、まだ「準備項目リスト」に並びません。</strong>登録した時点では<strong>日付が未定</strong>だからです。
+    ④で日付が決まると、いつもの「🗂️ 準備項目リスト」に並んでチェックを付けられます。
+  </div>
+
+  <h2 class="c">デザイン進行ボード側にも、同じ合図が出ます</h2>
+  <p>週間スケジュールを見ていなくても気づけるよう、3か所に同じことが出ます。</p>
+  <table>
+    <tr><th style="width:30%">出る場所</th><th>表示</th></tr>
+    <tr><td class="k">カードのバッジ</td><td><span class="bd bd-alert">⚠️ 準備項目 未選定（三浦さん）</span></td></tr>
+    <tr><td class="k">📌 今日やること</td><td><strong>三浦さん: 製造の準備項目を選ぶ</strong>（カードを開いて選択）</td></tr>
+    <tr><td class="k">Google Chat</td><td>📦【案件名】入稿・製造に進みました → <strong>三浦さん: 製造の準備項目（製版・シート出力など）の選定をお願いします</strong></td></tr>
+  </table>
+  <p class="small">※ 📄 紙媒体（入稿で完了）の案件は製造を通らないので、この選定は出ません。</p>
+</div>
+
+<!-- ============ 3ページ目: 山本さん向け ============ -->
+<div class="page">
+  <div class="head">
+    <h1>🗂 デザイン進行ボードの見え方<span class="who who-ya">山本さん向け</span></h1>
+    <div class="meta">三浦さん・山本さん用／2026-08-09 版<br>有限会社HiYOSHi　HiBoard</div>
+  </div>
+
+  <h2>① 案件が入っていない段階は、細く畳まれるようになりました</h2>
+  <p>
+    7つの段階がいつも同じ幅で並んでいたため、案件のある段階まで細くて読みにくい状態でした。
+    <strong>案件が0件の段階を細い縦書きにして、その幅を案件のある段階に回します。</strong>
+  </p>
+  <div class="mock">
+    <div class="mock-cap">デザイン進行ボード ＞ 案件パイプライン（「確認」に1件だけある例）</div>
+    <div class="mock-body">
+      <div class="pipe">
+        <div class="pcol"><span>ブリーフ・ラフ</span></div>
+        <div class="pcol"><span>制作</span></div>
+        <div class="pcol on">
+          <div class="ph">確認（1）<span class="small" style="font-weight:400"> 山本 / お客様</span></div>
+          <div class="pcard"><strong>SLEEPYY Tシャツ30枚</strong><br><span class="small">SLEEPYY ／ 納期 2026-06-30</span></div>
+        </div>
+        <div class="pcol"><span>入稿・製造</span></div>
+        <div class="pcol"><span>請求</span></div>
+        <div class="pcol"><span>検品</span></div>
+        <div class="pcol"><span>納品</span></div>
+      </div>
+    </div>
+  </div>
+  <ul>
+    <li><strong>段階が消えたわけではありません。</strong>7段階の並びはそのまま残ります</li>
+    <li><strong>カードをドラッグし始めると、畳まれていた段階も自動で開きます</strong>ので、
+      今までどおり好きな段階へ落とせます</li>
+    <li>ボードに案件が1件も無いときは、畳まずに今までどおり表示します</li>
+  </ul>
+
+  <h2>② iPadで見たとき、「📝 提案確認」が最初から開くようになりました</h2>
+  <p>
+    今までiPadで開くと、右の提案確認パネルが<strong>細いタブに畳まれた状態</strong>で始まり、
+    件数のバッジごと隠れていたため<strong>提案が来ていること自体に気づけませんでした</strong>。
+  </p>
+  <table>
+    <tr><th style="width:34%">状況</th><th>これから</th></tr>
+    <tr><td class="k">確認待ちの提案が<strong>1件以上</strong>ある</td><td class="new"><strong>最初から開いた状態</strong>で始まります</td></tr>
+    <tr><td class="k">提案が0件</td><td>今までどおり畳まれます（画面を広く使うため）</td></tr>
+    <tr><td class="k">自分で畳んだとき</td><td>開閉ボタンに<strong>件数が出ます</strong>（例：<span class="btn">▶3</span>）</td></tr>
+  </table>
+  <p class="small">※ あわせて、iPad幅ではメニューを次の行に折り返すようにしました。画面の上半分がメニューで埋まらなくなります。</p>
+
+  <h2 class="c">③ 振り分けのときに覚えておくこと</h2>
+  <div class="note">
+    デザイン案件を振り分けるとき、<strong>準備項目は入れずにそのまま鈴木さんへ渡してください。</strong>
+    登録画面でも準備項目の欄は出ません。<br>
+    製版などの選定は、<strong>デザインが固まって「④ 入稿・製造」に進んでから、三浦さんが</strong>行います
+    （詳しくは2ページ目）。山本さんが気にする必要はありません。
+  </div>
+
+  <h2 class="c">困ったとき</h2>
+  <table>
+    <tr><th style="width:42%">こんなとき</th><th>こうします</th></tr>
+    <tr><td class="k">🏭 の帯が出ていない</td><td>該当する案件が無いだけです。<strong>正常です</strong></td></tr>
+    <tr><td class="k">畳まれた段階にカードを入れたい</td><td>カードを<strong>つかんで動かし始めれば、全部の段階が開きます</strong></td></tr>
+    <tr><td class="k">案件が進行ボードに出てこない</td><td>案件の「編集」で<strong>案件の型</strong>を「🎨 デザインから入る加工案件」に変えてください</td></tr>
+    <tr><td class="k">前のボタンが見つからない</td><td>案件一覧の<strong>「⋯ その他」</strong>の中にまとまっています</td></tr>
+    <tr><td class="k">もっと詳しく知りたい</td><td>メニューの<strong>「📖 使い方」</strong>に全機能の説明があります（今回の内容も反映済み）</td></tr>
+  </table>
+
+  <p class="small" style="margin-top:3mm">
+    この資料の内容は HiBoard の「📖 使い方」にも反映されています。
+    分かりにくいところ・実際に使ってみて違和感のあるところは、久保田までお知らせください。
+  </p>
+</div>
+
+</body></html>
