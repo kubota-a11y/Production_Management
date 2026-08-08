@@ -67,6 +67,18 @@
             <div id="sb-mobile-days"></div>
           </div>
 
+          <!-- デザインが固まって生産ラインに乗ったのに、製造の準備項目がまだ選ばれていない案件。
+               選ぶのは三浦さん。0件のときは renderPrepSelectionWaiting() がセクションごと隠す -->
+          <section class="sb-prep-select-section" id="sb-prep-select-section" style="display:none;">
+            <h2 class="sb-section-title">🏭 製造の準備項目 選定待ち<span class="sb-section-owner">担当: 三浦さん</span></h2>
+            <p class="sb-section-note">
+              デザインが固まって「入稿・製造」に進んだ案件です。<strong>製版・シート出力などの準備項目をここで選ぶ</strong>と、
+              週の予定に置けるようになります（「🤖 今週の割り当てを提案」か、日付のマスから置いてください。
+              日付が決まると下の「準備項目リスト」に並びます）。
+            </p>
+            <div id="sb-prep-select-list"></div>
+          </section>
+
           <section class="sb-prep-list-section">
             <h2 class="sb-section-title">🗂️ 準備項目リスト</h2>
             <div id="sb-prep-list"></div>

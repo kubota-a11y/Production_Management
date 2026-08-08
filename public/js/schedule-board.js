@@ -20,6 +20,8 @@ const scheduleBoard = {
   // 予定日が未定のもの + 繰り越し分(過去日で未完了)の両方を候補にする
   assignablePrepItems: [],
   projectProgress: [],
+  // 製造の準備項目がまだ選ばれていない案件(三浦さんの選定待ち)
+  prepSelectionWaiting: [],
   proposals: [],
   highlightedCaseId: null,
   proposalFilters: { employeeId: '', minScore: '' },
@@ -74,6 +76,7 @@ const scheduleBoard = {
     await this.loadDefaultSchedules();
     await this.loadWeekAllocations();
     await this.loadWeekPreparationItems();
+    await this.loadPrepSelectionWaiting();
     await this.loadDesignerDayModes();
     await this.loadDesignerTodoPlans();
     await this.loadProjectProgress();
@@ -109,6 +112,7 @@ const scheduleBoard = {
     await this.loadDefaultSchedules();
     await this.loadWeekAllocations();
     await this.loadWeekPreparationItems();
+    await this.loadPrepSelectionWaiting();
     await this.loadDesignerDayModes();
     await this.loadDesignerTodoPlans();
     await this.loadProjectProgress();
@@ -258,6 +262,29 @@ const scheduleBoard = {
       HiUI.toast('準備項目タスクの取得に失敗しました');
       this.preparationItems = [];
       this.carriedPrepItems = [];
+    }
+  },
+
+  // デザインが確定して生産ライン(入稿・製造)に乗ったのに、製造の準備項目が
+  // まだ選ばれていない案件。
+  //
+  // 運用上ここが抜けやすい: デザイン案件は登録時に準備項目を選ばないため
+  // (山本さんは振り分けだけして鈴木さんへ渡す)、選定が要るのは製造のターンに
+  // 入ってからになる。ところがその合図はデザイン進行ボードにしか出ておらず、
+  // 選定する三浦さんが毎日見るのはこのスケジュールボードなので気づけなかった。
+  // そこで「選定待ち」だけをこちらへ持ってくる。
+  //
+  // 判定はデザイン進行ボード側の todoReason() が既に持っているので、
+  // ここでは /api/ops/board の today から PREP_SELECT を拾うだけにする
+  // (同じ条件を2か所に書かない)
+  async loadPrepSelectionWaiting() {
+    try {
+      const data = await (await fetch('/api/ops/board')).json();
+      this.prepSelectionWaiting = (data.today || []).filter(c => c.reason?.key === 'PREP_SELECT');
+    } catch (error) {
+      console.error('準備項目の選定待ち取得エラー:', error);
+      // ここが取れなくても週間ボード本体は使えるので、黙って空にする
+      this.prepSelectionWaiting = [];
     }
   },
 
@@ -492,6 +519,7 @@ const scheduleBoard = {
     this.renderBoard();
     this.renderMobileBoard();
     this.renderLegend();
+    this.renderPrepSelectionWaiting();
     this.renderPrepList();
     this.renderProgress();
     this.renderProposals();
@@ -803,6 +831,43 @@ const scheduleBoard = {
   PREP_LIST_HIDDEN_PROJECT_STATUSES: ['PREP_COMPLETE', 'INSPECTION', 'DELIVERED', 'COMPLETED'],
 
   // ===== 準備項目リスト(表示中の週・案件ごとにグループ化) =====
+  // デザインが固まって生産ラインに乗った案件のうち、製造の準備項目がまだ選ばれていないもの。
+  // 準備項目リストは「選ばれた項目」しか出せないので、その手前の
+  // 「まだ何も選ばれていない」状態はこの週間ボードのどこにも出ていなかった。
+  // 選ぶのは三浦さんで、三浦さんが毎日見るのはこの画面なのでここに出す。
+  // 0件のときはセクションごと隠す(平常時にノイズを増やさない)
+  renderPrepSelectionWaiting() {
+    const section = document.getElementById('sb-prep-select-section');
+    const container = document.getElementById('sb-prep-select-list');
+    if (!section || !container) return;
+
+    const waiting = this.prepSelectionWaiting || [];
+    if (waiting.length === 0) {
+      section.style.display = 'none';
+      container.innerHTML = '';
+      return;
+    }
+
+    section.style.display = '';
+    container.innerHTML = waiting.map(c => {
+      const days = c.days_in_stage;
+      const item = c.item_name ? `<span class="sb-select-item">${this.escapeHtml(c.item_name)}</span>` : '';
+      return `
+        <div class="sb-select-card">
+          <div class="sb-select-card-main">
+            <span class="sb-select-name">${this.escapeHtml(c.project_name)}</span>
+            ${item}
+            <span class="sb-select-meta">
+              納期 ${c.deadline ? formatDate(c.deadline) : '未設定'}
+              ${days !== null && days !== undefined ? `・製造に入って${days}日` : ''}
+            </span>
+          </div>
+          <a class="btn btn-primary btn-small" href="/ops?case=${c.id}">準備項目を選ぶ</a>
+        </div>
+      `;
+    }).join('');
+  },
+
   renderPrepList() {
     const container = document.getElementById('sb-prep-list');
 

@@ -47,6 +47,21 @@ const opsBoardApp = {
       console.error('準備項目マスター取得エラー:', err);
     }
     await this.load();
+    this.openCaseFromQuery();
+  },
+
+  // 他画面から /ops?case=12 で来たとき、その案件のカードを開いた状態にする。
+  // スケジュールボードの「準備項目を選ぶ」から、探させずに選定画面まで運ぶために使う
+  openCaseFromQuery() {
+    const id = Number(new URLSearchParams(window.location.search).get('case'));
+    if (!Number.isFinite(id) || id <= 0) return;
+    // 完了済みの案件を直接指された場合は、まず完了ぶんを出してから開く
+    const onBoard = (this.data?.cases || []).some(c => c.id === id);
+    if (!onBoard) {
+      HiUI.toast('この案件はボードに見つかりませんでした（すでに完了・除外された可能性があります）', 'warning');
+      return;
+    }
+    this.openCaseModal(id);
   },
 
   async load() {
@@ -291,7 +306,7 @@ const opsBoardApp = {
           ${c.rough_count ? `<span>ラフ${c.rough_count}件</span>` : ''}
           ${this.flowBadgeHtml(c)}
           ${c.design_revision_round ? `<span class="ops-badge ops-badge-revision">🔁 修正${c.design_revision_round}回目</span>` : ''}
-          ${this.needsPrepSelect(c) ? '<span class="ops-badge ops-badge-alert">⚠️ 準備項目 未選定</span>' : ''}
+          ${this.needsPrepSelect(c) ? '<span class="ops-badge ops-badge-alert" title="生産ラインに乗った案件です。製造の準備項目(製版・シート出力など)を三浦さんが選びます">⚠️ 準備項目 未選定（三浦さん）</span>' : ''}
         </div>
         ${this.paperDueHtml(c)}
         ${c.ops_stage === 'REVIEW' ? `<div class="ops-card-badge-row">${this.badgeHtml(c)}</div>` : ''}
