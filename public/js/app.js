@@ -325,10 +325,10 @@ const app = {
           <span class="action-list-note">この案件の加工に必要なスキルを持つ従業員を、空き状況から順に並べます</span>
         </button>
         <button type="button" class="action-list-item" onclick="app.runRowAction('design-ops')">
-          <span class="action-list-label">🗂 ${onBoard ? 'デザイン案件全般から外す' : 'デザイン案件全般に載せる'}</span>
+          <span class="action-list-label">🗂 ${onBoard ? 'デザイン進行ボードから外す' : 'デザイン進行ボードに載せる'}</span>
           <span class="action-list-note">${onBoard
-            ? '「デザイン案件全般」のボードからこの案件のカードを外します'
-            : '「デザイン案件全般」のボードに載せ、ブリーフ・ラフ→制作→…の流れで進行を管理します'}</span>
+            ? '「デザイン進行ボード」のボードからこの案件のカードを外します'
+            : '「デザイン進行ボード」のボードに載せ、ブリーフ・ラフ→制作→…の流れで進行を管理します'}</span>
         </button>
         <button type="button" class="action-list-item" onclick="app.runRowAction('deliver')">
           <span class="action-list-label">📦 納品済みにする</span>
@@ -366,12 +366,12 @@ const app = {
       const json = await res.json();
       if (!json.ok) throw new Error(json.error || '更新に失敗しました');
       HiUI.toast(include
-        ? `「${json.project_name}」をデザイン案件全般に載せました`
-        : `「${json.project_name}」をデザイン案件全般から外しました`);
+        ? `「${json.project_name}」をデザイン進行ボードに載せました`
+        : `「${json.project_name}」をデザイン進行ボードから外しました`);
       await this.loadProjects();
       this.renderListView();
     } catch (error) {
-      console.error('デザイン案件全般の切り替えエラー:', error);
+      console.error('デザイン進行ボードの切り替えエラー:', error);
       HiUI.toast('切り替えに失敗しました', 'error');
     }
   },
@@ -1171,7 +1171,7 @@ const app = {
 
     this.setCheckboxGroupValues(form, 'process_type', this.detectProcessType(itemsText));
 
-    // 振り分けで「🎨 デザイン」にした候補は、デザイン案件全般ボード(山本さん)へ載せる前提なので
+    // 振り分けで「🎨 デザイン」にした候補は、デザイン進行ボード(山本さん)へ載せる前提なので
     // is_design_ops を既定でONにする。振り分けの判断をここで入れ直さなくて済むようにするため
     if (form.elements['is_design_ops']) {
       form.elements['is_design_ops'].checked = intake.triage_type === 'design';
@@ -1239,7 +1239,7 @@ const app = {
       console.log(`✓ AI受注候補 #${this.editingAiIntakeId} を案件 #${result.id} として登録`);
 
       // 準備項目は案件作成後に別APIでタスク化する(新規案件モーダルと同じ手順)。
-      // デザイン案件全般の案件は、準備項目を1つも選んでいなくても呼ぶ
+      // デザイン進行ボードの案件は、準備項目を1つも選んでいなくても呼ぶ
       // (サーバー側で「初校提出」等をデザイン担当へ用意するため)
       const codeToId = new Map(this.prepItemsMaster.map(m => [m.code, m.id]));
       const prepItemIds = prepItemCodes.map(code => codeToId.get(code)).filter(Boolean);
@@ -1296,6 +1296,7 @@ const app = {
       const field = form.elements[name];
       if (field) field.required = !isInternalDesign;
     });
+    this.syncCaseShapeFromFields();
   },
 
   // ===== 進行タイプの切り替え =====
@@ -1305,12 +1306,13 @@ const app = {
     const group = document.getElementById('pf-paper-source-group');
     if (!form || !group || !form.elements['ops_flow']) return;
     group.style.display = form.elements['ops_flow'].value === 'SUBMIT_END' ? 'block' : 'none';
+    this.syncCaseShapeFromFields();
   },
 
-  // ===== 「デザイン案件全般」チェックの切り替え =====
-  // デザイン案件全般の登録時は版下データを作る工程なので、準備項目はここでは選ばせない。
+  // ===== 「デザイン進行ボード」チェックの切り替え =====
+  // デザイン進行ボードの登録時は版下データを作る工程なので、準備項目はここでは選ばせない。
   // 準備項目が要るのは製造(三浦さん管轄)に入ってからで、その選定は
-  // デザイン案件全般ボードのカード(入稿・製造の段階)から行う(2026-08-05 社長指示)
+  // デザイン進行ボードのカード(入稿・製造の段階)から行う(2026-08-05 社長指示)
   toggleDesignOpsPrepSection(checkbox, sectionId, hintId) {
     const section = document.getElementById(sectionId);
     const hint = document.getElementById(hintId);
@@ -1322,6 +1324,63 @@ const app = {
   onDesignOpsChange() {
     const form = document.getElementById('project-form');
     this.toggleDesignOpsPrepSection(form?.elements['is_design_ops'], 'pf-prep-section', 'pf-prep-deferred-hint');
+    this.syncCaseShapeFromFields();
+  },
+
+  // ===== 案件の型(カード選択) =====
+  // 登録画面の先頭にあった3つの切り替え(案件種別・デザイン進行ボード・進行タイプ)を、
+  // よくある4通りのカード1回選択にまとめたもの。カード自体は保存しない
+  // (サーバーは project_kind / is_design_ops / ops_flow しか見ない)。
+  // 4通りに当てはまらない組み合わせの案件を編集したときは、
+  // どのカードも選ばずに「詳細設定」を開いて、元の値をそのまま触れるようにする
+  CASE_SHAPES: {
+    PRODUCTION:        { project_kind: 'NORMAL',          is_design_ops: false, ops_flow: 'FULL' },
+    DESIGN_PRODUCTION: { project_kind: 'NORMAL',          is_design_ops: true,  ops_flow: 'FULL' },
+    PAPER:             { project_kind: 'NORMAL',          is_design_ops: true,  ops_flow: 'SUBMIT_END' },
+    INTERNAL:          { project_kind: 'INTERNAL_DESIGN', is_design_ops: false, ops_flow: 'FULL' },
+  },
+
+  /** カードを選んだとき: 対応する3つの値を入れ、既存の表示切り替えを走らせる */
+  onCaseShapeChange() {
+    const form = document.getElementById('project-form');
+    const shape = this.CASE_SHAPES[form?.elements['case_shape']?.value];
+    if (!form || !shape) return;
+
+    form.elements['project_kind'].value = shape.project_kind;
+    if (form.elements['is_design_ops']) form.elements['is_design_ops'].checked = shape.is_design_ops;
+    if (form.elements['ops_flow']) form.elements['ops_flow'].value = shape.ops_flow;
+
+    // 既存の切り替え処理をそのまま使う(必須の付け外し・準備項目・紙媒体の出どころ)。
+    // onDesignOpsChange から syncCaseShapeFromFields が呼ばれるが、
+    // 値はいま入れたばかりなので選択中のカードは変わらない
+    this.onProjectKindChange();
+    this.onDesignOpsChange();
+    this.onOpsFlowChange();
+  },
+
+  /** 3つの値から、選択中のカードを選び直す(編集時の復元と「詳細設定」での直接変更に使う) */
+  syncCaseShapeFromFields() {
+    const form = document.getElementById('project-form');
+    const cards = form?.elements['case_shape'];
+    if (!form || !cards) return;
+
+    const current = {
+      project_kind: form.elements['project_kind']?.value || 'NORMAL',
+      is_design_ops: !!form.elements['is_design_ops']?.checked,
+      ops_flow: form.elements['ops_flow']?.value || 'FULL',
+    };
+    const matched = Object.keys(this.CASE_SHAPES).find((key) => {
+      const shape = this.CASE_SHAPES[key];
+      return shape.project_kind === current.project_kind
+        && shape.is_design_ops === current.is_design_ops
+        && shape.ops_flow === current.ops_flow;
+    });
+
+    Array.from(cards).forEach((radio) => { radio.checked = radio.value === matched; });
+
+    // どの型にも当てはまらない案件は、触れる場所が「詳細設定」しかないので開いておく
+    const advanced = document.getElementById('pf-kind-advanced');
+    if (advanced && !matched) advanced.open = true;
   },
 
   onIntakeDesignOpsChange() {
@@ -1338,6 +1397,10 @@ const app = {
     const deleteBtn = document.getElementById('btn-delete');
 
     form.reset();
+    // 「詳細設定」は毎回畳んだ状態から始める(前に開いた案件の状態を引きずらない)。
+    // 型に当てはまらない案件を開いたときは syncCaseShapeFromFields が開き直す
+    const kindAdvanced = document.getElementById('pf-kind-advanced');
+    if (kindAdvanced) kindAdvanced.open = false;
     this.onOpsFlowChange();      // 前回の表示状態が残らないようリセット直後にも当てる
     this.onDesignOpsChange();    // 準備項目セクションの表示も同様にリセットする
 
@@ -1359,7 +1422,7 @@ const app = {
         this.setCheckboxGroupValues(form, 'prep_items', project.prep_items);
         this.setCheckboxGroupValues(form, 'required_skill_tags', project.required_skill_tags);
         form.elements['project_kind'].value = project.project_kind || 'NORMAL';
-        // 「デザイン案件全般」チェックの復元(このフラグが1の案件だけが専用ボードに載る)
+        // 「デザイン進行ボード」チェックの復元(このフラグが1の案件だけが専用ボードに載る)
         if (form.elements['is_design_ops']) {
           form.elements['is_design_ops'].checked = !!project.is_design_ops;
         }
@@ -1931,7 +1994,7 @@ const app = {
       }
 
       // 選択された準備項目をタスクとして登録(既に登録済みのものはサーバー側でスキップされる)。
-      // デザイン案件全般の案件は、準備項目を1つも選んでいなくても呼ぶ。
+      // デザイン進行ボードの案件は、準備項目を1つも選んでいなくても呼ぶ。
       // サーバー側が「初校提出」等をデザイン担当へ用意するので、
       // 準備項目も担当者も未選択のまま登録しても鈴木さんのボードに必ずタスクが出る
       const codeToId = new Map(this.prepItemsMaster.map(m => [m.code, m.id]));
@@ -1948,7 +2011,7 @@ const app = {
       if (this.currentTab === 'kanban') this.renderKanbanView();
 
       // 他画面の「新規案件」ボタンから来た場合は、登録後にその画面へ戻す
-      // (デザイン案件全般ボードから登録したら、そのままボードへ戻る)
+      // (デザイン進行ボードから登録したら、そのままボードへ戻る)
       if (this.returnAfterSave) {
         const url = this.returnAfterSave;
         this.returnAfterSave = null;
@@ -2126,7 +2189,7 @@ const app = {
       this.openStaffModal();
     }
 
-    // デザイン案件全般ボードの「➕ 新規案件」「✎ 案件を編集」からは
+    // デザイン進行ボードの「➕ 新規案件」「✎ 案件を編集」からは
     // /?open=new-project&design_ops=1&return=/ops または /?open=edit-project&id=N&return=/ops で来る。
     // 案件フォームは1つしかないので複製せず、この画面のモーダルを開いて使ってもらう
     const open = params.get('open');

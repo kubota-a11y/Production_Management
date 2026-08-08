@@ -180,6 +180,49 @@
   margin-bottom: var(--space-3);
 }
 
+/* ===== 空の段階は細く畳む =====
+   7段階すべてを同じ幅で並べると、案件のある段階まで細くなって
+   カードが読みにくい。案件が0件の段階は縦書きの見出しだけにして、
+   空いた幅を案件のある段階へ回す。段階自体は消さないので流れは見えたまま */
+.ops-column.is-empty {
+  flex: 0 0 40px;
+  padding: var(--space-3) var(--space-1);
+  min-height: 0;
+  background: var(--surface-sunken);
+}
+
+.ops-column.is-empty .ops-column-head {
+  writing-mode: vertical-rl;
+  margin: 0 auto;
+  color: var(--text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* 畳んでいる間は件数(0)・担当・「なし」を出さない(細い列で読めないため) */
+.ops-column.is-empty .ops-column-count,
+.ops-column.is-empty .ops-column-owner,
+.ops-column.is-empty .ops-column-body {
+  display: none;
+}
+
+/* ドラッグ中は空の段階も開く。畳んだままだと落とし先として狙いにくい */
+.ops-pipeline.is-dragging .ops-column.is-empty {
+  flex: 1 1 150px;
+  padding: var(--space-3);
+  background: var(--surface-muted);
+}
+
+.ops-pipeline.is-dragging .ops-column.is-empty .ops-column-head {
+  writing-mode: horizontal-tb;
+  margin: 0 0 var(--space-1);
+}
+
+.ops-pipeline.is-dragging .ops-column.is-empty .ops-column-owner,
+.ops-pipeline.is-dragging .ops-column.is-empty .ops-column-body {
+  display: block;
+}
+
 .ops-card {
   width: 100%;
   text-align: left;

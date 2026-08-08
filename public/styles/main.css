@@ -928,6 +928,111 @@ legend {
   margin-top: var(--space-1);
 }
 
+/* ===== 案件の型カード(案件登録の先頭) =====
+   3つの切り替えを別々に考えさせず、よくある4通りから1回選ばせるためのカード。
+   ラジオボタン本体は残したまま(キーボード操作と検証をブラウザに任せる)、
+   カード全体を押せる見た目にしている */
+.kind-card-group {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.kind-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.kind-card:hover {
+  background: var(--surface-muted);
+  border-color: var(--primary-color);
+}
+
+/* 選択中は枠を太くせず内側の影で示す(太らせるとカードの高さがずれる) */
+.kind-card:has(input:checked) {
+  background: var(--primary-soft);
+  border-color: var(--primary-color);
+  box-shadow: inset 0 0 0 1px var(--primary-color);
+}
+
+.kind-card:has(input:focus-visible) {
+  box-shadow: var(--focus-ring);
+}
+
+.kind-card input[type="radio"] {
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  flex-shrink: 0;
+  margin-top: 2px;
+  accent-color: var(--primary-dark);
+}
+
+.kind-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.kind-card-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.kind-card-desc {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* 「詳細設定」: ふつうは開かない補助セクション */
+.form-subsection {
+  margin-top: var(--space-3);
+  border-top: 1px solid var(--border-color);
+  padding-top: var(--space-2);
+}
+
+.form-subsection > summary {
+  cursor: pointer;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  list-style: none;
+}
+
+.form-subsection > summary::before {
+  content: '▸ ';
+}
+
+.form-subsection[open] > summary::before {
+  content: '▾ ';
+}
+
+.form-subsection > summary::-webkit-details-marker {
+  display: none;
+}
+
+.form-subsection-body {
+  padding-top: var(--space-2);
+}
+
+@media (max-width: 767px) {
+  .kind-card-group {
+    grid-template-columns: 1fr;
+  }
+}
+
 .checkbox-pill {
   display: inline-flex;
   align-items: center;
@@ -2518,6 +2623,18 @@ td.empty-notice {
    1024px(iPad Pro 12.9インチ縦)を超え、1080〜1194px程度になるため
    ======================================== */
 @media (min-width: 768px) and (max-width: 1180px) {
+  /* タイトルとナビを横並びにするとタイトル側が潰れる幅(iPad等)。
+     ナビ(.app-header 直下の .header-content の兄弟)を次の行に落として、
+     タイトルを1行で読めるようにする */
+  .app-header {
+    flex-wrap: wrap;
+  }
+
+  .app-header > .header-buttons {
+    flex-basis: 100%;
+    justify-content: flex-start;
+  }
+
   /* #projects-table(案件一覧)のIDセレクタに限定する。schedule-board.htmlの
      ボード用テーブルも共通クラス.projects-tableを持っているため、クラス
      セレクタのままだとそちらの列(月曜・日曜)まで意図せず非表示になってしまう */

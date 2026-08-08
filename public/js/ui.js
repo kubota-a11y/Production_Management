@@ -17,8 +17,8 @@ const HiUI = {
   // designer-board は担当者名が分かり次第ラベルを差し替える(下の applyDesignerNavLabel)
   navDaily: [
     { key: 'schedule', href: '/schedule', label: '🗓️ スケジュール' },
-    { key: 'designer-board', href: '/designer', label: '🎨 デザインの予定' },
-    { key: 'ops', href: '/ops', label: '🗂 デザイン案件全般' },
+    { key: 'designer-board', href: '/designer', label: '🎨 デザインの作業予定' },
+    { key: 'ops', href: '/ops', label: '🗂 デザイン進行ボード' },
     { key: 'delivery-history', href: '/delivery-history', label: '📦 納品履歴' },
     { key: 'customers', href: '/customers', label: '📇 顧客台帳' },
     { key: 'manual', href: '/manual', label: '📖 使い方' },
@@ -85,17 +85,17 @@ const HiUI = {
     return `<a${cls} href="${item.href}"${attrs}>${item.label}</a>`;
   },
 
-  // デザイナーのボードへのリンクに担当者名を入れる(「🎨 鈴木さんの予定」)。
+  // デザイナーのボードへのリンクに担当者名を入れる(「🎨 鈴木さんの作業予定」)。
   // 誰が担当かは designer_links 次第なので固定文字にはしない。
-  // 取得できるまで/失敗時は既定ラベル(🎨 デザインの予定)のままにして、ボタン自体は必ず出す。
+  // 取得できるまで/失敗時は既定ラベル(🎨 デザインの作業予定)のままにして、ボタン自体は必ず出す。
   // 同じセッション中は sessionStorage のキャッシュを使い、ページ移動ごとの取得と
   // ラベルの後追い変化を避ける
   DESIGNER_NAME_KEY: 'hiboard.designerName',
-  DESIGNER_DEFAULT_LABEL: '🎨 デザインの予定',
+  DESIGNER_DEFAULT_LABEL: '🎨 デザインの作業予定',
 
   applyDesignerNavLabel(name) {
     document.querySelectorAll('.nav-link[href="/designer"]').forEach((el) => {
-      el.textContent = name ? `🎨 ${name}さんの予定` : this.DESIGNER_DEFAULT_LABEL;
+      el.textContent = name ? `🎨 ${name}さんの作業予定` : this.DESIGNER_DEFAULT_LABEL;
     });
   },
 

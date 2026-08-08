@@ -115,11 +115,13 @@ const scheduleBoard = {
     await this.loadProposals();
     this.render();
     // タブレット幅では、提案確認パネルがボードの表示スペースを圧迫しないよう
-    // 初期状態で折りたたんでおく(必要な時だけ開閉ボタンで開く)
-    if (this.isTabletWidth()) {
+    // 初期状態で折りたたんでおく(必要な時だけ開閉ボタンで開く)。
+    // ただし確認待ちの提案が1件でもあるときは開いたまま始める —
+    // 畳んだ状態だと件数バッジごと隠れてしまい、提案が来ていること自体に
+    // 気づけないため(iPadで使う人が見落とす)
+    if (this.isTabletWidth() && this.proposals.length === 0) {
       document.querySelector('.sb-proposals-sidebar')?.classList.add('is-tablet-collapsed');
-      const btn = document.getElementById('sb-tablet-collapse-btn');
-      if (btn) btn.textContent = '▶';
+      this.syncTabletCollapseBtn();
     }
     window.addEventListener('resize', () => this.resetTabletProposalsOnResize());
     // 準備項目の完了状態は、日別詳細モーダルと準備項目リストの両方から更新されうる。
@@ -716,8 +718,26 @@ const scheduleBoard = {
     sidebar.style.display = 'none';
     void sidebar.offsetHeight;
     sidebar.style.display = originalDisplay;
+    this.syncTabletCollapseBtn();
+  },
+
+  /**
+   * 提案確認パネルの開閉ボタンの表示を、いまの状態に合わせる。
+   * 畳んでいるときは件数も出す(パネルの中の件数バッジが display:none で消えるため、
+   * これが無いと「提案が来ていること」に気づく手がかりが画面から完全に消える)
+   */
+  syncTabletCollapseBtn() {
     const btn = document.getElementById('sb-tablet-collapse-btn');
-    if (btn) btn.textContent = collapsed ? '▶' : '◀';
+    if (!btn) return;
+    const collapsed = document.querySelector('.sb-proposals-sidebar')?.classList.contains('is-tablet-collapsed');
+    if (!collapsed) {
+      btn.textContent = '◀';
+      btn.title = '提案確認パネルを畳む';
+      return;
+    }
+    const count = this.proposals.length;
+    btn.textContent = count > 0 ? `▶${count}` : '▶';
+    btn.title = count > 0 ? `確認待ちの提案が${count}件あります（押すと開きます）` : '提案確認パネルを開く';
   },
 
   isTabletWidth() {
@@ -738,8 +758,7 @@ const scheduleBoard = {
       sidebar.style.display = 'none';
       void sidebar.offsetHeight;
       sidebar.style.display = originalDisplay;
-      const btn = document.getElementById('sb-tablet-collapse-btn');
-      if (btn) btn.textContent = '◀';
+      this.syncTabletCollapseBtn();
     }
   },
 
@@ -937,6 +956,8 @@ const scheduleBoard = {
     badge.textContent = `（${this.proposals.length}件）`;
     const mobileBadge = document.getElementById('sb-mobile-proposals-badge');
     if (mobileBadge) mobileBadge.textContent = this.proposals.length > 0 ? `（${this.proposals.length}）` : '';
+    // 畳んでいる間は上のバッジごと隠れるので、開閉ボタン側の件数も出し直す
+    this.syncTabletCollapseBtn();
 
     // 担当者フィルタのプルダウンは、現在の提案一覧に登場する担当者だけを選択肢にする
     const employeeSelect = document.getElementById('sb-proposals-filter-employee');

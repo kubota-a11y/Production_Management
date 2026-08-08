@@ -1701,7 +1701,7 @@ app.post('/api/projects/:id/deliver', (req, res) => {
       `).run(req.params.id, delivered_date, delivery_method, delivered_by_staff_id || null, delivered_by_employee_id || null, now);
       db.prepare(`UPDATE projects SET status='COMPLETED', updated_at=? WHERE id=?`).run(now, req.params.id);
     })();
-    // 納品処理をしたらデザイン案件全般ボードの段階を「納品」へ進める。
+    // 納品処理をしたらデザイン進行ボードの段階を「納品」へ進める。
     // 完了(DONE)にはしない — 納品欄のチェックボックスで山本さんが締める運用のため
     markDeliveredStage(db, parseInt(req.params.id, 10));
     res.json({ message: 'Project marked as delivered' });
@@ -2202,9 +2202,9 @@ app.get('/api/triage-members', (req, res) => {
   }
 });
 
-// 振り分け: 受注候補の行き先(生産 / デザイン案件全般 / 要相談)を記録する。
+// 振り分け: 受注候補の行き先(生産 / デザイン進行ボード / 要相談)を記録する。
 // 案件登録の前段で三浦・山本が「握った」ことを表す操作なので、status は pending のまま変えない。
-// design で振り分けた候補は、確認モーダルで is_design_ops が既定ONになる(→ デザイン案件全般ボードへ載る)。
+// design で振り分けた候補は、確認モーダルで is_design_ops が既定ONになる(→ デザイン進行ボードへ載る)。
 const TRIAGE_TYPES = new Set(['production', 'design', 'consult']);
 
 app.post('/api/ai-intake/:id/triage', (req, res) => {
@@ -2582,7 +2582,7 @@ function getDefaultDesignerEmployeeId() {
 // いずれも予定日は空のまま = 本人のマイスケジュールボード「日付が未定のタスク」に入り、
 // 日付の入れ込みは本人がD&Dで行う
 // 準備項目を登録し、デザイン案件ならデザイン担当へ割り当てる本体。
-// 「デザイン案件全般として管理する」案件と社内デザイン案件は、
+// 「デザイン進行ボードで管理する」案件と社内デザイン案件は、
 // 準備項目を1つも選ばなくても・担当者を決めていなくても、
 // 鈴木さんのマイスケジュールボードに必ずタスクが出るようにする(2026-08-03 社長指示)。
 function registerPreparationItems(caseId, preparationItemIds = []) {
@@ -2634,7 +2634,7 @@ function registerPreparationItems(caseId, preparationItemIds = []) {
   let assignedToDesigner = 0;
   targetItemIds.forEach(itemId => {
     if (existingIds.has(itemId)) return;
-    // デザイン案件全般・社内デザイン案件は全項目をデザイン担当へ。
+    // デザイン進行ボード・社内デザイン案件は全項目をデザイン担当へ。
     // 通常案件はデザイン担当専用項目だけを渡す(従来どおり)
     const toDesigner = designerEmployeeId
       && (isDesignOps || isInternalDesign || designerItemIds.has(itemId));
@@ -2644,7 +2644,7 @@ function registerPreparationItems(caseId, preparationItemIds = []) {
   });
 
   // 既に登録済みの項目も、デザイン案件なら担当が空のものをデザイン担当へ寄せる
-  // (あとから「デザイン案件全般」に切り替えた案件を拾うため)
+  // (あとから「デザイン進行ボード」に切り替えた案件を拾うため)
   if (designerEmployeeId && (isDesignOps || isInternalDesign)) {
     const moved = db.prepare(`
       UPDATE case_preparation_items SET assigned_staff_id = ?

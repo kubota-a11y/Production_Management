@@ -409,7 +409,7 @@ const API = {
     return response.json();
   },
 
-  // 振り分け(生産 / デザイン案件全般 / 要相談)。type に null を渡すと未振り分けへ戻す
+  // 振り分け(生産 / デザイン進行ボード / 要相談)。type に null を渡すと未振り分けへ戻す
   async triageAiIntake(id, type, by) {
     const response = await fetch(`/api/ai-intake/${id}/triage`, {
       method: 'POST',

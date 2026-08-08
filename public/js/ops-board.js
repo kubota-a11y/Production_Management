@@ -1,4 +1,4 @@
-// デザイン案件全般ボード(/ops)。案件が「いま誰待ちで止まっているか」を7段階で管理する。
+// デザイン進行ボード(/ops)。案件が「いま誰待ちで止まっているか」を7段階で管理する。
 // 段階の定義とサーバー側の自動遷移は lib/ops-board.js を参照。
 // 段階の移動はカードのドラッグ&ドロップ、またはカードを開いてボタンで行う。
 
@@ -97,14 +97,26 @@ const opsBoardApp = {
     const container = document.getElementById('ops-pipeline');
     container.classList.toggle('with-done', includeDone);
 
-    container.innerHTML = stages.map(stage => {
-      const cards = this.data.cases.filter(c => c.ops_stage === stage.key);
+    // 案件が1件も無い段階は細く畳み、その幅を案件のある段階に回す。
+    // 段階を消すのではなく縦書きラベルで残すので、流れ(7段階)は見えたまま。
+    // 畳んだ列にもカードは落とせる(ドラッグ中はCSSで開く。下の is-dragging)。
+    // ただしボードに案件が1件も無いときは畳まない —
+    // 全部が細い帯になるだけで見た目が壊れ、幅を回す相手もいないため
+    const cardsByStage = stages.map(stage => this.data.cases.filter(c => c.ops_stage === stage.key));
+    const collapseEmpty = cardsByStage.some(cards => cards.length > 0);
+
+    container.innerHTML = stages.map((stage, i) => {
+      const cards = cardsByStage[i];
+      const isEmpty = collapseEmpty && cards.length === 0;
       const body = cards.length
         ? cards.map(c => this.cardHtml(c)).join('')
         : '<p class="empty-notice">なし</p>';
       return `
-        <div class="ops-column" data-stage="${stage.key}">
-          <div class="ops-column-head">${this.esc(stage.label)}（${cards.length}）</div>
+        <div class="ops-column${isEmpty ? ' is-empty' : ''}" data-stage="${stage.key}"
+          ${isEmpty ? `title="${this.esc(stage.label)}（0件）"` : ''}>
+          <div class="ops-column-head">
+            <span class="ops-column-name">${this.esc(stage.label)}</span><span class="ops-column-count">（${cards.length}）</span>
+          </div>
           <div class="ops-column-owner">${this.esc(this.STAGE_OWNER[stage.key] || '')}</div>
           <div class="ops-column-body">${body}</div>
         </div>
@@ -129,6 +141,8 @@ const opsBoardApp = {
       card.addEventListener('dragstart', (e) => {
         this.draggingCaseId = caseId;
         card.classList.add('is-dragging');
+        // ドラッグ中だけ、畳んである空の段階を開く(細いままだと落としにくい)
+        container.classList.add('is-dragging');
         e.dataTransfer.effectAllowed = 'move';
         // Firefox はデータをセットしないとドラッグが始まらない
         e.dataTransfer.setData('text/plain', String(caseId));
@@ -136,6 +150,7 @@ const opsBoardApp = {
       card.addEventListener('dragend', () => {
         this.draggingCaseId = null;
         card.classList.remove('is-dragging');
+        container.classList.remove('is-dragging');
         container.querySelectorAll('.ops-column').forEach(col => col.classList.remove('is-drop-target'));
       });
     });
@@ -160,7 +175,7 @@ const opsBoardApp = {
   async removeFromBoard(caseId) {
     const c = this.data.cases.find(x => x.id === caseId);
     const name = c ? c.project_name : 'この案件';
-    if (!confirm(`「${name}」をこのボードから外します。\n\n案件そのものは消えません（一覧ビューには残ります）。\n戻したいときは案件の「編集」で「デザイン案件全般として管理する」にチェックを入れてください。`)) return;
+    if (!confirm(`「${name}」をこのボードから外します。\n\n案件そのものは消えません（一覧ビューには残ります）。\n戻したいときは案件の「編集」で「デザイン進行ボードで管理する」にチェックを入れてください。`)) return;
 
     try {
       const res = await fetch(`/api/ops/cases/${caseId}/membership`, {
@@ -239,7 +254,7 @@ const opsBoardApp = {
   },
 
   // 製造(三浦さん管轄)の準備項目がまだ選ばれていない「入稿・製造」以降の案件か。
-  // デザイン案件全般は登録時に準備項目を選ばない運用のため、ここで選定を促す
+  // デザイン進行ボードは登録時に準備項目を選ばない運用のため、ここで選定を促す
   // (紙媒体は鈴木さんが入稿して終わるので対象外)
   needsPrepSelect(c) {
     return c.ops_stage === 'PRODUCTION' && !this.isSubmitEnd(c) && !c.mfg_prep_count;
@@ -446,7 +461,7 @@ const opsBoardApp = {
   },
 
   // ===== 製造の準備項目の選定 =====
-  // デザイン案件全般は登録時に準備項目を選ばないため、製造のターンに入ってからここで選ぶ。
+  // デザイン進行ボードは登録時に準備項目を選ばないため、製造のターンに入ってからここで選ぶ。
   // 既に登録済みの項目は一覧表示し、未登録の製造系項目だけをチェックボックスに出す
   async loadPrepSelection(caseId) {
     const registeredBox = document.getElementById('ops-prep-registered');

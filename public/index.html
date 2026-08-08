@@ -159,7 +159,7 @@
           <h2>📥 受注候補の振り分け</h2>
           <p class="import-help">
             LINE・Web注文フォーム・チーム追加注文・取引先加工依頼で届いた注文が、すべてここに集まります。<br>
-            内容を見て <strong>🏭 生産</strong> / <strong>🎨 デザイン案件全般</strong> / <strong>🤝 要相談</strong> の行き先を決めてから、案件として登録してください。
+            内容を見て <strong>🏭 生産</strong> / <strong>🎨 デザイン進行ボード</strong> / <strong>🤝 要相談</strong> の行き先を決めてから、案件として登録してください。
           </p>
 
           <div class="triage-toolbar">
@@ -276,24 +276,68 @@
       </div>
 
       <form id="project-form" class="project-form">
+        <!-- 案件の型: よくある4通りをカードで1回選ぶ。
+             中身は project_kind / is_design_ops / ops_flow の3つの値だが、
+             登録する人にその3つを別々に考えさせないため、ここでまとめて決める。
+             珍しい組み合わせは下の「詳細設定」で直接いじれる(双方向に同期する) -->
         <fieldset class="form-group">
-          <legend>案件種別 <span class="req-mark" aria-hidden="true">*</span></legend>
-          <div class="checkbox-group">
-            <label class="checkbox-pill"><input type="radio" name="project_kind" value="NORMAL" checked onchange="app.onProjectKindChange()"> 通常案件</label>
-            <label class="checkbox-pill"><input type="radio" name="project_kind" value="INTERNAL_DESIGN" onchange="app.onProjectKindChange()"> 社内デザイン</label>
+          <legend>案件の型 <span class="req-mark" aria-hidden="true">*</span></legend>
+          <div class="kind-card-group" id="pf-kind-cards">
+            <label class="kind-card">
+              <input type="radio" name="case_shape" value="PRODUCTION" checked onchange="app.onCaseShapeChange()">
+              <span class="kind-card-body">
+                <span class="kind-card-title">🏭 通常の加工案件</span>
+                <span class="kind-card-desc">プリント・刺繍の加工だけの案件。デザインの進行管理はしません</span>
+              </span>
+            </label>
+            <label class="kind-card">
+              <input type="radio" name="case_shape" value="DESIGN_PRODUCTION" onchange="app.onCaseShapeChange()">
+              <span class="kind-card-body">
+                <span class="kind-card-title">🎨 デザインから入る加工案件</span>
+                <span class="kind-card-desc">ラフ作成→お客様の確認を経て加工する案件。デザイン進行ボードで管理します</span>
+              </span>
+            </label>
+            <label class="kind-card">
+              <input type="radio" name="case_shape" value="PAPER" onchange="app.onCaseShapeChange()">
+              <span class="kind-card-body">
+                <span class="kind-card-title">📄 紙媒体（入稿で完了）</span>
+                <span class="kind-card-desc">ポスター・チラシなど。入稿→請求で終わり、検品・納品は通りません</span>
+              </span>
+            </label>
+            <label class="kind-card">
+              <input type="radio" name="case_shape" value="INTERNAL" onchange="app.onCaseShapeChange()">
+              <span class="kind-card-body">
+                <span class="kind-card-title">🖌 社内デザイン</span>
+                <span class="kind-card-desc">KRATVS・販促物など社内向け。顧客名や数量なしで登録できます</span>
+              </span>
+            </label>
           </div>
           <div class="field-hint" id="internal-design-hint" style="display:none;">社内デザイン案件（KRATVS・販促物など）は最小限の入力で登録でき、選択した準備項目はデザイン担当者のマイスケジュールボードへ自動で入ります</div>
 
-          <div class="checkbox-group" style="margin-top:8px;">
-            <label class="checkbox-pill"><input type="checkbox" name="is_design_ops" value="1" onchange="app.onDesignOpsChange()"> 🗂 デザイン案件全般として管理する</label>
-          </div>
-          <div class="field-hint">チェックすると「🗂 デザイン案件全般」の画面に載り、ブリーフ・ラフ→制作→確認→入稿→請求の流れで進行を管理します（担当: 山本さん）</div>
+          <!-- 上のカードが設定する中身。ふつうは開かない。
+               required は付けないこと(閉じた details の中の required は
+               ブラウザ検証がフォーカスできず、送信が無言で止まる) -->
+          <details class="form-subsection" id="pf-kind-advanced">
+            <summary>詳細設定（ふつうは触りません）</summary>
+            <div class="form-subsection-body">
+              <div class="form-label">案件種別</div>
+              <div class="checkbox-group">
+                <label class="checkbox-pill"><input type="radio" name="project_kind" value="NORMAL" checked onchange="app.onProjectKindChange()"> 通常案件</label>
+                <label class="checkbox-pill"><input type="radio" name="project_kind" value="INTERNAL_DESIGN" onchange="app.onProjectKindChange()"> 社内デザイン</label>
+              </div>
 
-          <div class="checkbox-group" style="margin-top:8px;">
-            <label class="checkbox-pill"><input type="radio" name="ops_flow" value="FULL" checked onchange="app.onOpsFlowChange()"> 加工まで（標準）</label>
-            <label class="checkbox-pill"><input type="radio" name="ops_flow" value="SUBMIT_END" onchange="app.onOpsFlowChange()"> 📄 紙媒体・入稿で完了</label>
-          </div>
-          <div class="field-hint">「紙媒体・入稿で完了」は、お客様の最終OK後に鈴木さんが入稿したら請求→完了で終わる案件（ポスター等）。制作から始まり、検品・納品は通りません</div>
+              <div class="checkbox-group" style="margin-top:8px;">
+                <label class="checkbox-pill"><input type="checkbox" name="is_design_ops" value="1" onchange="app.onDesignOpsChange()"> 🗂 デザイン進行ボードで管理する</label>
+              </div>
+              <div class="field-hint">チェックすると「🗂 デザイン進行ボード」の画面に載り、ブリーフ・ラフ→制作→確認→入稿→請求の流れで進行を管理します（担当: 山本さん）</div>
+
+              <div class="checkbox-group" style="margin-top:8px;">
+                <label class="checkbox-pill"><input type="radio" name="ops_flow" value="FULL" checked onchange="app.onOpsFlowChange()"> 加工まで（標準）</label>
+                <label class="checkbox-pill"><input type="radio" name="ops_flow" value="SUBMIT_END" onchange="app.onOpsFlowChange()"> 📄 紙媒体・入稿で完了</label>
+              </div>
+              <div class="field-hint">「紙媒体・入稿で完了」は、お客様の最終OK後に鈴木さんが入稿したら請求→完了で終わる案件（ポスター等）。制作から始まり、検品・納品は通りません</div>
+            </div>
+          </details>
 
           <div id="pf-paper-source-group" style="display:none;">
             <div class="checkbox-group" style="margin-top:8px;">
@@ -334,7 +378,7 @@
             <div class="form-group">
               <label for="pf-item-name">アイテム名</label>
               <input type="text" id="pf-item-name" name="item_name" placeholder="例: ドライTシャツ / az50018 半袖ポロシャツ">
-              <div class="field-hint">何を作る案件かが一目で分かるように入れてください。デザイン案件全般のカードにも表示されます</div>
+              <div class="field-hint">何を作る案件かが一目で分かるように入れてください。デザイン進行ボードのカードにも表示されます</div>
             </div>
 
             <div class="form-row">
@@ -411,11 +455,11 @@
               <legend>作業の準備項目 <span class="field-hint">(複数選択可)</span></legend>
               <div class="checkbox-group" id="prep-items-checkbox-group"></div>
             </fieldset>
-            <!-- デザイン案件全般は登録時=版下データを作る工程なので、準備項目はここでは選ばない。
-                 製造(三浦さん管轄)に入るタイミングで、デザイン案件全般ボードのカードから選ぶ -->
+            <!-- デザイン進行ボードは登録時=版下データを作る工程なので、準備項目はここでは選ばない。
+                 製造(三浦さん管轄)に入るタイミングで、デザイン進行ボードのカードから選ぶ -->
             <div class="field-hint" id="pf-prep-deferred-hint" style="display:none;">
-              デザイン案件全般の案件は、登録時に準備項目を選ぶ必要はありません。
-              製造に入るタイミングで「🗂 デザイン案件全般」ボードのカードから選べます（初校提出などのデザイン作業は自動で登録されます）
+              デザイン進行ボードの案件は、登録時に準備項目を選ぶ必要はありません。
+              製造に入るタイミングで「🗂 デザイン進行ボード」ボードのカードから選べます（初校提出などのデザイン作業は自動で登録されます）
             </div>
 
             <div class="form-row normal-only">
@@ -684,16 +728,16 @@
               <div class="checkbox-group" id="ai-intake-prep-items-checkbox-group"></div>
             </fieldset>
             <div class="field-hint" id="ai-prep-deferred-hint" style="display:none;">
-              デザイン案件全般の案件は、登録時に準備項目を選ぶ必要はありません。
-              製造に入るタイミングで「🗂 デザイン案件全般」ボードのカードから選べます（初校提出などのデザイン作業は自動で登録されます）
+              デザイン進行ボードの案件は、登録時に準備項目を選ぶ必要はありません。
+              製造に入るタイミングで「🗂 デザイン進行ボード」ボードのカードから選べます（初校提出などのデザイン作業は自動で登録されます）
             </div>
 
             <fieldset class="form-group">
-              <legend>デザイン案件全般</legend>
+              <legend>デザイン進行ボード</legend>
               <div class="checkbox-group">
-                <label class="checkbox-pill"><input type="checkbox" name="is_design_ops" value="1" onchange="app.onIntakeDesignOpsChange()"> 🗂 デザイン案件全般として管理する</label>
+                <label class="checkbox-pill"><input type="checkbox" name="is_design_ops" value="1" onchange="app.onIntakeDesignOpsChange()"> 🗂 デザイン進行ボードで管理する</label>
               </div>
-              <div class="field-hint">チェックすると「🗂 デザイン案件全般」の画面に載り、進行を管理します（担当: 山本さん）</div>
+              <div class="field-hint">チェックすると「🗂 デザイン進行ボード」の画面に載り、進行を管理します（担当: 山本さん）</div>
               <div class="checkbox-group" style="margin-top:8px;">
                 <label class="checkbox-pill"><input type="radio" name="ops_flow" value="FULL" checked> 加工まで（標準）</label>
                 <label class="checkbox-pill"><input type="radio" name="ops_flow" value="SUBMIT_END"> 📄 紙媒体・入稿で完了</label>
