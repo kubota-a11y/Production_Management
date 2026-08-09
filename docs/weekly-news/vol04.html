@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>社内システムお知らせ Vol.4(A4印刷用)</title>
+<style>
+  /* A4印刷用。Chromeのヘッドレス印刷でPDF化する(生成手順はdocs/weekly-news/README.md参照) */
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #1c1917;
+    --text: #44403c;
+    --muted: #78716c;
+    --hairline: #e7e2dc;
+    --accent-bg: #f5f2ee;
+    --ask-bg: #f2f6f3;
+    --ask-line: #cfdfd4;
+    --ask-text: #3f6b50;
+    --serif: "Hiragino Mincho ProN", "Yu Mincho", serif;
+    --sans: "Hiragino Sans", "Noto Sans JP", sans-serif;
+  }
+
+  body {
+    font-family: var(--sans);
+    color: var(--text);
+    line-height: 1.65;
+    font-size: 9pt;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .page {
+    width: 210mm; height: 297mm;
+    padding: 14mm 18mm 13mm;
+    page-break-after: always;
+    position: relative;
+    background: #fff;
+  }
+  .page:last-child { page-break-after: auto; }
+
+  /* ===== ヘッダー ===== */
+  .hero { text-align: center; margin-bottom: 5.5mm; }
+  .overline {
+    font-size: 7pt; letter-spacing: .32em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 2mm;
+  }
+  h1 {
+    font-family: var(--serif); font-size: 19pt; font-weight: 600;
+    letter-spacing: .12em; color: var(--ink);
+  }
+  .hero.sub h1 { font-size: 15pt; }
+  .divider { width: 12mm; height: .35mm; background: var(--ink); margin: 3.2mm auto; }
+  .lead { color: var(--muted); font-size: 8.4pt; }
+
+  .intro {
+    background: var(--accent-bg);
+    border-radius: 1.5mm;
+    padding: 3.2mm 5mm;
+    margin-bottom: 5.5mm;
+    font-size: 8.8pt;
+  }
+  .intro strong { color: var(--ink); }
+
+  /* ===== セクション ===== */
+  .sec { margin-bottom: 4.8mm; }
+  .sec-head {
+    display: flex; align-items: baseline; gap: 3mm;
+    border-bottom: .3mm solid var(--ink);
+    padding-bottom: 1.2mm; margin-bottom: 2mm;
+  }
+  .sec-head h2 {
+    font-family: var(--serif); font-size: 11.5pt; font-weight: 600;
+    letter-spacing: .08em; color: var(--ink);
+  }
+  .sec-head .sub { margin-left: auto; font-size: 7.2pt; color: var(--muted); letter-spacing: .06em; }
+
+  ul.items { list-style: none; }
+  ul.items li {
+    position: relative;
+    padding-left: 4.2mm;
+    margin-bottom: 1.1mm;
+  }
+  ul.items li::before {
+    content: ""; position: absolute; left: .6mm; top: 2mm;
+    width: 1.5mm; height: 1.5mm; border-radius: 50%;
+    background: var(--ink);
+  }
+  ul.items strong { color: var(--ink); font-weight: 600; }
+  .note { color: var(--muted); font-size: 8.2pt; }
+
+  /* ===== テーマ見出し ===== */
+  .theme {
+    display: inline-block;
+    font-size: 7pt; font-weight: 600; letter-spacing: .14em;
+    color: #fff; background: var(--ink);
+    padding: .4mm 2.6mm; border-radius: .8mm;
+    margin-right: 2mm; vertical-align: middle;
+  }
+
+  /* ===== 対象バッジ ===== */
+  .aud {
+    display: inline-block;
+    font-size: 6.8pt; font-weight: 600; letter-spacing: .1em;
+    padding: .3mm 2.2mm; border-radius: 3mm;
+    margin-left: 2mm; vertical-align: middle;
+    white-space: nowrap;
+  }
+  .aud-staff { border: .25mm solid var(--muted); color: var(--muted); background: #fff; }
+  .aud-all { border: .25mm solid var(--ask-line); color: var(--ask-text); background: var(--ask-bg); }
+
+  /* ===== 段階の流れ図 ===== */
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 1.4mm;
+    background: var(--accent-bg);
+    border-radius: 1.5mm;
+    padding: 2.4mm 3mm;
+    margin-bottom: 2.4mm;
+    font-size: 8pt;
+  }
+  .flow span {
+    background: #fff; border: .25mm solid var(--hairline); border-radius: .8mm;
+    padding: .5mm 2.2mm; color: var(--ink); font-weight: 600;
+  }
+  .flow em { font-style: normal; color: var(--muted); align-self: center; }
+
+  /* ===== お願いボックス ===== */
+  .ask {
+    background: var(--ask-bg);
+    border: .3mm solid var(--ask-line);
+    border-radius: 1.5mm;
+    padding: 3.2mm 5mm 2.8mm;
+    margin-top: 5mm;
+  }
+  .ask h3 {
+    font-family: var(--serif); font-size: 10.5pt; font-weight: 600;
+    letter-spacing: .1em; color: var(--ask-text); margin-bottom: 1.6mm;
+  }
+  .ask ul.items li::before { background: var(--ask-text); }
+
+  /* ===== フッター ===== */
+  .foot {
+    position: absolute; left: 18mm; right: 18mm; bottom: 9mm;
+    border-top: .3mm solid var(--hairline);
+    padding-top: 2mm;
+    display: flex; justify-content: space-between;
+    font-size: 7.2pt; color: var(--muted); letter-spacing: .06em;
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <header class="hero">
+    <div class="overline">HIYOSHI DX WEEKLY</div>
+    <h1>社内システムお知らせ</h1>
+    <div class="divider"></div>
+    <div class="lead">Vol.4 ─ 2026年8月10日発行 ─ 対象期間:8月4日〜8月10日</div>
+  </header>
+
+  <div class="intro">
+    今回の大きな変更は3つです。<strong>①デザインの仕事を最初から最後まで追える「デザイン進行ボード」ができました</strong>。<strong>②ご注文の受け口が1本にまとまり、三浦さん・山本さんが行き先を決めてから進める流れになりました</strong>。<strong>③画面の言葉と並びを見直し、探しものが減りました</strong>。<br>
+    各見出しの右にある<span class="aud aud-staff">社員</span><span class="aud aud-all">全従業員</span>は、<strong>その項目を読んでいただきたい方</strong>の目安です。
+  </div>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">デザイン</span>
+      <h2>「デザイン進行ボード」ができました</h2>
+      <span class="aud aud-all">全従業員</span>
+      <span class="sub">8/4〜8/9</span>
+    </div>
+    <div class="flow">
+      <span>①ブリーフ・ラフ</span><em>→</em><span>②制作</span><em>→</em><span>③確認</span><em>→</em><span>④入稿・製造</span><em>→</em><span>⑤請求</span><em>→</em><span>⑥検品</span><em>→</em><span>⑦納品</span>
+    </div>
+    <ul class="items">
+      <li>デザインの案件が<strong>今どの段階にあるか、次は誰の番か</strong>が、この7段階のボードで一目で分かるようになりました。<strong>カードをつかんで隣の段階へ動かすだけ</strong>で進みます。前にも後ろにも動かせるので、やり直しも同じ操作です。</li>
+      <li><strong>「確認」は4ステップに分かれました</strong>。①お客様へ確認連絡 → ②お客様の返事待ち → ③位置・大きさの調整 → ④最終確認の返事待ち。<strong>社内が動く番(①③)だけが「今日やること」に出ます</strong>。返事待ちのまま7日過ぎたものは、催促として自動で戻ってきます。</li>
+      <li>案件を登録するときは、先頭の<strong>「案件の型」カードを1つ選ぶだけ</strong>になりました。よくある4通りから選べば、細かい設定は自動で入ります。当てはまらないときだけ「詳細設定」を開いてください。</li>
+      <li>紙もの(ポスター等)のように<strong>入稿で終わる案件</strong>にも対応しました。この型では<strong>「初校の納期」と「入稿の納期」を別々に</strong>入れられます。CARVE の案件は<strong>紫の枠と🔶バッジ</strong>で目立つようにし、進み具合も4段階(ラフアップ→写真入れアップ→修正アップ→入稿)で分かります。</li>
+      <li>一覧から<strong>「🗂 全般へ」</strong>を押せば、その案件をボードに載せられます。要らなくなったらカード右上の「✕」で外せます(<strong>案件そのものは消えません</strong>)。</li>
+      <li><strong>表記を「初稿」から「初校」に統一</strong>しました。画面・通知・手順書のすべてで同じ言葉になっています。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">デザイン</span>
+      <h2>バトンタッチの連絡と、修正のやり取り</h2>
+      <span class="aud aud-staff">社員</span>
+      <span class="sub">8/4〜8/7</span>
+    </div>
+    <ul class="items">
+      <li><strong>担当が交代したことは、システムが自動で Google Chat に流します</strong>。「ステータス変えたのでよろしく」「終わったのでよろしく」という<strong>手動の報告はもう要りません</strong>。同じ段階の中の細かい操作では通知は飛びません。</li>
+      <li>デザインの修正は<strong>「✏️ 修正で鈴木さんへ戻す」ボタン1つ</strong>で回せるようになりました。押すと段階が「制作」に戻り、鈴木さんの作業予定に再び出て、通知も自動で飛びます。<strong>修正指示のメモも一緒に送れます</strong>。</li>
+      <li>カードには<strong>「🔁 修正◯回目」</strong>のバッジが付きます。→ 何回やり取りしているかが数字で見えます。</li>
+      <li>鈴木さんの作業予定には<strong>校正の状態バッジ(初校/修正/校了)</strong>が付きました。本人が押して切り替えます。また、<strong>CARVE の案件はまとめて下に</strong>表示されるようになり、通常案件と混ざらなくなりました。</li>
+    </ul>
+  </section>
+
+  <div class="foot">
+    <span>株式会社ヒヨシ ─ 社内システムお知らせ Vol.4</span>
+    <span>1 / 3</span>
+  </div>
+</div>
+
+<div class="page">
+  <header class="hero sub">
+    <div class="overline">WEEKLY UPDATE</div>
+    <h1>受注まわり・共有ドライブ</h1>
+    <div class="divider"></div>
+    <div class="lead">Vol.4 ─ 対象期間:8月4日〜8月10日</div>
+  </header>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">受注</span>
+      <h2>ご注文の受け口が1本になりました</h2>
+      <span class="aud aud-all">全従業員</span>
+      <span class="sub">8/5</span>
+    </div>
+    <ul class="items">
+      <li><strong>メールと電話で受けたご注文も、受注候補の画面に入れられるようになりました</strong>。メールは<strong>本文をそのまま貼り付ける</strong>だけ、電話は<strong>お客様名とご依頼内容の2つだけ</strong>で登録できます(数量や納期は聞いたままの言葉で構いません)。→ <strong>通話中でも書き切れます</strong>。</li>
+      <li>これで<strong>LINE・Web注文・チーム追加・取引先の加工依頼・メール・電話の6つがすべて同じ場所に集まります</strong>。頭の記号で見分けてください。<strong>W-</strong>=Web注文 / <strong>T-</strong>=チーム追加 / <strong>P-</strong>=取引先 / <strong>M-</strong>=メール貼り付け / <strong>D-</strong>=電話メモ(LINEは記号なし)。</li>
+      <li><strong>受注候補に「振り分け」が付きました</strong>。カードの<strong>「🏭 生産 / 🎨 デザイン / 🤝 要相談」</strong>の3ボタンで行き先を決めます。<strong>これを決めるのは三浦さんと山本さんです</strong>。誰がいつ振り分けたかが記録に残ります。</li>
+      <li><strong>まだ振り分けていないものは左端がオレンジになり、一覧の先頭に出ます</strong>。タブのバッジの数字も「未振り分けの件数」に変わりました。→ <strong>この数字が0になるまで片付ける</strong>のが日々の目安です。</li>
+      <li>🎨デザインで振り分けたものは、案件登録するとそのまま<strong>デザイン進行ボードの①ブリーフ・ラフ</strong>に載ります。※<strong>「➕新規案件」からの直接登録は振り分けを通りません</strong>のでご注意ください。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">受注</span>
+      <h2>取引先の加工依頼フォームの改善</h2>
+      <span class="aud aud-staff">社員</span>
+      <span class="sub">8/5</span>
+    </div>
+    <ul class="items">
+      <li><strong>受付控えのメールが、登録した担当者全員に自動で届く</strong>ようになりました。これまでは依頼者がメール欄に書いたときだけ1件に送っていました。送信先は管理画面の「取引先リンク管理」に登録します(複数可)。</li>
+      <li>送信が終わった画面から<strong>そのまま次の依頼を入力できる</strong>ようになりました。ご担当者名・電話・メールは引き継がれ、品物や納期はきちんと消えます。→ <strong>まとめて何件も送るときに開き直す手間がなくなりました</strong>。</li>
+      <li><strong>「ユーザー名(着用される会社・団体名)」欄</strong>が増えました。入力があると受付控え・社内通知メールの件名と本文の両方に出ます。→ <strong>どの受付番号が誰向けの依頼だったか、メールだけで照合できます</strong>。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">その他</span>
+      <h2>画面の「NAS」が「共有ドライブ」になりました</h2>
+      <span class="aud aud-all">全従業員</span>
+      <span class="sub">8/5</span>
+    </div>
+    <ul class="items">
+      <li>会社のNASをやめて<strong>Googleの共有ドライブへ移行した</strong>ため、画面の言葉を<strong>「共有ドライブ」に統一</strong>しました。案件フォーム・案件詳細・顧客台帳・納品履歴・納品時の確認・使い方ガイドが対象です。</li>
+      <li>フォルダの場所の書き方も<strong>実際のもの(G:\共有ドライブ\HiYOSHi共有\DESIGN の形)</strong>に直しました。→ <strong>案件にフォルダを登録するときは、この形で入れてください</strong>。操作そのものは今までと変わりません。</li>
+    </ul>
+  </section>
+
+  <div class="foot">
+    <span>株式会社ヒヨシ ─ 社内システムお知らせ Vol.4</span>
+    <span>2 / 3</span>
+  </div>
+</div>
+
+<div class="page">
+  <header class="hero sub">
+    <div class="overline">WEEKLY UPDATE</div>
+    <h1>画面の使いやすさ・今週のお願い</h1>
+    <div class="divider"></div>
+    <div class="lead">Vol.4 ─ 対象期間:8月4日〜8月10日</div>
+  </header>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">現場作業</span>
+      <h2>一覧とスケジュールが探しやすくなりました</h2>
+      <span class="aud aud-all">全従業員</span>
+      <span class="sub">8/8〜8/9</span>
+    </div>
+    <ul class="items">
+      <li><strong>案件名をクリックすると、その場で案件詳細が開きます</strong>。これまで納品履歴や顧客台帳からしか開けませんでした。</li>
+      <li>一覧に<strong>検索ボックス</strong>が付きました。<strong>案件名・お客様名・アイテム名</strong>で絞り込めて、件数も出ます。</li>
+      <li>操作のボタンを<strong>「編集」と「⋯ その他」の2つ</strong>にまとめました。その他を押すと、1つずつ説明付きで並びます。</li>
+      <li><strong>スケジュールの言葉を実態に合わせました</strong>。「今週の割り当てを提案」(作られるのは確定ではなく提案です)/「計画不足」→<strong>「空きあり」</strong>(まだ空き時間があるという意味)/「過負荷」→<strong>「入りきらない」</strong>。<strong>破線のわく=提案中、ふちなし=確定</strong>という凡例も常に出ています。</li>
+      <li><strong>取り消せない操作には、必ず確認が出る</strong>ようにしました(案件名と残り件数が出ます)。押す前に一度ご確認ください。</li>
+      <li>画面の名前を統一しました。<strong>「デザイン案件全般」→「デザイン進行ボード」</strong>、<strong>「デザインの予定」→「◯◯さんの作業予定」</strong>。また、案件が1件も無い段階は細く畳まれ、iPadでも提案の件数バッジが見えるようになりました。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">現場作業</span>
+      <h2>製造の準備項目は三浦さんが選びます</h2>
+      <span class="aud aud-staff">社員</span>
+      <span class="sub">8/5〜8/9</span>
+    </div>
+    <ul class="items">
+      <li>デザイン案件の登録時は<strong>準備項目を選ばなくてよくなりました</strong>(版下データを作る段階のため)。<strong>案件が「入稿・製造」へ進んだ時点で選びます</strong>。</li>
+      <li>選ぶのは<strong>三浦さん</strong>です。週間スケジュールボードに<strong>「🏭 製造の準備項目 選定待ち(担当: 三浦さん)」の帯</strong>が出るので、そこから該当の案件へ直接飛べます。<strong>該当する案件が無いときは帯ごと出ません</strong>(それで正常です)。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">その他</span>
+      <h2>紙の手順書を用意しました</h2>
+      <span class="aud aud-staff">社員</span>
+      <span class="sub">8/4〜8/9</span>
+    </div>
+    <ul class="items">
+      <li>画面を見ながら手を動かすための<strong>A4の操作手順書</strong>を、担当ごとに作りました。<strong>鈴木さん用</strong>(作業予定の見方・週のはじめ/日々の手順)、<strong>山本さん用</strong>(7段階と自動で進むところ・修正で戻す操作)、<strong>三浦さん・山本さん向けの改善点ガイド</strong>(今回どこが変わったかを画面イメージ付きで)。</li>
+      <li>印刷したものをお渡しします。<strong>手元に置いて、迷ったらまずこちらを</strong>ご覧ください。</li>
+    </ul>
+  </section>
+
+  <div class="ask">
+    <h3>皆さんへのお願い(今週からの動き方)</h3>
+    <ul class="items">
+      <li>三浦さん・山本さんへ:<strong>受注候補のオレンジ(未振り分け)を毎日0件にしてください</strong>。行き先(生産/デザイン/要相談)が決まってから先へ進めます。</li>
+      <li><strong>メール・電話で受けたご注文も、必ず受注候補に入れてください</strong>。「➕新規案件」からの直接登録は振り分けを通りません。</li>
+      <li>担当交代の<strong>「よろしくお願いします」の手動連絡は不要</strong>です。段階を動かせば Google Chat に自動で流れます。</li>
+      <li>山本さんへ:デザインの修正は<strong>「✏️ 修正で鈴木さんへ戻す」</strong>から。口頭やチャットで戻さないでください(修正回数と指示メモが残りません)。</li>
+      <li>三浦さんへ:週間スケジュールの<strong>「🏭 製造の準備項目 選定待ち」の帯</strong>を毎日確認してください。帯が出ていない日は対象なしです。</li>
+      <li>案件のフォルダは<strong>「共有ドライブ」(G:\共有ドライブ\HiYOSHi共有)</strong>を指すように入れてください。</li>
+      <li>お渡しする<strong>手順書</strong>を手元に置き、それでも分からなければ久保田まで。</li>
+    </ul>
+  </div>
+
+  <div class="note" style="margin-top: 2.4mm; text-align: right;">次号予定:2026年8月17日(月)</div>
+
+  <div class="foot">
+    <span>株式会社ヒヨシ ─ 社内システムお知らせ Vol.4</span>
+    <span>3 / 3</span>
+  </div>
+</div>
+
+</body>
+</html>
