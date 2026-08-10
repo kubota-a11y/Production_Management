@@ -503,6 +503,11 @@ html, body {
   color: var(--gray-600);
 }
 
+.status-pill.error {
+  background: var(--danger-soft);
+  color: var(--danger-text);
+}
+
 /* ===== 受付番号バッジ(Web注文・チーム注文・取引先依頼の由来を示す) ===== */
 .receipt-badge {
   margin-left: var(--space-2);
@@ -2372,6 +2377,48 @@ td.empty-notice {
 .case-detail-docs .btn-small {
   display: inline-flex;
   text-decoration: none;
+}
+
+/* ========================================
+   バックアップ状態(/backup-status)
+   ======================================== */
+
+/* 「今日の分が全保存先に揃っているか」を一目で判断させる帯。
+   判断が変わる情報なので、色だけでなく先頭の記号と文言でも区別する */
+.backup-summary {
+  margin: var(--space-4) 0;
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--surface-muted);
+  color: var(--text-color);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+}
+
+.backup-summary.is-ok {
+  background: var(--success-soft);
+  border-color: var(--success-color);
+  color: var(--success-text);
+}
+
+.backup-summary.is-warning {
+  background: var(--warning-soft);
+  border-color: var(--warning-color);
+  color: var(--warning-text);
+}
+
+.backup-summary.is-error {
+  background: var(--danger-soft);
+  border-color: var(--danger-color);
+  color: var(--danger-text);
+}
+
+/* 保存先の場所は長いパスになるため等幅で折り返す */
+.backup-path {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  word-break: break-all;
 }
 
 /* ========================================

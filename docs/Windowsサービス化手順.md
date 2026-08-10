@@ -164,7 +164,7 @@ C:\nssm\nssm.exe remove HiBoard confirm
 | デザインデータの閲覧・ダウンロード | `NAS_BASE_PATH` |
 | Web注文フォームの添付画像の保存先 | `WEB_ORDER_RECEIVED_PATH` |
 | 取引先 加工依頼フォームの画像の保存先 | `PARTNER_ORDER_RECEIVED_PATH` |
-| DBバックアップのNAS二重保存 | `DB_BACKUP_EXTRA_DIR` |
+| DBバックアップの複数保存先(NAS `Z:` / Google共有ドライブ `G:`) | `DB_BACKUP_EXTRA_DIR` |
 
 `Z:` のような**割り当てドライブはユーザーごとの設定**のため、Windowsサービス(LocalSystem)からは見えない。
 方法Bを選ぶ場合は、上記「3. 実行アカウントの設定」を必ず行うこと。

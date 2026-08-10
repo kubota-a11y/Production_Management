@@ -17,7 +17,7 @@ const { registerOrderStatusRoutes } = require('./lib/order-status');
 const { registerManualIntakeRoutes } = require('./lib/manual-intake');
 const { registerReferralRoutes } = require('./lib/referral');
 const { registerWorksRoutes } = require('./lib/works-publish');
-const { scheduleDailyBackup } = require('./lib/db-backup');
+const { scheduleDailyBackup, getBackupStatus } = require('./lib/db-backup');
 const { extractCarriedData, extractCarriedItems } = require('./lib/intake-carry');
 const { completeIntakeTask } = require('./lib/todo-notify');
 const { HOLIDAYS, isJpHoliday } = require('./lib/jp-holidays');
@@ -3024,6 +3024,22 @@ app.get('/delivery-history', (req, res) => {
 // 社員向けの使い方ガイド(業務フロー順のマニュアル。印刷でA4配布資料にもなる)
 app.get('/manual', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'manual.html'));
+});
+
+// バックアップ状態の確認画面。社内画面なので外部公開ガードで自動的に404になる
+app.get('/backup-status', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'backup-status.html'));
+});
+
+// 保存先ごとの実状態を返す。保存先がNAS・共有ドライブの場合、
+// 切断されていると fs の呼び出しに数秒かかることがあるが、
+// 画面を開いたときだけ実行されるので業務処理には影響しない。
+app.get('/api/backup-status', (req, res) => {
+  try {
+    res.json(getBackupStatus());
+  } catch (error) {
+    sendServerError(res, req, error);
+  }
 });
 
 app.get('/api/employees', (req, res) => {

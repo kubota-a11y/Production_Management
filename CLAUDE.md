@@ -27,7 +27,7 @@
 
 - `update.bat` は **Shift_JIS(CP932)+CRLF** で保存すること。UTF-8+chcpは日本語Windowsで即終了する不具合の原因になる(`.gitattributes` で `-text` 指定済み)
 - DBスキーマ変更は `db/init.js` の「カラムが無ければ追加」方式の後方互換マイグレーションで行う(本番DBはgit管理外のため)
-- DBの自動バックアップは `lib/db-backup.js`(サーバー起動中に日次、`db/backups/`、NAS二重保存は.envの`DB_BACKUP_EXTRA_DIR`)。update.batも更新前に手動バックアップを1つ作る。**復元手順はREADME「データベースが破損した場合」を参照**
+- DBの自動バックアップは `lib/db-backup.js`(サーバー起動中に日次、`db/backups/`)。**`.env` の `DB_BACKUP_EXTRA_DIR` はカンマ区切りで複数の保存先を書ける**(本番=NAS+Google共有ドライブ。社内だけに置くとランサムウェア・火災で全滅するため社外を1本必須とする)。1か所失敗しても他は続行し、結果は `/backup-status` 画面と `db/backups/backup-status.json` で確認できる。update.batも更新前に手動バックアップを1つ作る。**保存先一覧と復元手順はREADME参照**
 - **本番機の常駐化は「タスクスケジューラ方式」**(`run-server-loop.bat` をログオン時トリガーで起動。nodeが落ちても5秒後に自動再起動)。**NSSM/Windowsサービスは使えない** — LocalSystemだとNASの割り当てドライブ(Z:)が見えず、デザインデータ閲覧・注文画像保存・NASバックアップが壊れる。同じ理由で `/rl highest` も付けない。手順とハマりどころは `docs/Windowsサービス化手順.md`
 - **update.bat 自体が更新されるため、本番反映の1回目はエラーで止まることがある**(もう一度ダブルクリックで正常動作)
 - メール送信は `lib/order-mailer.js`(SMTP未設定環境では自動スキップされるので、開発機で気にしなくてよい)

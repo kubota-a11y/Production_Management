@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>バックアップ状態 - Production Management</title>
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- ヘッダー(ナビゲーションの中身は js/ui.js が data-nav を見て生成する) -->
+    <header class="app-header">
+      <div class="header-content">
+        <div>
+          <h1 class="app-title">🛡 バックアップ状態</h1>
+          <p class="app-subtitle">Backup Status</p>
+        </div>
+      </div>
+      <nav class="header-buttons" data-nav="backup-status" aria-label="画面の切り替え"></nav>
+    </header>
+
+    <main class="main-content">
+      <section>
+        <div class="list-controls">
+          <button class="btn btn-secondary" onclick="backupStatusApp.load()">🔄 最新の状態を確認</button>
+        </div>
+
+        <div class="backup-summary" id="summary">確認中...</div>
+
+        <div class="table-container">
+          <table class="projects-table">
+            <thead>
+              <tr>
+                <th>保存先</th>
+                <th>場所</th>
+                <th>最新</th>
+                <th>サイズ</th>
+                <th>世代数</th>
+              </tr>
+            </thead>
+            <tbody id="dest-tbody"></tbody>
+          </table>
+        </div>
+
+        <p class="empty-notice" id="last-run"></p>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/ui.js"></script>
+  <script src="js/backup-status.js"></script>
+</body>
+</html>

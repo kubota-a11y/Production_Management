@@ -35,6 +35,7 @@ const HiUI = {
     { key: 'referral-admin', href: '/referral-admin', label: '🎁 紹介コード発行' },
     { divider: true },
     { key: 'works-add', href: '/works-add', label: '📸 制作実績の登録' },
+    { key: 'backup-status', href: '/backup-status', label: '🛡 バックアップ状態' },
   ],
 
   /**
