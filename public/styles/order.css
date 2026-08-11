@@ -164,3 +164,10 @@ textarea { resize: vertical; }
   border: 1px solid #ca8a04; background: #fff; color: #854d0e;
   border-radius: 6px; padding: 4px 10px; font-size: .85rem; cursor: pointer;
 }
+
+/* サイトのシミュレーターからの引き継ぎ通知(order.jsのapplySimが挿入する)。
+   下書き復元(黄)とは意味が違うので色を分ける */
+.sim-notice {
+  background: #ecfdf5; border: 1px solid #6ee7b7; border-radius: 8px;
+  padding: 10px 14px; margin-bottom: 14px; font-size: .9rem; color: #065f46;
+}

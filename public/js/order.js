@@ -408,6 +408,134 @@
     }
   })();
 
+  // ===== サイトの料金シミュレーターからの引き継ぎ(?sim=) =====
+  // コーポレートサイト(hiyoshi-1954.com)の「この内容で見積りをとる」から遷移してきたとき、
+  // 選ばれた仕様をこのフォームへ流し込む。サイト側の送信部は
+  // `~/Desktop/GITHUB_HiYOSHi_WEB/src/lib/sim-handoff.ts`(単一の情報源)。
+  //
+  //   ?sim=<base64url(UTF-8 JSON)>
+  //   { v:1, src:'price'|'kratvs',
+  //     cat, sub,                    // カテゴリ/第2カテゴリ(上の CATEGORY_OPTIONS / SUB_CATEGORIES と同じ値)
+  //     items:[{num,color,maker}],   // 品番行
+  //     locs:[{n,c}],                // プリント位置行(n=位置名・c=色数1〜4)
+  //     qty,                         // 概数(テキスト)
+  //     sum:[...] }                  // 備考に残す要約行(金額を含む)
+  //
+  // ★金額は「文字」としてしか受け取らない。サイト側の概算を業務データの金額として扱わない
+  //   (URLは誰でも書き換えられるため)。正式な金額は従来どおり社内で作成する。
+  // ★受け取った値はすべて長さ・件数・選択肢を検証してから入れる。想定外なら黙って無視し、
+  //   フォームは通常どおり使える状態を保つ(お客様の入力機会を絶対に奪わない)。
+  const SIM_LIMITS = { items: 5, locs: 8, sum: 24, text: 200, qty: 500, line: 120 };
+  const SIM_HEAD = '【サイトの料金シミュレーターで選んだ内容】';
+  const SIM_FOOT = '※上記の金額はサイト表示の概算です。';
+
+  // 備考の先頭にある「前回の引き継ぎ分」を取り除く(お客様が書いた文章はそのまま残す)
+  function stripPrevSim(text) {
+    if (!text.startsWith(SIM_HEAD)) return text;
+    const i = text.indexOf(SIM_FOOT);
+    return i === -1 ? text : text.slice(i + SIM_FOOT.length).replace(/^\n+/, '');
+  }
+
+  function simText(v, max) {
+    // 制御文字を落として長さを揃える(maxlength と同じ上限に合わせる)
+    return typeof v === 'string' ? v.replace(/[\x00-\x1F\x7F]/g, ' ').trim().slice(0, max) : '';
+  }
+  function decodeSim(raw) {
+    const b64 = raw.replace(/-/g, '+').replace(/_/g, '/');
+    const bin = atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4));
+    const bytes = Uint8Array.from(bin, (ch) => ch.charCodeAt(0));
+    return JSON.parse(new TextDecoder().decode(bytes));
+  }
+  // 指定種別の行をすべて消してから、必要な数だけ作り直す
+  function resetRows(card, kind, count) {
+    $$('.' + kind + '-row', card).forEach((r) => r.remove());
+    for (let i = 0; i < Math.max(1, count); i++) addRow(card, kind);
+  }
+  function showSimNotice() {
+    const notice = document.createElement('div');
+    notice.className = 'sim-notice';
+    notice.textContent = 'サイトのシミュレーターで選んだ内容を反映しました。'
+      + 'ご連絡先をご入力のうえ、そのまま送信いただけます(内容の修正もできます)。';
+    form.prepend(notice);
+  }
+
+  function applySim(sim) {
+    if (!sim || sim.v !== 1) return;
+    const card = itemCards()[0];
+    if (!card) return;
+
+    // 依頼種別: 見積・イメージ依頼(アイテム指定欄が出る種別)
+    const quote = $('input[name="request_type"][value="quote"]');
+    if (quote) { quote.checked = true; applyTypeUI(); }
+
+    // カテゴリ(選択肢に無い値は入れない)
+    const cat = simText(sim.cat, 40);
+    if (CATEGORY_OPTIONS.some(([v]) => v === cat)) {
+      $('.i-category', card).value = cat;
+      applyCategoryUI(card);
+      const sub = simText(sim.sub, 40);
+      if ((SUB_CATEGORIES[cat] || []).some((o) => o.value === sub)) {
+        $('.i-subcategory', card).value = sub;
+      }
+    }
+
+    // 品番行
+    const items = Array.isArray(sim.items) ? sim.items.slice(0, SIM_LIMITS.items) : [];
+    if (items.length) {
+      resetRows(card, 'catalog', items.length);
+      $$('.catalog-row', card).forEach((row, i) => {
+        const it = items[i] || {};
+        $('.c-num', row).value = simText(it.num, SIM_LIMITS.text);
+        $('.c-color', row).value = simText(it.color, SIM_LIMITS.text);
+        $('.c-maker', row).value = simText(it.maker, SIM_LIMITS.text);
+      });
+    }
+
+    // プリント位置行
+    const locs = Array.isArray(sim.locs) ? sim.locs.slice(0, SIM_LIMITS.locs) : [];
+    if (locs.length) {
+      $('.i-method', card).value = 'print';
+      applyMethodUI(card);
+      resetRows(card, 'printloc', locs.length);
+      $$('.printloc-row', card).forEach((row, i) => {
+        const l = locs[i] || {};
+        $('.p-name', row).value = simText(l.n, SIM_LIMITS.text);
+        const c = parseInt(l.c, 10);
+        $('.p-colors', row).value = String(c >= 1 && c <= 4 ? c : 1);
+      });
+    }
+
+    // 概数
+    const qty = simText(sim.qty, SIM_LIMITS.qty);
+    if (qty) $('.i-approx', card).value = qty;
+
+    // 備考: 要約を先頭に足す。お客様が書いた文章は消さない
+    const sum = (Array.isArray(sim.sum) ? sim.sum : [])
+      .slice(0, SIM_LIMITS.sum)
+      .map((l) => simText(l, SIM_LIMITS.line))
+      .filter(Boolean);
+    // 前回の引き継ぎ分は下書きに残っている。積み上がらないよう置き換える
+    if (sum.length) {
+      const box = $('[data-path="remarks"]');
+      const rest = stripPrevSim(box.value);
+      const block = [SIM_HEAD, ...sum.map((l) => '・' + l), SIM_FOOT].join('\n');
+      box.value = (block + (rest ? '\n\n' + rest : '')).slice(0, 3000);
+    }
+
+    refreshItemChrome();
+    scheduleDraftSave();
+    showSimNotice();
+  }
+
+  // 下書き復元より後に実行する(シミュレーターから来た直後は、そちらの内容を優先する)
+  (() => {
+    const raw = (new URLSearchParams(location.search).get('sim') || '').trim();
+    if (!raw || raw.length > 4000) return;
+    let sim = null;
+    try { sim = decodeSim(raw); } catch (_) { return; } // 壊れたURLでもフォームは通常どおり使える
+    try { applySim(sim); } catch (err) { console.error('シミュレーター内容の反映に失敗しました:', err); }
+  })();
+
   // ===== payload 収集 =====
   function collectCatalog(card) {
     return $$('.catalog-row', card).map(r => ({
