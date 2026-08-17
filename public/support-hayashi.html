@@ -8,8 +8,8 @@
   <meta property="og:title" content="林源平 応援Tシャツ | PANCRASE 365 タイトルマッチ">
   <meta property="og:description" content="2026.9.6 タイトルマッチに挑む林源平選手を、同じ一枚で応援しよう。受注生産・選手ステッカー同梱。">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://order.kubota-tunnel.com/support/hayashi">
-  <meta property="og:image" content="https://order.kubota-tunnel.com/img/support/tee-black-back.jpg">
+  <meta property="og:url" content="https://genpei-hayashi.com/">
+  <meta property="og:image" content="https://genpei-hayashi.com/img/support/tee-black-back.jpg">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="stylesheet" href="/styles/support.css">
 </head>
@@ -25,6 +25,7 @@
       price: 5500,                // 税込価格(円)。null の間は「近日発表」表示
       deadline: '2026年8月25日(火)', // 注文締切(表示用)。nullの間は「近日発表」
       deadlineISO: '2026-08-25T23:59:59+09:00', // カウントダウン用。締切超過で自動的に受付終了表示
+      deliveryBy: '9月5日(土)',   // 締切までのご注文分をお届けする期限(=試合前日)。nullで納期の案内を非表示
       sizes: 'S / M / L / XL / XXL',
 
       // 試合情報
@@ -141,7 +142,10 @@
         <span class="cd-num" id="cdMins">-</span><span class="cd-unit">分</span>
       </div>
       <div class="cta-block">
-        <div class="deadline-box">注文締切：<strong id="deadlineText"></strong></div>
+        <div class="deadline-box">
+          <span class="dl-line">注文締切：<strong id="deadlineText"></strong></span>
+          <span class="dl-delivery" id="deliveryNote" hidden></span>
+        </div>
         <a class="cta-btn" id="ctaBtn"></a>
         <p class="cta-note">お支払い・お届け先のご入力は、公式オンラインストア(BASE)にて承ります。</p>
         <p class="cta-note official-note">本プロジェクトは林源平選手公認です。売上の一部は選手の活動支援に充てられます。</p>
@@ -154,7 +158,7 @@
     <div class="sec-inner">
       <ul class="notes-list">
         <li>受注生産のため、締切後のキャンセル・サイズ変更はお受けできません。</li>
-        <li>お届けは試合前を予定しています。詳細な発送時期は商品ページにてご案内します。</li>
+        <li id="noteDelivery">お届けは試合前を予定しています。詳細な発送時期は商品ページにてご案内します。</li>
         <li>売上の一部は林源平選手の活動支援に充てられます。</li>
       </ul>
     </div>
@@ -192,6 +196,15 @@
 
     // 締切超過なら受付終了、baseUrl未設定ならCOMING SOON
     const closed = CONFIG.deadlineISO && Date.now() > new Date(CONFIG.deadlineISO).getTime();
+
+    // 納期の案内(締切前のみ)。締切後は「いつ届くか」の約束が残らないよう自動で引っ込める
+    if (CONFIG.deliveryBy && !closed) {
+      const dn = document.getElementById('deliveryNote');
+      dn.textContent = `この日までのご注文で、試合前日 ${CONFIG.deliveryBy} までにお届けします`;
+      dn.hidden = false;
+      document.getElementById('noteDelivery').textContent =
+        `${CONFIG.deadline}までにご注文いただいた分は、試合前日 ${CONFIG.deliveryBy} までにお届けします。`;
+    }
     [document.getElementById('ctaBtn'), document.getElementById('stickyBtn')].forEach((btn) => {
       if (closed) {
         btn.classList.add('is-disabled');

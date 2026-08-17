@@ -253,6 +253,12 @@ img { max-width: 100%; }
   letter-spacing: .12em; text-align: center;
 }
 .deadline-box strong { letter-spacing: .16em; }
+.deadline-box .dl-line { display: block; }
+.deadline-box .dl-delivery {
+  display: block; margin-top: 9px; padding-top: 9px;
+  border-top: 1px solid var(--line);
+  font-size: .84rem; letter-spacing: .08em; color: var(--text-sub);
+}
 .cta-block { text-align: center; }
 .cta-btn {
   display: inline-block; width: 100%; max-width: 460px;
