@@ -1,0 +1,62 @@
+/* =========================================================
+   公開ページ共通のブランドバー
+   コーポレートサイト(hiyoshi-1954.com)から来たお客様に、同じ会社のページだと
+   分かるようにするためのもの。稲垣さんの「デザインの不連続」指摘への対応
+   (2026-08-12 決定・注文フォームのアドレス統一と同時実施)。
+
+   使う側: /order・/guide・/status の3ページ。<body> の先頭に置く。
+   見た目はサイト側 src/components/Header.astro のロゴに合わせている
+   (白地・黒文字・角丸なし・欧文は Avenir Next 系)。
+   ページごとの本文幅は --brand-max で合わせる(既定760px)。
+   ========================================================= */
+
+.site-brand-bar {
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.site-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: var(--brand-max, 760px);
+  margin: 0 auto;
+  padding: 12px 16px;
+  text-decoration: none;
+  color: #1a1a1a;
+}
+
+.site-brand-mark {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  /* サイト側の --font-en と同じ指定 */
+  font-family: "Avenir Next", Avenir, "Segoe UI", system-ui,
+               "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  white-space: nowrap;
+}
+
+.site-brand-suffix {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  color: #55595f;
+}
+
+.site-brand-back {
+  font-size: .8rem;
+  color: #55595f;
+  white-space: nowrap;
+}
+
+.site-brand:hover .site-brand-back { color: #1a1a1a; }
+
+@media (max-width: 480px) {
+  .site-brand-mark { font-size: 17px; }
+  .site-brand-suffix { font-size: 9px; }
+  .site-brand-back { font-size: .74rem; }
+}
