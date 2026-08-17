@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>社内システムお知らせ Vol.5(A4印刷用)</title>
+<style>
+  /* A4印刷用。Chromeのヘッドレス印刷でPDF化する(生成手順はdocs/weekly-news/README.md参照) */
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #1c1917;
+    --text: #44403c;
+    --muted: #78716c;
+    --hairline: #e7e2dc;
+    --accent-bg: #f5f2ee;
+    --ask-bg: #f2f6f3;
+    --ask-line: #cfdfd4;
+    --ask-text: #3f6b50;
+    --serif: "Hiragino Mincho ProN", "Yu Mincho", serif;
+    --sans: "Hiragino Sans", "Noto Sans JP", sans-serif;
+  }
+
+  body {
+    font-family: var(--sans);
+    color: var(--text);
+    line-height: 1.7;
+    font-size: 9.2pt;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .page {
+    width: 210mm; height: 297mm;
+    padding: 15mm 18mm 13mm;
+    page-break-after: always;
+    position: relative;
+    background: #fff;
+  }
+  .page:last-child { page-break-after: auto; }
+
+  /* ===== ヘッダー ===== */
+  .hero { text-align: center; margin-bottom: 5mm; }
+  .overline {
+    font-size: 7pt; letter-spacing: .32em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 2.2mm;
+  }
+  h1 {
+    font-family: var(--serif); font-size: 19pt; font-weight: 600;
+    letter-spacing: .12em; color: var(--ink);
+  }
+  .divider { width: 12mm; height: .35mm; background: var(--ink); margin: 3.5mm auto; }
+  .lead { color: var(--muted); font-size: 8.4pt; }
+
+  .intro {
+    background: var(--accent-bg);
+    border-radius: 1.5mm;
+    padding: 3.4mm 5mm;
+    margin-bottom: 5mm;
+    font-size: 9pt;
+  }
+  .intro strong { color: var(--ink); }
+
+  /* ===== セクション ===== */
+  .sec { margin-bottom: 4.2mm; }
+  .sec-head {
+    display: flex; align-items: baseline; gap: 3mm;
+    border-bottom: .3mm solid var(--ink);
+    padding-bottom: 1.2mm; margin-bottom: 2.2mm;
+  }
+  .sec-head h2 {
+    font-family: var(--serif); font-size: 12pt; font-weight: 600;
+    letter-spacing: .08em; color: var(--ink);
+  }
+  .sec-head .sub { margin-left: auto; font-size: 7.2pt; color: var(--muted); letter-spacing: .06em; }
+
+  ul.items { list-style: none; }
+  ul.items li {
+    position: relative;
+    padding-left: 4.2mm;
+    margin-bottom: 1.3mm;
+  }
+  ul.items li::before {
+    content: ""; position: absolute; left: .6mm; top: 2.1mm;
+    width: 1.5mm; height: 1.5mm; border-radius: 50%;
+    background: var(--ink);
+  }
+  ul.items strong { color: var(--ink); font-weight: 600; }
+  .note { color: var(--muted); font-size: 8.4pt; }
+
+  /* ===== テーマ見出し ===== */
+  .theme {
+    display: inline-block;
+    font-size: 7pt; font-weight: 600; letter-spacing: .14em;
+    color: #fff; background: var(--ink);
+    padding: .4mm 2.6mm; border-radius: .8mm;
+    margin-right: 2mm; vertical-align: middle;
+  }
+
+  /* ===== 備考の見本 ===== */
+  .sample {
+    background: #fbfaf8;
+    border: .3mm solid var(--hairline);
+    border-left: .9mm solid var(--ink);
+    border-radius: 1mm;
+    padding: 2.6mm 4mm;
+    margin: 1.8mm 0 .8mm 4.2mm;
+    font-size: 8.2pt;
+    line-height: 1.75;
+    color: var(--text);
+  }
+  .sample .sample-title {
+    font-size: 7pt; letter-spacing: .16em; color: var(--muted);
+    margin-bottom: 1.2mm;
+  }
+  .sample code {
+    font-family: var(--sans);
+    display: block;
+    white-space: pre-wrap;
+  }
+  .sample .hl { color: var(--ink); font-weight: 600; }
+
+  /* ===== お願いボックス ===== */
+  .ask {
+    background: var(--ask-bg);
+    border: .3mm solid var(--ask-line);
+    border-radius: 1.5mm;
+    padding: 3.4mm 5mm 3mm;
+    margin-top: 4mm;
+  }
+  .ask h3 {
+    font-family: var(--serif); font-size: 10.5pt; font-weight: 600;
+    letter-spacing: .1em; color: var(--ask-text); margin-bottom: 1.6mm;
+  }
+  .ask ul.items li::before { background: var(--ask-text); }
+
+  /* ===== フッター ===== */
+  .foot {
+    position: absolute; left: 18mm; right: 18mm; bottom: 9mm;
+    border-top: .3mm solid var(--hairline);
+    padding-top: 2mm;
+    display: flex; justify-content: space-between;
+    font-size: 7.2pt; color: var(--muted); letter-spacing: .06em;
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <header class="hero">
+    <div class="overline">HIYOSHI DX WEEKLY</div>
+    <h1>社内システムお知らせ</h1>
+    <div class="divider"></div>
+    <div class="lead">Vol.5 ─ 2026年8月17日発行 ─ 対象期間:8月11日〜8月17日</div>
+  </header>
+
+  <div class="intro">
+    今週の変更は<strong>1つだけ</strong>です。ホームページの<strong>料金シミュレーターで試算したお客様が、その内容をそのまま注文フォームに引き継いで送信</strong>できるようになりました。受け取る側の見え方が少し変わるので、そこだけご確認ください。
+  </div>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">受注</span>
+      <h2>ホームページで試算した内容が、そのまま注文に入ってきます</h2>
+      <span class="sub">8/11</span>
+    </div>
+    <ul class="items">
+      <li>ホームページの<strong>料金シミュレーター</strong>(料金ページ／チーム・クラブページ)で試算されたお客様が、<strong>同じ内容を入力し直さずに</strong>そのまま注文フォームへ進めるようになりました。→ お客様の手間が減り、<strong>途中でやめてしまう方が減る</strong>ことを狙っています。</li>
+      <li>この経路で届いた注文は、<strong>品番・プリント位置・枚数</strong>がお客様が画面で選んだとおりに入った状態で届きます。</li>
+      <li>あわせて<strong>備考欄</strong>に、選んだ仕様とホームページ上の概算金額の要約が入ります。見出しは下のとおりです。</li>
+    </ul>
+
+    <div class="sample">
+      <div class="sample-title">備考欄に入る見出しの例</div>
+      <code><span class="hl">【サイトの料金シミュレーターで選んだ内容】</span>
+ ・選ばれた仕様(生地・プリント位置・枚数 など)
+ ・ホームページ上の<span class="hl">概算金額</span></code>
+    </div>
+
+    <ul class="items">
+      <li class="note">この見出しが無い注文は、これまでどおりお客様がフォームに直接入力されたものです。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">受注</span>
+      <h2>受注候補メモの言葉を1か所変えました</h2>
+      <span class="sub">8/11</span>
+    </div>
+    <ul class="items">
+      <li>受注候補のメモで、これまで<strong>「①品番不明」</strong>と出ていた行を、<strong>品番が一緒に入っているときは「①ご希望の内容」</strong>と表示するようにしました。</li>
+      <li>シミュレーターからの引き継ぎでは品番も必ず入るため、<strong>「品番不明」だと読み違えのもと</strong>になっていました。品番が本当に無いときは、これまでどおり「①品番不明」と出ます。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">その他</span>
+      <h2>使い方ガイドを更新しました</h2>
+      <span class="sub">8/11</span>
+    </div>
+    <ul class="items">
+      <li>HiBoard右上の<strong>「📖 使い方」</strong>に、上記の見出しが書かれていたときの扱いを追記しました。迷ったらここを見てください。</li>
+    </ul>
+  </section>
+
+  <div class="ask">
+    <h3>皆さんへのお願い(今週からの動き方)</h3>
+    <ul class="items">
+      <li>備考に<strong>「【サイトの料金シミュレーターで選んだ内容】」</strong>とある注文は、お客様がホームページで選んだ内容がそのまま入っています。<strong>内容はそのまま信用して大丈夫</strong>です。</li>
+      <li>ただし、そこに書かれた<strong>金額はホームページ上の概算</strong>です。<strong>正式なお見積りは、いつもどおり社内で作成</strong>してください。お客様から「ホームページでは○○円だった」とお話があった場合も、ご案内するのは社内で出した見積り金額です。</li>
+      <li>受注候補メモの<strong>「①ご希望の内容」</strong>は、これまでの「①品番不明」と同じ場所の表示です。読み替えてご確認ください。</li>
+    </ul>
+  </div>
+
+  <div class="note" style="position: absolute; right: 18mm; bottom: 16mm;">次号予定:2026年8月24日(月)</div>
+
+  <div class="foot">
+    <span>株式会社ヒヨシ ─ 社内システムお知らせ Vol.5</span>
+    <span>1 / 1</span>
+  </div>
+</div>
+
+</body>
+</html>
