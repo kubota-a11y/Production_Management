@@ -28,9 +28,13 @@ QRコード(qr-line.png / qr-form.png)はリンク先が変わらない限り再
 "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu --no-pdf-header-footer --print-to-pdf="三浦さん・山本さん_HiBoard改善点ガイド_2026-08.pdf" "file://$PWD/三浦さん・山本さん_HiBoard改善点ガイド_2026-08.html"
 ```
 
+```
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu --no-pdf-header-footer --print-to-pdf="三浦さん_HiBoard運用手順書.pdf" "file://$PWD/三浦さん_HiBoard運用手順書.html"
+```
+
 - 各 `.page` は A4(210mm × 297mm)ちょうど。**内容がはみ出すと空白ページが1枚増える**ので、
   出力後に `mdls -name kMDItemNumberOfPages <ファイル>.pdf` でページ数を確認する
-  (鈴木さん用=3ページ / 山本さん用=3ページ / 改善点ガイド=3ページ)。
+  (鈴木さん用=3ページ / 山本さん用=3ページ / 改善点ガイド=3ページ / 三浦さん運用手順書=8ページ)。
   **mdls は Spotlight の索引待ちで `(null)` を返すことがある**ので、確実に数えるなら:
   `python3 -c "import re,sys;d=open(sys.argv[1],'rb').read();print(max(int(x) for x in re.findall(rb'/Type\s*/Pages[^>]*?/Count\s+(\d+)',d)))" <ファイル>.pdf`
 - **`writing-mode: vertical-rl`(縦書き)は使わない**。画面上は収まって見えるのに

@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<title>三浦さん HiBoard運用手順書</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif; color: #1a2733; font-size: 9pt; line-height: 1.4; background: #f1f5f9; }
+  .page { width: 210mm; min-height: 297mm; padding: 11mm 13mm; page-break-after: always; background: #fff; margin: 0 auto 6mm; }
+  .page:last-child { page-break-after: auto; }
+  @media print { body { background: #fff; } .page { margin: 0; } }
+
+  .head { border-bottom: 3px solid #1d4ed8; padding-bottom: 2.4mm; margin-bottom: 3mm; display: flex; justify-content: space-between; align-items: flex-end; }
+  .head h1 { font-size: 15pt; color: #1d4ed8; }
+  .head .meta { font-size: 8pt; color: #667; text-align: right; }
+
+  h2 { font-size: 10.4pt; color: #fff; background: #1d4ed8; padding: 1.2mm 3mm; border-radius: 1.5mm; margin: 3.4mm 0 1.4mm; }
+  h2:first-of-type { margin-top: 1.6mm; }
+  h2.c { background: #444; }
+  h2.m { background: #b45309; }
+  h3 { font-size: 9.7pt; color: #1d4ed8; margin: 2.6mm 0 1mm; border-left: 3px solid #1d4ed8; padding-left: 2.5mm; }
+
+  p { margin-bottom: 1.2mm; }
+  ul, ol { margin: 1mm 0 1.6mm 5.5mm; }
+  li { margin-bottom: 0.6mm; }
+  strong { color: #0b2a52; }
+
+  table { width: 100%; border-collapse: collapse; margin: 1.3mm 0 1.8mm; font-size: 8.7pt; }
+  th { background: #eef2f9; color: #1d3f74; padding: 1.1mm 2.5mm; text-align: left; border: 1px solid #cbd5e1; font-weight: 600; }
+  td { border: 1px solid #cbd5e1; padding: 1.1mm 2.5mm; vertical-align: top; }
+  td.k { background: #fafafa; font-weight: 600; white-space: nowrap; }
+
+  .lead { background: #eef4fd; border-radius: 2mm; padding: 2mm 3mm; margin-bottom: 1.6mm; }
+  .note { background: #fff8e6; border: 1px solid #e6c67a; border-radius: 2mm; padding: 1.7mm 2.6mm; margin: 1.3mm 0; font-size: 8.7pt; }
+  .key { background: #fdeeee; border: 1px solid #e0a3a3; border-radius: 2mm; padding: 1.7mm 2.6mm; margin: 1.3mm 0; font-size: 8.7pt; }
+  .key strong { color: #8a1f1f; }
+  .small { font-size: 8.3pt; color: #556; }
+
+  .who { display: inline-block; font-size: 8pt; font-weight: 700; border-radius: 1.2mm; padding: 0.3mm 2mm; margin-left: 1.5mm; vertical-align: 0.3mm; }
+  .who-mi { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+  .who-ya { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+  .who-su { background: #f3e8ff; color: #6b21a8; border: 1px solid #d8b4fe; }
+
+  .btn { display: inline-block; background: #1d4ed8; color: #fff; border-radius: 1.4mm; padding: 0.7mm 2.4mm; font-size: 8pt; font-weight: 700; white-space: nowrap; }
+  .bd { display: inline-block; font-size: 7.6pt; font-weight: 700; border-radius: 999px; padding: 0.3mm 2.2mm; white-space: nowrap; }
+  .bd-alert { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+  .bd-warn { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+  .bd-ok { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+
+  .steps { margin: 1.4mm 0; }
+  .step { display: flex; gap: 2mm; margin-bottom: 1.4mm; align-items: flex-start; }
+  .step .no { flex: 0 0 5mm; height: 5mm; border-radius: 50%; background: #1d4ed8; color: #fff; font-size: 8pt; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .step .tx { flex: 1; padding-top: 0.4mm; }
+
+  .cols { display: flex; gap: 4mm; }
+  .cols > div { flex: 1; }
+
+  /* 組織図 */
+  .org { margin: 1.6mm 0 2mm; }
+  .org-row { display: flex; align-items: stretch; gap: 2mm; margin-bottom: 1.2mm; }
+  .org-box { flex: 1; border-radius: 1.6mm; padding: 1.8mm 2.6mm; border: 1px solid #cbd5e1; }
+  .org-box .nm { font-size: 9.6pt; font-weight: 700; }
+  .org-box .rl { font-size: 8.2pt; color: #556; margin-top: 0.5mm; }
+  .org-1 { background: #fffbeb; border-color: #fcd34d; }
+  .org-2 { background: #eff6ff; border-color: #93c5fd; }
+  .org-3 { background: #faf5ff; border-color: #d8b4fe; }
+  .org-arrow { text-align: center; font-size: 8pt; color: #64748b; margin: 0.2mm 0 1.2mm; }
+
+  /* 画面マップ */
+  .maps { display: flex; flex-wrap: wrap; gap: 1.6mm; margin: 1.4mm 0; }
+  .mapbox { flex: 1 1 46%; border: 1px solid #cbd5e1; border-radius: 1.6mm; padding: 1.6mm 2.2mm; background: #f8fafc; }
+  .mapbox .t { font-weight: 700; font-size: 8.8pt; }
+  .mapbox .d { font-size: 8pt; color: #556; margin-top: 0.4mm; }
+
+  /* 流れ図 */
+  .flow { display: flex; gap: 1.2mm; align-items: stretch; margin: 1.6mm 0; }
+  .fnode { flex: 1; background: #eef4fd; border-radius: 1.4mm; padding: 1.6mm 1.4mm; text-align: center; }
+  .fnode .fh { font-size: 8.4pt; font-weight: 700; }
+  .fnode .fw { font-size: 7.4pt; color: #556; margin-top: 0.5mm; }
+  .fsep { align-self: center; color: #94a3b8; font-size: 9pt; }
+
+  .chk { list-style: none; margin-left: 0; }
+  .chk li { padding-left: 5mm; position: relative; }
+  .chk li:before { content: "☐"; position: absolute; left: 0.6mm; color: #1d4ed8; font-weight: 700; }
+</style></head><body>
+
+<!-- ============ 1ページ目: 全体像 ============ -->
+<div class="page">
+  <div class="head">
+    <h1>HiBoard 運用手順書</h1>
+    <div class="meta">三浦さん用／2026-08-18 版<br>有限会社HiYOSHi　HiBoard</div>
+  </div>
+
+  <p class="lead">
+    <strong>HiBoardの管理はすべて三浦さんが担当します。</strong>
+    案件の登録から納品の記録まで、この資料の順番どおりに進めれば一通り回せます。
+    分からなくなったら画面上部の <span class="btn">📖 使い方</span> にも同じ内容の詳しい版があります。
+  </p>
+
+  <h2>1. 三人の役割と順番</h2>
+
+  <div class="org">
+    <div class="org-row">
+      <div class="org-box org-1">
+        <div class="nm">三浦さん<span class="who who-mi">受付・計画</span></div>
+        <div class="rl">お客様からの受付全般と、案件の計画。<strong>HiBoardの全画面の管理を担当</strong>し、いつ・誰が・どこまで進んでいるかを把握する</div>
+      </div>
+    </div>
+    <div class="org-arrow">▼ フォローを依頼する</div>
+    <div class="org-row">
+      <div class="org-box org-2">
+        <div class="nm">山本さん<span class="who who-ya">実務フォロー</span></div>
+        <div class="rl">指示書作成／見積書作成／打ち合わせフォロー／納品フォロー／仕上がりイメージ作成フォロー</div>
+      </div>
+    </div>
+    <div class="org-arrow">▼ デザインを依頼する</div>
+    <div class="org-row">
+      <div class="org-box org-3">
+        <div class="nm">鈴木さん<span class="who who-su">デザイン専任</span></div>
+        <div class="rl">デザイン業務に特化。リモートのため、やりとりはHiBoardと Googleチャットで残す</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="key">
+    <strong>この順番がそのままHiBoardの使い方になります。</strong>
+    三浦さんが案件を登録して計画を立て、山本さんに実務のフォローを頼み、デザインが要るものは鈴木さんへ渡す。
+    <strong>誰かに口頭で頼んだことも、必ずHiBoardに残してください。</strong>
+    残っていないものは、他の二人からは見えません。
+  </div>
+
+  <h2>2. 毎朝かならず開く3つ</h2>
+  <table>
+    <tr><td class="k" style="width:34mm">Googleチャット</td><td>新しい案件の自動通知と、三人のやりとり。<strong>開きっぱなしにしておく</strong></td></tr>
+    <tr><td class="k">Googleメール</td><td>お客様・取引先からの連絡</td></tr>
+    <tr><td class="k">HiBoard</td><td>まず「📥 受注候補の取り込み」の赤いバッジ、次に「🗓️ スケジュール」</td></tr>
+  </table>
+
+  <h2>3. 画面マップ（どこで何をするか）</h2>
+  <table>
+    <tr><td class="k" style="width:46mm">📋 HiBoard（トップ）</td><td>案件一覧・カンバン・カレンダー・受注候補の取り込み。案件の登録と編集はここ</td></tr>
+    <tr><td class="k">🗓️ スケジュール</td><td>週間の作業割り振り。誰がいつ何をするかを組む</td></tr>
+    <tr><td class="k">🗂 デザイン進行ボード</td><td>デザイン案件を7段階で進める。山本さん・鈴木さんとの連携用</td></tr>
+    <tr><td class="k">🎨 デザインの作業予定</td><td>鈴木さんのマイスケジュール。手が空いているかを確認する</td></tr>
+    <tr><td class="k">📦 納品履歴 ／ 📇 顧客台帳</td><td>納品の記録と、お客様ごとの案件履歴・メモ。リピート受注のもとになる</td></tr>
+    <tr><td class="k">⚙ 管理</td><td>📸制作実績の登録／担当者・従業員マスタ／各種リンク発行／紹介コード／バックアップ状態</td></tr>
+  </table>
+
+  <h2>4. 案件が流れていく順番（全体像）</h2>
+  <div class="flow">
+    <div class="fnode"><div class="fh">① 受注候補</div><div class="fw">三浦さん</div></div>
+    <div class="fsep">▶</div>
+    <div class="fnode"><div class="fh">② 案件登録</div><div class="fw">三浦さん</div></div>
+    <div class="fsep">▶</div>
+    <div class="fnode"><div class="fh">③ デザイン</div><div class="fw">鈴木さん</div></div>
+    <div class="fsep">▶</div>
+    <div class="fnode"><div class="fh">④ 顧客確認</div><div class="fw">山本さん</div></div>
+    <div class="fsep">▶</div>
+    <div class="fnode"><div class="fh">⑤ 入稿・製造</div><div class="fw">三浦さん</div></div>
+    <div class="fsep">▶</div>
+    <div class="fnode"><div class="fh">⑥ 納品・記録</div><div class="fw">三浦さん</div></div>
+  </div>
+  <p class="small">
+    ※ 加工だけの案件（追加注文など）は③④を飛ばして②→⑤へ進みます。
+  </p>
+
+  <h2>5. もくじ</h2>
+  <div class="cols">
+    <div>
+      <table>
+        <tr><td class="k" style="width:15mm">2p</td><td>1日・1週間の流れ</td></tr>
+        <tr><td class="k">3p</td><td>① 受注候補　② 案件登録</td></tr>
+        <tr><td class="k">4p</td><td>案件一覧・ステータス・決済</td></tr>
+        <tr><td class="k">5p</td><td>スケジュールの組み方</td></tr>
+      </table>
+    </div>
+    <div>
+      <table>
+        <tr><td class="k" style="width:15mm">6p</td><td>③〜⑤ デザイン案件を進める</td></tr>
+        <tr><td class="k">7p</td><td>⑥ 納品と、そのあとの記録</td></tr>
+        <tr><td class="k">8p</td><td>管理メニュー・困ったとき</td></tr>
+        <tr><td class="k">—</td><td>1週間チェックリスト（8p下）</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 2ページ目: 1日・1週間の流れ ============ -->
+<div class="page">
+  <div class="head">
+    <h1>1日・1週間の流れ</h1>
+    <div class="meta">2ページ目</div>
+  </div>
+
+  <h2>毎朝（15分）</h2>
+  <div class="steps">
+    <div class="step"><div class="no">1</div><div class="tx">
+      <strong>Googleチャットとメールを開く。</strong>夜間に入った連絡と、HiBoardからの自動通知を確認する
+    </div></div>
+    <div class="step"><div class="no">2</div><div class="tx">
+      <strong>HiBoardの「📥 受注候補の取り込み」を開く。</strong>赤いバッジの数だけ新しい注文が届いています。
+      振り分けて案件にする（→3ページ）
+    </div></div>
+    <div class="step"><div class="no">3</div><div class="tx">
+      <strong>「🗓️ スケジュール」を開く。</strong>今日の予定を確認し、
+      <span class="bd bd-alert">納期超過</span> が出ている案件があれば先に手を打つ
+    </div></div>
+    <div class="step"><div class="no">4</div><div class="tx">
+      <strong>「🗂 デザイン進行ボード」の「📌 今日やること」を見る。</strong>
+      お客様の返事待ちで止まっているものがないか確認し、止まっていたら山本さんに催促を頼む
+    </div></div>
+  </div>
+
+  <h2>日中（案件が動くたび）</h2>
+  <table>
+    <tr><th style="width:52mm">こうなったら</th><th>HiBoardでこうする</th></tr>
+    <tr><td class="k">新しい注文が来た</td><td>受注候補から案件にする（または「➕ 新規案件」で直接登録）</td></tr>
+    <tr><td class="k">作業が一段階進んだ</td><td>案件一覧でステータスを変える</td></tr>
+    <tr><td class="k">お金を受け取った</td><td>案件一覧の「決済」を押して変える（→4ページ）</td></tr>
+    <tr><td class="k">デザインを頼みたい</td><td>案件の「作業内容」に指示を書いて登録する（→6ページ）</td></tr>
+    <tr><td class="k">納品した</td><td>「⋯ その他」→「📦 納品済みにする」（→7ページ）</td></tr>
+  </table>
+
+  <div class="note">
+    <strong>ステータスをこまめに変える理由は2つあります。</strong>
+    ①スケジュールボードは「受注確定・生産待ち・準備完了・生産中」の案件だけを拾うので、
+    古いままだと割り振りに出てきません。
+    ②取引先の納期確認ページにそのまま反映されるので、更新しておけば「上がりはいつ?」の電話が減ります。
+  </div>
+
+  <h2>毎週（金曜または月曜の朝・30分）</h2>
+  <div class="steps">
+    <div class="step"><div class="no">1</div><div class="tx">
+      <strong>翌週のスケジュールを金曜日まで埋める。</strong>
+      ここが埋まっていないと、鈴木さんも山本さんも「今週は忙しいのか空いているのか」が読めず、
+      そのたびに確認の連絡が発生します
+    </div></div>
+    <div class="step"><div class="no">2</div><div class="tx">
+      <strong>「🎨 デザインの作業予定」で鈴木さんの週を見る。</strong>
+      詰まっていれば依頼の順番を調整し、空いていれば先に渡せる案件がないか探す
+    </div></div>
+    <div class="step"><div class="no">3</div><div class="tx">
+      <strong>案件一覧を「納期」でグループ化して先の予定を確認する。</strong>
+      列見出しの「納期 ⊞」を押すと納期ごとにまとまります
+    </div></div>
+    <div class="step"><div class="no">4</div><div class="tx">
+      <strong>決済が「現金預かり」のまま残っている案件がないか確認する。</strong>
+      誰かの手元に現金があるままになっています
+    </div></div>
+  </div>
+
+  <h2>毎月</h2>
+  <ul>
+    <li><strong>制作実績を登録する</strong> … その月に納品したもののうち、写真が撮れているものをまとめて登録（→7ページ）</li>
+    <li><strong>「⚙ 管理 → 🛡 バックアップ状態」を確認する</strong> … 全部の保存先が緑になっていればOK（→8ページ）</li>
+  </ul>
+
+  <h2>迷ったときの判断基準</h2>
+  <div class="key">
+    <strong>「これは記録に残すべきか?」で迷ったら残してください。</strong>
+    枚数・サイズ・色・納期など<strong>あとから正確に思い出す必要があるもの</strong>は必ずHiBoardかGoogleチャットに書く。
+    「今から持っていきます」のような<strong>その場で終わる連絡</strong>は電話で構いません。
+    ただし<strong>入金と納品はボタンで残す</strong>ので電話は不要です。
+  </div>
+</div>
+
+<!-- ============ 3ページ目: 受注候補と案件登録 ============ -->
+<div class="page">
+  <div class="head">
+    <h1>① 受注候補の取り込み　② 案件登録</h1>
+    <div class="meta">3ページ目</div>
+  </div>
+
+  <h2>① 注文はどこから入ってくるか</h2>
+  <table>
+    <tr><th style="width:26mm">受付番号</th><th>入口</th></tr>
+    <tr><td class="k">バッジなし</td><td>公式LINEからの相談</td></tr>
+    <tr><td class="k">W-</td><td>コーポレートサイトのWeb注文フォーム（料金シミュレーターからの見積もり含む）</td></tr>
+    <tr><td class="k">T-</td><td>チーム追加注文（チームリンクを配ったチームからの追加）</td></tr>
+    <tr><td class="k">P-</td><td>取引先からの加工依頼（取引先リンク）</td></tr>
+  </table>
+  <p class="small">これらは<strong>すべて「📥 受注候補の取り込み」に集まります。</strong>入口ごとに画面を見に行く必要はありません。</p>
+
+  <h3>振り分けの手順</h3>
+  <div class="steps">
+    <div class="step"><div class="no">1</div><div class="tx">画面上の<strong>「振り分ける人」に自分を選ぶ</strong>（誰が判断したかの記録になります）</div></div>
+    <div class="step"><div class="no">2</div><div class="tx">内容を読んで行き先を決める
+      <table style="margin-top:1mm">
+        <tr><td class="k" style="width:24mm">🏭 生産</td><td>デザインが決まっていて、加工するだけのもの</td></tr>
+        <tr><td class="k">🎨 デザイン</td><td>デザインから作るもの。鈴木さんの作業が入る</td></tr>
+        <tr><td class="k">🤝 要相談</td><td>判断がつかないもの。社長に相談する</td></tr>
+      </table>
+    </div></div>
+    <div class="step"><div class="no">3</div><div class="tx">内容を確認・修正して<strong>案件として登録する</strong></div></div>
+  </div>
+
+  <h2>② 案件を登録する</h2>
+  <p>受注候補を通さないもの（電話・口頭で受けたものなど）は、案件一覧の <span class="btn">➕ 新規案件</span> から直接登録します。</p>
+
+  <div class="note">
+    <strong>決まっていない項目は空欄のまま登録してください。</strong>
+    入力できないせいで登録が止まるほうが困ります。決まった時点で「✎ 編集」から入れれば大丈夫です。
+  </div>
+
+  <h3>入力のコツ</h3>
+  <table>
+    <tr><th style="width:40mm">項目</th><th>入れ方</th></tr>
+    <tr><td class="k">案件の型（いちばん上）</td><td>🏭通常の加工案件／🎨デザインから入る加工案件／📄紙媒体／🖌社内デザイン から選ぶ。<strong>ここで選ぶだけで後ろの設定が決まります</strong></td></tr>
+    <tr><td class="k">案件名</td><td>正式名称を入れる（例：<strong>北上少年団記念品</strong>）</td></tr>
+    <tr><td class="k">アイテム名</td><td>作る物そのもの（例：<strong>マフラータオル / トートバッグ</strong>）。一覧に出るので入れておくと探しやすい</td></tr>
+    <tr><td class="k">アイテムの納品納期</td><td>未定なら空欄でよい。一覧に「未定」と出る</td></tr>
+    <tr><td class="k">デザインの入稿納期</td><td><strong>デザインから入る案件では必ず入れる。</strong>鈴木さんの作業カードの納期になります</td></tr>
+    <tr><td class="k">連絡経路</td><td>どこから来た話かを残す。<strong>Googleチャット・社長</strong>も選べます</td></tr>
+    <tr><td class="k">制作予定時間／デザイン予定時間</td><td>どちらも空欄でよい。制作予定時間は、スケジュールボードに置くときに入れられます</td></tr>
+    <tr><td class="k">加工種別・プリント箇所</td><td>この段階で決まっていなければ空欄でよい</td></tr>
+    <tr><td class="k">作業の準備項目</td><td>製版・シート出力など。<strong>デザイン進行ボードで管理する案件はここでは選びません</strong>（入稿・製造に入ってから選ぶ）</td></tr>
+    <tr><td class="k">作業内容</td><td>鈴木さんへの指示をここに書く。<strong>丁寧でなくていいので、箇条書きで漏れなく</strong></td></tr>
+  </table>
+
+  <div class="key">
+    <strong>作業内容の書き方が、いちばん手戻りに効きます。</strong>
+    色数・サイズ・参照するものを書き、決まっていないなら<strong>「決まっていない」と書く</strong>。
+    「マフラータオルの寸法は自分で調べる／この資料を参照」まで書いておくと、
+    鈴木さんが確認の連絡をせずに作り始められます。
+  </div>
+
+  <p class="small">
+    ※ 登録すると Googleチャットへ自動で通知が飛びます（社長・鈴木さん・山本さん）。別途連絡する必要はありません。
+  </p>
+</div>
+
+<!-- ============ 4ページ目: 案件一覧 ============ -->
+<div class="page">
+  <div class="head">
+    <h1>案件一覧の見方と、日々の更新</h1>
+    <div class="meta">4ページ目</div>
+  </div>
+
+  <h2>3つのビューの使い分け</h2>
+  <table>
+    <tr><td class="k" style="width:34mm">📊 一覧ビュー</td><td><strong>普段はここ。</strong>検索・絞り込み・並び替え・グループ化ができる</td></tr>
+    <tr><td class="k">🎯 カンバンビュー</td><td>ステータスごとの札で全体を眺めたいとき</td></tr>
+    <tr><td class="k">📅 カレンダービュー</td><td>納期の混み具合を月単位で見たいとき</td></tr>
+  </table>
+
+  <h2>一覧で覚える操作</h2>
+  <ul>
+    <li><strong>案件名を押す</strong>＝詳細が開く。加工内容・数量・サイズ別枚数・指示書や見積書のPDFがここにまとまっています</li>
+    <li><strong>検索ボックス</strong>＝案件名・顧客名・アイテム名で絞り込み。右に「3件 / 全20件」と出ます</li>
+    <li><strong>列見出しの ⇅</strong>＝並び替え、<strong>⊞</strong>＝グループ化（納期・ステータス）</li>
+    <li><strong>「⋯ その他」</strong>＝毎日は使わない操作。詳細を見る／担当者の候補を出す／デザイン進行ボードに載せる・外す／納品済みにする</li>
+  </ul>
+
+  <h3>行の色と納期のバッジ</h3>
+  <table>
+    <tr><td class="k" style="width:26mm"><span class="bd bd-alert">納期超過</span></td><td>赤い帯。<strong>今日すぐ手を打つ</strong></td></tr>
+    <tr><td class="k"><span class="bd bd-warn">3日以内</span></td><td>黄色い帯。作業が始まっているか確認する</td></tr>
+    <tr><td class="k">7日以内</td><td>青い帯。スケジュールに入っているか確認する</td></tr>
+    <tr><td class="k">未定</td><td>納期がまだ決まっていない案件。<strong>決まったら編集で入れる</strong></td></tr>
+  </table>
+
+  <h2>ステータスを進める</h2>
+  <div class="flow">
+    <div class="fnode"><div class="fh">受注前</div></div>
+    <div class="fsep">▶</div>
+    <div class="fnode"><div class="fh">受注確定</div></div>
+    <div class="fsep">▶</div>
+    <div class="fnode"><div class="fh">生産待ち</div></div>
+    <div class="fsep">▶</div>
+    <div class="fnode"><div class="fh">準備完了</div></div>
+    <div class="fsep">▶</div>
+    <div class="fnode"><div class="fh">生産中</div></div>
+    <div class="fsep">▶</div>
+    <div class="fnode"><div class="fh">検品</div></div>
+    <div class="fsep">▶</div>
+    <div class="fnode"><div class="fh">納品待ち</div></div>
+    <div class="fsep">▶</div>
+    <div class="fnode"><div class="fh">納品済み</div></div>
+  </div>
+  <p class="small">
+    変え方は2通り。<strong>①一覧の「✎ 編集」からステータスを選ぶ　②カンバンビューで札を動かす。</strong>
+    「納品済み」だけは記録を残す必要があるので、「⋯ その他 → 📦 納品済みにする」から行います（→7ページ）。
+  </p>
+
+  <h2>決済（入金・現金の受け渡し）</h2>
+  <p>「今日お金持っていきます」「入金しておきました」の電話を、この列で置き換えます。</p>
+  <table>
+    <tr><th style="width:30mm">状態</th><th>意味</th></tr>
+    <tr><td class="k"><span class="bd">未入金</span></td><td>まだお金を受け取っていない（最初はこれ）</td></tr>
+    <tr><td class="k"><span class="bd bd-warn">現金預かり</span></td><td>現金を受け取って、まだ会社に入れていない。<strong>誰が預かっているかを必ず選ぶ</strong></td></tr>
+    <tr><td class="k"><span class="bd bd-ok">入金済み</span></td><td>会社にお金が入った</td></tr>
+  </table>
+  <div class="steps">
+    <div class="step"><div class="no">1</div><div class="tx">一覧の「決済」欄のバッジを押す</div></div>
+    <div class="step"><div class="no">2</div><div class="tx">いまの状態を選ぶ（「現金を預かった」なら預かった人も選ぶ）</div></div>
+    <div class="step"><div class="no">3</div><div class="tx">「保存する」を押す</div></div>
+  </div>
+  <div class="key">
+    <strong>会社に現金を入れたら、必ず「入金済み」に変えてください。</strong>
+    「現金預かり」のまま残っていると、まだ誰かの手元にお金があることになります。
+    週に一度は残っていないか見てください。
+  </div>
+
+  <p class="small">※ 将来オンライン決済（PayPay等）を導入したら、この欄の使い方は変わります。それまでの記録用です。</p>
+</div>
+
+<!-- ============ 5ページ目: スケジュール ============ -->
+<div class="page">
+  <div class="head">
+    <h1>スケジュールの組み方</h1>
+    <div class="meta">5ページ目</div>
+  </div>
+
+  <p class="lead">
+    <strong>週間作業スケジュールボードは、三浦さんの計画がいちばん形になる画面です。</strong>
+    ここが埋まっていれば、他の二人は聞かなくても状況が分かります。
+  </p>
+
+  <h2>画面の構成</h2>
+  <table>
+    <tr><td class="k" style="width:44mm">週のマス目（従業員 × 日付）</td><td>実際の作業予定。ドラッグで置く・動かす</td></tr>
+    <tr><td class="k">📝 提案確認</td><td>システムが「この人に割り振ってはどうか」と提案している案件。<strong>ここからマス目へドラッグすると確定します</strong></td></tr>
+    <tr><td class="k">🗂️ 準備項目リスト</td><td>製版・シート出力など、案件に紐づく準備作業。担当と日付を決める</td></tr>
+    <tr><td class="k">🏭 製造の準備項目 選定待ち</td><td>デザインが固まって製造に入った案件。<strong>ここで三浦さんが準備項目を選びます</strong></td></tr>
+    <tr><td class="k">📈 案件別 消化率</td><td>実績時間 ÷ 作業予定時間。かかりすぎている案件に気づける</td></tr>
+  </table>
+
+  <h2>割り振りの手順</h2>
+  <div class="steps">
+    <div class="step"><div class="no">1</div><div class="tx">
+      <strong>まず自動で割り振ってもらう。</strong>システムが空き時間・スキル・生産性から候補を出し、「📝 提案確認」に並びます
+    </div></div>
+    <div class="step"><div class="no">2</div><div class="tx">
+      <strong>提案カードをマス目へドラッグして確定する。</strong>
+      スマホ・タブレットでは、カードの中で担当者と日付を選んで「この内容で確定」を押します
+    </div></div>
+    <div class="step"><div class="no">3</div><div class="tx">
+      <strong>手で直す。</strong>マス目をクリックすると勤務時間編集が開き、案件を選んで予定(h)を入れられます。
+      置いたブロックはドラッグで別の日・別の人へ動かせます
+    </div></div>
+    <div class="step"><div class="no">4</div><div class="tx">
+      <strong>翌週の金曜日まで埋める。</strong>ここまでやって計画が完成です
+    </div></div>
+  </div>
+
+  <div class="note">
+    <strong>制作予定時間が未定の案件は、選択肢に「（制作予定時間 未定）」と出ます。</strong>
+    そのまま選んで予定(h)を入れれば置けます。入れた時間は案件にも記録されるので、二度入力する必要はありません。
+  </div>
+
+  <h2>マス目の記号</h2>
+  <table>
+    <tr><td class="k" style="width:30mm">🕗 空きあり</td><td>その日はまだ余裕がある。案件を追加で置ける</td></tr>
+    <tr><td class="k">提案中・未確定</td><td>まだ確定していない予定。ドラッグで確定できる</td></tr>
+    <tr><td class="k">受注前バッジ</td><td>まだ受注確定していない案件。自動割り当ての対象外だが、ドラッグで置ける</td></tr>
+  </table>
+
+  <h2>置けない案件があるとき</h2>
+  <table>
+    <tr><th style="width:52mm">原因</th><th>対処</th></tr>
+    <tr><td class="k">ステータスが対象外</td><td>「受注確定・生産待ち・準備完了・生産中」のどれかに変える</td></tr>
+    <tr><td class="k">すでに全時間を割り振り済み</td><td>予定を増やすなら、案件の制作予定時間を増やす</td></tr>
+    <tr><td class="k">従業員の生産性が未登録</td><td>「⚙ 管理 → 🧑‍🏭 従業員マスタ」でその加工種別の生産性を登録する</td></tr>
+  </table>
+
+  <div class="key">
+    <strong>鈴木さんの予定はこの画面と連動しています。</strong>
+    「🎨 デザインの作業予定」で鈴木さんが自分で入れた予定も、社内のこのボードに反映されます。
+    どちらから入れても二重管理にはなりません。
+  </div>
+</div>
+
+<!-- ============ 6ページ目: デザイン進行 ============ -->
+<div class="page">
+  <div class="head">
+    <h1>③〜⑤ デザイン案件を進める</h1>
+    <div class="meta">6ページ目</div>
+  </div>
+
+  <h2>デザイン進行ボードの7段階</h2>
+  <div class="flow">
+    <div class="fnode"><div class="fh">①ブリーフ・ラフ</div><div class="fw">山本さん</div></div>
+    <div class="fsep">▶</div>
+    <div class="fnode"><div class="fh">②制作</div><div class="fw">鈴木さん</div></div>
+    <div class="fsep">▶</div>
+    <div class="fnode"><div class="fh">③確認</div><div class="fw">山本さん↔お客様</div></div>
+    <div class="fsep">▶</div>
+    <div class="fnode"><div class="fh">④入稿・製造</div><div class="fw">三浦さん</div></div>
+    <div class="fsep">▶</div>
+    <div class="fnode"><div class="fh">⑤請求</div><div class="fw">三浦さん</div></div>
+    <div class="fsep">▶</div>
+    <div class="fnode"><div class="fh">⑥検品→⑦納品</div><div class="fw">三浦さん</div></div>
+  </div>
+  <p class="small">段階の移動はカードのドラッグ&amp;ドロップ。<strong>「📌 今日やること」には社内が動く番のものだけが出ます。</strong></p>
+
+  <h3>③確認は4ステップで進みます</h3>
+  <table>
+    <tr><td class="k" style="width:44mm">1. お客様へ確認連絡</td><td>社内が動く番</td></tr>
+    <tr><td class="k">2. お客様の返事待ち</td><td>返事待ち。<strong>滞留したら催促する</strong></td></tr>
+    <tr><td class="k">3. 位置・大きさの調整</td><td>社内が動く番</td></tr>
+    <tr><td class="k">4. 最終確認の返事待ち</td><td>OKが出たら④入稿・製造へ</td></tr>
+  </table>
+
+  <h2>自動で進むところ・手で進めるところ</h2>
+  <table>
+    <tr><th style="width:52mm">できごと</th><th>どうなるか</th></tr>
+    <tr><td class="k">鈴木さんが「初校提出」を完了</td><td><strong>自動で②制作→③確認へ進む。</strong>鈴木さんのボードからカードが消える</td></tr>
+    <tr><td class="k">鈴木さんが「入稿完了」を完了（紙媒体）</td><td>自動で⑤請求へ進む</td></tr>
+    <tr><td class="k">お客様からOKが出た</td><td>手で④入稿・製造へ動かす</td></tr>
+    <tr><td class="k">修正指示が来た</td><td>カードの<strong>「✏️ 修正で鈴木さんへ戻す」</strong>を押す。段階を手で戻す必要はない</td></tr>
+  </table>
+
+  <div class="note">
+    <strong>修正の往復は何回でも回せます。</strong>戻すたびに「🔁 修正2回目」のように回数が出るので、
+    <strong>5回・6回と増えている案件は要注意のサイン</strong>として早めに手を打ってください。
+    修正指示のメモを入れると、鈴木さんのカードに「✏️ 修正指示: …」と表示されます。
+  </div>
+
+  <h2>④入稿・製造に入ったら（三浦さんの出番）</h2>
+  <div class="steps">
+    <div class="step"><div class="no">1</div><div class="tx">
+      スケジュールボードの<strong>「🏭 製造の準備項目 選定待ち」</strong>にその案件が出ます
+    </div></div>
+    <div class="step"><div class="no">2</div><div class="tx">
+      デザイン進行ボードのカードから<strong>製版・シート出力など必要な準備項目を選ぶ</strong>
+    </div></div>
+    <div class="step"><div class="no">3</div><div class="tx">
+      選んだ項目をスケジュールボードで担当者と日付に割り振る
+    </div></div>
+  </div>
+
+  <h2>🎨 デザインの作業予定（鈴木さんのボード）</h2>
+  <p>鈴木さんが自分で日付と見込み時間を入れる画面です。<strong>三浦さんはここを見て、鈴木さんの手が空いているかを判断します。</strong></p>
+  <table>
+    <tr><td class="k" style="width:44mm">日付が未定のタスク</td><td>まだ日程が決まっていない作業。ここが多いと詰まっているサイン</td></tr>
+    <tr><td class="k">今週の予定</td><td>曜日ごとの作業。稼働なしの日も分かる</td></tr>
+    <tr><td class="k">🙅 自分の担当ではない</td><td>鈴木さんが「これは自分の作業ではない」と外したとき。<strong>担当が未定の準備項目として社内のスケジュールボードに戻るので、三浦さんが担当を決め直します</strong></td></tr>
+  </table>
+
+  <div class="key">
+    <strong>データ作成の作業は鈴木さんに自動では流れません。</strong>
+    「DTFデータ作成」「刺繍データ作成依頼」「スクリーンデータ作成」を準備項目に選んでも、鈴木さんのボードには入りません。
+    <strong>頼みたいときは案件の「作業内容」に書いて個別に依頼してください。</strong>
+  </div>
+</div>
+
+<!-- ============ 7ページ目: 納品とその後 ============ -->
+<div class="page">
+  <div class="head">
+    <h1>⑥ 納品と、そのあとの記録</h1>
+    <div class="meta">7ページ目</div>
+  </div>
+
+  <h2>納品の手順</h2>
+  <div class="steps">
+    <div class="step"><div class="no">1</div><div class="tx">
+      <strong>goodnoteの指示書をPDFに書き出し、案件の共有ドライブフォルダに保存する</strong>
+      （Freeeの見積書・請求書PDFも同じフォルダへ）
+    </div></div>
+    <div class="step"><div class="no">2</div><div class="tx">
+      一覧ビューで<strong>「⋯ その他 → 📦 納品済みにする」</strong>を押す
+    </div></div>
+    <div class="step"><div class="no">3</div><div class="tx">
+      納品日（今日の日付が入っています）／発送方法（来社納品・発送・持参納品）／納品者を選ぶ
+    </div></div>
+    <div class="step"><div class="no">4</div><div class="tx">
+      <strong>「指示書PDFを保存した」にチェックを入れて保存</strong>
+    </div></div>
+    <div class="step"><div class="no">5</div><div class="tx">
+      <strong>決済が「入金済み」になっているか確認する</strong>（→4ページ）
+    </div></div>
+  </div>
+
+  <div class="note">
+    <strong>納品操作は案件の後片付けも一緒に行います。</strong>
+    残っていた作業ブロックが消え、準備項目が完了扱いになります。
+    ここをやらないと、終わった案件がスケジュールボードや鈴木さんのボードに残り続けます。
+  </div>
+
+  <div class="key">
+    <strong>お渡しのときに、クチコミ依頼カードを1枚同梱してください。</strong>
+    「仕上がりに問題がなければ、よろしければGoogleに一言いただけると嬉しいです」と添えるだけで結果が変わります。
+  </div>
+
+  <h2>📦 納品履歴</h2>
+  <p>納品した案件が日付順に並びます。三浦さんの使いどころは2つ。</p>
+  <ul>
+    <li><strong>「いつ・誰が・どう納品したか」を後から確認する</strong> … 問い合わせがあったときの一次情報</li>
+    <li><strong>「↻ この案件をもとに新規作成」</strong> … 同じチームから「また同じものを」と言われたときに、
+      加工内容・数量・アイテムをそのまま引き継いで新しい案件を作れます。<strong>名簿と担当者は引き継がれません</strong>（年度で変わるため）</li>
+  </ul>
+
+  <h2>📇 顧客台帳</h2>
+  <p>お客様ごとに案件履歴がまとまります。</p>
+  <ul>
+    <li>過去に何を作ったか、いくらだったかをその場で確認できる</li>
+    <li><strong>顧客メモ</strong>に、次回に効く情報を残す（例：ロゴデータの置き場所、担当者の交代、支払いの慣習）</li>
+    <li>ここからも「↻ この案件をもとに新規作成」ができます</li>
+  </ul>
+
+  <h2>📸 制作実績の登録（⚙ 管理メニューの中）</h2>
+  <p><strong>ここで登録するとコーポレートサイトに自動で掲載されます。</strong>会社の宣伝に直結する作業です。</p>
+  <div class="steps">
+    <div class="step"><div class="no">1</div><div class="tx"><strong>写真を3枚選ぶ</strong>（登録時に明るさなどが自動で補正され、見た目が揃います）</div></div>
+    <div class="step"><div class="no">2</div><div class="tx">取引先／つくったもの／加工箇所／加工方法 を入力する</div></div>
+    <div class="step"><div class="no">3</div><div class="tx"><strong>「お客様から許可をいただいている」にチェック</strong>を入れて登録</div></div>
+  </div>
+  <div class="key">
+    <strong>許可のチェックは必ず確認してから入れてください。</strong>
+    チェックを入れて登録した時点で、写真はコーポレートサイトに公開されます。
+    チームのユニフォームなど、写り込みがあるものは特に注意してください。
+  </div>
+  <p class="small">
+    ※ 登録した実績はサイト側でカテゴリー（チーム・法人など）に自動で振り分けられ、お客様が絞り込んで見られます。
+    月に一度まとめて登録するのが続けやすいやり方です。
+  </p>
+</div>
+
+<!-- ============ 8ページ目: 管理メニューと困ったとき ============ -->
+<div class="page">
+  <div class="head">
+    <h1>管理メニューと、困ったときの対処</h1>
+    <div class="meta">8ページ目</div>
+  </div>
+
+  <h2>⚙ 管理メニューの中身</h2>
+  <table>
+    <tr><th style="width:52mm">項目</th><th>いつ使うか</th></tr>
+    <tr><td class="k">👥 担当者マスタ（案件の窓口）</td><td>案件の窓口になる人を増やす・直すとき</td></tr>
+    <tr><td class="k">🧑‍🏭 従業員マスタ（作業する人）</td><td>作業する人の登録と、<strong>加工種別ごとの生産性</strong>の登録。
+      <strong>ここが未登録だとスケジュールボードに置けません</strong></td></tr>
+    <tr><td class="k">🔗 チームリンク発行</td><td>チームに追加注文用のURLを渡すとき（T-の入口）</td></tr>
+    <tr><td class="k">🤝 取引先リンク発行</td><td>取引先に加工依頼用のURLを渡すとき（P-の入口）</td></tr>
+    <tr><td class="k">🎨 デザイナーリンク発行</td><td>鈴木さんのマイスケジュールボードのURLを発行・停止するとき</td></tr>
+    <tr><td class="k">🎁 紹介コード発行</td><td>チームが別のチームを紹介してくれたとき。<strong>紹介元にはステッカー、紹介先には割引</strong></td></tr>
+    <tr><td class="k">📸 制作実績の登録</td><td>→7ページ</td></tr>
+    <tr><td class="k">🛡 バックアップ状態</td><td>月に一度、<strong>すべての保存先が成功しているか</strong>を確認する</td></tr>
+  </table>
+
+  <div class="note">
+    <strong>バックアップは月に一度だけ見てください。</strong>
+    社内と社外の複数箇所に自動で保存されています。1か所でも赤くなっていたら社長に伝えてください。
+    火災やウイルスで社内のデータが全部だめになっても、社外の1本があれば戻せます。
+  </div>
+
+  <h2>困ったときのQ&amp;A</h2>
+  <table>
+    <tr><th style="width:62mm">こんなとき</th><th>こうする</th></tr>
+    <tr><td class="k">案件がスケジュールボードの選択肢に出ない</td><td>ステータスを「受注確定・生産待ち・準備完了・生産中」のどれかに変える。それでも出なければ従業員マスタの生産性を確認</td></tr>
+    <tr><td class="k">鈴木さんのボードに関係ない作業が出ている</td><td>鈴木さんに<strong>「🙅 自分の担当ではない」</strong>を押してもらう。担当未定で社内のボードに戻るので割り当て直す</td></tr>
+    <tr><td class="k">デザイン案件が「制作」から進まない</td><td>鈴木さんが「初校提出」を完了していない。Googleチャットで状況を確認する</td></tr>
+    <tr><td class="k">お客様の返事が来ない</td><td>「📌 今日やること」に滞留として出ます。山本さんに催促を依頼</td></tr>
+    <tr><td class="k">納期が決まっていない案件が増えてきた</td><td>一覧を納期でグループ化すると「未定」がまとまります。まとめて確認して埋める</td></tr>
+    <tr><td class="k">現金預かりのまま残っている</td><td>預かっている人に会社へ入れてもらい、「入金済み」に変える</td></tr>
+    <tr><td class="k">操作の詳しいやり方を知りたい</td><td>画面上部の<strong>📖 使い方</strong>。この資料と同じ流れで、もっと詳しく書いてあります</td></tr>
+  </table>
+
+  <h2>三浦さんの1週間チェックリスト</h2>
+  <ul class="chk">
+    <li>受注候補の赤いバッジを毎朝ゼロにした</li>
+    <li>ステータスが実態と合っている（終わった案件が残っていない）</li>
+    <li>翌週の金曜日までスケジュールが埋まっている</li>
+    <li>鈴木さんの「日付が未定のタスク」が溜まっていない</li>
+    <li>デザイン進行ボードで、お客様の返事待ちが滞留していない</li>
+    <li>納期が「未定」の案件を確認した</li>
+    <li>決済が「現金預かり」のまま残っていない</li>
+    <li>納品した案件は「納品済みにする」まで完了している</li>
+  </ul>
+
+  <div class="key">
+    <strong>この手順書どおりに回せば、三人が同じ画面を見て動けます。</strong>
+    やりにくいところ・実態に合わないところが出てきたら、そのままにせず社長に伝えてください。
+    <strong>HiBoardは実際の仕事に合わせて直していく前提で作られています。</strong>
+  </div>
+
+  <p class="small" style="margin-top:3mm">
+    有限会社HiYOSHi　HiBoard 運用手順書（三浦さん用）／2026-08-18 版<br>
+    最新の操作説明は HiBoard 画面上部の「📖 使い方」を参照してください。
+  </p>
+</div>
+
+</body></html>
