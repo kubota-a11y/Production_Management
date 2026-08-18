@@ -65,6 +65,16 @@ function getPaymentLabel(status) {
   return labelMap[status] || '未入金';
 }
 
+// 支払方法(2026-08-18 追加)。入金状態とは別の軸で、現金・振込・クレカのいずれかを選ぶ
+function getPaymentMethodLabel(method) {
+  const labelMap = {
+    'CASH': '現金',
+    'TRANSFER': '振込',
+    'CREDIT': 'クレカ'
+  };
+  return labelMap[method] || '';
+}
+
 function getPaymentClass(status) {
   const classMap = {
     'UNPAID': 'payment-unpaid',

@@ -280,7 +280,8 @@ const app = {
         <button type="button" class="payment-badge ${getPaymentClass(project.payment_status)}"
           onclick="app.openPaymentModal(${project.id})"
           title="${this.escapeHtml(this.paymentTooltip(project))}">
-          ${getPaymentLabel(project.payment_status)}
+          ${getPaymentLabel(project.payment_status)}${project.payment_method
+            ? `<span class="payment-method">${getPaymentMethodLabel(project.payment_method)}</span>` : ''}
         </button>
       </td>
       <td>
@@ -908,7 +909,7 @@ const app = {
 
   TRIAGE_LABELS: {
     production: { icon: '🏭', text: '生産', hint: '加工のみ・データ支給あり(三浦さん先導)' },
-    design: { icon: '🎨', text: 'デザイン', hint: 'デザイン工程あり(山本さん先導)' },
+    design: { icon: '🎨', text: 'デザイン', hint: 'デザイン工程あり(三浦さん又は山本さん先導)' },
     consult: { icon: '🤝', text: '要相談', hint: '二人で決めきれない・社長へ相談' },
   },
 
@@ -1556,12 +1557,14 @@ const app = {
   // 誰が現金を持っているか・入金が済んでいるかが全員に見える(2026-08-18)
   paymentTooltip(project) {
     const status = project.payment_status || 'UNPAID';
+    const method = getPaymentMethodLabel(project.payment_method);
+    const methodNote = method ? `支払方法: ${method}。` : '';
     if (status === 'CASH_RECEIVED') {
       const holder = project.payment_holder_name || '担当者';
       return `${holder}が現金を預かっています。押すと変更できます`;
     }
-    if (status === 'PAID') return '入金済みです。押すと変更できます';
-    return 'まだ入金がありません。押すと変更できます';
+    if (status === 'PAID') return `${methodNote}入金済みです。押すと変更できます`;
+    return `${methodNote}まだ入金がありません。押すと変更できます`;
   },
 
   openPaymentModal(projectId) {
@@ -1573,6 +1576,7 @@ const app = {
     form.reset();
     const status = project.payment_status || 'UNPAID';
     form.elements['payment_status'].value = status;
+    form.elements['payment_method'].value = project.payment_method || '';
 
     document.getElementById('payment-modal-case').textContent =
       `${project.project_name}${project.item_name ? `（${project.item_name}）` : ''}`;
@@ -1593,7 +1597,7 @@ const app = {
       ? `最終更新: ${formatDateTime(project.payment_updated_at)}`
       : '';
 
-    this.onPaymentStatusChange();
+    this.onPaymentMethodChange();   // 支払方法に応じた「現金を預かった」の可否も揃える
     document.getElementById('payment-modal').style.display = 'flex';
   },
 
@@ -1605,8 +1609,27 @@ const app = {
   // 「現金を預かった」のときだけ、預かった人の選択を出す
   onPaymentStatusChange() {
     const form = document.getElementById('payment-form');
-    const isCash = form.elements['payment_status'].value === 'CASH_RECEIVED';
-    document.getElementById('payment-holder-group').style.display = isCash ? '' : 'none';
+    const isCashReceived = form.elements['payment_status'].value === 'CASH_RECEIVED';
+    document.getElementById('payment-holder-group').style.display = isCashReceived ? '' : 'none';
+  },
+
+  // 支払方法を変えたときの連動。振込・クレカでは現金を預かることが起こりえないので、
+  // 「現金を預かった」を選べないようにする(選択済みなら未入金へ戻す)
+  onPaymentMethodChange() {
+    const form = document.getElementById('payment-form');
+    const method = form.elements['payment_method'].value;
+    const cashOnly = method === 'CASH' || method === '';
+    const pill = document.getElementById('payment-cash-received-pill');
+    const radio = pill.querySelector('input');
+
+    radio.disabled = !cashOnly;
+    pill.classList.toggle('is-disabled', !cashOnly);
+    document.getElementById('payment-cash-only-hint').style.display = cashOnly ? 'none' : '';
+
+    if (!cashOnly && form.elements['payment_status'].value === 'CASH_RECEIVED') {
+      form.elements['payment_status'].value = 'UNPAID';
+    }
+    this.onPaymentStatusChange();
   },
 
   async submitPaymentForm(e) {
@@ -1623,11 +1646,13 @@ const app = {
       HiUI.toast('現金を預かった人を選択してください');
       return;
     }
+    const payment_method = form.elements['payment_method'].value;
 
     try {
       const result = await API.updateProjectPayment(this.payingProjectId, {
         payment_status,
-        payment_holder_employee_id: holderId || null
+        payment_holder_employee_id: holderId || null,
+        payment_method: payment_method || null
       });
       if (result.error) {
         HiUI.toast(result.error, 'error');

@@ -331,7 +331,7 @@
               <div class="checkbox-group" style="margin-top:8px;">
                 <label class="checkbox-pill"><input type="checkbox" name="is_design_ops" value="1" onchange="app.onDesignOpsChange()"> 🗂 デザイン進行ボードで管理する</label>
               </div>
-              <div class="field-hint">チェックすると「🗂 デザイン進行ボード」の画面に載り、ブリーフ・ラフ→制作→確認→入稿→請求の流れで進行を管理します（担当: 山本さん）</div>
+              <div class="field-hint">チェックすると「🗂 デザイン進行ボード」の画面に載り、ブリーフ・ラフ→制作→確認→入稿→請求の流れで進行を管理します（担当: 三浦さん又は山本さん）</div>
 
               <div class="checkbox-group" style="margin-top:8px;">
                 <label class="checkbox-pill"><input type="radio" name="ops_flow" value="FULL" checked onchange="app.onOpsFlowChange()"> 加工まで（標準）</label>
@@ -464,7 +464,7 @@
                  製造(三浦さん管轄)に入るタイミングで、デザイン進行ボードのカードから選ぶ -->
             <div class="field-hint" id="pf-prep-deferred-hint" style="display:none;">
               <strong>ここでは準備項目を選びません。</strong>
-              鈴木さん・山本さんでデザインが固まって生産ライン（入稿・製造）に乗ったときに、
+              鈴木さん・三浦さん又は山本さんでデザインが固まって生産ライン（入稿・製造）に乗ったときに、
               <strong>三浦さんが</strong>「🗂 デザイン進行ボード」のカードから製版・シート出力などを選びます。
               そのタイミングは週間スケジュールの「🏭 製造の準備項目 選定待ち」にも出ます
               （初校提出などのデザイン作業は自動で登録されます）
@@ -737,7 +737,7 @@
             </fieldset>
             <div class="field-hint" id="ai-prep-deferred-hint" style="display:none;">
               <strong>ここでは準備項目を選びません。</strong>
-              鈴木さん・山本さんでデザインが固まって生産ライン（入稿・製造）に乗ったときに、
+              鈴木さん・三浦さん又は山本さんでデザインが固まって生産ライン（入稿・製造）に乗ったときに、
               <strong>三浦さんが</strong>「🗂 デザイン進行ボード」のカードから製版・シート出力などを選びます。
               そのタイミングは週間スケジュールの「🏭 製造の準備項目 選定待ち」にも出ます
               （初校提出などのデザイン作業は自動で登録されます）
@@ -748,7 +748,7 @@
               <div class="checkbox-group">
                 <label class="checkbox-pill"><input type="checkbox" name="is_design_ops" value="1" onchange="app.onIntakeDesignOpsChange()"> 🗂 デザイン進行ボードで管理する</label>
               </div>
-              <div class="field-hint">チェックすると「🗂 デザイン進行ボード」の画面に載り、進行を管理します（担当: 山本さん）</div>
+              <div class="field-hint">チェックすると「🗂 デザイン進行ボード」の画面に載り、進行を管理します（担当: 三浦さん又は山本さん）</div>
               <div class="checkbox-group" style="margin-top:8px;">
                 <label class="checkbox-pill"><input type="radio" name="ops_flow" value="FULL" checked> 加工まで（標準）</label>
                 <label class="checkbox-pill"><input type="radio" name="ops_flow" value="SUBMIT_END"> 📄 紙媒体・入稿で完了</label>
@@ -959,12 +959,23 @@
         <p id="payment-modal-case" class="form-label"></p>
 
         <fieldset class="form-group">
+          <legend>支払方法</legend>
+          <div class="checkbox-group">
+            <label class="checkbox-pill"><input type="radio" name="payment_method" value="CASH" onchange="app.onPaymentMethodChange()"> 現金</label>
+            <label class="checkbox-pill"><input type="radio" name="payment_method" value="TRANSFER" onchange="app.onPaymentMethodChange()"> 振込</label>
+            <label class="checkbox-pill"><input type="radio" name="payment_method" value="CREDIT" onchange="app.onPaymentMethodChange()"> クレジットカード</label>
+          </div>
+          <div class="field-hint">まだ決まっていなければ選ばなくて構いません</div>
+        </fieldset>
+
+        <fieldset class="form-group">
           <legend>いまの状態</legend>
           <div class="checkbox-group">
             <label class="checkbox-pill"><input type="radio" name="payment_status" value="UNPAID" onchange="app.onPaymentStatusChange()"> 未入金</label>
-            <label class="checkbox-pill"><input type="radio" name="payment_status" value="CASH_RECEIVED" onchange="app.onPaymentStatusChange()"> 現金を預かった</label>
+            <label class="checkbox-pill" id="payment-cash-received-pill"><input type="radio" name="payment_status" value="CASH_RECEIVED" onchange="app.onPaymentStatusChange()"> 現金を預かった</label>
             <label class="checkbox-pill"><input type="radio" name="payment_status" value="PAID" onchange="app.onPaymentStatusChange()"> 入金済み</label>
           </div>
+          <div class="field-hint" id="payment-cash-only-hint" style="display:none;">「現金を預かった」は支払方法が現金のときだけ選べます</div>
         </fieldset>
 
         <div class="form-group" id="payment-holder-group" style="display:none;">

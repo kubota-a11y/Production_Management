@@ -472,6 +472,15 @@ function initDatabase(dbFile = dbPath) {
     console.log('✓ projects.payment_updated_at を追加しました');
   }
 
+  // 支払方法(2026-08-18 社長指示で追加)。入金状態とは別の軸で持つ。
+  //   CASH = 現金 / TRANSFER = 振込 / CREDIT = クレジットカード
+  // 状態と分けているのは「振込だがまだ入金確認できていない」を表せるようにするため。
+  // 未選択(NULL)も許す — 受付時点で支払方法が決まっていない案件があるため
+  if (!projectColumns.includes('payment_method')) {
+    db.prepare(`ALTER TABLE projects ADD COLUMN payment_method TEXT`).run();
+    console.log('✓ projects.payment_method を追加しました');
+  }
+
   // 「デザイン案件全般」ボードに載せるかどうかのフラグ(2026-08-03)。
   // 準備項目からの推測ではなく、案件登録時にチェックした案件だけを載せる(社長判断)
   if (!projectColumns.includes('is_design_ops')) {

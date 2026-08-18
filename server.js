@@ -1694,15 +1694,24 @@ app.patch('/api/projects/:id/planned-hours', (req, res) => {
 // 案件一覧の上で誰が現金を預かっているかまで見えるようにするためのもの。
 // 案件の進行(status)とは別の軸なので、専用のエンドポイントに分けている
 const PAYMENT_STATUSES = ['UNPAID', 'CASH_RECEIVED', 'PAID'];
+// 支払方法。状態とは別の軸で持つので「振込だがまだ入金確認できていない」を表せる
+const PAYMENT_METHODS = ['CASH', 'TRANSFER', 'CREDIT'];
 app.patch('/api/projects/:id/payment', (req, res) => {
   try {
-    const { payment_status, payment_holder_employee_id } = req.body;
+    const { payment_status, payment_holder_employee_id, payment_method } = req.body;
     if (!PAYMENT_STATUSES.includes(payment_status)) {
       return res.status(400).json({ error: '入金状態の指定が不正です' });
+    }
+    if (payment_method && !PAYMENT_METHODS.includes(payment_method)) {
+      return res.status(400).json({ error: '支払方法の指定が不正です' });
     }
     const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(req.params.id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
+    // 現金を預かれるのは支払方法が現金のときだけ。振込・クレカで預かりは起こりえない
+    if (payment_status === 'CASH_RECEIVED' && payment_method && payment_method !== 'CASH') {
+      return res.status(400).json({ error: '「現金預かり」を選べるのは支払方法が現金のときだけです' });
+    }
     // 預かった人が意味を持つのは「現金預かり」のときだけ。
     // 入金済み・未入金へ戻したときに前の預かり者が残っていると誤解を生むので消す
     const holderId = payment_status === 'CASH_RECEIVED'
@@ -1713,9 +1722,10 @@ app.patch('/api/projects/:id/payment', (req, res) => {
     }
 
     db.prepare(`
-      UPDATE projects SET payment_status = ?, payment_holder_employee_id = ?, payment_updated_at = ?
+      UPDATE projects
+      SET payment_status = ?, payment_holder_employee_id = ?, payment_method = ?, payment_updated_at = ?
       WHERE id = ?
-    `).run(payment_status, holderId, new Date().toISOString(), req.params.id);
+    `).run(payment_status, holderId, payment_method || null, new Date().toISOString(), req.params.id);
 
     res.json({ message: 'Payment status updated successfully' });
   } catch (error) {

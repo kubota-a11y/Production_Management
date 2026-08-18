@@ -449,6 +449,21 @@ html, body {
   color: var(--success-text);
 }
 
+/* 入金バッジに併記する支払方法(現金/振込/クレカ)。状態より一段弱く見せる */
+.payment-method {
+  margin-left: 4px;
+  padding-left: 4px;
+  border-left: 1px solid currentColor;
+  font-weight: 400;
+  opacity: .85;
+}
+
+/* 支払方法が振込・クレカのときは「現金を預かった」を選べなくする */
+.checkbox-pill.is-disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
 /* 納期が未定の案件。日付が入っていないことを空欄と区別して見せる */
 .deadline-undecided {
   color: var(--text-muted);
