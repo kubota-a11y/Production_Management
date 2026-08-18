@@ -1,6 +1,7 @@
 const Database = require('better-sqlite3');
 const fs = require('fs');
 const path = require('path');
+const { NON_DESIGNER_ITEM_CODES } = require('../lib/prep-items');
 
 const dbPath = path.join(__dirname, 'projects.db');
 
@@ -18,6 +19,24 @@ function initDatabase(dbFile = dbPath) {
   // スキーマを読み込んで実行
   const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf-8');
   db.exec(schema);
+
+  // 「1回だけ実行する」データ補正の記録表。
+  // 起動のたびに走らせてよい補正(マスターのフラグ整備など)は従来どおり冪等なUPDATEで書き、
+  // 「過去に作られてしまった行を直す」類の後片付けはここに鍵を残して1回だけ実行する。
+  // 毎回走らせると、あとから人が意図してやり直した設定まで起動のたびに巻き戻してしまうため
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      key TEXT PRIMARY KEY,
+      applied_at TEXT NOT NULL
+    )
+  `);
+  const isMigrationDone = db.prepare('SELECT 1 FROM schema_migrations WHERE key = ?');
+  const markMigrationDone = db.prepare('INSERT INTO schema_migrations (key, applied_at) VALUES (?, ?)');
+  function runOnce(key, fn) {
+    if (isMigrationDone.get(key)) return;
+    fn();
+    markMigrationDone.run(key, new Date().toISOString());
+  }
 
   // 既存DBに nas_folder_path カラムがない場合は追加
   const columns = db.prepare(`PRAGMA table_info('projects')`).all().map(col => col.name);
@@ -609,12 +628,12 @@ function initDatabase(dbFile = dbPath) {
     });
     if (added > 0) console.log(`✓ デザイン系の準備項目 ${added}件を追加しました`);
 
-    // デザイン担当者の専用項目フラグを付与(冪等)。2026-07-27 社長指定の5項目 =
-    // 案件種別を問わず、案件登録時にデザイン担当のマイスケジュールボードへ自動で入る
-    // ※ DTFデータ作成は 2026-08-18 のMTGでこの一覧から外した(下の解除処理を参照)
+    // デザイン担当者の専用項目フラグを付与(冪等)。
+    // 案件種別を問わず、案件登録時にデザイン担当のマイスケジュールボードへ自動で入る項目。
+    // ※ 2026-07-27 社長指定の5項目から、DTFデータ作成(2026-08-18)と
+    //    作業指示書作成・見積書作成(2026-08-19)を外した(いずれも下の解除処理を参照)
     const designerItemCodes = [
       'OUTSOURCE_DESIGN_DATA', 'PROMO_DESIGN_DATA',
-      'WORK_INSTRUCTION_CREATION', 'QUOTATION_CREATION',
       // 初校提出・入稿完了はデザイナー本人が完了操作をするのでマイボードに自動で入れる(2026-08-03)
       'FIRST_DRAFT_SUBMIT', 'SUBMISSION_COMPLETE'
     ];
@@ -654,6 +673,38 @@ function initDatabase(dbFile = dbPath) {
     if (detached.changes > 0) {
       console.log(`✓ 未完了の「DTFデータ作成」${detached.changes}件をデザイナーの担当から外しました`);
     }
+
+    // 「作業指示書作成」「見積書作成」をデザイナー自動割り当ての対象から外す(2026-08-19 社長指示)。
+    // この2つは三浦さん・山本さんの担当作業で、鈴木さんの担当ではない。
+    // フラグが付いたままだと、加工だけの追加注文でこれらを選ぶだけで鈴木さんのボードに
+    // カードが積まれ、さらに「デザインが絡む案件」と判定されて初校提出まで自動追加されてしまう。冪等
+    const adminItemCodes = ['WORK_INSTRUCTION_CREATION', 'QUOTATION_CREATION'];
+    const unflaggedAdmin = db.prepare(`
+      UPDATE preparation_item_master SET is_designer_item = 0
+      WHERE code IN (${adminItemCodes.map(() => '?').join(',')}) AND is_designer_item = 1
+    `).run(...adminItemCodes);
+    if (unflaggedAdmin.changes > 0) {
+      console.log('✓ 準備項目「作業指示書作成」「見積書作成」をデザイナー自動割り当ての対象から外しました');
+    }
+    // 既にデザイン担当へ割り当て済みの未完了ぶんを、その担当から外す(1回だけ)。
+    // 外す相手をデザイン担当に限定するのは、三浦さん・山本さんに割り当てられている行まで
+    // 巻き上げないため。1回だけにするのは、今後この2項目を誰かへ割り当て直したときに
+    // 起動のたびに剥がしてしまわないようにするため
+    runOnce('2026-08-19-detach-admin-prep-items-from-designer', () => {
+      const detachedAdmin = db.prepare(`
+        UPDATE case_preparation_items SET assigned_staff_id = NULL, scheduled_date = NULL
+        WHERE status != '完了'
+          AND assigned_staff_id IN (
+            SELECT dl.employee_id FROM designer_links dl
+          )
+          AND preparation_item_id IN (
+            SELECT id FROM preparation_item_master WHERE code IN (${adminItemCodes.map(() => '?').join(',')})
+          )
+      `).run(...adminItemCodes);
+      if (detachedAdmin.changes > 0) {
+        console.log(`✓ 未完了の「作業指示書作成」「見積書作成」${detachedAdmin.changes}件をデザイン担当から外しました`);
+      }
+    });
 
     // 未着手なのに完了日時が残っている項目の後始末(冪等)。
     // 上のような「status と completed_at が食い違う行」は、条件に completed_at を使う処理を
@@ -710,12 +761,53 @@ function initDatabase(dbFile = dbPath) {
     }
   }
 
+  // デザイン作業が実在しない案件に自動で付いてしまった「初校提出」「入稿完了」を消す
+  // (2026-08-19 社長指示・1回だけ)。
+  //
+  // 経緯: 「DTFデータ作成」「作業指示書作成」「見積書作成」がデザイナー専用項目だった頃は、
+  // 加工だけの追加注文でこれらを選ぶと registerPreparationItems が「デザインが絡む案件」と判定し、
+  // 初校提出を自動追加して鈴木さんへ割り当てていた。専用項目から外したあとも、
+  // 一緒に付いてきた初校提出だけが本人のボードに残り続けていた。
+  // この2項目は案件の段階を進めるトリガーなので本人の「自分の担当ではない」では外せず、
+  // 担当を外すだけでは下のバックフィルが起動のたびに本人へ戻してしまうため、行ごと消す。
+  //
+  // 対象を「デザイン進行ボードで管理しない・社内デザイン案件でもない・デザインデータ作成の
+  // 準備項目が1つも無い」案件に限定しているので、実際にデザインがある案件には触れない。
+  // 完了済みの記録も対象外
+  runOnce('2026-08-19-drop-orphan-first-draft-items', () => {
+    const dropped = db.prepare(`
+      DELETE FROM case_preparation_items
+      WHERE status != '完了'
+        AND preparation_item_id IN (
+          SELECT id FROM preparation_item_master
+          WHERE code IN ('FIRST_DRAFT_SUBMIT', 'SUBMISSION_COMPLETE')
+        )
+        AND case_id IN (
+          SELECT p.id FROM projects p
+          WHERE COALESCE(p.is_design_ops, 0) = 0
+            AND COALESCE(p.project_kind, '') != 'INTERNAL_DESIGN'
+            AND NOT EXISTS (
+              SELECT 1 FROM case_preparation_items x
+              JOIN preparation_item_master m ON x.preparation_item_id = m.id
+              WHERE x.case_id = p.id
+                AND m.code IN ('OUTSOURCE_DESIGN_DATA', 'PROMO_DESIGN_DATA')
+            )
+        )
+    `).run();
+    if (dropped.changes > 0) {
+      console.log(`✓ デザイン作業のない案件に付いていた「初校提出」「入稿完了」${dropped.changes}件を削除しました`);
+    }
+  });
+
   // 未割り当てのデザイン系準備項目をデザイン担当者へバックフィルする。
   // 自動割り当て導入(2026-07-27)前に登録された案件の項目が、どのボードにも表示されず
   // 埋もれてしまうのを防ぐ。対象は「担当者なし・予定日なし・未着手」のうち、
   //  ①社内デザイン案件(INTERNAL_DESIGN)の全項目
   //  ②通常案件のデザイン担当者専用項目(is_designer_item=1)。準備段階を終えた案件は除外
-  // 割り当て先は有効なデザイナーリンク(最初に発行されたもの)の従業員。冪等
+  // どちらも NON_DESIGNER_ITEM_CODES(DTFデータ作成・作業指示書作成・見積書作成)は対象外
+  // 割り当て先は有効なデザイナーリンク(最初に発行されたもの)の従業員。冪等。
+  // 本人が「自分の担当ではない」として外した項目(designer_released_at)は戻さない —
+  // これが無いと、外しても次の起動でボードへ戻ってきてしまう(2026-08-19 修正)
   {
     const designerLink = db.prepare(`
       SELECT dl.employee_id FROM designer_links dl
@@ -727,6 +819,11 @@ function initDatabase(dbFile = dbPath) {
       const backfilled = db.prepare(`
         UPDATE case_preparation_items SET assigned_staff_id = ?
         WHERE assigned_staff_id IS NULL AND scheduled_date IS NULL AND status = '未着手'
+          AND designer_released_at IS NULL
+          AND preparation_item_id NOT IN (
+            SELECT id FROM preparation_item_master
+            WHERE code IN (${NON_DESIGNER_ITEM_CODES.map(() => '?').join(',')})
+          )
           AND (
             case_id IN (SELECT id FROM projects WHERE project_kind = 'INTERNAL_DESIGN')
             OR (
@@ -737,7 +834,7 @@ function initDatabase(dbFile = dbPath) {
               )
             )
           )
-      `).run(designerLink.employee_id);
+      `).run(designerLink.employee_id, ...NON_DESIGNER_ITEM_CODES);
       if (backfilled.changes > 0) {
         console.log(`✓ デザイン系の準備項目 ${backfilled.changes}件をデザイン担当(従業員#${designerLink.employee_id})へ割り当てました`);
       }

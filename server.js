@@ -6,6 +6,7 @@ const fs = require('fs');
 const { execFileSync } = require('child_process');
 const { initDatabase } = require('./db/init');
 const line = require('@line/bot-sdk');
+const { DESIGN_WORK_ITEM_CODES, NON_DESIGNER_ITEM_CODES } = require('./lib/prep-items');
 const { runExtractionCycle } = require('./lib/ai-extraction');
 const { registerOrderRoutes } = require('./lib/order-intake');
 const { registerTeamOrderRoutes } = require('./lib/team-order');
@@ -2625,7 +2626,12 @@ app.get('/api/preparation-items/master', (req, res) => {
     const items = db.prepare(`
       SELECT * FROM preparation_item_master WHERE is_active = 1 ORDER BY display_order ASC
     `).all();
-    res.json(items);
+    // is_design_work: 「デザインが絡む案件」の判定に使う項目かどうか。
+    // 画面側(入稿納期の必須チェック)がサーバーと同じ条件で判定できるように付けて返す
+    res.json(items.map(item => ({
+      ...item,
+      is_design_work: DESIGN_WORK_ITEM_CODES.includes(item.code) ? 1 : 0,
+    })));
   } catch (error) {
     sendServerError(res, req, error);
   }
@@ -2647,6 +2653,7 @@ function getDefaultDesignerEmployeeId() {
 // デザイン担当者への自動割り当て(2026-07-27 社長指示の設計):
 //  - 社内デザイン案件(INTERNAL_DESIGN) → 全項目
 //  - 通常案件 → デザイン担当者の専用項目(is_designer_item=1)のみ
+//  - どちらの場合も NON_DESIGNER_ITEM_CODES(DTFデータ作成・作業指示書作成・見積書作成)は渡さない
 // いずれも予定日は空のまま = 本人のマイスケジュールボード「日付が未定のタスク」に入り、
 // 日付の入れ込みは本人がD&Dで行う
 // 準備項目を登録し、デザイン案件ならデザイン担当へ割り当てる本体。
@@ -2684,12 +2691,28 @@ function registerPreparationItems(caseId, preparationItemIds = []) {
   };
 
   // デザインが絡む案件には「初校提出」を必ず持たせる。
-  // これが無いと ②制作 → ③確認 の自動遷移が起きず、案件が制作段階に居座り続ける
+  // これが無いと ②制作 → ③確認 の自動遷移が起きず、案件が制作段階に居座り続ける。
+  //
+  // 「デザインが絡む」の判定に使うのは DESIGN_WORK_ITEM_CODES(実際にデザインを起こす作業)だけ。
+  // デザイン担当へ自動で割り当てる項目(is_designer_item)より狭くしているのは、
+  // 加工だけの追加注文で選ばれがちな事務作業まで初校提出の引き金にしないため(2026-08-19)
   const designerItemIds = new Set(
     db.prepare('SELECT id FROM preparation_item_master WHERE is_designer_item = 1').all().map(r => r.id)
   );
+  const designWorkItemIds = new Set(
+    db.prepare(
+      `SELECT id FROM preparation_item_master WHERE code IN (${DESIGN_WORK_ITEM_CODES.map(() => '?').join(',')})`
+    ).all(...DESIGN_WORK_ITEM_CODES).map(r => r.id)
+  );
+  // デザイン担当の担当から外した項目。社内デザイン案件・デザイン進行ボード案件の
+  // 「全項目まとめて割り当て」からも除外する(2026-08-19)
+  const nonDesignerItemIds = new Set(
+    db.prepare(
+      `SELECT id FROM preparation_item_master WHERE code IN (${NON_DESIGNER_ITEM_CODES.map(() => '?').join(',')})`
+    ).all(...NON_DESIGNER_ITEM_CODES).map(r => r.id)
+  );
   const hasDesignWork = isInternalDesign || isDesignOps
-    || preparationItemIds.some(id => designerItemIds.has(id));
+    || preparationItemIds.some(id => designWorkItemIds.has(id));
   if (hasDesignWork) {
     pushIfMissing(itemIdByCode('FIRST_DRAFT_SUBMIT'), 'デザイン案件のため「初校提出」を自動追加しました');
   }
@@ -2705,6 +2728,7 @@ function registerPreparationItems(caseId, preparationItemIds = []) {
     // デザイン進行ボード・社内デザイン案件は全項目をデザイン担当へ。
     // 通常案件はデザイン担当専用項目だけを渡す(従来どおり)
     const toDesigner = designerEmployeeId
+      && !nonDesignerItemIds.has(itemId)
       && (isDesignOps || isInternalDesign || designerItemIds.has(itemId));
     insertStmt.run(caseId, itemId, toDesigner ? designerEmployeeId : null);
     created++;
@@ -2720,7 +2744,11 @@ function registerPreparationItems(caseId, preparationItemIds = []) {
       UPDATE case_preparation_items SET assigned_staff_id = ?
       WHERE case_id = ? AND assigned_staff_id IS NULL AND status != '完了'
         AND designer_released_at IS NULL
-    `).run(designerEmployeeId, caseId);
+        AND preparation_item_id NOT IN (
+          SELECT id FROM preparation_item_master
+          WHERE code IN (${NON_DESIGNER_ITEM_CODES.map(() => '?').join(',')})
+        )
+    `).run(designerEmployeeId, caseId, ...NON_DESIGNER_ITEM_CODES);
     assignedToDesigner += moved.changes;
   }
 

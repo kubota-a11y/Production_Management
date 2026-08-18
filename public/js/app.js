@@ -1873,15 +1873,17 @@ const app = {
   },
 
   // デザインが絡む案件かどうかを、サーバー側の registerPreparationItems と同じ条件で判定する。
-  // 社内デザイン案件 / デザイン進行ボードで管理する案件 / デザイン系の準備項目を選んだ案件は
-  // 鈴木さんの作業が発生するため、入稿の納期を必ず決めてもらう(2026-08-18 社長指示)
+  // 社内デザイン案件 / デザイン進行ボードで管理する案件 / デザインデータ作成の準備項目を
+  // 選んだ案件は鈴木さんの作業が発生するため、入稿の納期を必ず決めてもらう(2026-08-18 社長指示)。
+  // 判定に使う項目はサーバーが is_design_work で教えてくれる(2026-08-19)。
+  // 作業指示書作成・見積書作成は三浦さん・山本さんの事務作業なので、選んでもデザイン案件にはしない
   isDesignInvolvedCase(data, prepItemCodes) {
     if (data.project_kind === 'INTERNAL_DESIGN') return true;
     if (data.is_design_ops) return true;
-    const designerCodes = new Set(
-      this.prepItemsMaster.filter(m => m.is_designer_item).map(m => m.code)
+    const designWorkCodes = new Set(
+      this.prepItemsMaster.filter(m => m.is_design_work).map(m => m.code)
     );
-    return (prepItemCodes || []).some(code => designerCodes.has(code));
+    return (prepItemCodes || []).some(code => designWorkCodes.has(code));
   },
 
   // 「デザインの入稿納期」の必須チェック。アイテムの納品納期は未定で登録できるが、
