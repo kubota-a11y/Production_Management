@@ -55,6 +55,16 @@ const API = {
     return response.json();
   },
 
+  // 入金・現金預かりの状態を切り替える(案件の進行ステータスとは別の軸)
+  async updateProjectPayment(id, data) {
+    const response = await fetch(`/api/projects/${id}/payment`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return response.json();
+  },
+
   // 案件を納品済みにする(納品日・発送方法・納品者を記録し、statusをCOMPLETEDへ)
   async deliverProject(id, data) {
     const response = await fetch(`/api/projects/${id}/deliver`, {

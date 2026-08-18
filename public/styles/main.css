@@ -411,7 +411,8 @@ html, body {
 .status-pill,
 .pattern-pill,
 .case-detail-chip,
-.kanban-count-badge {
+.kanban-count-badge,
+.payment-badge {
   display: inline-block;
   padding: 2px 10px;
   border-radius: var(--radius-pill);
@@ -419,6 +420,38 @@ html, body {
   font-weight: 600;
   white-space: nowrap;
   vertical-align: middle;
+}
+
+/* ===== 入金バッジ =====
+   他のバッジと違い押せるので、ボタンの既定の見た目を消してカーソルだけ変える */
+.payment-badge {
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.payment-badge:hover {
+  border-color: currentColor;
+}
+
+.payment-unpaid {
+  background: var(--gray-200);
+  color: var(--gray-700);
+}
+
+.payment-cash-received {
+  background: var(--warning-soft);
+  color: var(--warning-text);
+}
+
+.payment-paid {
+  background: var(--success-soft);
+  color: var(--success-text);
+}
+
+/* 納期が未定の案件。日付が入っていないことを空欄と区別して見せる */
+.deadline-undecided {
+  color: var(--text-muted);
 }
 
 /* ===== ステータスバッジ =====
@@ -2591,14 +2624,14 @@ td.empty-notice {
     border-bottom: none;
   }
 
-  /* 受付日・顧客名・加工種別・数量・優先度は非表示にし、
-     案件名(1)・納期(3)・担当者(7)・ステータス(8)・操作(9)だけを見せる。
+  /* 受付日(3)・顧客名(5)・加工種別(6)・数量(7)・優先度(11)は非表示にし、
+     案件名(1)・アイテム名(2)・納期(4)・担当者(8)・決済(9)・ステータス(10)・操作(12)を見せる。
      ※ 列を増減したらこの nth-child の番号も直すこと */
-  #projects-table td:nth-child(2),
-  #projects-table td:nth-child(4),
+  #projects-table td:nth-child(3),
   #projects-table td:nth-child(5),
   #projects-table td:nth-child(6),
-  #projects-table td:nth-child(9) {
+  #projects-table td:nth-child(7),
+  #projects-table td:nth-child(11) {
     display: none;
   }
 
@@ -2613,9 +2646,15 @@ td.empty-notice {
     font-weight: 400;
   }
 
-  #projects-table td:nth-child(7)::before {
+  #projects-table td:nth-child(8)::before {
     content: "担当: ";
     color: var(--text-muted);
+  }
+
+  /* アイテム名は案件名のすぐ下に、少し控えめな見た目で続けて出す */
+  #projects-table td.cell-item-name {
+    color: var(--text-muted);
+    font-size: var(--text-sm);
   }
 
   .projects-table td:last-child {
@@ -2694,9 +2733,9 @@ td.empty-notice {
     padding: var(--space-1) var(--space-2);
   }
 
-  /* 受付日は優先度が低いので隠す(※列を増減したら番号も直すこと) */
-  #projects-table th:nth-child(2),
-  #projects-table td:nth-child(2) {
+  /* 受付日(3)は優先度が低いので隠す(※列を増減したら番号も直すこと) */
+  #projects-table th:nth-child(3),
+  #projects-table td:nth-child(3) {
     display: none;
   }
 

@@ -54,9 +54,12 @@
 ## 実装時に踏みやすい罠(過去に実際にやった)
 
 - **公開ページのAPIで5xxを返してはいけない**。Cloudflare(トンネル)がoriginの5xx応答を独自エラーページ(text/plain)に差し替えるため、画面側はJSONとして読めず「通信エラー」しか出せない。想定内の失敗は **200 + `{ok:false, error}`** で返す。4xxは素通しされるので検証エラーは400のままでよい
-- **新しい加工種別を足したら、従業員の「作業別生産性」にその種別の数値を登録しないとボードのドロップで使えない**。案件の作業予定時間(planned_hours)が0/未入力の案件も置けない。**加工種別を足すときは案件フォームの「必要スキル」チェックボックス(index.html、新規案件・受注候補確定の2箇所)にも追加する**
+- **新しい加工種別を足したら、従業員の「作業別生産性」にその種別の数値を登録しないとボードのドロップで使えない**。加工種別のチェックボックスは案件フォームの2箇所(index.html、新規案件・受注候補確定)にある。**必要スキル(required_skill_tags)は 2026-08-18 に入力欄を廃止し、選択された加工種別をそのまま保存する方式にした**ので、加工種別を足せば必要スキルにも自動で入る
 - **納品(`POST /api/projects/:id/deliver`)は「案件の終わり」の後片付けをする場所**。`case_time_allocations` の削除と `case_preparation_items` の完了扱いをここで行っている。案件の終了に伴って消すべきものを増やすときはここに足す(残すと準備項目リストの繰り越し・デザイナーのマイボード・勤務時間編集の割り当て候補に永久に出続ける)
 - 案件の「必要スキル」(`required_skill_tags`)の値は**加工種別のコード**(`SILK_SCREEN_PRINT` 等)。従業員の「得意スキル」と突き合わせて担当者の自動提案に使うため、別の文字列を入れても一致しない
+- **`projects.deadline` は NOT NULL のまま、未定を空文字で表す**(2026-08-18に納期を任意化した際、SQLiteでNOT NULL解除はテーブル再構築が必要なため空文字で運用)。`createProjectRecord` が `deadline || ''` で吸収している。**空文字の納期を新しい画面で扱うときは、日付として解釈する前に空判定を入れる**(`getDeadlineWarning`・`formatDate`・`groupProjectsByDeadline` は対応済み)。納期が空の案件は `autoProposeForProject` が「締切日が未設定です」を返して自動提案の対象外になる(意図した挙動)
+- **`planned_hours` が0の案件は「0時間の案件」ではなく「制作予定時間が未定」**(2026-08-18に必須を外した)。スケジュールボードは `hasUndecidedPlannedHours()` で未定を判定して選択肢に出し、予定(h)に入力された時間を `PATCH /api/projects/:id/planned-hours` で案件へ書き戻す。**残時間の計算を足すときは、0を「割り振り済み」と誤判定しないこと**
+- 入金・現金預かりは `projects.payment_status`(UNPAID/CASH_RECEIVED/PAID)+ `payment_holder_employee_id`。案件の進行(status)とは別の軸なので `PATCH /api/projects/:id/payment` に分けている。**CASH_RECEIVED 以外へ変えたときは預かり者をNULLに戻す**(前の預かり者が残ると誤解を生む)
 - 祝日は `lib/jp-holidays.js` の静的テーブル(2027年分まで)。**毎年、翌年分を手で追加する運用**
 - 公開フォームの誤送信対策は `public/js/form-guard.js` を3フォーム(Web注文/チーム追加/取引先加工依頼)で共有。**Enter送信の無効化と確認ウィンドウは両方必要**(確認ウィンドウだけではEnter2回で送信できてしまう)
 - 受付番号プレフィックスは4系統: W-=Web注文 / T-=チーム追加 / P-=取引先加工依頼 / LINEはバッジなし(`public/js/app.js` の receiptPrefix)

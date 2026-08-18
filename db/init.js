@@ -433,6 +433,35 @@ function initDatabase(dbFile = dbPath) {
     console.log('✓ projects.item_name を追加しました');
   }
 
+  // デザイン作業の予定時間(2026-08-18 三浦さん・鈴木さんとのMTGで決定)。
+  // 既存の planned_hours は「アイテムを作る作業」の予定時間(分)で、スケジュールボードの
+  // 配分に使われる。そこにデザインの時間を混ぜると製造の見積もりが狂うため列を分ける。
+  // 画面上の表記は planned_hours=「制作予定時間」/ design_planned_hours=「デザイン予定時間」。
+  // どちらも未定のまま登録できる(必須にすると受付が止まるため)
+  if (!projectColumns.includes('design_planned_hours')) {
+    db.prepare(`ALTER TABLE projects ADD COLUMN design_planned_hours REAL`).run();
+    console.log('✓ projects.design_planned_hours を追加しました');
+  }
+
+  // 入金・現金の預かり状況(2026-08-18 同MTGで決定)。
+  // 「お金持っていきます」「入金しました」の電話連絡を無くし、案件一覧の上で見えるようにする。
+  //   UNPAID        = 未入金(既定)
+  //   CASH_RECEIVED = 現金を社員が預かっている(payment_holder_employee_id が誰か)
+  //   PAID          = 入金済み
+  // 将来オンライン決済へ移行したら、この列を見なくする形で外せるようにボタン側だけで完結させている
+  if (!projectColumns.includes('payment_status')) {
+    db.prepare(`ALTER TABLE projects ADD COLUMN payment_status TEXT NOT NULL DEFAULT 'UNPAID'`).run();
+    console.log('✓ projects.payment_status を追加しました');
+  }
+  if (!projectColumns.includes('payment_holder_employee_id')) {
+    db.prepare(`ALTER TABLE projects ADD COLUMN payment_holder_employee_id INTEGER REFERENCES employees(id)`).run();
+    console.log('✓ projects.payment_holder_employee_id を追加しました');
+  }
+  if (!projectColumns.includes('payment_updated_at')) {
+    db.prepare(`ALTER TABLE projects ADD COLUMN payment_updated_at TEXT`).run();
+    console.log('✓ projects.payment_updated_at を追加しました');
+  }
+
   // 「デザイン案件全般」ボードに載せるかどうかのフラグ(2026-08-03)。
   // 準備項目からの推測ではなく、案件登録時にチェックした案件だけを載せる(社長判断)
   if (!projectColumns.includes('is_design_ops')) {
@@ -563,8 +592,9 @@ function initDatabase(dbFile = dbPath) {
 
     // デザイン担当者の専用項目フラグを付与(冪等)。2026-07-27 社長指定の5項目 =
     // 案件種別を問わず、案件登録時にデザイン担当のマイスケジュールボードへ自動で入る
+    // ※ DTFデータ作成は 2026-08-18 のMTGでこの一覧から外した(下の解除処理を参照)
     const designerItemCodes = [
-      'OUTSOURCE_DESIGN_DATA', 'PROMO_DESIGN_DATA', 'DTF_DATA_CREATION',
+      'OUTSOURCE_DESIGN_DATA', 'PROMO_DESIGN_DATA',
       'WORK_INSTRUCTION_CREATION', 'QUOTATION_CREATION',
       // 初校提出・入稿完了はデザイナー本人が完了操作をするのでマイボードに自動で入れる(2026-08-03)
       'FIRST_DRAFT_SUBMIT', 'SUBMISSION_COMPLETE'
@@ -575,6 +605,31 @@ function initDatabase(dbFile = dbPath) {
     `).run(...designerItemCodes);
     if (flagged.changes > 0) {
       console.log(`✓ デザイン担当者の専用項目フラグを ${flagged.changes}件に付与しました`);
+    }
+
+    // 「DTFデータ作成」をデザイナー自動割り当ての対象から外す(2026-08-18 社長指示)。
+    // 加工だけの追加注文(例: チームの1〜2枚追加)でも DTFデータ作成が選ばれると
+    // 鈴木さんのマイスケジュールボードにカードが積まれてしまい、本当にやるべき作業が
+    // 埋もれていた。データ作成が必要なときは案件の作業内容に書いて個別に依頼する運用にする。
+    // 刺繍データ作成依頼・スクリーンデータ作成は元々このフラグが付いていないため対象外。冪等
+    const unflagged = db.prepare(`
+      UPDATE preparation_item_master SET is_designer_item = 0
+      WHERE code = 'DTF_DATA_CREATION' AND is_designer_item = 1
+    `).run();
+    if (unflagged.changes > 0) {
+      console.log('✓ 準備項目「DTFデータ作成」をデザイナー自動割り当ての対象から外しました');
+    }
+    // 既に鈴木さんへ割り当て済みのDTFデータ作成カードのうち、まだ着手していないものは
+    // 割り当てを解除してボードから下ろす。完了済み・進行中の記録には触らない
+    const detached = db.prepare(`
+      UPDATE case_preparation_items SET assigned_staff_id = NULL, scheduled_date = NULL
+      WHERE assigned_staff_id IS NOT NULL
+        AND status = '未着手'
+        AND completed_at IS NULL
+        AND preparation_item_id = (SELECT id FROM preparation_item_master WHERE code = 'DTF_DATA_CREATION')
+    `).run();
+    if (detached.changes > 0) {
+      console.log(`✓ 未着手の「DTFデータ作成」${detached.changes}件をデザイナーの担当から外しました`);
     }
 
     // 正しい校正用語に訂正: 「初稿提出」→「初校提出」(2026-08-05 社長指示)。

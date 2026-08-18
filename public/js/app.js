@@ -33,6 +33,7 @@ const app = {
   triageMembers: null,
   printLocationRows: [],
   printLocationRowCounter: 0,
+  payingProjectId: null,
 
   // ===== 初期化 =====
   async init() {
@@ -222,7 +223,7 @@ const app = {
     if (projects.length === 0) {
       // 「案件が1件も無い」のか「絞り込みで消えた」のかで案内を変える
       const hasAny = this.projects.some(p => p.status !== 'COMPLETED');
-      tbody.innerHTML = `<tr><td colspan="10" class="empty-notice">${hasAny
+      tbody.innerHTML = `<tr><td colspan="12" class="empty-notice">${hasAny
         ? 'この検索・絞り込みに該当する案件はありません'
         : '進行中の案件はありません。「➕ 新規案件」から登録できます'}</td></tr>`;
     } else if (this.groupBy === 'deadline') {
@@ -266,12 +267,22 @@ const app = {
         <button type="button" class="link-cell" onclick="CaseDetail.open(${project.id})"
           title="案件の詳細を見る">${this.escapeHtml(project.project_name)}</button>${kindBadge}
       </td>
+      <td class="cell-item-name">${this.escapeHtml(project.item_name || '')}</td>
       <td>${formatDate(project.received_date)}</td>
-      <td class="deadline-cell">${formatDate(project.deadline)}${deadlineFlag}</td>
+      <td class="deadline-cell">${project.deadline
+        ? `${formatDate(project.deadline)}${deadlineFlag}`
+        : '<span class="deadline-undecided">未定</span>'}</td>
       <td>${this.escapeHtml(project.customer_name)}</td>
       <td>${getProcessLabels(project.process_type)}</td>
       <td class="text-center">${project.quantity}</td>
       <td>${project.assigned_staff_name || '未割り当て'}</td>
+      <td>
+        <button type="button" class="payment-badge ${getPaymentClass(project.payment_status)}"
+          onclick="app.openPaymentModal(${project.id})"
+          title="${this.escapeHtml(this.paymentTooltip(project))}">
+          ${getPaymentLabel(project.payment_status)}
+        </button>
+      </td>
       <td>
         <span class="status-badge ${getStatusClass(project.status)}">
           ${getStatusLabel(project.status)}
@@ -1157,13 +1168,11 @@ const app = {
     form.elements['contact_method'].value = 'LINE';
     form.elements['quantity'].value = quantityValue;
     form.elements['planned_hours'].value = '';
-    form.elements['assigned_staff_id'].value = '';
     form.elements['status'].value = 'PRE_ORDER';
     form.elements['priority'].value = 'MEDIUM';
     form.elements['work_content'].value = itemsText;
     form.elements['memo'].value = intake.notes || '';
 
-    form.elements['required_skill_tags'].value = '';
     form.elements['estimated_hours'].value = '';
     form.elements['nas_folder_path'].value = '';
     form.elements['freee_quote_url'].value = '';
@@ -1212,18 +1221,18 @@ const app = {
     const formData = new FormData(form);
     const data = Object.fromEntries(formData);
 
+    // 加工種別は受付の段階で決まっていないことがあるため必須にしない(2026-08-18)
     data.process_type = formData.getAll('process_type').join(',');
-    if (!data.process_type) {
-      HiUI.toast('加工種別を1つ以上選択してください');
-      return;
-    }
 
-    data.quantity = parseInt(data.quantity);
-    data.planned_hours = parseFloat(data.planned_hours);
+    if (!this.validateDesignSubmissionDue(form, data)) return;
+
+    data.quantity = parseInt(data.quantity) || 0;
+    data.planned_hours = parseFloat(data.planned_hours) || 0;
+    data.design_planned_hours = data.design_planned_hours ? parseFloat(data.design_planned_hours) : null;
     data.assigned_staff_id = data.assigned_staff_id ? parseInt(data.assigned_staff_id) : null;
     data.estimated_hours = data.estimated_hours ? parseFloat(data.estimated_hours) : null;
-    // 必要スキルは複数選択なのでカンマ区切りにまとめる(新規案件モーダルと同じ扱い)
-    data.required_skill_tags = formData.getAll('required_skill_tags').join(',');
+    // 必要スキルは加工種別から自動で作る(新規案件モーダルと同じ扱い)
+    data.required_skill_tags = data.process_type;
     // 新規案件モーダルと同じく、プリント箇所と準備項目も一緒に登録する
     // (print_locations は確定処理が case_print_locations へ引き継ぐ)
     data.print_locations = this.collectPrintLocationData('ai-intake-print-locations-container');
@@ -1292,7 +1301,8 @@ const app = {
     const isInternalDesign = form.elements['project_kind'].value === 'INTERNAL_DESIGN';
     form.classList.toggle('internal-design-mode', isInternalDesign);
     document.getElementById('internal-design-hint').style.display = isInternalDesign ? 'block' : 'none';
-    ['customer_name', 'contact_method', 'quantity', 'planned_hours'].forEach(name => {
+    // planned_hours は 2026-08-18 に任意項目へ変更したのでここには入れない
+    ['customer_name', 'contact_method', 'quantity'].forEach(name => {
       const field = form.elements[name];
       if (field) field.required = !isInternalDesign;
     });
@@ -1420,8 +1430,7 @@ const app = {
         });
         this.setCheckboxGroupValues(form, 'process_type', project.process_type);
         this.setCheckboxGroupValues(form, 'prep_items', project.prep_items);
-        this.setCheckboxGroupValues(form, 'required_skill_tags', project.required_skill_tags);
-        form.elements['project_kind'].value = project.project_kind || 'NORMAL';
+            form.elements['project_kind'].value = project.project_kind || 'NORMAL';
         // 「デザイン進行ボード」チェックの復元(このフラグが1の案件だけが専用ボードに載る)
         if (form.elements['is_design_ops']) {
           form.elements['is_design_ops'].checked = !!project.is_design_ops;
@@ -1542,6 +1551,98 @@ const app = {
   },
 
   // ===== 納品済み登録 =====
+  // ===== 入金・現金預かり =====
+  // 一覧の「決済」列のボタンから開く。ここを更新すれば電話しなくても
+  // 誰が現金を持っているか・入金が済んでいるかが全員に見える(2026-08-18)
+  paymentTooltip(project) {
+    const status = project.payment_status || 'UNPAID';
+    if (status === 'CASH_RECEIVED') {
+      const holder = project.payment_holder_name || '担当者';
+      return `${holder}が現金を預かっています。押すと変更できます`;
+    }
+    if (status === 'PAID') return '入金済みです。押すと変更できます';
+    return 'まだ入金がありません。押すと変更できます';
+  },
+
+  openPaymentModal(projectId) {
+    const project = this.projects.find(p => p.id === projectId);
+    if (!project) return;
+    this.payingProjectId = projectId;
+
+    const form = document.getElementById('payment-form');
+    form.reset();
+    const status = project.payment_status || 'UNPAID';
+    form.elements['payment_status'].value = status;
+
+    document.getElementById('payment-modal-case').textContent =
+      `${project.project_name}${project.item_name ? `（${project.item_name}）` : ''}`;
+
+    // 預かった人の選択肢は従業員から作る(現金を持ち歩くのは社員のため)
+    const select = document.getElementById('payment-holder-select');
+    select.innerHTML = '<option value="">選択してください</option>';
+    this.employees.forEach(emp => {
+      const option = document.createElement('option');
+      option.value = emp.id;
+      option.textContent = emp.name;
+      select.appendChild(option);
+    });
+    select.value = project.payment_holder_employee_id || '';
+
+    const note = document.getElementById('payment-updated-note');
+    note.textContent = project.payment_updated_at
+      ? `最終更新: ${formatDateTime(project.payment_updated_at)}`
+      : '';
+
+    this.onPaymentStatusChange();
+    document.getElementById('payment-modal').style.display = 'flex';
+  },
+
+  closePaymentModal() {
+    document.getElementById('payment-modal').style.display = 'none';
+    this.payingProjectId = null;
+  },
+
+  // 「現金を預かった」のときだけ、預かった人の選択を出す
+  onPaymentStatusChange() {
+    const form = document.getElementById('payment-form');
+    const isCash = form.elements['payment_status'].value === 'CASH_RECEIVED';
+    document.getElementById('payment-holder-group').style.display = isCash ? '' : 'none';
+  },
+
+  async submitPaymentForm(e) {
+    e.preventDefault();
+    if (!this.payingProjectId) return;
+    const form = document.getElementById('payment-form');
+    const payment_status = form.elements['payment_status'].value;
+    if (!payment_status) {
+      HiUI.toast('いまの状態を選択してください');
+      return;
+    }
+    const holderId = form.elements['payment_holder_employee_id'].value;
+    if (payment_status === 'CASH_RECEIVED' && !holderId) {
+      HiUI.toast('現金を預かった人を選択してください');
+      return;
+    }
+
+    try {
+      const result = await API.updateProjectPayment(this.payingProjectId, {
+        payment_status,
+        payment_holder_employee_id: holderId || null
+      });
+      if (result.error) {
+        HiUI.toast(result.error, 'error');
+        return;
+      }
+      this.closePaymentModal();
+      await this.loadProjects();
+      this.renderListView();
+      HiUI.toast(`入金の状態を「${getPaymentLabel(payment_status)}」にしました`);
+    } catch (error) {
+      console.error('入金状態の更新エラー:', error);
+      HiUI.toast('入金状態の更新に失敗しました', 'error');
+    }
+  },
+
   openDeliverModal(projectId) {
     this.deliveringProjectId = projectId;
     const form = document.getElementById('deliver-form');
@@ -1744,6 +1845,42 @@ const app = {
       console.error('作業計画削除エラー:', error);
       HiUI.toast('作業計画の削除に失敗しました');
     }
+  },
+
+  // デザインが絡む案件かどうかを、サーバー側の registerPreparationItems と同じ条件で判定する。
+  // 社内デザイン案件 / デザイン進行ボードで管理する案件 / デザイン系の準備項目を選んだ案件は
+  // 鈴木さんの作業が発生するため、入稿の納期を必ず決めてもらう(2026-08-18 社長指示)
+  isDesignInvolvedCase(data, prepItemCodes) {
+    if (data.project_kind === 'INTERNAL_DESIGN') return true;
+    if (data.is_design_ops) return true;
+    const designerCodes = new Set(
+      this.prepItemsMaster.filter(m => m.is_designer_item).map(m => m.code)
+    );
+    return (prepItemCodes || []).some(code => designerCodes.has(code));
+  },
+
+  // 「デザインの入稿納期」の必須チェック。アイテムの納品納期は未定で登録できるが、
+  // デザインが絡む案件の入稿納期だけは空のまま通さない
+  validateDesignSubmissionDue(form, data) {
+    const prepItemCodes = new FormData(form).getAll('prep_items');
+    if (!this.isDesignInvolvedCase(data, prepItemCodes)) return true;
+    if (data.submission_due) return true;
+    HiUI.toast('デザインが絡む案件では「デザインの入稿納期」を入力してください');
+    const field = form.elements['submission_due'];
+    if (field && field.focus) field.focus();
+    return false;
+  },
+
+  // 入稿納期の「*」印を、いまの入力内容に合わせて出し入れする。
+  // 実際の必須判定は validateDesignSubmissionDue が行い、ここは見た目だけを揃える
+  // (required 属性を動的に付けると、閉じた details の中で送信が無言で止まる事故につながるため)
+  updateSubmissionDueMark(formId, markId) {
+    const form = document.getElementById(formId);
+    const mark = document.getElementById(markId);
+    if (!form || !mark) return;
+    const data = Object.fromEntries(new FormData(form));
+    const prepItemCodes = new FormData(form).getAll('prep_items');
+    mark.style.display = this.isDesignInvolvedCase(data, prepItemCodes) ? '' : 'none';
   },
 
   // チェックボックス群（加工種別など）にカンマ区切りの値を反映
@@ -1949,12 +2086,12 @@ const app = {
     const data = Object.fromEntries(formData);
     const isInternalDesign = data.project_kind === 'INTERNAL_DESIGN';
 
-    // 加工種別（複数選択）をカンマ区切りにまとめる。社内デザイン案件は加工なしでよい
+    // 加工種別（複数選択）をカンマ区切りにまとめる。
+    // 2026-08-18のMTGで必須から外した — デザインから入る案件は、受付の段階で
+    // 何をどう加工するかがまだ決まっていないことが多く、入力を強いると登録が止まるため
     data.process_type = formData.getAll('process_type').join(',');
-    if (!data.process_type && !isInternalDesign) {
-      HiUI.toast('加工種別を1つ以上選択してください');
-      return;
-    }
+
+    if (!this.validateDesignSubmissionDue(form, data)) return;
 
     // 社内デザイン案件の簡略登録: 非表示フィールドへ既定値を入れる。
     // 新規登録時のステータスは「生産待ち」固定 — 準備項目(デザイン作業)が全て完了すると
@@ -1971,15 +2108,17 @@ const app = {
     const prepItemCodes = formData.getAll('prep_items');
     data.prep_items = prepItemCodes.join(',');
 
-    // 必要スキル（複数選択・任意）はカンマ区切りにまとめる。
+    // 必要スキルは入力項目から外したため、選択された加工種別をそのまま使う(2026-08-18)。
     // 値は加工種別のコード(SILK_SCREEN_PRINT 等)で、従業員の「得意スキル」と突き合わせて
     // 担当者の自動提案に使われる。見積もり工数（任意）はスケジュール計算には使わない
-    data.required_skill_tags = formData.getAll('required_skill_tags').join(',');
+    data.required_skill_tags = data.process_type;
     data.estimated_hours = data.estimated_hours ? parseFloat(data.estimated_hours) : null;
 
-    // 数値変換
+    // 数値変換。制作予定時間は未入力なら0(=未定)として保存し、
+    // スケジュールボードに置くときに入力してもらう
     data.quantity = parseInt(data.quantity) || 0;
     data.planned_hours = parseFloat(data.planned_hours) || 0;
+    data.design_planned_hours = data.design_planned_hours ? parseFloat(data.design_planned_hours) : null;
     data.assigned_staff_id = data.assigned_staff_id ? parseInt(data.assigned_staff_id) : null;
 
     try {
@@ -2218,9 +2357,19 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('project-form')?.addEventListener('submit', (e) => app.submitProjectForm(e));
   document.getElementById('staff-form')?.addEventListener('submit', (e) => app.submitStaffForm(e));
   document.getElementById('deliver-form')?.addEventListener('submit', (e) => app.submitDeliverForm(e));
+  document.getElementById('payment-form')?.addEventListener('submit', (e) => app.submitPaymentForm(e));
   // ボタンはtype="button"でapp.submitAiIntakeConfirm()を直接呼ぶため、
   // フォーム内でEnterキー等により暗黙的にsubmitされた場合のページ遷移だけを防ぐ
   document.getElementById('ai-intake-form')?.addEventListener('submit', (e) => e.preventDefault());
+
+  // デザインが絡む案件かどうかで「デザインの入稿納期」の必須表示が変わるため、
+  // 案件種別・デザイン進行ボード・準備項目のどれが変わっても印を付け直す
+  document.getElementById('project-form')?.addEventListener('change', () => {
+    app.updateSubmissionDueMark('project-form', 'pf-submission-due-req');
+  });
+  document.getElementById('ai-intake-form')?.addEventListener('change', () => {
+    app.updateSubmissionDueMark('ai-intake-form', 'ai-submission-due-req');
+  });
 
   const nasFolderPathInput = document.getElementById('nas-folder-path');
   nasFolderPathInput?.addEventListener('input', () => {

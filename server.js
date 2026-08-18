@@ -450,16 +450,18 @@ app.get('/api/projects', (req, res) => {
     // 週間スケジュールボードで「案件の作業予定時間（分→時間換算）に対してすでに割り振り済みかどうか」を判定するために使用する
     const projects = db.prepare(`
       SELECT p.*, s.name as assigned_staff_name, emp.name as assigned_employee_name,
+        holder.name as payment_holder_name,
         COALESCE(alloc.total_planned, 0) as allocated_hours_total
       FROM projects p
       LEFT JOIN staff s ON p.assigned_staff_id = s.id
       LEFT JOIN employees emp ON p.assigned_employee_id = emp.id
+      LEFT JOIN employees holder ON p.payment_holder_employee_id = holder.id
       LEFT JOIN (
         SELECT case_id, SUM(planned_hours) as total_planned
         FROM case_time_allocations
         GROUP BY case_id
       ) alloc ON alloc.case_id = p.id
-      ORDER BY p.deadline ASC
+      ORDER BY (p.deadline IS NULL OR p.deadline = '') ASC, p.deadline ASC
     `).all();
     res.json(projects);
   } catch (error) {
@@ -1548,7 +1550,7 @@ function createProjectRecord(data) {
     status, priority, reference_link, memo, nas_folder_path, prep_items,
     required_skill_tags, estimated_hours, assigned_employee_id, project_kind,
     freee_quote_url, freee_invoice_url, is_design_ops, item_name, ops_flow, paper_source,
-    first_draft_due, submission_due } = data;
+    first_draft_due, submission_due, design_planned_hours } = data;
   // 社内デザイン案件は数量・作業予定時間なしで登録できるため、NOT NULL列は0で埋める
   const kind = project_kind === 'INTERNAL_DESIGN' ? 'INTERNAL_DESIGN' : 'NORMAL';
   // 進行タイプ: FULL=加工まで(標準) / SUBMIT_END=紙媒体・入稿で完了
@@ -1563,15 +1565,15 @@ function createProjectRecord(data) {
       status, priority, reference_link, memo, nas_folder_path, prep_items,
       required_skill_tags, estimated_hours, assigned_employee_id, project_kind,
       freee_quote_url, freee_invoice_url, is_design_ops, item_name, ops_flow, paper_source,
-      first_draft_due, submission_due, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(project_name, received_date, deadline, customer_name, contact_method,
+      first_draft_due, submission_due, design_planned_hours, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(project_name, received_date, deadline || '', customer_name, contact_method,
     work_content || '', process_type || '', quantity || 0, planned_hours || 0, assigned_staff_id || null,
     status || 'PRE_ORDER', priority || 'MEDIUM', reference_link || '', memo || '',
     nas_folder_path || '', prep_items || '', required_skill_tags || '', estimated_hours || null,
     assigned_employee_id || null, kind, freee_quote_url || '', freee_invoice_url || '',
     is_design_ops ? 1 : 0, item_name || '', flow, paperSrc,
-    first_draft_due || null, submission_due || null, now, now);
+    first_draft_due || null, submission_due || null, design_planned_hours || null, now, now);
 
   // 紙媒体(入稿で完了)タイプは鈴木さんの制作から始まる(2026-08-03 社長決定)。
   // 山本さんのブリーフ・ラフ工程を飛ばして「制作」段階でボードに載せる
@@ -1609,7 +1611,7 @@ app.put('/api/projects/:id', (req, res) => {
       status, priority, reference_link, memo, nas_folder_path, prep_items,
       required_skill_tags, estimated_hours, assigned_employee_id, project_kind,
       freee_quote_url, freee_invoice_url, is_design_ops, item_name, ops_flow, paper_source,
-      first_draft_due, submission_due } = req.body;
+      first_draft_due, submission_due, design_planned_hours } = req.body;
     const kind = project_kind === 'INTERNAL_DESIGN' ? 'INTERNAL_DESIGN' : 'NORMAL';
     const now = new Date().toISOString();
     db.prepare(`
@@ -1619,16 +1621,16 @@ app.put('/api/projects/:id', (req, res) => {
         status=?, priority=?, reference_link=?, memo=?, nas_folder_path=?, prep_items=?,
         required_skill_tags=?, estimated_hours=?, assigned_employee_id=?, project_kind=?,
         freee_quote_url=?, freee_invoice_url=?, is_design_ops=?, item_name=?, ops_flow=?, paper_source=?,
-        first_draft_due=?, submission_due=?, updated_at=?
+        first_draft_due=?, submission_due=?, design_planned_hours=?, updated_at=?
       WHERE id=?
-    `).run(project_name, received_date, deadline, customer_name, contact_method,
+    `).run(project_name, received_date, deadline || '', customer_name, contact_method,
       work_content || '', process_type || '', quantity || 0, planned_hours || 0, assigned_staff_id || null,
       status, priority, reference_link || '', memo || '', nas_folder_path || '', prep_items || '',
       required_skill_tags || '', estimated_hours || null, assigned_employee_id || null, kind,
       freee_quote_url || '', freee_invoice_url || '', is_design_ops ? 1 : 0, item_name || '',
       ops_flow === 'SUBMIT_END' ? 'SUBMIT_END' : 'FULL',
       paper_source === 'CARVE' ? 'CARVE' : 'HIYOSHI',
-      first_draft_due || null, submission_due || null, now, req.params.id);
+      first_draft_due || null, submission_due || null, design_planned_hours || null, now, req.params.id);
     res.json({ message: 'Project updated successfully' });
   } catch (error) {
     sendServerError(res, req, error);
@@ -1662,6 +1664,60 @@ app.put('/api/projects/:id/status', (req, res) => {
     const now = new Date().toISOString();
     db.prepare(`UPDATE projects SET status=?, updated_at=? WHERE id=?`).run(status, now, req.params.id);
     res.json({ message: 'Project status updated successfully' });
+  } catch (error) {
+    sendServerError(res, req, error);
+  }
+});
+
+// 制作予定時間だけを更新する(2026-08-18)。案件登録時に未定でも登録できるようにしたため、
+// スケジュールボードで実際に予定を置いたときに、そこで入力された時間を案件へ書き戻す。
+// 案件の全項目を送り直す PUT /api/projects/:id とは用途が違うので別のエンドポイントにしている
+app.patch('/api/projects/:id/planned-hours', (req, res) => {
+  try {
+    const planned = Number(req.body.planned_hours);
+    if (!Number.isFinite(planned) || planned < 0) {
+      return res.status(400).json({ error: '制作予定時間は0以上の数値で指定してください' });
+    }
+    const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(req.params.id);
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+
+    db.prepare('UPDATE projects SET planned_hours = ?, updated_at = ? WHERE id = ?')
+      .run(planned, new Date().toISOString(), req.params.id);
+    res.json({ message: 'Planned hours updated successfully' });
+  } catch (error) {
+    sendServerError(res, req, error);
+  }
+});
+
+// 入金・現金預かりの状態を切り替える(2026-08-18 三浦さん・鈴木さんとのMTGで追加)。
+// 「今日お金持っていきます」「入金しておきました」という電話連絡を無くし、
+// 案件一覧の上で誰が現金を預かっているかまで見えるようにするためのもの。
+// 案件の進行(status)とは別の軸なので、専用のエンドポイントに分けている
+const PAYMENT_STATUSES = ['UNPAID', 'CASH_RECEIVED', 'PAID'];
+app.patch('/api/projects/:id/payment', (req, res) => {
+  try {
+    const { payment_status, payment_holder_employee_id } = req.body;
+    if (!PAYMENT_STATUSES.includes(payment_status)) {
+      return res.status(400).json({ error: '入金状態の指定が不正です' });
+    }
+    const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(req.params.id);
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+
+    // 預かった人が意味を持つのは「現金預かり」のときだけ。
+    // 入金済み・未入金へ戻したときに前の預かり者が残っていると誤解を生むので消す
+    const holderId = payment_status === 'CASH_RECEIVED'
+      ? (payment_holder_employee_id ? parseInt(payment_holder_employee_id, 10) : null)
+      : null;
+    if (payment_status === 'CASH_RECEIVED' && !holderId) {
+      return res.status(400).json({ error: '現金を預かった人を選択してください' });
+    }
+
+    db.prepare(`
+      UPDATE projects SET payment_status = ?, payment_holder_employee_id = ?, payment_updated_at = ?
+      WHERE id = ?
+    `).run(payment_status, holderId, new Date().toISOString(), req.params.id);
+
+    res.json({ message: 'Payment status updated successfully' });
   } catch (error) {
     sendServerError(res, req, error);
   }
@@ -1975,6 +2031,8 @@ const duplicateProjectCascade = db.transaction((srcId, overrides) => {
     prep_items: src.prep_items,
     required_skill_tags: src.required_skill_tags,
     estimated_hours: src.estimated_hours,
+    item_name: src.item_name,
+    design_planned_hours: src.design_planned_hours,
   });
 
   // アイテム明細をコピーし、旧アイテムID→新アイテムIDの対応を控える

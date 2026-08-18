@@ -112,12 +112,14 @@
             <thead>
               <tr>
                 <th class="sortable" onclick="app.sortTable('project_name')">案件名</th>
+                <th>アイテム名</th>
                 <th class="sortable" onclick="app.sortTable('received_date')">受付日</th>
                 <th class="sortable groupable" id="th-group-deadline" onclick="app.toggleGroupColumn('deadline')">納期</th>
                 <th>顧客名</th>
                 <th>加工種別</th>
                 <th class="sortable" onclick="app.sortTable('quantity')">数量</th>
                 <th>担当者</th>
+                <th>決済</th>
                 <th class="groupable" id="th-group-status" onclick="app.toggleGroupColumn('status')">ステータス</th>
                 <th>優先度</th>
                 <th>操作</th>
@@ -346,17 +348,11 @@
             </div>
             <div class="field-hint">CARVE案件はイレギュラー案件として、ボード上で枠を付けて目立たせます</div>
 
-            <div class="form-row" style="margin-top:8px;">
-              <div class="form-group">
-                <label for="pf-first-draft-due">初校の納期</label>
-                <input type="date" id="pf-first-draft-due" name="first_draft_due">
-              </div>
-              <div class="form-group">
-                <label for="pf-submission-due">入稿の納期</label>
-                <input type="date" id="pf-submission-due" name="submission_due">
-              </div>
+            <div class="form-group" style="margin-top:8px;">
+              <label for="pf-first-draft-due">初校の納期</label>
+              <input type="date" id="pf-first-draft-due" name="first_draft_due">
+              <div class="field-hint">鈴木さんのマイスケジュールボードでは、初校提出のカードにこの日付が納期として表示されます（空欄なら案件の納期を使います）。入稿の納期は「基本情報」で入力します</div>
             </div>
-            <div class="field-hint">鈴木さんのマイスケジュールボードでは、各作業カードにこの日付が納期として表示されます（空欄なら案件の納期を使います）</div>
           </div>
         </fieldset>
 
@@ -377,8 +373,8 @@
 
             <div class="form-group">
               <label for="pf-item-name">アイテム名</label>
-              <input type="text" id="pf-item-name" name="item_name" placeholder="例: ドライTシャツ / az50018 半袖ポロシャツ">
-              <div class="field-hint">何を作る案件かが一目で分かるように入れてください。デザイン進行ボードのカードにも表示されます</div>
+              <input type="text" id="pf-item-name" name="item_name" placeholder="例: マフラータオル / トートバッグ">
+              <div class="field-hint">案件名は「北上少年団記念品」のような正式名称、こちらは作る物そのものを入れてください。案件一覧とデザイン進行ボードの両方に表示されます</div>
             </div>
 
             <div class="form-row">
@@ -387,9 +383,16 @@
                 <input type="date" id="pf-received-date" name="received_date" required>
               </div>
               <div class="form-group">
-                <label for="pf-deadline">納期 <span class="req-mark" aria-hidden="true">*</span></label>
-                <input type="date" id="pf-deadline" name="deadline" required>
+                <label for="pf-deadline">アイテムの納品納期</label>
+                <input type="date" id="pf-deadline" name="deadline">
+                <div class="field-hint">未定のままで登録できます。決まった時点で編集から入れてください</div>
               </div>
+            </div>
+
+            <div class="form-group" id="pf-submission-due-group">
+              <label for="pf-design-submission-due">デザインの入稿納期 <span class="req-mark" id="pf-submission-due-req" aria-hidden="true" style="display:none;">*</span></label>
+              <input type="date" id="pf-design-submission-due" name="submission_due">
+              <div class="field-hint" id="pf-submission-due-hint">デザインから入る案件では必須です。鈴木さんのマイスケジュールボードでは、この日付が作業カードの納期になります</div>
             </div>
 
             <div class="form-row">
@@ -398,8 +401,10 @@
                 <select id="pf-contact-method" name="contact_method" required>
                   <option value="">選択してください</option>
                   <option value="LINE">LINE</option>
+                  <option value="GOOGLE_CHAT">Googleチャット</option>
                   <option value="EMAIL">メール</option>
                   <option value="PHONE">電話</option>
+                  <option value="PRESIDENT">社長</option>
                   <option value="OTHER">その他</option>
                 </select>
               </div>
@@ -420,7 +425,7 @@
           <summary>2. 加工内容<span class="form-section-note">加工種別・プリント箇所・数量</span></summary>
           <div class="form-section-body">
             <fieldset class="form-group">
-              <legend>加工種別 <span class="req-mark" aria-hidden="true">*</span> <span class="field-hint">(複数選択可)</span></legend>
+              <legend>加工種別 <span class="field-hint">(複数選択可。デザインから入る案件など、この段階で決まっていなければ空のままで構いません)</span></legend>
               <div class="checkbox-group">
                 <label class="checkbox-pill"><input type="checkbox" name="process_type" value="SILK_SCREEN_PRINT"> シルクスクリーンプリント</label>
                 <label class="checkbox-pill"><input type="checkbox" name="process_type" value="DTF_PRINT"> DTFプリント</label>
@@ -467,37 +472,28 @@
 
             <div class="form-row normal-only">
               <div class="form-group">
-                <label for="pf-planned-hours">作業予定時間（分） <span class="req-mark" aria-hidden="true">*</span></label>
-                <input type="number" id="pf-planned-hours" name="planned_hours" min="1" required>
-                <div class="field-hint">スケジュールボードに置くときの目安時間。担当者の生産性が登録されていればそちらが優先されます</div>
+                <label for="pf-planned-hours">制作予定時間（分）</label>
+                <input type="number" id="pf-planned-hours" name="planned_hours" min="0">
+                <div class="field-hint">アイテムを作る作業の目安時間。未定なら空欄で登録し、スケジュールボードに置くときに入力できます</div>
               </div>
               <div class="form-group">
-                <label for="pf-estimated-hours">見積もり工数（時間）</label>
-                <input type="number" id="pf-estimated-hours" name="estimated_hours" min="0" step="0.5">
-                <div class="field-hint">見積書に載せる総工数の控え。スケジュールの計算には使われません</div>
+                <label for="pf-design-planned-hours">デザイン予定時間（分）</label>
+                <input type="number" id="pf-design-planned-hours" name="design_planned_hours" min="0">
+                <div class="field-hint">デザイン作業の目安時間。製造の予定時間とは混ぜずに分けて持ちます</div>
               </div>
             </div>
 
-            <fieldset class="form-group normal-only">
-              <legend>必要スキル <span class="field-hint">(担当者の自動提案に使う。従業員の「得意スキル」と突き合わせます)</span></legend>
-              <div class="checkbox-group">
-                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="SILK_SCREEN_PRINT"> シルクスクリーンプリント</label>
-                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="DTF_PRINT"> DTFプリント</label>
-                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="RUBBER_TRANSFER_PRINT"> ラバー転写プリント</label>
-                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="SUBLIMATION_PRINT"> 昇華プリント</label>
-                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="STANDARD_EMBROIDERY"> 通常刺繍</label>
-                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="HAT_EMBROIDERY"> 帽子刺繍</label>
-                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="PATCH_EMBROIDERY"> ワッペン刺繍</label>
-              </div>
-            </fieldset>
+            <div class="form-group normal-only">
+              <label for="pf-estimated-hours">見積もり工数（時間）</label>
+              <input type="number" id="pf-estimated-hours" name="estimated_hours" min="0" step="0.5">
+              <div class="field-hint">見積書に載せる総工数の控え。スケジュールの計算には使われません</div>
+            </div>
+
+            <!-- 必要スキルは 2026-08-18 のMTGで入力項目から外した。
+                 担当者の自動提案には引き続き必要なため、選択された加工種別から
+                 app.js が required_skill_tags を自動で組み立てて保存する -->
 
             <div class="form-row normal-only">
-              <div class="form-group">
-                <label for="staff-select">担当者 <span class="field-hint">(案件の窓口)</span></label>
-                <select name="assigned_staff_id" id="staff-select">
-                  <option value="">未割り当て</option>
-                </select>
-              </div>
               <div class="form-group">
                 <label for="pf-status">ステータス</label>
                 <select id="pf-status" name="status">
@@ -676,10 +672,17 @@
                 <input type="date" id="ai-received-date" name="received_date" required>
               </div>
               <div class="form-group">
-                <label for="ai-deadline">納期 <span class="req-mark" aria-hidden="true">*</span></label>
-                <input type="date" id="ai-deadline" name="deadline" required>
+                <label for="ai-deadline">アイテムの納品納期</label>
+                <input type="date" id="ai-deadline" name="deadline">
                 <div class="field-hint" id="ai-intake-deadline-hint"></div>
+                <div class="field-hint">未定のままで登録できます</div>
               </div>
+            </div>
+
+            <div class="form-group" id="ai-submission-due-group">
+              <label for="ai-design-submission-due">デザインの入稿納期 <span class="req-mark" id="ai-submission-due-req" aria-hidden="true" style="display:none;">*</span></label>
+              <input type="date" id="ai-design-submission-due" name="submission_due">
+              <div class="field-hint">デザインから入る案件では必須です。鈴木さんのマイスケジュールボードで作業カードの納期になります</div>
             </div>
 
             <div class="form-row">
@@ -688,8 +691,10 @@
                 <select id="ai-contact-method" name="contact_method" required>
                   <option value="">選択してください</option>
                   <option value="LINE">LINE</option>
+                  <option value="GOOGLE_CHAT">Googleチャット</option>
                   <option value="EMAIL">メール</option>
                   <option value="PHONE">電話</option>
+                  <option value="PRESIDENT">社長</option>
                   <option value="OTHER">その他</option>
                 </select>
               </div>
@@ -704,7 +709,7 @@
             </div>
 
             <fieldset class="form-group">
-              <legend>加工種別 <span class="req-mark" aria-hidden="true">*</span> <span class="field-hint">(複数選択可)</span></legend>
+              <legend>加工種別 <span class="field-hint">(複数選択可。デザインから入る案件など、この段階で決まっていなければ空のままで構いません)</span></legend>
               <div class="checkbox-group">
                 <label class="checkbox-pill"><input type="checkbox" name="process_type" value="SILK_SCREEN_PRINT"> シルクスクリーンプリント</label>
                 <label class="checkbox-pill"><input type="checkbox" name="process_type" value="DTF_PRINT"> DTFプリント</label>
@@ -754,17 +759,11 @@
                 <label class="checkbox-pill"><input type="radio" name="paper_source" value="CARVE"> 🔶 CARVE で受けている案件</label>
               </div>
               <div class="field-hint">紙媒体のときだけ使います。CARVE案件はボード上で枠を付けて目立たせます</div>
-              <div class="form-row" style="margin-top:8px;">
-                <div class="form-group">
-                  <label for="ai-first-draft-due">初校の納期</label>
-                  <input type="date" id="ai-first-draft-due" name="first_draft_due">
-                </div>
-                <div class="form-group">
-                  <label for="ai-submission-due">入稿の納期</label>
-                  <input type="date" id="ai-submission-due" name="submission_due">
-                </div>
+              <div class="form-group" style="margin-top:8px;">
+                <label for="ai-first-draft-due">初校の納期</label>
+                <input type="date" id="ai-first-draft-due" name="first_draft_due">
+                <div class="field-hint">紙媒体のときだけ使います。空欄なら案件の納期を使います。入稿の納期は上の「デザインの入稿納期」で入力します</div>
               </div>
-              <div class="field-hint">紙媒体のときだけ使います。空欄なら案件の納期を使います</div>
             </fieldset>
 
             <div class="form-row">
@@ -774,10 +773,16 @@
                 <div class="field-hint" id="ai-intake-quantity-hint"></div>
               </div>
               <div class="form-group">
-                <label for="ai-planned-hours">作業予定時間（分） <span class="req-mark" aria-hidden="true">*</span></label>
-                <input type="number" id="ai-planned-hours" name="planned_hours" min="1" required>
-                <div class="field-hint">ボードにドラッグしたとき、担当者の生産性が未登録ならこの時間が使われます</div>
+                <label for="ai-planned-hours">制作予定時間（分）</label>
+                <input type="number" id="ai-planned-hours" name="planned_hours" min="0">
+                <div class="field-hint">未定なら空欄のままで登録できます。ボードに置くときに入力できます</div>
               </div>
+            </div>
+
+            <div class="form-group">
+              <label for="ai-design-planned-hours">デザイン予定時間（分）</label>
+              <input type="number" id="ai-design-planned-hours" name="design_planned_hours" min="0">
+              <div class="field-hint">デザイン作業の目安時間。製造の予定時間とは分けて持ちます</div>
             </div>
 
             <div class="form-group">
@@ -786,26 +791,10 @@
               <div class="field-hint">見積書に載せる総工数の控え。スケジュールの計算には使われません</div>
             </div>
 
-            <fieldset class="form-group">
-              <legend>必要スキル <span class="field-hint">(担当者の自動提案に使う)</span></legend>
-              <div class="checkbox-group">
-                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="SILK_SCREEN_PRINT"> シルクスクリーンプリント</label>
-                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="DTF_PRINT"> DTFプリント</label>
-                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="RUBBER_TRANSFER_PRINT"> ラバー転写プリント</label>
-                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="SUBLIMATION_PRINT"> 昇華プリント</label>
-                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="STANDARD_EMBROIDERY"> 通常刺繍</label>
-                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="HAT_EMBROIDERY"> 帽子刺繍</label>
-                <label class="checkbox-pill"><input type="checkbox" name="required_skill_tags" value="PATCH_EMBROIDERY"> ワッペン刺繍</label>
-              </div>
-            </fieldset>
+            <!-- 必要スキルと担当者は 2026-08-18 のMTGで入力項目から外した。
+                 必要スキルは選択された加工種別から app.js が自動で組み立てて保存する -->
 
             <div class="form-row">
-              <div class="form-group">
-                <label for="ai-intake-staff-select">担当者 <span class="field-hint">(案件の窓口)</span></label>
-                <select name="assigned_staff_id" id="ai-intake-staff-select">
-                  <option value="">未割り当て</option>
-                </select>
-              </div>
               <div class="form-group">
                 <label for="ai-status">ステータス</label>
                 <select id="ai-status" name="status">
@@ -958,6 +947,48 @@
   </div>
 
   <!-- ===== モーダル: 納品済み登録 ===== -->
+  <!-- 入金・現金預かりの切り替え。電話で伝えていた「お金持っていきます」「入金しました」を
+       案件一覧の上で完結させるためのもの(2026-08-18 のMTGで決定) -->
+  <div id="payment-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>入金の状態</h2>
+        <button class="btn-close" onclick="app.closePaymentModal()" aria-label="閉じる">✕</button>
+      </div>
+      <form id="payment-form" class="project-form">
+        <p id="payment-modal-case" class="form-label"></p>
+
+        <fieldset class="form-group">
+          <legend>いまの状態</legend>
+          <div class="checkbox-group">
+            <label class="checkbox-pill"><input type="radio" name="payment_status" value="UNPAID" onchange="app.onPaymentStatusChange()"> 未入金</label>
+            <label class="checkbox-pill"><input type="radio" name="payment_status" value="CASH_RECEIVED" onchange="app.onPaymentStatusChange()"> 現金を預かった</label>
+            <label class="checkbox-pill"><input type="radio" name="payment_status" value="PAID" onchange="app.onPaymentStatusChange()"> 入金済み</label>
+          </div>
+        </fieldset>
+
+        <div class="form-group" id="payment-holder-group" style="display:none;">
+          <label for="payment-holder-select">現金を預かった人 <span class="req-mark" aria-hidden="true">*</span></label>
+          <select id="payment-holder-select" name="payment_holder_employee_id">
+            <option value="">選択してください</option>
+          </select>
+          <div class="field-hint">誰の手元に現金があるかが一覧から分かるようになります。会社に入れたら「入金済み」に変えてください</div>
+        </div>
+
+        <div id="payment-updated-note" class="field-hint"></div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" onclick="app.closePaymentModal()">
+            キャンセル
+          </button>
+          <button type="submit" class="btn btn-primary">
+            保存する
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div id="deliver-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">

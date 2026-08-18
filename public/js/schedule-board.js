@@ -1683,8 +1683,16 @@ const scheduleBoard = {
   // ただし、その行で現在選択中の案件は上記に当てはまらなくなっていても選択肢から消さない
   ASSIGNABLE_PROJECT_STATUSES: ['WAITING', 'PREP_COMPLETE', 'IN_PROGRESS'],
 
+  // 制作予定時間が未入力(0)の案件は「未定」であって「0時間で終わる案件」ではない。
+  // 2026-08-18に案件登録時の必須を外したので、未定のままボードに置けるようにし、
+  // 予定(h)欄に入力された時間を案件側へ書き戻す(saveOverrideModal を参照)
+  hasUndecidedPlannedHours(project) {
+    return !project.planned_hours;
+  },
+
   isProjectAssignable(project) {
     if (!this.ASSIGNABLE_PROJECT_STATUSES.includes(project.status)) return false;
+    if (this.hasUndecidedPlannedHours(project)) return true;
     const budgetHours = (project.planned_hours || 0) / 60;
     const allocatedHours = project.allocated_hours_total || 0;
     const remainingHours = budgetHours - allocatedHours;
@@ -1696,9 +1704,13 @@ const scheduleBoard = {
       this.isProjectAssignable(p) || String(p.id) === String(selectedCaseId)
     );
     if (selectableProjects.length === 0) return '';
-    return selectableProjects.map(p => `
-      <option value="${p.id}" ${String(p.id) === String(selectedCaseId) ? 'selected' : ''}>${this.escapeHtml(p.project_name)}</option>
-    `).join('');
+    return selectableProjects.map(p => {
+      // 未定の案件は、予定(h)を入れてもらう必要があることが選ぶ前に分かるようにする
+      const undecidedNote = this.hasUndecidedPlannedHours(p) ? '（制作予定時間 未定）' : '';
+      return `
+      <option value="${p.id}" ${String(p.id) === String(selectedCaseId) ? 'selected' : ''}>${this.escapeHtml(p.project_name)}${undecidedNote}</option>
+    `;
+    }).join('');
   },
 
   allocationRowHtml(rowKey, id, caseId, plannedHours, actualHours) {
@@ -1942,6 +1954,22 @@ const scheduleBoard = {
       const deletedIds = allocationRows.map(r => r.id).filter(id => id && !currentIds.includes(id));
       for (const id of deletedIds) {
         await this.fetchOk(`/api/time-allocations/${id}`, { method: 'DELETE' });
+      }
+
+      // 制作予定時間が未定のまま置かれた案件は、ここで入力された予定(h)を案件側へ書き戻す。
+      // これをしないと案件の持ち時間が0のままで、進捗の分母が立たず
+      // 次にボードへ置くときも「未定」の案件として出続けてしまう(2026-08-18)
+      for (const row of currentRows) {
+        const planned = parseFloat(row.plannedRaw);
+        if (!(planned > 0)) continue;
+        const project = this.projects.find(p => String(p.id) === String(row.caseId));
+        if (!project || !this.hasUndecidedPlannedHours(project)) continue;
+        await this.fetchOk(`/api/projects/${row.caseId}/planned-hours`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ planned_hours: Math.round(planned * 60) })
+        });
+        HiUI.toast(`「${project.project_name}」の制作予定時間を${planned}時間として記録しました`);
       }
 
       // 既存行の更新・新規行の作成（実績時間が入力された行はステータスを「実績確定」にする）

@@ -54,6 +54,26 @@ function getStatusClass(status) {
   return classMap[status] || '';
 }
 
+// 入金・現金預かりの状態(2026-08-18 のMTGで追加)。
+// 「お金持っていきます」「入金しました」の電話連絡を案件一覧の上で完結させるためのもの
+function getPaymentLabel(status) {
+  const labelMap = {
+    'UNPAID': '未入金',
+    'CASH_RECEIVED': '現金預かり',
+    'PAID': '入金済み'
+  };
+  return labelMap[status] || '未入金';
+}
+
+function getPaymentClass(status) {
+  const classMap = {
+    'UNPAID': 'payment-unpaid',
+    'CASH_RECEIVED': 'payment-cash-received',
+    'PAID': 'payment-paid'
+  };
+  return classMap[status] || 'payment-unpaid';
+}
+
 // 加工種別日本語変換
 function getProcessLabel(process) {
   const processMap = {
