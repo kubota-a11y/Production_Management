@@ -328,6 +328,16 @@ function initDatabase(dbFile = dbPath) {
     console.log('✓ partner_links.notify_emails を追加しました');
   }
 
+  // デザイン担当が自分のボードから「自分の担当ではない」として外した記録(2026-08-18)。
+  // 単に assigned_staff_id を NULL に戻すだけだと、案件を編集するたびに
+  // registerPreparationItems の寄せ直しでまた本人へ戻ってしまうため、外した事実を残して
+  // 寄せ直しの対象から除外する。三浦さんが改めて誰かに割り当てるとクリアされる
+  const prepItemColumns = db.prepare(`PRAGMA table_info('case_preparation_items')`).all().map(col => col.name);
+  if (!prepItemColumns.includes('designer_released_at')) {
+    db.prepare(`ALTER TABLE case_preparation_items ADD COLUMN designer_released_at TEXT`).run();
+    console.log('✓ case_preparation_items.designer_released_at を追加しました');
+  }
+
   // 既存DBに preparation_item_master.is_designer_item カラムがない場合は追加。
   // 1の項目は「デザイン担当者の専用項目」= どの案件種別でも登録時にデザイン担当へ自動割り当てされる
   const prepMasterColumns = db.prepare(`PRAGMA table_info('preparation_item_master')`).all().map(col => col.name);

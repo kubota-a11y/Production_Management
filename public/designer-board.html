@@ -114,6 +114,14 @@
       white-space: nowrap; font-family: inherit;
     }
     .btn-unplan:hover { background: #f8fafc; color: #0f172a; }
+    /* 自分の担当ではないタスクをボードから外すボタン。
+       押すと戻せない操作なので、日付操作のボタンとは色を分けて区別する */
+    .btn-release {
+      border: 1px solid #fca5a5; background: #fff; color: #b91c1c; border-radius: 999px;
+      padding: 3px 10px; font-size: .74rem; font-weight: 700; cursor: pointer;
+      white-space: nowrap; font-family: inherit;
+    }
+    .btn-release:hover { background: #fef2f2; color: #991b1b; }
     /* TODOの完了ボタン。押すとスプレッドシート側も完了になるため、色で区別する */
     .btn-todo-done {
       border: 1px solid #86efac; background: #f0fdf4; color: #15803d; border-radius: 999px;

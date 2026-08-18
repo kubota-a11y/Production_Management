@@ -412,6 +412,7 @@ const board = {
             <input type="checkbox" ${done ? 'checked' : ''} onchange="board.onDoneChange(${i.id}, this.checked)"> 完了
           </label>
           ${i.scheduled_date ? `<button type="button" class="btn-unplan" onclick="board.onItemDateChange(${i.id}, '')" title="このタスクを「日付が未定のタスク」に戻します">↩︎ 未定に戻す</button>` : ''}
+          ${i.releasable ? `<button type="button" class="btn-release" onclick="board.onReleaseItem(${i.id})" title="このタスクを自分のボードから外します。案件からは消えず、三浦さんが担当を決め直せる状態に戻ります">🙅 自分の担当ではない</button>` : ''}
         </div>
       </div>
     `;
@@ -435,6 +436,38 @@ const board = {
   async onItemDateChange(itemId, value) {
     await this.updateItem(itemId, { scheduled_date: value || null },
       value ? `${this.fmtDate(value)} に移動しました` : '日付を未定に戻しました');
+  },
+
+  // 「自分の担当ではない」でタスクを手放す。ボードから消えるだけで案件からは消えない
+  // (未割り当ての準備項目として社内の週間スケジュールボードに残り、三浦さんが担当を決め直せる)。
+  // 元に戻すには社内側で割り当て直す必要があるため、押す前に確認する
+  async onReleaseItem(itemId) {
+    const item = this.findItem(itemId);
+    const name = item ? `${item.project_name} / ${item.preparation_item_name}` : 'このタスク';
+    if (!confirm(`このタスクを自分のボードから外しますか?\n\n${name}\n\n案件からは消えません。社内側で担当を決め直す状態に戻ります。\n(自分で戻すことはできません)`)) return;
+
+    try {
+      const res = await fetch(`/api/designer/${this.token}/items/${itemId}/release`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        this.toast(data.error || '外すことができませんでした');
+      } else {
+        this.toast('自分のボードから外しました');
+      }
+    } catch (e) {
+      console.error(e);
+      this.toast('通信エラーで外せませんでした');
+    }
+    await this.load();
+  },
+
+  // 表示中のタスクをIDで探す(確認メッセージに作業名を出すため)
+  findItem(itemId) {
+    const all = [...(this.unscheduled || []), ...(this.scheduled || [])];
+    return all.find(i => i.id === itemId) || null;
   },
 
   // CARVE案件の作業段階を切り替える(同じ案件のチップすべてに反映される)

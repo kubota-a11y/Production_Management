@@ -2702,11 +2702,14 @@ function registerPreparationItems(caseId, preparationItemIds = []) {
   });
 
   // 既に登録済みの項目も、デザイン案件なら担当が空のものをデザイン担当へ寄せる
-  // (あとから「デザイン進行ボード」に切り替えた案件を拾うため)
+  // (あとから「デザイン進行ボード」に切り替えた案件を拾うため)。
+  // ただしデザイン担当本人が「自分の担当ではない」として外した項目は寄せ直さない —
+  // 案件を編集するたびに本人のボードへ戻ってしまい、外す操作が意味を成さなくなるため
   if (designerEmployeeId && (isDesignOps || isInternalDesign)) {
     const moved = db.prepare(`
       UPDATE case_preparation_items SET assigned_staff_id = ?
       WHERE case_id = ? AND assigned_staff_id IS NULL AND status != '完了'
+        AND designer_released_at IS NULL
     `).run(designerEmployeeId, caseId);
     assignedToDesigner += moved.changes;
   }
@@ -2811,11 +2814,17 @@ app.put('/api/preparation-items/:id', (req, res) => {
       ? (existing.status === '完了' ? existing.completed_at : new Date().toISOString())
       : null;
 
+    // 誰かに割り当て直したら「デザイン担当が外した」記録は消す。
+    // 三浦さんが改めて担当を決めた時点で、その項目は通常の割り当てとして扱ってよい
+    const designerReleasedAt = assigned_staff_id ? null : existing.designer_released_at;
+
     db.prepare(`
       UPDATE case_preparation_items SET
-        assigned_staff_id=?, scheduled_date=?, estimated_hours=?, status=?, completed_at=?
+        assigned_staff_id=?, scheduled_date=?, estimated_hours=?, status=?, completed_at=?,
+        designer_released_at=?
       WHERE id=?
-    `).run(assigned_staff_id || null, scheduled_date || null, estimated_hours, status, completed_at, req.params.id);
+    `).run(assigned_staff_id || null, scheduled_date || null, estimated_hours, status, completed_at,
+      designerReleasedAt, req.params.id);
 
     if (status !== existing.status) {
       syncCaseStatusForPreparationItems(existing.case_id);

@@ -59,6 +59,8 @@
 - 案件の「必要スキル」(`required_skill_tags`)の値は**加工種別のコード**(`SILK_SCREEN_PRINT` 等)。従業員の「得意スキル」と突き合わせて担当者の自動提案に使うため、別の文字列を入れても一致しない
 - **`projects.deadline` は NOT NULL のまま、未定を空文字で表す**(2026-08-18に納期を任意化した際、SQLiteでNOT NULL解除はテーブル再構築が必要なため空文字で運用)。`createProjectRecord` が `deadline || ''` で吸収している。**空文字の納期を新しい画面で扱うときは、日付として解釈する前に空判定を入れる**(`getDeadlineWarning`・`formatDate`・`groupProjectsByDeadline` は対応済み)。納期が空の案件は `autoProposeForProject` が「締切日が未設定です」を返して自動提案の対象外になる(意図した挙動)
 - **`planned_hours` が0の案件は「0時間の案件」ではなく「制作予定時間が未定」**(2026-08-18に必須を外した)。スケジュールボードは `hasUndecidedPlannedHours()` で未定を判定して選択肢に出し、予定(h)に入力された時間を `PATCH /api/projects/:id/planned-hours` で案件へ書き戻す。**残時間の計算を足すときは、0を「割り振り済み」と誤判定しないこと**
+- **`case_preparation_items` は status と completed_at がずれることがある**。「未着手なのに completed_at が残っている」行を作らないこと(status を戻すときは completed_at も必ずNULLにする)。**担当の一括解除などを書くときは status だけで判定する** — completed_at を条件に入れると、ボードには出ているのに処理から漏れる行ができる(実際に鈴木さんのボードでカードが消えない不具合になった)
+- デザイン担当が自分のボードから外した準備項目は `case_preparation_items.designer_released_at` に記録し、`registerPreparationItems` の寄せ直し(デザイン案件の担当が空の項目をデザイン担当へ寄せる処理)から除外する。**これが無いと案件を編集するたびに本人のボードへ戻る**。担当を割り当て直すとクリアされる。「初校提出」「入稿完了」は段階を進めるトリガーなので外せないようにしている(`NON_RELEASABLE_CODES`)
 - 入金・現金預かりは `projects.payment_status`(UNPAID/CASH_RECEIVED/PAID)+ `payment_holder_employee_id`。案件の進行(status)とは別の軸なので `PATCH /api/projects/:id/payment` に分けている。**CASH_RECEIVED 以外へ変えたときは預かり者をNULLに戻す**(前の預かり者が残ると誤解を生む)
 - 祝日は `lib/jp-holidays.js` の静的テーブル(2027年分まで)。**毎年、翌年分を手で追加する運用**
 - 公開フォームの誤送信対策は `public/js/form-guard.js` を3フォーム(Web注文/チーム追加/取引先加工依頼)で共有。**Enter送信の無効化と確認ウィンドウは両方必要**(確認ウィンドウだけではEnter2回で送信できてしまう)
