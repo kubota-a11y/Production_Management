@@ -619,17 +619,32 @@ function initDatabase(dbFile = dbPath) {
     if (unflagged.changes > 0) {
       console.log('✓ 準備項目「DTFデータ作成」をデザイナー自動割り当ての対象から外しました');
     }
-    // 既に鈴木さんへ割り当て済みのDTFデータ作成カードのうち、まだ着手していないものは
-    // 割り当てを解除してボードから下ろす。完了済み・進行中の記録には触らない
+    // 既に鈴木さんへ割り当て済みのDTFデータ作成カードのうち、完了していないものは
+    // 割り当てを解除してボードから下ろす。完了済みの記録には触らない。
+    // 判定は status だけで行う(completed_at は見ない) — 一度完了にした項目を未着手へ戻すと
+    // status='未着手' なのに completed_at が残ることがあり、そこを条件に入れると
+    // 鈴木さんのボードには出ているのに解除されないカードが残ってしまうため。
+    // ボードの「日付が未定のタスク」も status != '完了' で拾っているので条件を揃える。
+    // 予定日に置き済みのカードも対象にする(下ろす以上、予定からも外す)。毎回起動時に走る冪等処理
     const detached = db.prepare(`
       UPDATE case_preparation_items SET assigned_staff_id = NULL, scheduled_date = NULL
       WHERE assigned_staff_id IS NOT NULL
-        AND status = '未着手'
-        AND completed_at IS NULL
+        AND status != '完了'
         AND preparation_item_id = (SELECT id FROM preparation_item_master WHERE code = 'DTF_DATA_CREATION')
     `).run();
     if (detached.changes > 0) {
-      console.log(`✓ 未着手の「DTFデータ作成」${detached.changes}件をデザイナーの担当から外しました`);
+      console.log(`✓ 未完了の「DTFデータ作成」${detached.changes}件をデザイナーの担当から外しました`);
+    }
+
+    // 未着手なのに完了日時が残っている項目の後始末(冪等)。
+    // 上のような「status と completed_at が食い違う行」は、条件に completed_at を使う処理を
+    // すべて狂わせるため、状態そのものを揃えておく
+    const cleared = db.prepare(`
+      UPDATE case_preparation_items SET completed_at = NULL
+      WHERE status != '完了' AND completed_at IS NOT NULL
+    `).run();
+    if (cleared.changes > 0) {
+      console.log(`✓ 未完了なのに完了日時が残っていた準備項目 ${cleared.changes}件を整えました`);
     }
 
     // 正しい校正用語に訂正: 「初稿提出」→「初校提出」(2026-08-05 社長指示)。
