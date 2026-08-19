@@ -64,27 +64,31 @@
 <div class="page">
   <div class="head">
     <h1>🎨 マイスケジュール 操作ガイド</h1>
-    <div class="meta">鈴木さん用／2026-08-07 版<br>有限会社HiYOSHi　HiBoard</div>
+    <div class="meta">鈴木さん用／2026-08-19 版<br>有限会社HiYOSHi　HiBoard</div>
   </div>
 
   <p class="lead">
-    この画面でやることは<strong>3つだけ</strong>です。<strong>①予定を組む　②進んだら更新する　③稼働できない日を伝える</strong>。<br>
-    ここで動かした予定は社内の週間スケジュールボードにそのまま出るので、<strong>別途の報告連絡は要りません</strong>。
-    URLはご自身専用です。他の方には共有しないでください。
+    やることは<strong>3つだけ</strong>——<strong>①予定を組む　②進んだら更新する　③稼働できない日を伝える</strong>。
+    ここで動かした予定は社内の週間スケジュールボードにそのまま出るので<strong>別途の報告は要りません</strong>。URLはご自身専用です。
   </p>
 
-  <h2 class="c">画面は上から3つのブロックです</h2>
+  <h2 class="c">画面の並び（2026-08-19 に変わりました）</h2>
+  <p>
+    パソコンでは<strong>左に「🗓 今週の予定」、右にタスク一覧（📥 と 📝）</strong>が並び、右側は<strong>スクロールしても画面に残ります</strong>（スマホは従来どおり縦並び）。
+    右の3つの見出しは<strong>クリックで開閉</strong>でき、<strong>閉じていても件数（見出し横の数字）は見えます</strong>。
+    <strong>最初は「日付が未定のタスク」と「CARVE案件」が閉じた状態</strong>で開き、開け閉めは端末が覚えます。
+  </p>
   <table>
     <tr><th style="width:30%">ブロック</th><th>中身</th></tr>
     <tr><td class="k">🗓 今週の予定</td><td>月〜日の日付カード。ここにタスクを置いて「その日にやる」を決めます。稼働の申告もここから</td></tr>
-    <tr><td class="k">📥 日付が未定のタスク</td><td>社内から届いた案件の作業。<strong>CARVE案件は「🔶 CARVE案件」の見出しから下にまとめて</strong>表示されます</td></tr>
+    <tr><td class="k">📥 日付が未定のタスク</td><td>社内から届いた案件の作業。<strong>CARVE案件は下の「🔶 CARVE案件」に分かれて</strong>います</td></tr>
     <tr><td class="k">📝 TODOリスト</td><td>社員用TODOスプレッドシートの<strong>「進行中」だけ</strong>が自動で出ます（未着手は出ません）</td></tr>
   </table>
 
   <h2>タスクカードの見方</h2>
 
   <div class="mock">
-    <div class="mock-sec">📥 日付が未定のタスク　2</div>
+    <div class="mock-sec">▾ 📥 日付が未定のタスク　2</div>
     <div class="chip">
       <div class="chip-name">長泉AMiGOS 2026新ユニフォーム <span class="bd bd-rev">🔁 修正2回目</span></div>
       <div class="chip-meta">初校提出 ｜ 納期 8/25</div>
@@ -92,7 +96,7 @@
       <div style="margin-top:1mm;"><span class="bd bd-off">初校</span> <span class="bd bd-on">修正</span> <span class="bd bd-off">校了</span>
         　<span class="bd-ctl">日付を選ぶ ▼</span> <span class="bd-ctl">h</span> <span class="bd-ctl">☐ 完了</span></div>
     </div>
-    <div class="grp">🔶 CARVE案件　1</div>
+    <div class="grp">▾ 🔶 CARVE案件　1　<span class="small" style="font-weight:400;">← ここもクリックで開閉</span></div>
     <div class="chip carve">
       <div class="chip-name">◯◯高校 卒業記念パンフレット <span class="bd bd-carve">🔶 写真入れアップ</span></div>
       <div class="chip-meta">初校提出 ｜ 初校の納期 8/8</div>
@@ -108,16 +112,15 @@
     <tr><td class="k">✏️ 修正指示</td><td>山本さんが書いた<strong>直近の修正指示メモ</strong>。画像がある場合は「🖼 ラフ」のリンクが別行に出ます</td></tr>
     <tr><td class="k"><span class="bd bd-off">初校</span><span class="bd bd-off">修正</span><span class="bd bd-off">校了</span></td><td><strong>校正がどこまで進んだかの申告</strong>。押すとその状態になり、もう一度押すと未選択に戻ります。<strong>案件ごと</strong>なので、同じ案件のカードが複数あればまとめて変わります</td></tr>
     <tr><td class="k"><span class="bd bd-carve">🔶 CARVE</span></td><td>CARVE案件の作業段階。<strong>ラフアップ→写真入れアップ→修正アップ→入稿</strong>の4段階をプルダウンで切り替えます</td></tr>
-    <tr><td class="k">日付を選ぶ ▼</td><td>やる日を決めます。<strong>上の日付カードへドラッグ</strong>してもOK（スマホは<strong>カードをタップ→日付をタップ</strong>）</td></tr>
+    <tr><td class="k">日付を選ぶ ▼</td><td>やる日を決めます。<strong>「木 8/20（残り5.5h / 8h）」のように各日の残り時間が出る</strong>ので、日付カードを見に行かずに空いた日を選べます（入れすぎは「2.5h超過 / 8h」）。<strong>日付カードへドラッグ</strong>してもOK（PCは左、スマホは上。スマホは<strong>カードをタップ→日付をタップ</strong>でも可）</td></tr>
     <tr><td class="k">h</td><td>見込み時間（0.5刻み）。日カードの「◯h / 6h」がその日の詰まり具合。<strong>超えると赤字</strong>＝入れすぎのサイン</td></tr>
     <tr><td class="k">☐ 完了</td><td>終わったらチェック。<strong>これが社内への連絡になります</strong>（取り消しも可）</td></tr>
     <tr><td class="k">↩︎ 未定に戻す</td><td>日付カードに置いたタスクを「日付が未定」へ戻します</td></tr>
   </table>
 
   <div class="note">
-    <b>TODOリストのカードだけ少し違います。</b>「進行中」バッジと<strong>「✓ 完了」ボタン</strong>が付いていて、
-    完了を押すと<strong>スプレッドシート側も「完了」になります</strong>（取り消しはシートで行ってください）。
-    校正バッジや修正バッジは案件のカードにだけ付きます。
+    <b>TODOリストのカードだけ少し違います。</b>「進行中」バッジと<strong>「✓ 完了」ボタン</strong>が付き、完了を押すと
+    <strong>スプレッドシート側も「完了」になります</strong>（取り消しはシートで）。校正・修正バッジは案件のカードにだけ付きます。
   </div>
 </div>
 
@@ -125,14 +128,14 @@
 <div class="page">
   <div class="head">
     <h1>🎨 マイスケジュール 操作ガイド（2）</h1>
-    <div class="meta">鈴木さん用／2026-08-07 版<br>有限会社HiYOSHi　HiBoard</div>
+    <div class="meta">鈴木さん用／2026-08-19 版<br>有限会社HiYOSHi　HiBoard</div>
   </div>
 
   <h2>① 週のはじめ：今週の予定を組む</h2>
   <ol class="num">
-    <li>「📥 日付が未定のタスク」と「📝 TODOリスト」をひととおり見る</li>
+    <li><strong>「📥 日付が未定のタスク」の見出しをクリックして開き</strong>、「📝 TODOリスト」とあわせてひととおり見る（CARVE案件は中の「🔶 CARVE案件」を開く）</li>
     <li>各カードの<strong>「日付を選ぶ」でやる日を決める</strong>（日付カードへドラッグでも可）</li>
-    <li><strong>見込み時間（h）を入れる</strong> — 日カードの「◯h / 6h」で詰まり具合が見えます。6hを超えて赤字になったら入れすぎです</li>
+    <li><strong>見込み時間（h）を入れる</strong> — 日カードの「◯h / 6h」で詰まり具合が見えます。超えて赤字になったら入れすぎです。<strong>日付プルダウンの「残り◯h」でも空き具合が分かります</strong></li>
     <li>稼働できない日・短い日は<strong>「⚙ 稼働変更」で先に申告</strong>する</li>
     <li>その日の仕事の種類を<strong>「🎨 デザイン」「📋 デザイン関連業務」</strong>で表明する（もう一度押すと解除）</li>
   </ol>
@@ -187,14 +190,16 @@
 <div class="page">
   <div class="head">
     <h1>🎨 マイスケジュール 操作ガイド（3）</h1>
-    <div class="meta">鈴木さん用／2026-08-07 版<br>有限会社HiYOSHi　HiBoard</div>
+    <div class="meta">鈴木さん用／2026-08-19 版<br>有限会社HiYOSHi　HiBoard</div>
   </div>
 
   <h2 class="c">困ったとき</h2>
   <table>
     <tr><th style="width:38%">こんなとき</th><th>どうする</th></tr>
     <tr><td class="k">案件のカードが見当たらない</td><td>その案件が<strong>「制作」以外の段階</strong>にいる可能性が高いです（社内の確認中など）。自分の番になれば自動で出ます。急ぐときは山本さんへ</td></tr>
-    <tr><td class="k">TODOが出てこない</td><td>スプレッドシートの状態が<strong>「進行中」になっているか</strong>確認してください。未着手は表示されません（反映まで最大1分）</td></tr>
+    <tr><td class="k">「📝 TODOリスト」自体が見当たらない</td><td>見出しが<strong>折りたたまれている</strong>か、上の「日付が未定のタスク」を開いたままで下に隠れています。<strong>「日付が未定のタスク」の見出しをクリックして閉じる</strong>と、すぐ下に出ます</td></tr>
+    <tr><td class="k">TODOが出てこない</td><td>スプレッドシートの状態が<strong>「進行中」になっているか</strong>確認してください。未着手・振り分け待ちは表示されません（反映まで最大1分）</td></tr>
+    <tr><td class="k">タスクが1件も見当たらない</td><td>見出しの横の<strong>数字が0でなければ、折りたたまれているだけ</strong>です。見出しをクリックして開いてください</td></tr>
     <tr><td class="k">TODOが二重に見える</td><td>シートに同じ文言の行が複数あると1件にまとめられます。別々の仕事なら「◯◯①」「◯◯②」のように名前を分けてもらってください</td></tr>
     <tr><td class="k">日付を決めたTODOが未定に戻った</td><td>シート側で<strong>タスク名が書き換えられた</strong>ときに起こります。名前で紐づけているためです。ボードで日付を入れ直してください</td></tr>
     <tr><td class="k">「通信エラー」と出る</td><td>電波状況を確認して画面を再読み込みしてください。操作は保存されていないので、やり直しで大丈夫です</td></tr>
