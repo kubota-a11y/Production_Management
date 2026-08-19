@@ -96,16 +96,18 @@ const board = {
 
     // 未予定タスク。CARVE案件は小見出しを挟んで下側にまとめる(2026-08-07 社長指示)。
     // グループ内の並び順(納期の早い順)はサーバーから来た順のまま
-    const uc = document.getElementById('unscheduled-chips');
     const normalItems = this.unscheduled.filter(i => !i.is_carve);
     const carveItems = this.unscheduled.filter(i => i.is_carve);
-    uc.innerHTML = normalItems.map(i => this.chipHtml(i)).join('')
-      + (carveItems.length ? `<div class="chip-group-title">🔶 CARVE案件 <span class="chip-group-count">${carveItems.length}</span></div>` : '')
-      + carveItems.map(i => this.chipHtml(i)).join('');
+    document.getElementById('unscheduled-chips').innerHTML = normalItems.map(i => this.chipHtml(i)).join('');
+    // CARVE案件は独立した折りたたみにする(2026-08-19)。0件のときは見出しごと隠す
+    document.getElementById('carve-group').style.display = carveItems.length ? 'block' : 'none';
+    document.getElementById('carve-count').textContent = carveItems.length;
+    document.getElementById('carve-chips').innerHTML = carveItems.map(i => this.chipHtml(i)).join('');
     document.getElementById('unscheduled-count').textContent = this.unscheduled.length;
     document.getElementById('unscheduled-empty').style.display = this.unscheduled.length ? 'none' : 'block';
 
     this.renderSheetTodos();
+    this.applySectionStates();
 
     // 日カード
     const todayISO = this.toISO(new Date());
@@ -156,6 +158,40 @@ const board = {
     }).join('');
   },
 
+  // ===== セクションの折りたたみ(2026-08-19 社長要望) =====
+  // タスクが多いと右ペインの中で「TODOリスト」等が下へ押し出されて見失うため、
+  // 見出しは固定表示にして中身だけ開閉する。開閉状態は端末ごとに覚える。
+  // 既定は「未定タスク・CARVE案件は閉じ / TODOリストは開き」
+  SECTION_KEYS: ['unscheduled', 'carve', 'sheet-todos'],
+  SECTION_DEFAULT_COLLAPSED: { unscheduled: true, carve: true, 'sheet-todos': false },
+
+  sectionStorageKey(key) { return `hiboard.designer.collapsed.${key}`; },
+
+  isSectionCollapsed(key) {
+    let saved = null;
+    try { saved = localStorage.getItem(this.sectionStorageKey(key)); } catch (e) { /* 保存不可でも動かす */ }
+    if (saved === null) return !!this.SECTION_DEFAULT_COLLAPSED[key];
+    return saved === '1';
+  },
+
+  toggleSection(key) {
+    const next = !this.isSectionCollapsed(key);
+    try { localStorage.setItem(this.sectionStorageKey(key), next ? '1' : '0'); } catch (e) { /* 同上 */ }
+    this.applySectionState(key);
+  },
+
+  applySectionState(key) {
+    const head = document.getElementById(`${key}-head`);
+    const body = document.getElementById(`${key}-body`);
+    if (!head || !body) return;
+    const collapsed = this.isSectionCollapsed(key);
+    body.style.display = collapsed ? 'none' : '';
+    head.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    head.querySelector('.sec-caret').textContent = collapsed ? '▸' : '▾';
+  },
+
+  applySectionStates() { this.SECTION_KEYS.forEach(k => this.applySectionState(k)); },
+
   // ===== TODOリスト(スプレッドシート連携)の表示 =====
   // 社員用TODOリストの本人タブから「未着手」「進行中」を自動表示する(閲覧のみ)。
   // sheetTodos が null のとき(連携未設定・取得失敗)はセクションごと隠す
@@ -166,6 +202,7 @@ const board = {
       return;
     }
     section.style.display = 'block';
+    this.applySectionState('sheet-todos');
     // 日付に置いたTODOは日カード側に出るので、ここでは未計画のものだけ並べる。
     // 「未着手」は件数が多く確認の負担になるため一覧には出さず、「進行中」だけを表示する
     // (2026-07-27 社長指示)。日付に置き済みのものは状態を問わず日カードに残す

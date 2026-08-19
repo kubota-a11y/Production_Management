@@ -94,11 +94,23 @@
     .proof-badge.active { border-color: #db2777; background: #fce7f3; color: #9d174d; }
     .chip.completed .proof-badge { opacity: .6; }
 
-    /* 未定タスクの中で CARVE案件のかたまりを区切る小見出し(2026-08-07) */
-    .chip-group-title {
+    /* 折りたたみ見出し(2026-08-19 社長要望)。タスクが増えると見出しが上へ流れて
+       「TODOリスト」等を見失うため、見出しは常に上端に留め、中身だけ開閉する。
+       button にしているのはキーボード操作と読み上げのため */
+    .sec-head {
+      position: sticky; top: 0; z-index: 6;
+      display: flex; align-items: center; gap: 8px; width: 100%;
+      background: #f1f5f9; border: 0; border-bottom: 1px solid #e2e8f0;
+      padding: 8px 2px; cursor: pointer; text-align: left;
+      font-family: inherit; color: inherit;
+    }
+    .sec-head:hover { background: #e8eef6; }
+    .sec-caret { font-size: .8rem; color: #64748b; width: 1em; flex: none; }
+    /* CARVE案件の小見出しは親の見出しのすぐ下に留める(2026-08-07の区切りを踏襲) */
+    .sec-head-sub { top: 39px; z-index: 5; border-bottom: 1px dashed #c4b5fd; margin-top: 10px; }
+    .sec-sub-title {
       display: flex; align-items: center; gap: 8px;
-      font-size: .82rem; font-weight: 700; color: #6d28d9;
-      margin-top: 6px; padding-top: 10px; border-top: 1px dashed #c4b5fd;
+      font-size: .86rem; font-weight: 700; color: #6d28d9;
     }
     .chip-group-count {
       font-size: .74rem; font-weight: 700; color: #6d28d9; background: #ede9fe;
@@ -279,19 +291,41 @@
 
       <div class="pane-tasks">
         <section id="unscheduled-section" style="display:none;">
-          <div class="sec-title">📥 日付が未定のタスク <span class="count" id="unscheduled-count">0</span></div>
-          <div class="sec-hint">「日付を選ぶ」で予定に入れられます（上の日付カードへドラッグしてもOK）</div>
-          <div class="chips" id="unscheduled-chips"></div>
-          <div class="sec-empty" id="unscheduled-empty" style="display:none;">未定のタスクはありません</div>
+          <button type="button" class="sec-head" id="unscheduled-head"
+                  aria-controls="unscheduled-body" onclick="board.toggleSection('unscheduled')">
+            <span class="sec-caret">▾</span>
+            <span class="sec-title">📥 日付が未定のタスク <span class="count" id="unscheduled-count">0</span></span>
+          </button>
+          <div class="sec-body" id="unscheduled-body">
+            <div class="sec-hint">「日付を選ぶ」で予定に入れられます（左の日付カードへドラッグしてもOK）</div>
+            <div class="chips" id="unscheduled-chips"></div>
+            <div class="sec-empty" id="unscheduled-empty" style="display:none;">未定のタスクはありません</div>
+
+            <div id="carve-group" style="display:none;">
+              <button type="button" class="sec-head sec-head-sub" id="carve-head"
+                      aria-controls="carve-body" onclick="board.toggleSection('carve')">
+                <span class="sec-caret">▾</span>
+                <span class="sec-sub-title">🔶 CARVE案件 <span class="chip-group-count" id="carve-count">0</span></span>
+              </button>
+              <div class="sec-body" id="carve-body">
+                <div class="chips" id="carve-chips"></div>
+              </div>
+            </div>
+          </div>
         </section>
 
         <section id="sheet-todos-section" style="display:none;">
-          <div class="sec-title">📝 TODOリスト <span class="count" id="sheet-todos-count">0</span></div>
-          <div class="sec-hint">社員用TODOリスト(スプレッドシート)の「進行中」が自動で表示されます。「日付を選ぶ」で予定に入れられます（上の日付カードへドラッグしてもOK）。内容の更新・完了はスプレッドシート側で行ってください(反映まで最大1分)</div>
-          <div class="chips" id="sheet-todos-chips"></div>
-          <div class="sec-empty" id="sheet-todos-empty" style="display:none;">進行中のTODOはありません</div>
+          <button type="button" class="sec-head" id="sheet-todos-head"
+                  aria-controls="sheet-todos-body" onclick="board.toggleSection('sheet-todos')">
+            <span class="sec-caret">▾</span>
+            <span class="sec-title">📝 TODOリスト <span class="count" id="sheet-todos-count">0</span></span>
+          </button>
+          <div class="sec-body" id="sheet-todos-body">
+            <div class="sec-hint">社員用TODOリスト(スプレッドシート)の「進行中」が自動で表示されます。「日付を選ぶ」で予定に入れられます（左の日付カードへドラッグしてもOK）。内容の更新・完了はスプレッドシート側で行ってください(反映まで最大1分)</div>
+            <div class="chips" id="sheet-todos-chips"></div>
+            <div class="sec-empty" id="sheet-todos-empty" style="display:none;">進行中のTODOはありません</div>
+          </div>
         </section>
-      </div>
     </div>
 
     <div class="foot-note">
