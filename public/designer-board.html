@@ -105,7 +105,10 @@
       border: 1px solid #c4b5fd; border-radius: 999px; padding: 1px 10px;
     }
     .chip-deadline-soon { color: #b45309; font-weight: 700; }
-    .chip-controls { display: flex; align-items: center; gap: 8px; }
+    /* 操作ボタン列は折り返す。折り返さないと幅の狭い場所(2ペインの右側や
+       760〜1023pxの2列表示)で「自分の担当ではない」等がはみ出し、
+       ページ全体に横スクロールが出てしまう(2026-08-19 修正) */
+    .chip-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; row-gap: 6px; }
     .chip-hours { width: 60px; padding: 4px 6px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: .85rem; }
     /* 日付カードに置いたタスクを未定へ戻すボタン(プルダウンの空欄選択と同じ操作の近道) */
     .btn-unplan {
@@ -154,7 +157,8 @@
 
     /* 日カード */
     .days { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
-    .day-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; }
+    /* min-width:0 が無いとグリッド列が中身の最小幅まで広がり、列がはみ出す(2026-08-19 修正) */
+    .day-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; min-width: 0; }
     .day-card.today { border-color: #db2777; box-shadow: 0 0 0 2px rgba(219,39,119,.12); }
     .day-card.dropover { background: #fdf2f8; border-color: #db2777; }
     .day-card.day-off { background: #f8fafc; }
@@ -221,6 +225,30 @@
     @media (min-width: 760px) {
       .days { display: grid; grid-template-columns: 1fr 1fr; }
     }
+
+    /* 2ペイン(2026-08-19 社長要望): タスク一覧と週の予定を上下に往復せず同時に見られるようにする。
+       右ペインは画面に貼り付いて中だけスクロールするので、左の予定をどこまで見ても
+       タスク一覧が視界から消えない。1024px未満は従来どおりの縦積み(タブレット・スマホ) */
+    @media (min-width: 1024px) {
+      .wrap { max-width: 1400px; }
+      .board-panes {
+        display: grid; grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+        gap: 24px; align-items: start;
+      }
+      .pane-tasks {
+        position: sticky; top: 12px;
+        max-height: calc(100vh - 24px); overflow-y: auto;
+        overscroll-behavior: contain; padding-right: 4px;
+      }
+      .pane-schedule > section:first-child,
+      .pane-tasks > section:first-child { margin-top: 10px; }
+      /* 左ペインは幅が狭くなるので日カードは1列に戻す(2列のままだと1枚が狭すぎる) */
+      .days { grid-template-columns: 1fr; }
+    }
+    /* 十分な幅があるときだけ日カードを2列に戻す */
+    @media (min-width: 1360px) {
+      .days { grid-template-columns: 1fr 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -241,24 +269,30 @@
       <button onclick="board.goThisWeek()">今週</button>
     </div>
 
-    <section id="week-section" style="display:none;">
-      <div class="sec-title">🗓 今週の予定</div>
-      <div class="days" id="days"></div>
-    </section>
+    <div class="board-panes">
+      <div class="pane-schedule">
+        <section id="week-section" style="display:none;">
+          <div class="sec-title">🗓 今週の予定</div>
+          <div class="days" id="days"></div>
+        </section>
+      </div>
 
-    <section id="unscheduled-section" style="display:none;">
-      <div class="sec-title">📥 日付が未定のタスク <span class="count" id="unscheduled-count">0</span></div>
-      <div class="sec-hint">「日付を選ぶ」で予定に入れられます（上の日付カードへドラッグしてもOK）</div>
-      <div class="chips" id="unscheduled-chips"></div>
-      <div class="sec-empty" id="unscheduled-empty" style="display:none;">未定のタスクはありません</div>
-    </section>
+      <div class="pane-tasks">
+        <section id="unscheduled-section" style="display:none;">
+          <div class="sec-title">📥 日付が未定のタスク <span class="count" id="unscheduled-count">0</span></div>
+          <div class="sec-hint">「日付を選ぶ」で予定に入れられます（上の日付カードへドラッグしてもOK）</div>
+          <div class="chips" id="unscheduled-chips"></div>
+          <div class="sec-empty" id="unscheduled-empty" style="display:none;">未定のタスクはありません</div>
+        </section>
 
-    <section id="sheet-todos-section" style="display:none;">
-      <div class="sec-title">📝 TODOリスト <span class="count" id="sheet-todos-count">0</span></div>
-      <div class="sec-hint">社員用TODOリスト(スプレッドシート)の「進行中」が自動で表示されます。「日付を選ぶ」で予定に入れられます（上の日付カードへドラッグしてもOK）。内容の更新・完了はスプレッドシート側で行ってください(反映まで最大1分)</div>
-      <div class="chips" id="sheet-todos-chips"></div>
-      <div class="sec-empty" id="sheet-todos-empty" style="display:none;">進行中のTODOはありません</div>
-    </section>
+        <section id="sheet-todos-section" style="display:none;">
+          <div class="sec-title">📝 TODOリスト <span class="count" id="sheet-todos-count">0</span></div>
+          <div class="sec-hint">社員用TODOリスト(スプレッドシート)の「進行中」が自動で表示されます。「日付を選ぶ」で予定に入れられます（上の日付カードへドラッグしてもOK）。内容の更新・完了はスプレッドシート側で行ってください(反映まで最大1分)</div>
+          <div class="chips" id="sheet-todos-chips"></div>
+          <div class="sec-empty" id="sheet-todos-empty" style="display:none;">進行中のTODOはありません</div>
+        </section>
+      </div>
+    </div>
 
     <div class="foot-note">
       有限会社HiYOSHi 生産管理システム HiBoard<br>

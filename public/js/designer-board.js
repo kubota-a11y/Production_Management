@@ -112,8 +112,7 @@ const board = {
     document.getElementById('days').innerHTML = this.days.map(day => {
       const items = this.scheduled.filter(i => i.scheduled_date === day.date);
       const dayTodos = (this.sheetTodos || []).filter(t => t.scheduled_date === day.date);
-      const planned = items.reduce((s, i) => s + (Number(i.estimated_hours) || 0), 0)
-        + dayTodos.reduce((s, t) => s + (Number(t.estimated_hours) || 0), 0);
+      const planned = this.dayLoad(day.date).planned;
       const over = day.hours > 0 && planned > day.hours;
       const capHtml = day.is_day_off
         ? `<span class="day-off-badge">稼働なし</span>`
@@ -418,12 +417,35 @@ const board = {
     `;
   },
 
+  // その日の割り当て済み時間と稼働可能時間。日カードの残量表示と日付プルダウンで共有する
+  // (両方で別々に足すと数字がずれるため1か所にまとめている)
+  dayLoad(dateISO) {
+    const planned = this.scheduled
+        .filter(i => i.scheduled_date === dateISO)
+        .reduce((s, i) => s + (Number(i.estimated_hours) || 0), 0)
+      + (this.sheetTodos || [])
+        .filter(t => t.scheduled_date === dateISO)
+        .reduce((s, t) => s + (Number(t.estimated_hours) || 0), 0);
+    const day = this.days.find(d => d.date === dateISO);
+    return { planned, hours: day ? day.hours : 0 };
+  },
+
   // 表示中の週の日付プルダウン。長い画面をドラッグしなくても日付を決められるようにする
   // (ドラッグ&ドロップも従来どおり使える)
   dateOptionsHtml(selectedDate) {
     const options = [`<option value="" ${!selectedDate ? 'selected' : ''}>日付を選ぶ</option>`];
     this.days.forEach(day => {
-      const label = `${this.dowLabel(day.date).text.replace('曜', '')} ${this.fmtDate(day.date)}${day.is_day_off ? '（稼働なし）' : ''}`;
+      // 日カードまでスクロールしなくても空き具合で選べるように残り時間を出す(2026-08-19 社長要望)
+      let load = '（稼働なし）';
+      if (!day.is_day_off) {
+        const { planned, hours } = this.dayLoad(day.date);
+        const free = hours - planned;
+        load = hours > 0
+          ? (free < 0 ? `（${this.round(-free)}h超過 / ${this.round(hours)}h）`
+                      : `（残り${this.round(free)}h / ${this.round(hours)}h）`)
+          : '';
+      }
+      const label = `${this.dowLabel(day.date).text.replace('曜', '')} ${this.fmtDate(day.date)}${load}`;
       options.push(`<option value="${day.date}" ${selectedDate === day.date ? 'selected' : ''}>${label}</option>`);
     });
     // 表示中の週の外に予定が入っている場合も、選択中の日付が分かるようにしておく
