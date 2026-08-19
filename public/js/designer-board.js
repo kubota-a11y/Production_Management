@@ -205,8 +205,14 @@ const board = {
     this.applySectionState('sheet-todos');
     // 日付に置いたTODOは日カード側に出るので、ここでは未計画のものだけ並べる。
     // 「未着手」は件数が多く確認の負担になるため一覧には出さず、「進行中」だけを表示する
-    // (2026-07-27 社長指示)。日付に置き済みのものは状態を問わず日カードに残す
-    const unplanned = this.sheetTodos.filter(t => !t.scheduled_date && t.status === '進行中');
+    // (2026-07-27 社長指示)。日付に置き済みのものは状態を問わず日カードに残す。
+    //
+    // ただし予定日が「表示中の週の外」にあるTODOは、日カード(今週分だけ)にも
+    // 出ないためどこからも見えなくなる(2026-08-19 社長報告「操作していたら消えた」)。
+    // 取りこぼすと誰も気づけないので、この一覧に予定日つきで出す
+    const weekDates = new Set(this.days.map(d => d.date));
+    const unplanned = this.sheetTodos.filter(t =>
+      t.status === '進行中' && (!t.scheduled_date || !weekDates.has(t.scheduled_date)));
     document.getElementById('sheet-todos-count').textContent = unplanned.length;
     document.getElementById('sheet-todos-empty').style.display = unplanned.length ? 'none' : 'block';
     document.getElementById('sheet-todos-chips').innerHTML = unplanned.map(t => this.todoChipHtml(t)).join('');
@@ -218,6 +224,8 @@ const board = {
     const inProgress = t.status === '進行中';
     const deadline = this.fmtSheetDate(t.deadline);
     const selected = this.selectedTodoText === t.task;
+    // 表示中の週の外に予定されているTODOはTODOリスト側に出るので、いつの予定かを明示する
+    const outOfWeek = t.scheduled_date && !this.days.some(d => d.date === t.scheduled_date);
     const metaParts = [];
     if (deadline) metaParts.push(`期限 ${deadline}`);
     if (t.memo) metaParts.push(this.esc(t.memo));
@@ -227,6 +235,7 @@ const board = {
            ondragstart="board.onTodoDragStart(event, '${encoded}')" ondragend="board.onChipDragEnd(event)"
            onclick="event.stopPropagation(); board.onTodoTap('${encoded}')">
         <span class="todo-status-badge ${inProgress ? 'todo-status-inprogress' : 'todo-status-notstarted'}">${inProgress ? '進行中' : '未着手'}</span>
+        ${outOfWeek ? `<span class="todo-otherweek-badge">📅 ${this.fmtDate(t.scheduled_date)} に予定</span>` : ''}
         <div class="chip-main">
           <div class="chip-name">📝 ${this.esc(t.task)}</div>
           ${metaParts.length ? `<div class="chip-meta">${metaParts.join(' ｜ ')}</div>` : ''}
