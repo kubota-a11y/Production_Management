@@ -21,6 +21,7 @@ const HiUI = {
     { key: 'ops', href: '/ops', label: '🗂 デザイン進行ボード' },
     { key: 'delivery-history', href: '/delivery-history', label: '📦 納品履歴' },
     { key: 'customers', href: '/customers', label: '📇 顧客台帳' },
+    { key: 'quote-sim', href: '/quote-sim', label: '💴 見積計算' },
     { key: 'manual', href: '/manual', label: '📖 使い方' },
   ],
 

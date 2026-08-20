@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>見積シミュレーター - Production Management</title>
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <div class="header-content">
+        <div>
+          <h1 class="app-title">💴 見積シミュレーター</h1>
+          <p class="app-subtitle">Quote Simulator(社内用)</p>
+        </div>
+      </div>
+      <nav class="header-buttons" data-nav="quote-sim" aria-label="画面の切り替え"></nav>
+    </header>
+
+    <main class="main-content">
+      <section class="qs-layout">
+        <div class="qs-form">
+
+          <div class="qs-block">
+            <div class="form-label">モード</div>
+            <label class="qs-check"><input type="radio" name="mode" value="normal" checked> 通常加工(料金表ベース)</label>
+            <label class="qs-check"><input type="radio" name="mode" value="kratvs"> KRATVSカスタムオーダー</label>
+          </div>
+
+          <div class="qs-block">
+            <div class="form-label">見積の基本情報(freee連携で使います)</div>
+            <label>取引先名 <input type="text" id="customer" placeholder="例: ACTIVE"></label>
+            <label>品名 <input type="text" id="item-title" placeholder="例: オリジナルデザイン ベースボールシャツ"></label>
+          </div>
+
+          <!-- 通常加工 -->
+          <div id="panel-normal">
+            <div class="qs-block">
+              <label>ボディ(品番か名前で検索)
+                <input type="text" id="body-input" list="body-list" placeholder="例: 5982-01">
+                <datalist id="body-list"></datalist>
+              </label>
+              <label>リストに無い場合の税込単価 <input type="number" id="body-manual" min="0" placeholder="持込・その他のとき"></label>
+              <label>枚数 <input type="number" id="qty" min="1" value="15"></label>
+            </div>
+
+            <div class="qs-block">
+              <div class="form-label">加工内容</div>
+              <div id="rows"></div>
+              <button type="button" class="btn btn-secondary btn-small" id="btn-add-row">＋ 加工を追加</button>
+            </div>
+
+            <div class="qs-block">
+              <div class="form-label">全体オプション</div>
+              <label class="qs-check"><input type="checkbox" id="opt-express"> 特急料金(1週間納期・加工代5割増)</label>
+            </div>
+
+            <div class="qs-block">
+              <div class="form-label">割引(距離基準・2026-07-17決定)</div>
+              <div id="discounts" class="qs-discounts"></div>
+            </div>
+          </div>
+
+          <!-- KRATVS -->
+          <div id="panel-kratvs" hidden>
+            <div class="qs-block">
+              <label>アイテム <select id="k-item"></select></label>
+              <label>サイズ帯 <select id="k-size"></select></label>
+              <label>枚数 <input type="number" id="k-qty" min="1" value="15"></label>
+            </div>
+            <div class="qs-block">
+              <div class="form-label">オプションプリント(セット割は自動適用)</div>
+              <div id="k-prints"></div>
+            </div>
+            <div class="qs-block">
+              <div class="form-label">割引(距離基準・2026-07-17決定)</div>
+              <div id="k-discounts" class="qs-discounts"></div>
+            </div>
+          </div>
+
+          <div class="qs-block">
+            <label>送料
+              <select id="shipping">
+                <option value="none">工場受け取り(無料)</option>
+                <option value="s80">80サイズ(税込1,100円)</option>
+                <option value="s100">100サイズ(税込1,320円)</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div class="qs-result-pane">
+          <div class="qs-result-head">
+            <h2>概算結果</h2>
+            <label class="qs-check"><input type="checkbox" id="toggle-cost"> 原価を表示</label>
+          </div>
+          <div id="result"></div>
+
+          <!-- 割引を適用したときだけ出る。承認が入るまで転記シートは使えない -->
+          <div id="approval-box" class="qs-approval" hidden>
+            <div class="qs-approval-title">⚠️ 割引を適用しています</div>
+            <p>値引きの判断は社長の確認が必要です。確認が取れてからチェックを入れてください。</p>
+            <label class="qs-check"><input type="checkbox" id="approval-check"> 社長の承認を受けました</label>
+            <label>承認を受けた方 <input type="text" id="approval-by" placeholder="例: 久保田"></label>
+          </div>
+
+          <h3 class="qs-sheet-title">freee転記シート</h3>
+          <pre id="sheet" class="qs-sheet"></pre>
+          <button type="button" class="btn btn-primary" id="btn-copy-freee">📋 転記シートをコピー</button>
+          <p class="qs-note">
+            <strong>三浦さん・山本さん</strong>: 上の内容を見ながらfreeeの見積書に入力してください(税区分の「内税」への切り替えを忘れずに)。<br>
+            <strong>社長</strong>: コピーしてClaudeに貼り付けると、freeeへの入力まで自動で進みます(保存前に確認が入ります)。
+          </p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/ui.js"></script>
+  <script src="js/quote-sim-data.js"></script>
+  <script src="js/quote-sim.js"></script>
+</body>
+</html>

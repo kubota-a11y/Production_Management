@@ -326,6 +326,14 @@ const EXTERNAL_ALLOWED_PATTERNS = [
   /^\/(styles|js|img)\//,            // 公開ページが参照する静的資産
   /^\/favicon\.ico$/,
 ];
+// ★許可リストより先に判定する拒否リスト(2026-08-20 追加)。
+// 上の /(styles|js|img)/ は「公開ページが参照する静的資産」をまとめて許可しているため、
+// 社内画面だけが使うJSも公開ドメインから読めてしまう。社外に出せない情報
+// (加工料金の全表・ボディ253品番の価格・割引内規・原価係数)を含むファイルは
+// **ここに必ず足す**。画面のルートを404にするだけでは資産ファイルが素通りする。
+const EXTERNAL_BLOCKED_PATTERNS = [
+  /^\/js\/quote-sim/,                // 見積シミュレーター(quote-sim.js / quote-sim-data.js)
+];
 app.use((req, res, next) => {
   if (EXTERNAL_GUARD_DISABLED) return next();
   const hostname = (req.hostname || '').toLowerCase();
@@ -334,6 +342,10 @@ app.use((req, res, next) => {
   if (req.path === '/') {
     // トップ(/)は選手専用ドメインのみ許可。注文フォームのドメインで社内画面は出さない
     if (SUPPORT_DOMAIN_MAP[hostname]) return next();
+    return res.status(404).send('Not Found');
+  }
+  // 拒否リストが先。許可リストの静的資産パターンより優先する
+  if (EXTERNAL_BLOCKED_PATTERNS.some((re) => re.test(req.path))) {
     return res.status(404).send('Not Found');
   }
   if (EXTERNAL_ALLOWED_PATTERNS.some((re) => re.test(req.path))) return next();
@@ -3151,6 +3163,12 @@ app.get('/customers', (req, res) => {
 
 app.get('/delivery-history', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'delivery-history.html'));
+});
+
+// 見積シミュレーター(社内用。料金表全表+割引プリセット+freee連携コピー)。
+// 社内画面なので外部公開ガードの許可リストには載せない(公開ドメインでは404になる)
+app.get('/quote-sim', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'quote-sim.html'));
 });
 
 // 社員向けの使い方ガイド(業務フロー順のマニュアル。印刷でA4配布資料にもなる)
