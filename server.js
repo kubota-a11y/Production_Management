@@ -24,6 +24,7 @@ const { scheduleDailyBackup, getBackupStatus } = require('./lib/db-backup');
 const { extractCarriedData, extractCarriedItems } = require('./lib/intake-carry');
 const { completeIntakeTask } = require('./lib/todo-notify');
 const { HOLIDAYS, isJpHoliday } = require('./lib/jp-holidays');
+const freeeQuote = require('./lib/freee-quote');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -1596,6 +1597,148 @@ app.patch('/api/projects/:id/freee-quote-url', (req, res) => {
     res.json({ ok: true });
   } catch (error) {
     sendServerError(res, req, error);
+  }
+});
+
+/* ==========================================================================
+   freee連携(見積書の自動作成)
+   見積シミュレーターの内容をそのままfreeeの見積書として発行する。
+   ★freeeには「下書き」が無く、作成した時点で番号が採番される。人の確認は
+     画面側(確認ダイアログ)で発行前に済ませる前提。ここでは検算だけ守る
+   ========================================================================== */
+
+// 連携状態。画面が「未設定/未認可/連携済み」を出し分けるために使う
+app.get('/api/freee/status', (req, res) => {
+  try {
+    res.json(freeeQuote.status());
+  } catch (error) {
+    sendServerError(res, req, error);
+  }
+});
+
+// 認可の開始。freeeのログイン画面へ飛ばす(パスワードはfreee側でしか入力されない)
+app.get('/api/freee/authorize', (req, res) => {
+  if (!freeeQuote.isConfigured()) {
+    return res.status(400).send('freeeのClient ID/Secret/事業所IDが未設定です。.env を確認してください');
+  }
+  res.redirect(freeeQuote.buildAuthorizeUrl());
+});
+
+// 認可後にfreeeから戻ってくる先。ここで認可コードをトークンに交換する
+app.get('/api/freee/callback', async (req, res) => {
+  const { code, state, error: authError } = req.query;
+  if (authError) return res.status(400).send(`freeeの認可が中断されました: ${String(authError)}`);
+  if (!freeeQuote.consumeState(String(state || ''))) {
+    return res.status(400).send('認可の照合に失敗しました。お手数ですが「freeeと連携する」からやり直してください');
+  }
+  try {
+    await freeeQuote.exchangeCode(String(code || ''));
+    res.send('<meta charset="utf-8"><p>freeeとの連携が完了しました。このタブを閉じて、見積シミュレーターに戻ってください。</p>');
+  } catch (error) {
+    console.error('freee認可エラー:', error.message);
+    res.status(500).send('<meta charset="utf-8"><p>連携に失敗しました。サーバーのログを確認してください。</p>');
+  }
+});
+
+// 連携を解除する(トークンを消すだけ。freee側のアプリ連携は画面から解除する)
+app.post('/api/freee/disconnect', (req, res) => {
+  try {
+    freeeQuote.clearToken();
+    res.json({ ok: true });
+  } catch (error) {
+    sendServerError(res, req, error);
+  }
+});
+
+// 顧客名からfreeeの取引先候補を出す。すでに対応を覚えていればそれを最優先で返す
+app.get('/api/freee/partners', async (req, res) => {
+  const keyword = String(req.query.keyword || '').trim();
+  try {
+    const linked = keyword
+      ? db.prepare('SELECT partner_id, partner_name, display_name FROM freee_partner_links WHERE customer_name = ?').get(keyword)
+      : null;
+    const partners = await freeeQuote.searchPartners(keyword);
+    res.json({ ok: true, linked: linked || null, partners });
+  } catch (error) {
+    // 未認可・期限切れは想定内。画面が案内を出せるよう200で返す
+    if (error.code === 'NOT_AUTHORIZED') return res.json({ ok: false, need_auth: true, error: error.message });
+    console.error('freee取引先検索エラー:', error.message);
+    res.json({ ok: false, error: error.message });
+  }
+});
+
+// 見積書を作成する。成功したら report_url を案件に紐づけ、概算履歴にも残す
+app.post('/api/freee/quotations', async (req, res) => {
+  try {
+    const { sheet, partner, case_id: caseId, sheet_text: sheetText, discount_name: discountName, approved_by: approvedBy } = req.body || {};
+    if (!sheet || !Array.isArray(sheet.lines) || !sheet.lines.length) {
+      return res.status(400).json({ ok: false, error: '見積の明細がありません' });
+    }
+    if (!partner || !partner.id) {
+      return res.status(400).json({ ok: false, error: 'freeeの取引先を選んでください' });
+    }
+    // 画面が作った金額をそのまま信じない。ズレたまま発行すると取り消ししか手が無い
+    const check = freeeQuote.verifyTotal(sheet);
+    if (!check.ok) {
+      return res.status(400).json({
+        ok: false,
+        error: `金額が合わないため発行を止めました(明細の積み上げ ${check.sum.toLocaleString()}円 / 画面の合計 ${check.total.toLocaleString()}円)。`
+          + 'お急ぎのときは「転記シートをコピー」してfreeeに手入力してください。この画面のことは社長へ連絡をお願いします',
+      });
+    }
+
+    const created = await freeeQuote.createQuotation(sheet, partner);
+
+    // ★ここから先の失敗を「発行失敗」として返してはいけない。
+    //   freeeにはもう見積書が出来ていて番号も採番されているので、画面が
+    //   「発行できませんでした」と出すと利用者が押し直し、二重発行になる。
+    //   後片付け(記録)が転んでも発行そのものは成功として返し、警告だけ添える
+    let warning = null;
+    try {
+      // 次回から名前で引けるよう、選ばれた取引先を覚える
+      const customerName = String(sheet.customer || '').trim();
+      if (customerName) {
+        const now = new Date().toISOString();
+        db.prepare(`
+          INSERT INTO freee_partner_links (customer_name, partner_id, partner_name, display_name, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?)
+          ON CONFLICT(customer_name) DO UPDATE SET
+            partner_id = excluded.partner_id,
+            partner_name = excluded.partner_name,
+            display_name = excluded.display_name,
+            updated_at = excluded.updated_at
+        `).run(customerName, partner.id, String(partner.name || ''),
+          partner.display_name ? String(partner.display_name) : null, now, now);
+      }
+
+      // 案件と紐づいていれば、見積書URLと概算履歴を書き戻す(手作業のコピペが不要になる)
+      const projectId = parseInt(caseId, 10);
+      if (projectId > 0 && db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId)) {
+        const now = new Date().toISOString();
+        if (created.report_url) {
+          db.prepare('UPDATE projects SET freee_quote_url = ?, updated_at = ? WHERE id = ?')
+            .run(created.report_url, now, projectId);
+        }
+        if (sheetText) {
+          db.prepare(`
+            INSERT INTO case_quotes (case_id, sheet_text, total, discount_name, approved_by, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+          `).run(projectId, String(sheetText), Math.round(Number(sheet.total) || 0),
+            discountName ? String(discountName) : null,
+            approvedBy ? String(approvedBy) : null, now);
+        }
+      }
+    } catch (recordError) {
+      console.error('freee見積書の記録エラー(発行そのものは成功):', recordError.message);
+      warning = '見積書はfreeeに発行できましたが、案件への記録に失敗しました。'
+        + '案件詳細で見積書URLの貼り付けをお願いします(発行はやり直さないでください)';
+    }
+
+    res.json({ ok: true, quotation: created, warning });
+  } catch (error) {
+    if (error.code === 'NOT_AUTHORIZED') return res.json({ ok: false, need_auth: true, error: error.message });
+    console.error('freee見積書作成エラー:', error.message);
+    res.json({ ok: false, error: error.message });
   }
 });
 

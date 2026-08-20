@@ -994,6 +994,22 @@ function initDatabase(dbFile = dbPath) {
     )
   `);
 
+  // HiBoardの顧客名 → freeeの取引先ID の対応表(2026-08-20)。
+  // HiBoardは顧客マスタを持たず projects.customer_name の文字列で顧客を表すが、
+  // freeeの見積書APIは partner_id を要求する。表記ゆれ(「◆ACTIVE」等)があると
+  // 名前では引けないため、一度人が選んだ対応をここに覚えて2回目以降は自動で引く。
+  // キーの持ち方は customer_notes と同じ(TRIM済みの顧客名)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS freee_partner_links (
+      customer_name TEXT PRIMARY KEY,
+      partner_id INTEGER NOT NULL,
+      partner_name TEXT NOT NULL,
+      display_name TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+
   // 初回のみサンプル担当者を挿入
   if (!dbExists) {
     const now = new Date().toISOString();

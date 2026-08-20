@@ -113,7 +113,14 @@
 
           <h3 class="qs-sheet-title">freee転記シート</h3>
           <pre id="sheet" class="qs-sheet"></pre>
-          <button type="button" class="btn btn-primary" id="btn-copy-freee">📋 転記シートをコピー</button>
+          <div class="qs-sheet-actions">
+            <button type="button" class="btn btn-primary" id="btn-create-freee">🧾 freeeに見積書を作成</button>
+            <button type="button" class="btn btn-secondary" id="btn-copy-freee">📋 転記シートをコピー</button>
+          </div>
+          <p class="qs-note" id="freee-status-note" hidden></p>
+          <!-- 発行後にfreeeの見積書へのリンクを残す。ポップアップが開けなかった
+               ときや、案件と紐づけずに使ったときの受け皿 -->
+          <p class="qs-issued" id="freee-issued" hidden></p>
 
           <!-- 案件と紐づいているときだけ出る連携ブロック -->
           <div id="case-actions" class="qs-case-actions" hidden>
@@ -125,12 +132,51 @@
             <p class="qs-note">記録した概算は案件詳細の「概算の履歴」に、見積書URLは顧客台帳・納品履歴の「📄 見積書(Freee)」に出ます。</p>
           </div>
           <p class="qs-note">
-            <strong>三浦さん・山本さん</strong>: 上の内容を見ながらfreeeの見積書に入力してください(税区分の「内税」への切り替えを忘れずに)。<br>
-            <strong>社長</strong>: コピーしてClaudeに貼り付けると、freeeへの入力まで自動で進みます(保存前に確認が入ります)。
+            <strong>「freeeに見積書を作成」</strong>を押すと、取引先を選んで内容を確認したうえでfreeeに見積書が発行されます(税区分の内税は自動で入ります)。<br>
+            freeeが使えないときは<strong>転記シートをコピー</strong>して、freeeに手入力してください。
           </p>
         </div>
       </section>
     </main>
+  </div>
+
+  <!-- freee発行の確認。★freeeには下書きが無く、発行した時点で番号が採番される。
+       内容の確認は必ずこの画面で済ませてから「発行する」を押す -->
+  <div id="freee-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>🧾 freeeに見積書を発行</h2>
+        <button class="btn-close" id="freee-modal-close" aria-label="閉じる">✕</button>
+      </div>
+      <div class="qs-freee-body">
+        <p class="empty-notice">
+          発行するとfreeeに見積書番号が採番されます(お客様への送付はされません)。内容を確認してください。
+        </p>
+
+        <div class="form-group">
+          <label for="freee-partner-search">freeeの取引先</label>
+          <div class="qs-partner-search">
+            <input type="text" id="freee-partner-search" placeholder="取引先名で検索">
+            <button type="button" class="btn btn-secondary btn-small" id="freee-partner-search-btn">🔍 検索</button>
+          </div>
+          <select id="freee-partner-select" size="5"></select>
+          <p class="qs-note" id="freee-partner-note"></p>
+        </div>
+
+        <div class="form-group">
+          <label for="freee-display-name">帳票に出す宛名</label>
+          <input type="text" id="freee-display-name" placeholder="例: ACTIVE">
+          <p class="qs-note">freeeの登録名に記号(◆など)が付いている場合、ここで整えた名前が見積書に印刷されます。マスタは変更しません。</p>
+        </div>
+
+        <h3 class="qs-sheet-title">発行する内容</h3>
+        <pre id="freee-preview" class="qs-sheet"></pre>
+      </div>
+      <div class="form-actions-sticky">
+        <button type="button" class="btn btn-ghost" id="freee-cancel">キャンセル</button>
+        <button type="button" class="btn btn-primary" id="freee-submit">この内容で発行する</button>
+      </div>
+    </div>
   </div>
 
   <script src="js/ui.js"></script>

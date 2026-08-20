@@ -654,6 +654,174 @@
     }
   };
 
+  /* ---------- freeeへの見積書発行 ----------
+     ★freeeのAPIには「下書き」が無く、発行した時点で見積書番号が採番される。
+     取り消しはできても番号は戻らないので、内容の確認は必ず発行前(モーダル)で行う。
+     freeeが未連携・障害中でも、転記シートの手入力に切り替えられるようにしておく */
+  let freeePartners = [];
+  let freeeState = 'unknown';
+
+  async function loadFreeeStatus() {
+    const note = el('freee-status-note');
+    try {
+      const resp = await fetch('/api/freee/status');
+      const st = await resp.json();
+      freeeState = st.state;
+      if (st.state === 'ready') { note.hidden = true; return; }
+      note.hidden = false;
+      note.textContent = st.state === 'unconfigured'
+        ? '⚠️ freee連携が未設定です。転記シートをコピーして手入力してください(設定は社長へ)。'
+        : '⚠️ freeeと未連携です。「freeeに見積書を作成」を押すと連携をご案内します。';
+    } catch (_) {
+      note.hidden = true; // 状態が取れないだけなら黙って通す(発行時に改めて出る)
+    }
+  }
+
+  /** 未連携のときの案内。認可はfreeeの画面で行う(パスワードはHiBoardに入力しない) */
+  function askFreeeAuth(message) {
+    HiUI.toast(message || 'freeeとの連携が必要です');
+    if (window.confirm('freeeとの連携が必要です。freeeの認可画面を開きますか?')) {
+      window.open('/api/freee/authorize', '_blank');
+    }
+  }
+
+  el('btn-create-freee').onclick = async () => {
+    const sh = buildSheet();
+    if (!sh) { HiUI.toast('先に見積内容を入力してください'); return; }
+    if (!approvalOk(sh)) return;
+    if (!sh.customer) { HiUI.toast('取引先名を入力してください'); return; }
+
+    // 連携できない状態でモーダルを開いても何もできない。手入力へ案内して止める
+    await loadFreeeStatus();
+    if (freeeState === 'unconfigured') {
+      HiUI.toast('freee連携が未設定です。転記シートをコピーして手入力してください');
+      return;
+    }
+    if (freeeState === 'unauthorized') { askFreeeAuth(); return; }
+
+    el('freee-preview').textContent = sheetText(sh);
+    el('freee-partner-search').value = sh.customer;
+    el('freee-display-name').value = sh.customer;
+    el('freee-partner-select').innerHTML = '';
+    el('freee-partner-note').textContent = '';
+    el('freee-modal').style.display = 'flex';
+    await searchFreeePartners(sh.customer);
+  };
+
+  async function searchFreeePartners(keyword) {
+    const note = el('freee-partner-note');
+    const sel = el('freee-partner-select');
+    note.textContent = '検索中...';
+    sel.innerHTML = '';
+    try {
+      const resp = await fetch(`/api/freee/partners?keyword=${encodeURIComponent(keyword)}`);
+      const data = await resp.json();
+      if (!data.ok) {
+        // ここでは確認ダイアログを出さない(発行ボタン側で案内済み。二重に出すとうるさい)
+        note.textContent = data.error || '取引先を取得できませんでした';
+        return;
+      }
+      freeePartners = data.partners || [];
+      if (!freeePartners.length) {
+        note.textContent = '該当する取引先がありません。別の名前で検索するか、freeeで取引先を登録してください。';
+        return;
+      }
+      freeePartners.forEach((p) => {
+        const o = document.createElement('option');
+        o.value = String(p.id);
+        o.textContent = p.name;
+        sel.appendChild(o);
+      });
+      // 前に選んだ取引先を覚えていればそれを初期選択にする
+      const linkedId = data.linked && data.linked.partner_id;
+      const preselect = linkedId && freeePartners.some((p) => p.id === linkedId) ? linkedId : freeePartners[0].id;
+      sel.value = String(preselect);
+      note.textContent = linkedId
+        ? '前回この顧客で選んだ取引先を選択しています。'
+        : `${freeePartners.length}件見つかりました。発行先を選んでください。`;
+      if (data.linked && data.linked.display_name) el('freee-display-name').value = data.linked.display_name;
+    } catch (err) {
+      note.textContent = `取引先を取得できませんでした: ${err.message}`;
+    }
+  }
+
+  el('freee-partner-search-btn').onclick = () => {
+    searchFreeePartners(el('freee-partner-search').value.trim());
+  };
+
+  function closeFreeeModal() { el('freee-modal').style.display = 'none'; }
+
+  /** 発行した見積書へのリンクを画面に残す(案件と紐づいていなくても辿れるように) */
+  function showIssuedLink(q, blocked) {
+    const box = el('freee-issued');
+    box.hidden = false;
+    box.innerHTML = '';
+    const label = document.createElement('span');
+    label.textContent = blocked
+      ? `✅ 見積書 No. ${q.quotation_number} を発行しました(タブが開けませんでした): `
+      : `✅ 見積書 No. ${q.quotation_number} を発行しました: `;
+    const a = document.createElement('a');
+    a.href = q.report_url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.textContent = 'freeeで開く';
+    box.append(label, a);
+  }
+  el('freee-modal-close').onclick = closeFreeeModal;
+  el('freee-cancel').onclick = closeFreeeModal;
+
+  el('freee-submit').onclick = async () => {
+    const sh = buildSheet();
+    if (!sh) { HiUI.toast('見積内容を読み直せませんでした'); return; }
+    const partnerId = parseInt(el('freee-partner-select').value, 10);
+    const partner = freeePartners.find((p) => p.id === partnerId);
+    if (!partner) { HiUI.toast('freeeの取引先を選んでください'); return; }
+
+    const btn = el('freee-submit');
+    btn.disabled = true;
+    btn.textContent = '発行中...';
+    try {
+      const d = currentDiscountForMode();
+      const resp = await fetch('/api/freee/quotations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sheet: sh,
+          partner: { id: partner.id, name: partner.name, display_name: el('freee-display-name').value.trim() || null },
+          case_id: linkedCase ? linkedCase.id : null,
+          sheet_text: sheetText(sh),
+          discount_name: (d.key === 'none') ? null : d.name,
+          approved_by: el('approval-by').value.trim() || null,
+        }),
+      });
+      const data = await resp.json();
+      if (!data.ok) {
+        if (data.need_auth) askFreeeAuth(data.error);
+        else HiUI.toast(`発行できませんでした: ${data.error}`);
+        return;
+      }
+      closeFreeeModal();
+      const q = data.quotation;
+      HiUI.toast(data.warning || `見積書を発行しました(No. ${q.quotation_number})`);
+      if (q.report_url) {
+        el('freee-url').value = q.report_url;
+        // ★window.open は await のあとなのでポップアップブロックされることがある。
+        //   開けなかったときのために、画面にもリンクを残す(案件未紐づけだと
+        //   #freee-url は hidden の中にあり、URLがどこにも見えなくなるため)
+        const opened = window.open(q.report_url, '_blank');
+        showIssuedLink(q, !opened);
+      }
+    } catch (err) {
+      // ★ここに来ても発行済みの可能性がある(送信後に通信が切れた等)。
+      //   「もう一度押す」と二重発行になるので、必ずfreeeの確認を促す
+      HiUI.toast(`発行の結果を確認できませんでした: ${err.message}。`
+        + 'freeeの見積書一覧を確認してください(出来ていたら押し直さないでください)');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'この内容で発行する';
+    }
+  };
+
   /* ---------- 初期化 ---------- */
   function setupBodyList() {
     const dl = el('body-list');
@@ -728,6 +896,8 @@
   newRow();
   renderRows();
   recalc();
+
+  loadFreeeStatus();
 
   const caseId = new URLSearchParams(location.search).get('case');
   if (caseId && /^\d+$/.test(caseId)) loadCase(caseId);
