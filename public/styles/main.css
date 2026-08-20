@@ -2875,3 +2875,8 @@ td.empty-notice {
 .case-quote-list { margin: var(--space-1) 0 var(--space-2) 1.2em; font-size: var(--text-sm); }
 .case-quote-list li { margin: 2px 0; }
 .case-quote-extra { color: var(--text-muted); font-size: var(--text-xs); }
+
+/* 見積シミュレーター: 八木繊維様モードの100枚以上警告(2026-08-20 追加) */
+.qs-over100 { background: var(--warning-soft); border: 1px solid var(--warning-color);
+  color: var(--warning-text); border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-4); margin-top: var(--space-2); font-size: var(--text-sm); }

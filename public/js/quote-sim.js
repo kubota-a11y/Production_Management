@@ -32,6 +32,28 @@
     return hit;
   }
 
+  /* ---------- 価格表の切り替え ----------
+     八木繊維様モードは画面構成そのままに、参照する料金表と条件だけ差し替える。
+     - 卸表に無い加工(マーキング・刺繍)は選択肢から外す=個別見積り
+     - ミニマム手数料なし・持込料サービス・版下データ作成料0円
+     - 割引プリセットは出さない(卸価格自体が特別価格のため。二重割引の防止) */
+  function currentMode() {
+    return document.querySelector('input[name="mode"]:checked').value;
+  }
+  function isYagi() { return currentMode() === 'yagi'; }
+  function activeTables() {
+    if (isYagi()) {
+      return {
+        silk: window.QS_YAGI.silk, dtf: window.QS_YAGI.dtf, rubber: window.QS_YAGI.rubber,
+        minFeeApplies: false, bringFree: true,
+      };
+    }
+    return {
+      silk: window.QS_SILK, dtf: window.QS_DTF, rubber: window.QS_RUBBER,
+      minFeeApplies: true, bringFree: false,
+    };
+  }
+
   /* ---------- 加工行の定義 ---------- */
   // method: auto(シルク/DTF安い方) / silk / dtf / rubber / marking / emb / cap
   let rowSeq = 0;
@@ -47,8 +69,12 @@
   /* ---------- 1行ぶんの単価計算(税抜) ----------
      返り値 {label, unit, initial, initialLabel, note} */
   function calcRow(row, qty, opt) {
-    const sur = [...row.surcharges].reduce((m, k) => m * window.QS_SURCHARGE[k].rate, 1);
-    const minFee = qty < 10 ? window.QS_COMMON.minFeeRate : 1;
+    const tbl = activeTables();
+    // 持込料は八木繊維様は「サービス」なのでチェックが残っていても掛けない
+    const sur = [...row.surcharges]
+      .filter((k) => !(tbl.bringFree && k === 'bring'))
+      .reduce((m, k) => m * window.QS_SURCHARGE[k].rate, 1);
+    const minFee = (tbl.minFeeApplies && qty < 10) ? window.QS_COMMON.minFeeRate : 1;
     const expr = opt.express ? 1.5 : 1;
     const mul = (u) => Math.round(u * sur * minFee * expr);
 
@@ -71,18 +97,18 @@
       };
     }
     if (row.method === 'rubber') {
-      const table = window.QS_RUBBER[row.size];
+      const table = tbl.rubber[row.size];
       if (!table) return { label: 'ラバー転写', unit: 0, initial: 0, note: 'B8はラバー転写の設定なし' };
       const u = table[tierOf(table, qty)];
       return { label: `ラバー転写 ${row.size}`, unit: mul(u), initial: 0, note: '' };
     }
 
     // シルク/DTF/自動
-    const dtfUnit = window.QS_DTF[row.size][tierOf(window.QS_DTF[row.size], qty)];
-    const silkTier = row.colors <= window.QS_SILK.maxColors
-      ? tierOf(window.QS_SILK.print[row.colors], qty) : null;
-    const silkUnit = silkTier !== null ? window.QS_SILK.print[row.colors][silkTier] : null;
-    const plateOne = window.QS_SILK.plate[SMALL_PLATE.has(row.size) ? 'small' : 'large'];
+    const dtfUnit = tbl.dtf[row.size][tierOf(tbl.dtf[row.size], qty)];
+    const silkTier = (row.colors !== 'full' && row.colors <= tbl.silk.maxColors)
+      ? tierOf(tbl.silk.print[row.colors], qty) : null;
+    const silkUnit = silkTier !== null ? tbl.silk.print[row.colors][silkTier] : null;
+    const plateOne = tbl.silk.plate[SMALL_PLATE.has(row.size) ? 'small' : 'large'];
     const silkPlate = plateOne * row.colors;
 
     const dtf = { label: `DTFプリント ${row.size}(フルカラー可)`, unit: mul(dtfUnit), initial: 0, note: '' };
@@ -93,11 +119,11 @@
 
     if (row.method === 'dtf' || row.colors === 'full') return dtf;
     if (row.method === 'silk') {
-      return silk || { ...dtf, note: '10枚未満はシルク設定なし→DTFで計算' };
+      return silk || { ...dtf, note: 'この枚数・色数はシルク設定なし→DTFで計算' };
     }
     // auto: 総額比較(simulate.jsと同じ)
     if (silk && silk.unit * qty + silk.initial < dtf.unit * qty) return silk;
-    return { ...dtf, note: silk ? 'この枚数・大きさではDTFのほうがお得' : '10枚未満のためDTFで計算' };
+    return { ...dtf, note: silk ? 'この枚数・大きさではDTFのほうがお得' : 'シルク設定が無いためDTFで計算' };
   }
 
   /* ---------- 通常加工モードの合計 ---------- */
@@ -114,8 +140,8 @@
     const initial = lines.reduce((s, l) => s + l.initial, 0);  // 税抜・初回
     let bodyUnit = body.unit;
 
-    // 割引
-    const d = currentDiscount();
+    // 割引。八木繊維様は卸価格自体が特別価格のため割引は適用しない
+    const d = isYagi() ? { key: 'none', rate: 0, name: '割引なし' } : currentDiscount();
     let discountNote = '';
     let unitBeforeDiscount = taxIn(bodyUnit) + printUnitTax;
     let unitAfter;
@@ -134,10 +160,12 @@
     const total = unitAfter * qty + taxIn(initial) + shipping;
 
     return {
-      mode: 'normal', qty, body, lines, opt,
+      mode: isYagi() ? 'yagi' : 'normal', qty, body, lines, opt,
       unitBefore: unitBeforeDiscount, unitAfter, discount: d, discountNote,
       initialTax: taxIn(initial), shipping, total,
       perPieceAll: Math.round(total / qty),
+      // 卸表の「100枚以上は要相談」。概算は出すが目立つ警告を添える(2026-08-20社長判断)
+      yagiOver100: isYagi() && qty >= 100,
     };
   }
 
@@ -246,11 +274,14 @@
   function renderRowBody(row) {
     const box = document.querySelector(`.qs-row-body[data-id="${row.id}"]`);
     const sel = (v, t) => `<option value="${v}"${String(row.method) === v ? ' selected' : ''}>${t}</option>`;
+    // 八木繊維様の卸表に無い加工(マーキング・刺繍)は選択肢から外す=個別見積り
+    const extraMethods = isYagi() ? ''
+      : `${sel('marking', 'マーキング')}${sel('emb', '刺繍')}${sel('cap', '帽子刺繍')}`;
     let html = `
       <label>加工方法
         <select data-f="method">
           ${sel('auto', '自動(シルク/DTFの安い方)')}${sel('silk', 'シルクスクリーン')}${sel('dtf', 'DTF(フルカラー)')}
-          ${sel('rubber', 'ラバー転写')}${sel('marking', 'マーキング')}${sel('emb', '刺繍')}${sel('cap', '帽子刺繍')}
+          ${sel('rubber', 'ラバー転写')}${extraMethods}
         </select>
       </label>`;
     if (['auto', 'silk', 'dtf', 'rubber'].includes(row.method)) {
@@ -259,8 +290,11 @@
         <select data-f="size">${sizes.map((s) => `<option${s === row.size ? ' selected' : ''}>${s}</option>`).join('')}</select>
       </label>`;
       if (row.method !== 'dtf' && row.method !== 'rubber') {
+        const maxColors = activeTables().silk.maxColors;
+        const colorOpts = [];
+        for (let c = 1; c <= maxColors; c++) colorOpts.push(c);
         html += `<label>色数
-          <select data-f="colors">${[1, 2, 3, 4].map((c) => `<option value="${c}"${c === row.colors ? ' selected' : ''}>${c}色</option>`).join('')}
+          <select data-f="colors">${colorOpts.map((c) => `<option value="${c}"${c === row.colors ? ' selected' : ''}>${c}色</option>`).join('')}
           <option value="full"${row.colors === 'full' ? ' selected' : ''}>フルカラー(DTF)</option></select>
         </label>`;
       }
@@ -285,13 +319,15 @@
       }
     }
     // 割増オプション(方法に関係するものだけ表示)
-    const surKeys = {
+    let surKeys = {
       auto: ['special', 'bring'], silk: ['special', 'specialInk', 'overlay', 'bring'],
       dtf: ['special', 'blousonS', 'blousonL', 'bring'],
       rubber: ['special', 'blousonS', 'blousonL', 'bring', 'sheetMetallic', 'sheetPearl', 'sheetPearlNeon', 'sheetReflex', 'sheetSilver', 'sheet3M', 'sheetGlow'],
       marking: ['bring', 'sheetMetallic', 'sheetPearl', 'sheetPearlNeon', 'sheetReflex', 'sheetSilver', 'sheet3M', 'sheetGlow'],
       emb: ['embThread', 'embFabric', 'emb3D', 'bring'], cap: ['embThread', 'emb3D', 'bring'],
     }[row.method] || [];
+    // 八木繊維様は持込料サービスなので選択肢ごと出さない
+    if (activeTables().bringFree) surKeys = surKeys.filter((k) => k !== 'bring');
     if (surKeys.length) {
       html += `<div class="qs-surcharges">${surKeys.map((k) => `
         <label class="qs-check"><input type="checkbox" data-sur="${k}"${row.surcharges.has(k) ? ' checked' : ''}>
@@ -332,12 +368,12 @@
 
   function renderResult(r) {
     const box = el('result');
-    if (r.mode === 'normal' && r.body.quoteOnly) {
+    if (r.mode !== 'kratvs' && r.body.quoteOnly) {
       box.innerHTML = `<p class="empty-notice">このボディ(中綿・ナイロン等)は概算対象外です。個別見積りにしてください。</p>`;
       return;
     }
     let rowsHtml = '';
-    if (r.mode === 'normal') {
+    if (r.mode !== 'kratvs') {
       rowsHtml += `<tr><td>ボディ ${r.body.name}</td><td class="qs-num">${yen(taxIn(r.body.unit))}</td></tr>`;
       r.lines.forEach((l) => {
         rowsHtml += `<tr><td>${l.label}${l.note ? `<div class="qs-note">${l.note}</div>` : ''}</td><td class="qs-num">${yen(taxIn(l.unit))}</td></tr>`;
@@ -353,7 +389,7 @@
 
     // 原価・粗利(トグル)
     let costHtml = '';
-    if (el('toggle-cost').checked && r.mode === 'normal' && r.body.unit > 0) {
+    if (el('toggle-cost').checked && r.mode !== 'kratvs' && r.body.unit > 0) {
       const cost = Math.round(r.body.unit * 0.55);
       const profit = r.total - taxIn(cost) * r.qty - r.shipping;
       costHtml = `<div class="qs-cost">
@@ -370,7 +406,10 @@
         <div class="qs-total">合計(${r.qty}枚・税込)<b>${yen(r.total)}</b><span>実質 ${yen(r.perPieceAll)}/枚</span></div>
       </div>
       ${costHtml}
-      <p class="qs-note">金額はすべて税込の概算です。10枚未満はミニマム手数料(加工代5割増)を自動適用しています。</p>`;
+      ${r.yagiOver100 ? '<div class="qs-over100">⚠️ 100枚以上は「要相談」です(八木繊維様専用価格表)。この概算は目安として使い、正式には個別にお見積りしてください。</div>' : ''}
+      ${r.mode === 'yagi'
+        ? '<p class="qs-note">八木繊維様専用価格表(2026-05-01改定)に基づく税込の概算です。ミニマム手数料なし・持込料サービス・版下データ作成料0円を適用しています。</p>'
+        : '<p class="qs-note">金額はすべて税込の概算です。10枚未満はミニマム手数料(加工代5割増)を自動適用しています。</p>'}`;
   }
 
   /* ---------- freee転記シート ----------
@@ -384,7 +423,7 @@
     const customer = el('customer').value.trim();
     const lines = [];
 
-    if (r.mode === 'normal') {
+    if (r.mode !== 'kratvs') {
       const parts = r.lines.map((l) => l.label).join('・');
       let desc = `${title}(${parts})`;
       if (r.discount.rate > 0) desc += `　通常価格 ${r.unitBefore.toLocaleString()}円 → 特別割引 ${r.discount.rate}%OFF`;
@@ -408,15 +447,20 @@
     const due = new Date(today.getTime() + 30 * 86400000);
     const taxOut = Math.round(r.total / (1 + TAX / 100));
 
+    const notes = ['※表示金額はすべて税込です。'];
+    if (r.mode === 'yagi') {
+      notes.push('※八木繊維様専用価格表(2026年5月1日改定)に基づく金額です。');
+      if (r.yagiOver100) notes.push('※100枚以上のため要相談です。本見積は目安としてご利用ください。');
+    } else {
+      notes.push('※納期はデザイン最終確認・ご入金の確認から約2週間です。');
+      notes.push('※当社工場でのお受け取りは無料です。ご配送をご希望の場合は別途承ります。');
+    }
+
     return {
       customer, title, qty: r.qty, lines,
       date: iso(today), due: iso(due),
       total: r.total, taxOut, tax: r.total - taxOut,
-      notes: [
-        '※表示金額はすべて税込です。',
-        '※納期はデザイン最終確認・ご入金の確認から約2週間です。',
-        '※当社工場でのお受け取りは無料です。ご配送をご希望の場合は別途承ります。',
-      ],
+      notes,
       discount: r.discount,
     };
   }
@@ -489,7 +533,8 @@
     return d.key === 'staff' || d.rate > 0;
   }
   function currentDiscountForMode() {
-    const mode = document.querySelector('input[name="mode"]:checked').value;
+    const mode = currentMode();
+    if (mode === 'yagi') return { key: 'none', rate: 0, name: '割引なし' };
     return currentDiscount(mode === 'kratvs' ? 'k' : '');
   }
   function syncApproval() {
@@ -649,12 +694,22 @@
 
   document.querySelectorAll('input[name="mode"]').forEach((r) => {
     r.onchange = () => {
-      el('panel-normal').hidden = r.value !== 'normal' && r.checked;
-      el('panel-kratvs').hidden = r.value !== 'kratvs' && r.checked;
-      if (r.checked) {
-        el('panel-normal').hidden = r.value !== 'normal';
-        el('panel-kratvs').hidden = r.value !== 'kratvs';
+      if (!r.checked) return;
+      const mode = r.value;
+      // 通常加工と八木繊維様は同じフォーム(panel-normal)を共有する
+      el('panel-normal').hidden = mode === 'kratvs';
+      el('panel-kratvs').hidden = mode !== 'kratvs';
+      // 割引ブロックは八木繊維様では出さない(卸価格自体が特別価格)
+      el('discount-block').hidden = mode === 'yagi';
+      if (mode === 'yagi') {
+        // 卸表に無い加工・色数の行はDTF系へ寄せる(選択肢からも消えるため)
+        rows.forEach((row) => {
+          if (['marking', 'emb', 'cap'].includes(row.method)) row.method = 'auto';
+          if (row.colors !== 'full' && row.colors > window.QS_YAGI.silk.maxColors) row.colors = 'full';
+        });
+        if (!el('customer').value.trim()) el('customer').value = '八木繊維';
       }
+      renderRows();
       recalc();
     };
   });

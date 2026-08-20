@@ -30,6 +30,7 @@
           <div class="qs-block">
             <div class="form-label">モード</div>
             <label class="qs-check"><input type="radio" name="mode" value="normal" checked> 通常加工(料金表ベース)</label>
+            <label class="qs-check"><input type="radio" name="mode" value="yagi"> 八木繊維様(専用価格表)</label>
             <label class="qs-check"><input type="radio" name="mode" value="kratvs"> KRATVSカスタムオーダー</label>
           </div>
 
@@ -61,7 +62,7 @@
               <label class="qs-check"><input type="checkbox" id="opt-express"> 特急料金(1週間納期・加工代5割増)</label>
             </div>
 
-            <div class="qs-block">
+            <div class="qs-block" id="discount-block">
               <div class="form-label">割引(距離基準・2026-07-17決定)</div>
               <div id="discounts" class="qs-discounts"></div>
             </div>
