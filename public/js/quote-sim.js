@@ -513,6 +513,102 @@
     return true;
   }
 
+  /* ---------- 案件(HiBoard)との連携 ----------
+     /quote-sim?case=123 で開くと、案件の取引先名・品名・枚数・プリント箇所
+     (箇所数と色数)を自動でセットする。ボディ品番と加工サイズは案件が
+     持っていないので人が選ぶ。概算は「案件に記録」で case_quotes へ残し、
+     freeeで発行した見積書URLは projects.freee_quote_url へ紐づける */
+  let linkedCase = null;
+
+  // 箇所名から加工サイズの初期値を推定する(あくまで初期値。画面で直せる)
+  function guessSize(name) {
+    const n = String(name || '');
+    if (/左胸|胸ポケ|袖|腰/.test(n)) return 'B8';
+    if (/背|バック/.test(n)) return 'A3';
+    return 'A4';
+  }
+
+  async function loadCase(caseId) {
+    let data;
+    try {
+      const resp = await fetch(`/api/projects/${caseId}/quote-context`);
+      if (!resp.ok) throw new Error(String(resp.status));
+      data = await resp.json();
+    } catch (_) {
+      HiUI.toast('案件の読み込みに失敗しました。案件と紐づけずに開きます');
+      return;
+    }
+    linkedCase = data.project;
+    el('customer').value = linkedCase.customer_name || '';
+    el('item-title').value = linkedCase.item_name || linkedCase.project_name || '';
+    const q = parseInt(linkedCase.quantity, 10);
+    if (q > 0) el('qty').value = q;
+
+    // プリント箇所 → 加工行。既定の1行を置き換える
+    if (data.print_locations.length) {
+      rows.length = 0;
+      data.print_locations.forEach((loc) => {
+        newRow();
+        const row = rows[rows.length - 1];
+        row.size = guessSize(loc.location_name);
+        const c = parseInt(loc.color_count, 10);
+        row.colors = (c >= 1 && c <= window.QS_SILK.maxColors) ? c : 'full';
+      });
+      renderRows();
+    }
+
+    // バッジと連携ブロックを表示
+    el('case-badge').hidden = false;
+    el('case-badge-name').textContent =
+      `${linkedCase.customer_name || ''}様「${linkedCase.item_name || linkedCase.project_name}」(案件ID: ${linkedCase.id})`;
+    el('case-actions').hidden = false;
+    if (linkedCase.freee_quote_url) el('freee-url').value = linkedCase.freee_quote_url;
+    recalc();
+  }
+
+  el('btn-save-quote').onclick = async () => {
+    if (!linkedCase) return;
+    const sh = buildSheet();
+    if (!sh) { HiUI.toast('先に見積内容を入力してください'); return; }
+    if (!approvalOk(sh)) return;
+    const d = currentDiscountForMode();
+    try {
+      const resp = await fetch(`/api/projects/${linkedCase.id}/quotes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sheet_text: sheetText(sh),
+          total: sh.total,
+          discount_name: (d.key === 'none') ? null : d.name,
+          approved_by: el('approval-by').value.trim() || null,
+        }),
+      });
+      const result = await resp.json();
+      if (!resp.ok || !result.ok) throw new Error(result.error || '保存に失敗しました');
+      HiUI.toast('概算を案件に記録しました(案件詳細の「概算の履歴」から見返せます)');
+    } catch (err) {
+      HiUI.toast(`記録できませんでした: ${err.message}`);
+    }
+  };
+
+  el('btn-save-freee-url').onclick = async () => {
+    if (!linkedCase) return;
+    try {
+      const resp = await fetch(`/api/projects/${linkedCase.id}/freee-quote-url`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: el('freee-url').value }),
+      });
+      const result = await resp.json();
+      if (!resp.ok || !result.ok) throw new Error(result.error || '保存に失敗しました');
+      HiUI.toast(el('freee-url').value.trim()
+        ? '見積書URLを案件に紐づけました(顧客台帳・納品履歴から開けます)'
+        : '見積書URLをクリアしました');
+    } catch (err) {
+      HiUI.toast(`保存できませんでした: ${err.message}`);
+    }
+  };
+
   /* ---------- 初期化 ---------- */
   function setupBodyList() {
     const dl = el('body-list');
@@ -577,4 +673,7 @@
   newRow();
   renderRows();
   recalc();
+
+  const caseId = new URLSearchParams(location.search).get('case');
+  if (caseId && /^\d+$/.test(caseId)) loadCase(caseId);
 })();

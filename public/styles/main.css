@@ -2860,3 +2860,18 @@ td.empty-notice {
   border-radius: var(--radius-sm); padding: var(--space-2); font-family: var(--font-mono);
   font-size: var(--text-xs); line-height: 1.7; white-space: pre-wrap; word-break: break-word;
   max-height: 320px; overflow-y: auto; margin-bottom: var(--space-2); }
+
+/* 見積シミュレーター: 案件連携(2026-08-20 追加) */
+.qs-case-badge { background: var(--info-soft); border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm); padding: var(--space-2) var(--space-4);
+  margin-bottom: var(--space-4); font-size: var(--text-sm); color: var(--info-text); }
+.qs-case-actions { border-top: 1px dashed var(--border-color); margin-top: var(--space-4);
+  padding-top: var(--space-4); display: flex; flex-direction: column; gap: var(--space-2); }
+.qs-case-actions label { font-size: var(--text-sm); }
+.qs-case-actions input[type="url"] { width: 100%; padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: var(--text-sm); }
+
+/* 案件詳細: 概算の履歴(2026-08-20 追加) */
+.case-quote-list { margin: var(--space-1) 0 var(--space-2) 1.2em; font-size: var(--text-sm); }
+.case-quote-list li { margin: 2px 0; }
+.case-quote-extra { color: var(--text-muted); font-size: var(--text-xs); }

@@ -80,6 +80,7 @@ const CaseDetail = {
     body.innerHTML = `
       ${this.renderSummary(detail)}
       ${this.renderProcessing(detail)}
+      ${this.renderQuotes(detail)}
       ${this.renderDocuments(detail)}
     `;
 
@@ -185,6 +186,26 @@ const CaseDetail = {
             </tbody>
           </table>
         ` : ''}
+      </div>
+    `;
+  },
+
+  // ===== 概算の履歴(見積シミュレーターで記録したもの・新しい順) =====
+  renderQuotes(detail) {
+    const p = detail.project;
+    const quotes = detail.quotes || [];
+    const rows = quotes.map(q => {
+      const date = (q.created_at || '').slice(0, 10);
+      const extras = [q.discount_name, q.approved_by ? `承認: ${q.approved_by}` : '']
+        .filter(Boolean).join(' / ');
+      return `<li>${this.escapeHtml(date)}　<b>${Number(q.total).toLocaleString()}円</b>${extras ? `　<span class="case-quote-extra">${this.escapeHtml(extras)}</span>` : ''}</li>`;
+    }).join('');
+    return `
+      <div class="case-detail-section">
+        <h3>概算の履歴</h3>
+        ${quotes.length ? `<ul class="case-quote-list">${rows}</ul>`
+          : '<p class="folder-notice">この案件にはまだ概算が記録されていません</p>'}
+        <a class="btn-small" href="/quote-sim?case=${p.id}">💴 見積シミュレーターで見積を作る</a>
       </div>
     `;
   },

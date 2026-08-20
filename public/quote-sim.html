@@ -19,6 +19,11 @@
     </header>
 
     <main class="main-content">
+      <!-- /quote-sim?case=ID で開いたときだけ出る。案件との紐づきを常に見せる -->
+      <div id="case-badge" class="qs-case-badge" hidden>
+        📌 案件と紐づいています: <b id="case-badge-name"></b>
+      </div>
+
       <section class="qs-layout">
         <div class="qs-form">
 
@@ -108,6 +113,16 @@
           <h3 class="qs-sheet-title">freee転記シート</h3>
           <pre id="sheet" class="qs-sheet"></pre>
           <button type="button" class="btn btn-primary" id="btn-copy-freee">📋 転記シートをコピー</button>
+
+          <!-- 案件と紐づいているときだけ出る連携ブロック -->
+          <div id="case-actions" class="qs-case-actions" hidden>
+            <button type="button" class="btn btn-secondary" id="btn-save-quote">📌 この概算を案件に記録</button>
+            <label>freeeで発行した見積書のURL
+              <input type="url" id="freee-url" placeholder="https://invoice.secure.freee.co.jp/reports/quotations/...">
+            </label>
+            <button type="button" class="btn btn-secondary btn-small" id="btn-save-freee-url">🔗 見積書URLを案件に紐づける</button>
+            <p class="qs-note">記録した概算は案件詳細の「概算の履歴」に、見積書URLは顧客台帳・納品履歴の「📄 見積書(Freee)」に出ます。</p>
+          </div>
           <p class="qs-note">
             <strong>三浦さん・山本さん</strong>: 上の内容を見ながらfreeeの見積書に入力してください(税区分の「内税」への切り替えを忘れずに)。<br>
             <strong>社長</strong>: コピーしてClaudeに貼り付けると、freeeへの入力まで自動で進みます(保存前に確認が入ります)。

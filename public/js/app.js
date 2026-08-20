@@ -1263,6 +1263,12 @@ const app = {
       this.switchTab('list');
       this.renderListView();
       HiUI.toast('✓ 案件として登録しました');
+
+      // 業務フローの次工程(見積書作成)へそのまま進めるようにする(2026-08-20)。
+      // 断っても案件詳細の「💴 見積を作る」からいつでも開ける
+      if (confirm('案件を登録しました。\n続けて見積シミュレーターで見積を作りますか？')) {
+        window.location.href = `/quote-sim?case=${result.id}`;
+      }
     } catch (error) {
       console.error('AI受注候補の登録エラー:', error);
       HiUI.toast('案件の登録に失敗しました');

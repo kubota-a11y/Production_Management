@@ -1523,6 +1523,82 @@ app.get('/api/projects/:id/print-locations', (req, res) => {
   }
 });
 
+// ===== 見積シミュレーター連携(2026-08-20) =====
+// 案件 → /quote-sim?case=ID で開いたときの引き継ぎデータ。
+// ボディ品番・加工サイズは案件が持っていないため、画面側で人が選ぶ
+app.get('/api/projects/:id/quote-context', (req, res) => {
+  try {
+    const p = db.prepare(`
+      SELECT id, project_name, customer_name, item_name, quantity, freee_quote_url
+      FROM projects WHERE id = ?
+    `).get(req.params.id);
+    if (!p) return res.status(404).json({ error: 'Project not found' });
+    const printLocations = db.prepare(`
+      SELECT location_name, color_count FROM case_print_locations
+      WHERE case_id = ? ORDER BY id ASC
+    `).all(p.id);
+    res.json({ project: p, print_locations: printLocations });
+  } catch (error) {
+    sendServerError(res, req, error);
+  }
+});
+
+// 概算履歴。金額変更の経緯(50%で試算→40%で確定 等)を追えるよう全件残す
+app.get('/api/projects/:id/quotes', (req, res) => {
+  try {
+    const quotes = db.prepare(`
+      SELECT id, total, discount_name, approved_by, created_at, sheet_text
+      FROM case_quotes WHERE case_id = ? ORDER BY id DESC
+    `).all(req.params.id);
+    res.json(quotes);
+  } catch (error) {
+    sendServerError(res, req, error);
+  }
+});
+
+app.post('/api/projects/:id/quotes', (req, res) => {
+  try {
+    const p = db.prepare('SELECT id FROM projects WHERE id = ?').get(req.params.id);
+    if (!p) return res.status(404).json({ error: 'Project not found' });
+    const { sheet_text, total, discount_name, approved_by } = req.body || {};
+    if (!sheet_text || !Number.isFinite(Number(total))) {
+      return res.status(400).json({ error: '転記シートと合計金額は必須です' });
+    }
+    const info = db.prepare(`
+      INSERT INTO case_quotes (case_id, sheet_text, total, discount_name, approved_by, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(p.id, String(sheet_text), Math.round(Number(total)),
+      discount_name ? String(discount_name) : null,
+      approved_by ? String(approved_by) : null,
+      new Date().toISOString());
+    res.json({ ok: true, id: info.lastInsertRowid });
+  } catch (error) {
+    sendServerError(res, req, error);
+  }
+});
+
+// freeeで発行した見積書URLを案件に紐づける(顧客台帳・納品履歴の「📄 見積書」リンクが生きる)。
+// 誤入力でリンクが壊れないよう、freeeのURLかどうかだけ検査する。空文字はクリア扱い
+app.patch('/api/projects/:id/freee-quote-url', (req, res) => {
+  try {
+    const p = db.prepare('SELECT id FROM projects WHERE id = ?').get(req.params.id);
+    if (!p) return res.status(404).json({ error: 'Project not found' });
+    const url = String(req.body?.url ?? '').trim();
+    if (url) {
+      let host = null;
+      try { host = new URL(url).hostname; } catch (_) { /* 下で弾く */ }
+      if (!host || !(host === 'secure.freee.co.jp' || host.endsWith('.secure.freee.co.jp'))) {
+        return res.status(400).json({ error: 'freeeのURL(secure.freee.co.jp)を貼り付けてください' });
+      }
+    }
+    db.prepare('UPDATE projects SET freee_quote_url = ?, updated_at = ? WHERE id = ?')
+      .run(url, new Date().toISOString(), p.id);
+    res.json({ ok: true });
+  } catch (error) {
+    sendServerError(res, req, error);
+  }
+});
+
 // 案件の名簿(選手名・背番号)を取得する。Web注文フォーム由来の確定時に case_roster へ引き継がれる。
 app.get('/api/projects/:id/roster', (req, res) => {
   try {
@@ -1926,6 +2002,12 @@ app.get('/api/projects/:id/detail', (req, res) => {
 
     const { documents, truncated } = collectCaseDocuments(project.nas_folder_path);
 
+    // 見積シミュレーターで記録した概算の履歴(新しい順)。sheet_textは重いので一覧には返さない
+    const quotes = db.prepare(`
+      SELECT id, total, discount_name, approved_by, created_at
+      FROM case_quotes WHERE case_id = ? ORDER BY id DESC
+    `).all(project.id);
+
     res.json({
       project,
       items,
@@ -1935,6 +2017,7 @@ app.get('/api/projects/:id/detail', (req, res) => {
       delivery,
       documents,
       documents_truncated: truncated,
+      quotes,
     });
   } catch (error) {
     sendServerError(res, req, error);
@@ -2129,6 +2212,7 @@ const deleteProjectCascade = db.transaction((projectId) => {
   db.prepare('DELETE FROM case_items WHERE case_id = ?').run(projectId);
   db.prepare('DELETE FROM case_roster WHERE case_id = ?').run(projectId);
   db.prepare('DELETE FROM delivery_records WHERE case_id = ?').run(projectId);
+  db.prepare('DELETE FROM case_quotes WHERE case_id = ?').run(projectId);
   db.prepare('UPDATE ai_extracted_intake SET case_id = NULL WHERE case_id = ?').run(projectId);
   db.prepare('DELETE FROM projects WHERE id = ?').run(projectId);
 });

@@ -978,6 +978,22 @@ function initDatabase(dbFile = dbPath) {
     console.log('✓ schedule_overrides のインデックスをUNIQUEに張り替えました');
   }
 
+  // 見積シミュレーター(/quote-sim)の概算履歴(2026-08-20)。
+  // 「最初は50%引きで試算→最終40%で確定」のような金額変更の経緯を案件に残す。
+  // sheet_text はfreee転記シートの全文(この1列だけで概算の全内容が再現できる)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS case_quotes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      case_id INTEGER NOT NULL,
+      sheet_text TEXT NOT NULL,
+      total INTEGER NOT NULL,
+      discount_name TEXT,
+      approved_by TEXT,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (case_id) REFERENCES projects(id)
+    )
+  `);
+
   // 初回のみサンプル担当者を挿入
   if (!dbExists) {
     const now = new Date().toISOString();
