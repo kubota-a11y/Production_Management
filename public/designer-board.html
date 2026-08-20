@@ -230,6 +230,39 @@
     .hours-hint { width: 100%; margin: 2px 0 0; font-size: .78rem; color: #64748b; }
     .modal-close { margin-top: 14px; width: 100%; border: none; background: #f1f5f9; border-radius: 10px; padding: 9px; font-size: .85rem; cursor: pointer; color: #475569; }
 
+    /* 持ち越し(2026-08-20)。予定日が来ているタスクを後ろへ動かしたときだけ出る確認。
+       何回流れているかをバッジで本人にも見せ、動かすときは残り時間と理由だけ聞く */
+    .carryover-badge {
+      font-size: .72rem; font-weight: 700; padding: 2px 10px; border-radius: 999px; white-space: nowrap;
+      color: #9d174d; background: #fce7f3; border: 1px solid #f9a8d4;
+    }
+    .carryover-task { font-weight: 700; font-size: .92rem; margin-bottom: 4px; word-break: break-word; }
+    .carryover-from { font-size: .82rem; color: #b45309; margin-bottom: 4px; }
+    .carryover-repeat {
+      display: none; font-size: .8rem; color: #9d174d; background: #fce7f3;
+      border: 1px solid #f9a8d4; border-radius: 8px; padding: 6px 10px; margin-bottom: 10px;
+    }
+    .carryover-label { font-size: .82rem; font-weight: 700; color: #334155; margin: 12px 0 6px; }
+    .carryover-hint { font-size: .76rem; color: #64748b; font-weight: 400; }
+    .carryover-hours-row { display: flex; align-items: center; gap: 8px; }
+    .carryover-hours-row input { width: 100px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; }
+    .carryover-reasons { display: flex; flex-wrap: wrap; gap: 6px; }
+    .carryover-note {
+      width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 8px;
+      font-size: .9rem; font-family: inherit; resize: vertical; min-height: 62px; color: #0f172a;
+    }
+    .carryover-note::placeholder { color: #94a3b8; }
+    .carryover-reason {
+      border: 1px solid #cbd5e1; background: #fff; color: #475569; border-radius: 999px;
+      padding: 6px 14px; font-size: .8rem; font-weight: 700; cursor: pointer; font-family: inherit;
+    }
+    .carryover-reason:hover { background: #f8fafc; color: #0f172a; }
+    .carryover-reason.active { border-color: #db2777; background: #fce7f3; color: #9d174d; }
+    .carryover-buttons { display: flex; gap: 8px; margin-top: 18px; }
+    .carryover-buttons button { flex: 1; border-radius: 10px; padding: 10px; font-size: .88rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+    .carryover-buttons .cancel { border: 1px solid #cbd5e1; background: #fff; color: #475569; }
+    .carryover-buttons .apply { border: none; background: #db2777; color: #fff; }
+
     .toast {
       position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
       background: #0f172a; color: #fff; font-size: .82rem; padding: 8px 18px; border-radius: 999px;
@@ -358,6 +391,41 @@
         <button class="danger" onclick="board.submitAvailability('clear')">↩️ 通常の予定に戻す</button>
       </div>
       <button class="modal-close" onclick="board.closeAvailabilityModal()">閉じる</button>
+    </div>
+  </div>
+
+  <!-- 持ち越しの確認。予定日が来ているタスクを後ろへ動かしたときだけ出る -->
+  <div class="modal-bg" id="carryover-modal">
+    <div class="modal-box">
+      <h2>⏩ 予定日を過ぎたタスクを動かします</h2>
+      <div class="modal-date">残りの時間と理由を教えてください</div>
+      <div class="carryover-task" id="carryover-task"></div>
+      <div class="carryover-from" id="carryover-from"></div>
+      <div class="carryover-repeat" id="carryover-repeat"></div>
+
+      <div class="carryover-label">
+        あと何時間かかりますか？ <span class="carryover-hint">（移動先の日の予定時間になります）</span>
+      </div>
+      <div class="carryover-hours-row">
+        <input type="number" id="carryover-hours" min="0" max="14" step="0.5" placeholder="h">
+        <span class="carryover-hint">時間</span>
+      </div>
+
+      <div class="carryover-label">
+        理由 <span class="carryover-hint">（任意・選ばなくても進めます）</span>
+      </div>
+      <div class="carryover-reasons" id="carryover-reasons"></div>
+
+      <div class="carryover-label">
+        ひとことメモ <span class="carryover-hint">（任意・具体的な事情を書けます）</span>
+      </div>
+      <textarea class="carryover-note" id="carryover-note" maxlength="200"
+                placeholder="例）KRATVSカタログ制作に時間がかかった"></textarea>
+
+      <div class="carryover-buttons">
+        <button type="button" class="cancel" onclick="board.cancelCarryover()">やめる</button>
+        <button type="button" class="apply" onclick="board.submitCarryover()">この日へ動かす</button>
+      </div>
     </div>
   </div>
 

@@ -544,6 +544,7 @@ function initDatabase(dbFile = dbPath) {
       task_text TEXT NOT NULL,
       scheduled_date TEXT,
       estimated_hours REAL,
+      completed_at TEXT,
       updated_at TEXT NOT NULL,
       UNIQUE(employee_id, task_text),
       FOREIGN KEY (employee_id) REFERENCES employees(id)
@@ -553,6 +554,59 @@ function initDatabase(dbFile = dbPath) {
     CREATE INDEX IF NOT EXISTS idx_designer_sheet_todo_plans_date
     ON designer_sheet_todo_plans(scheduled_date)
   `);
+
+  // TODOを完了にしたときに計画行を消さず、完了日時を残す(2026-08-20)。
+  // 消してしまうと業務量レポートで「その日に計画され、その日に終わった分」が数えられず、
+  // 頑張って終わらせた日ほど計画が少なく見えてしまう。
+  // 完了済みの行はボードには出さない(attachTodoPlans が除外する)
+  const sheetTodoPlanColumns = db.prepare(`PRAGMA table_info('designer_sheet_todo_plans')`).all().map(col => col.name);
+  if (!sheetTodoPlanColumns.includes('completed_at')) {
+    db.prepare(`ALTER TABLE designer_sheet_todo_plans ADD COLUMN completed_at TEXT`).run();
+    console.log('✓ designer_sheet_todo_plans.completed_at を追加しました');
+  }
+
+  // 予定日の変更履歴(2026-08-20)。マイスケジュールボードと社内の週間スケジュールボードで
+  // タスクの予定日を動かすたびに1行残す。
+  // 現在の scheduled_date は「最新の予定」しか持たないため、タスクを翌日へ動かすと
+  // 元の日は最初から空だったように見えてしまい、「その日1日の業務量が適正だったか」を
+  // 後から検証できない。ここに移動前後の日付と、その時点の見込み時間を残しておくことで、
+  // 過去の任意の日について 計画 / 完了 / 持ち越し を再現できるようにする。
+  // is_carryover = 予定日が来ているのに後ろ(または未定)へ動かした操作。判定は lib/task-moves.js
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS designer_task_moves (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      employee_id INTEGER NOT NULL,
+      task_kind TEXT NOT NULL,
+      prep_item_id INTEGER,
+      task_text TEXT,
+      task_label TEXT NOT NULL,
+      from_date TEXT,
+      to_date TEXT,
+      estimated_hours REAL,
+      is_carryover INTEGER NOT NULL DEFAULT 0,
+      carryover_reason TEXT,
+      carryover_note TEXT,
+      moved_at TEXT NOT NULL,
+      FOREIGN KEY (employee_id) REFERENCES employees(id)
+    )
+  `);
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_designer_task_moves_from
+    ON designer_task_moves(employee_id, from_date)
+  `);
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_designer_task_moves_item
+    ON designer_task_moves(task_kind, prep_item_id, task_text)
+  `);
+
+  // 持ち越しの自由記述メモ(2026-08-20 社長要望)。
+  // 「作業量が多かった」等の選択肢だけでは何に時間を取られたのかが分からないため、
+  // 「KRATVSカタログ制作に時間がかかった」のように具体名を残せるようにする
+  const taskMoveColumns = db.prepare(`PRAGMA table_info('designer_task_moves')`).all().map(col => col.name);
+  if (!taskMoveColumns.includes('carryover_note')) {
+    db.prepare(`ALTER TABLE designer_task_moves ADD COLUMN carryover_note TEXT`).run();
+    console.log('\u2713 designer_task_moves.carryover_note \u3092\u8ffd\u52a0\u3057\u307e\u3057\u305f');
+  }
 
   // デザイナー(リモートの鈴木さん等)向け マイスケジュールボードの専用URL(トークン)。
   // チームリンク・取引先リンクと同じトークン方式。employee_id で従業員に紐付け、

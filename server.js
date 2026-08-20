@@ -14,6 +14,8 @@ const { registerPartnerPortalRoutes } = require('./lib/partner-portal');
 const { registerPartnerOrderRoutes } = require('./lib/partner-order');
 const { registerDesignerBoardRoutes } = require('./lib/designer-board');
 const { registerOpsBoardRoutes, markDeliveredStage } = require('./lib/ops-board');
+const { registerWorkloadReportRoutes } = require('./lib/workload-report');
+const { TASK_KINDS, recordTaskMove } = require('./lib/task-moves');
 const { registerOrderStatusRoutes } = require('./lib/order-status');
 const { registerManualIntakeRoutes } = require('./lib/manual-intake');
 const { registerReferralRoutes } = require('./lib/referral');
@@ -2864,6 +2866,29 @@ app.put('/api/preparation-items/:id', (req, res) => {
     `).run(assigned_staff_id || null, scheduled_date || null, estimated_hours, status, completed_at,
       designerReleasedAt, req.params.id);
 
+    // 予定日の変更を履歴に残す(業務量レポート /workload の元データ)。
+    // 社内の週間スケジュールボードから動かした分もここで拾わないと、
+    // 「マイスケジュールボードで動かしたときだけ記録される」偏った集計になる。
+    // 担当者が変わった場合は業務量の持ち越しではなく担当替えなので記録しない
+    const sameStaff = (assigned_staff_id || null) === existing.assigned_staff_id;
+    if (sameStaff && existing.assigned_staff_id
+        && (scheduled_date || null) !== existing.scheduled_date && status !== '完了') {
+      const prepItem = db.prepare(`
+        SELECT pim.name FROM case_preparation_items cpi
+        JOIN preparation_item_master pim ON cpi.preparation_item_id = pim.id
+        WHERE cpi.id = ?
+      `).get(req.params.id);
+      recordTaskMove(db, {
+        employeeId: existing.assigned_staff_id,
+        taskKind: TASK_KINDS.PREP_ITEM,
+        prepItemId: Number(req.params.id),
+        taskLabel: prepItem ? prepItem.name : '準備項目',
+        fromDate: existing.scheduled_date,
+        toDate: scheduled_date || null,
+        estimatedHours: estimated_hours,
+      });
+    }
+
     if (status !== existing.status) {
       syncCaseStatusForPreparationItems(existing.case_id);
     }
@@ -3396,6 +3421,10 @@ registerPartnerOrderRoutes(app, db);
 // リモートのデザイン担当が自分の準備項目をD&Dで日付調整・完了操作・稼働申告できる。
 registerDesignerBoardRoutes(app, db, { syncCaseStatus: syncCaseStatusForPreparationItems });
 registerOrderStatusRoutes(app, db);
+
+// 業務量レポート /workload(社内専用)。マイスケジュールボードの予定日変更の履歴から、
+// 日別に 計画 / 完了 / 持ち越し を出して「その日の業務量が適正だったか」を確かめる
+registerWorkloadReportRoutes(app, db);
 
 // オペレーション担当(山本さん)向けボード /ops。デザイン案件が「いま誰待ちで止まっているか」を
 // 5段階で管理し、デザインラフの受け渡しもここで行う。社内専用(外部公開ガードの許可対象外)

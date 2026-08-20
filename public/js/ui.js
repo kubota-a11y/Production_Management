@@ -26,6 +26,10 @@ const HiUI = {
 
   // 設定・発行系。毎日は使わないので「⚙ 管理」の中に畳む
   navAdmin: [
+    // 毎日見る画面ではなく、社長が週次・月次で振り返るための画面なのでここに畳む
+    // (navDaily に足すと横並びのリンクが増えて、全画面でタイトルが2行に折り返す)
+    { key: 'workload', href: '/workload', label: '📊 業務量レポート' },
+    { divider: true },
     { key: 'staff', href: '/?open=staff', label: '👥 担当者マスタ（案件の窓口）' },
     { key: 'employees', href: '/employees', label: '🧑‍🏭 従業員マスタ（作業する人）' },
     { divider: true },

@@ -14,6 +14,9 @@ const board = {
   draggingItemId: null,
   draggingTodoText: null,
   availabilityDate: null,
+  carryoverReasons: [],
+  carryoverNoteMax: 200,    // 持ち越しメモの文字数上限(サーバーから受け取る)
+  pendingMove: null,        // 持ち越し確認ダイアログで承認待ちの移動
 
   init() {
     const m = location.pathname.match(/^\/designer\/([^/]+)/);
@@ -58,6 +61,8 @@ const board = {
       this.roughFiles = data.rough_files || {};
       this.carveStages = data.carve_stages || [];
       this.proofStages = data.proof_stages || [];
+      this.carryoverReasons = data.carryover_reasons || [];
+      this.carryoverNoteMax = data.carryover_note_max || 200;
       this.designerName = data.designer_name;
       this.selectedItemId = null;
       this.selectedTodoText = null;
@@ -237,7 +242,7 @@ const board = {
         <span class="todo-status-badge ${inProgress ? 'todo-status-inprogress' : 'todo-status-notstarted'}">${inProgress ? '進行中' : '未着手'}</span>
         ${outOfWeek ? `<span class="todo-otherweek-badge">📅 ${this.fmtDate(t.scheduled_date)} に予定</span>` : ''}
         <div class="chip-main">
-          <div class="chip-name">📝 ${this.esc(t.task)}</div>
+          <div class="chip-name">📝 ${this.esc(t.task)}${this.carryoverBadgeHtml(t.carryover_count)}</div>
           ${metaParts.length ? `<div class="chip-meta">${metaParts.join(' ｜ ')}</div>` : ''}
         </div>
         <div class="chip-controls" onclick="event.stopPropagation()">
@@ -293,7 +298,7 @@ const board = {
   },
 
   async moveTodo(taskText, dateISO) {
-    await this.saveTodoPlan(taskText, { scheduled_date: dateISO }, `${this.fmtDate(dateISO)} に移動しました`);
+    await this.requestMove({ kind: 'todo', task: taskText }, dateISO);
   },
 
   // TODOの完了。スプレッドシート側の状態を「完了」に更新し、一覧からも消える。
@@ -438,7 +443,7 @@ const board = {
            ondragstart="board.onChipDragStart(event, ${i.id})" ondragend="board.onChipDragEnd(event)"
            onclick="event.stopPropagation(); board.onChipTap(${i.id})">
         <div class="chip-main">
-          <div class="chip-name">${this.esc(i.project_name)} ${i.is_carve ? `<span class="carve-badge">🔶 ${this.esc(this.carveStageLabel(i.carve_stage))}</span>` : ''}${i.revision_round ? ` <span class="revision-badge">🔁 修正${i.revision_round}回目</span>` : ''}</div>
+          <div class="chip-name">${this.esc(i.project_name)} ${i.is_carve ? `<span class="carve-badge">🔶 ${this.esc(this.carveStageLabel(i.carve_stage))}</span>` : ''}${i.revision_round ? ` <span class="revision-badge">🔁 修正${i.revision_round}回目</span>` : ''}${this.carryoverBadgeHtml(i.carryover_count)}</div>
           <div class="chip-meta">${this.esc(i.preparation_item_name)} ｜ ${this.esc(dueLabel)} <span class="${soon ? 'chip-deadline-soon' : ''}">${deadline}</span></div>
           ${i.revision_round && i.revision_note ? `<div class="chip-meta chip-revision-note">✏️ 修正指示: ${this.esc(i.revision_note)}</div>` : ''}
           ${this.roughLinksHtml(i.case_id)}
@@ -502,8 +507,7 @@ const board = {
   },
 
   async onItemDateChange(itemId, value) {
-    await this.updateItem(itemId, { scheduled_date: value || null },
-      value ? `${this.fmtDate(value)} に移動しました` : '日付を未定に戻しました');
+    await this.requestMove({ kind: 'item', id: itemId }, value || null);
   },
 
   // 「自分の担当ではない」でタスクを手放す。ボードから消えるだけで案件からは消えない
@@ -560,9 +564,152 @@ const board = {
   },
 
   async onTodoDateChange(encodedTask, value) {
-    const task = decodeURIComponent(encodedTask);
-    await this.saveTodoPlan(task, { scheduled_date: value || null },
-      value ? `${this.fmtDate(value)} に移動しました` : 'TODOリストへ戻しました');
+    await this.requestMove({ kind: 'todo', task: decodeURIComponent(encodedTask) }, value || null);
+  },
+
+  // ===== 持ち越し(予定日が来ているタスクを後ろへ動かす) =====
+  // 予定していた日が既に来ているのに、その日から外す操作を「持ち越し」と呼ぶ。
+  // 黙って通すと1日で終わらない作業がそのまま翌日へ流れ続け、
+  // その日の業務量が適正だったのか誰にも分からなくなるため、
+  //   ・残り何時間かかるかを申告してもらう(翌日の計画時間に正しく乗る)
+  //   ・理由をワンタップで選んでもらう(業務量オーバーか割り込みかを後で切り分ける)
+  //   ・ひとことメモ(任意)で具体的な事情を書けるようにする
+  //     (選択肢だけでは「何に時間を取られたのか」が分からないため。2026-08-20 社長要望)
+  // だけ確認してから通す。サーバー側(lib/task-moves.js)でも同じ規則で判定する。
+
+  carryoverBadgeHtml(count) {
+    if (!count) return '';
+    return ` <span class="carryover-badge" title="このタスクは予定日を過ぎてから${count}回動かされています">⏩ ${count}回持ち越し</span>`;
+  },
+
+  // 移動対象の現在の状態。kind に応じて準備項目・TODOのどちらかを返す
+  moveTarget(target) {
+    if (target.kind === 'item') {
+      const item = this.findItem(target.id);
+      if (!item) return null;
+      return {
+        name: `${item.project_name} / ${item.preparation_item_name}`,
+        from: item.scheduled_date,
+        hours: item.estimated_hours,
+        carryoverCount: item.carryover_count || 0,
+        done: item.status === '完了',
+      };
+    }
+    const todo = (this.sheetTodos || []).find(t => t.task === target.task);
+    if (!todo) return null;
+    return {
+      name: todo.task,
+      from: todo.scheduled_date,
+      hours: todo.estimated_hours,
+      carryoverCount: todo.carryover_count || 0,
+      done: false, // シートTODOは完了にするとボードから消えるので、ここに来るのは未完了のものだけ
+    };
+  },
+
+  // サーバー(lib/task-moves.js の isCarryover)と同じ判定
+  isCarryoverMove(fromDate, toDate) {
+    if (!fromDate) return false;
+    const today = this.toISO(new Date());
+    if (fromDate > today) return false;
+    if (!toDate) return true;
+    return toDate > fromDate;
+  },
+
+  async requestMove(target, toDate) {
+    const current = this.moveTarget(target);
+    if (!current) return;
+    if (current.from === toDate) return;
+
+    // 完了済みのタスクを片付けのために動かすのは業務量の持ち越しではないので確認しない
+    // (サーバー側も status が完了なら履歴を残さない)
+    if (current.done || !this.isCarryoverMove(current.from, toDate)) {
+      return this.commitMove(target, toDate, {});
+    }
+    this.openCarryoverModal(target, toDate, current);
+  },
+
+  // 実際の保存。持ち越しダイアログを通った場合は残り時間と理由も一緒に送る
+  async commitMove(target, toDate, extra) {
+    const msg = toDate ? `${this.fmtDate(toDate)} に移動しました`
+      : (target.kind === 'item' ? '日付を未定に戻しました' : 'TODOリストへ戻しました');
+    const body = { scheduled_date: toDate, ...extra };
+    if (target.kind === 'item') {
+      await this.updateItem(target.id, body, msg);
+    } else {
+      await this.saveTodoPlan(target.task, body, msg);
+    }
+  },
+
+  openCarryoverModal(target, toDate, current) {
+    this.pendingMove = { target, toDate, reason: null };
+
+    const daysOver = -this.daysUntil(current.from);
+    const overText = daysOver > 0 ? `（${daysOver}日前の予定）` : '（今日の予定）';
+    const toText = toDate ? `${this.fmtDate(toDate)}` : '日付未定';
+
+    document.getElementById('carryover-task').textContent = current.name;
+    document.getElementById('carryover-from').textContent =
+      `${this.fmtDate(current.from)} の予定${overText} → ${toText}`;
+
+    const repeat = document.getElementById('carryover-repeat');
+    if (current.carryoverCount > 0) {
+      repeat.textContent = `このタスクはこれまでに ${current.carryoverCount} 回持ち越しています。`;
+      repeat.style.display = 'block';
+    } else {
+      repeat.style.display = 'none';
+    }
+
+    // 残り時間の初期値は今の見込み時間。丸ごと持ち越すならそのまま、
+    // 半分進んだなら減らして出す(翌日の計画時間が実態に合う)
+    document.getElementById('carryover-hours').value = current.hours ?? '';
+
+    document.getElementById('carryover-reasons').innerHTML = this.carryoverReasons.map(r => `
+      <button type="button" class="carryover-reason" data-reason="${r.key}"
+              onclick="board.selectCarryoverReason('${r.key}')">${this.esc(r.label)}</button>
+    `).join('');
+
+    // メモは毎回まっさらにする(前のタスクの事情が残っていると誤った記録になる)
+    const noteInput = document.getElementById('carryover-note');
+    noteInput.value = '';
+    if (this.carryoverNoteMax) noteInput.maxLength = this.carryoverNoteMax;
+
+    document.getElementById('carryover-modal').classList.add('active');
+  },
+
+  selectCarryoverReason(key) {
+    // 選択中のものをもう一度押すと未選択に戻す(日別モードのボタンと同じ操作感)
+    this.pendingMove.reason = this.pendingMove.reason === key ? null : key;
+    document.querySelectorAll('#carryover-reasons .carryover-reason').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.reason === this.pendingMove.reason);
+    });
+  },
+
+  async submitCarryover() {
+    if (!this.pendingMove) return;
+    const raw = document.getElementById('carryover-hours').value;
+    const hours = raw === '' ? null : Number(raw);
+    if (hours !== null && (Number.isNaN(hours) || hours < 0 || hours > 14)) {
+      return this.toast('残り時間は0〜14時間で入力してください');
+    }
+
+    const note = document.getElementById('carryover-note').value.trim();
+    const { target, toDate, reason } = this.pendingMove;
+    this.pendingMove = null;
+    document.getElementById('carryover-modal').classList.remove('active');
+
+    const extra = { carryover_reason: reason, carryover_note: note };
+    // 準備項目は estimated_hours が必須(nullを送れない)ので、未入力なら0として送る
+    if (hours !== null || target.kind === 'todo') {
+      extra.estimated_hours = target.kind === 'item' ? (hours ?? 0) : hours;
+    }
+    await this.commitMove(target, toDate, extra);
+  },
+
+  // 取りやめ。日付プルダウンから操作した場合は選択が変わったままなので描画し直す
+  cancelCarryover() {
+    this.pendingMove = null;
+    document.getElementById('carryover-modal').classList.remove('active');
+    this.render();
   },
 
   // ===== D&D(PC) =====
@@ -621,7 +768,7 @@ const board = {
 
   // ===== 更新API =====
   async moveItem(itemId, dateISO) {
-    await this.updateItem(itemId, { scheduled_date: dateISO }, `${this.fmtDate(dateISO)} に移動しました`);
+    await this.requestMove({ kind: 'item', id: itemId }, dateISO);
   },
 
   async onHoursChange(itemId, value) {
