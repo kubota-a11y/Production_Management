@@ -6,7 +6,7 @@ const fs = require('fs');
 const { execFileSync } = require('child_process');
 const { initDatabase } = require('./db/init');
 const line = require('@line/bot-sdk');
-const { DESIGN_WORK_ITEM_CODES, NON_DESIGNER_ITEM_CODES } = require('./lib/prep-items');
+const { DESIGN_WORK_ITEM_CODES, NON_DESIGNER_ITEM_CODES, WORK_STATE_LABELS } = require('./lib/prep-items');
 const { runExtractionCycle } = require('./lib/ai-extraction');
 const { registerOrderRoutes } = require('./lib/order-intake');
 const { registerTeamOrderRoutes } = require('./lib/team-order');
@@ -2834,7 +2834,9 @@ app.get('/api/preparation-items', (req, res) => {
       ${whereClause}
       ORDER BY cpi.scheduled_date ASC, cpi.id ASC
     `).all(...params);
-    res.json(items);
+    // work_state はコード(WORKING等)で持っているので、画面がそのまま出せる日本語も付ける。
+    // 表示名の対応表を画面側に書くと lib/prep-items.js と二重管理になるため
+    res.json(items.map(i => ({ ...i, work_state_label: WORK_STATE_LABELS[i.work_state] || '' })));
   } catch (error) {
     sendServerError(res, req, error);
   }

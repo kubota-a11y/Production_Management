@@ -1489,8 +1489,10 @@ const scheduleBoard = {
         <div class="sb-detail-row-top">
           <span class="sb-detail-swatch sb-detail-swatch-prep"></span>
           <span class="sb-detail-project-name">【準備】${this.escapeHtml(i.project_name)} / ${this.escapeHtml(i.preparation_item_name)}</span>
+          ${i.work_state_label ? `<span class="sb-work-state ws-${i.work_state}">${this.escapeHtml(i.work_state_label)}</span>` : ''}
           <span class="sb-detail-meta">予定${i.estimated_hours ?? '-'}h（${this.escapeHtml(i.status)}）</span>
         </div>
+        ${i.work_note ? `<div class="sb-work-note">📝 ${this.escapeHtml(i.work_note)}</div>` : ''}
         <div class="sb-detail-row-actual">
           <label class="sb-prep-complete-check">
             <input type="checkbox" ${i.status === '完了' ? 'checked' : ''} onchange="scheduleBoard.togglePrepItemComplete(${i.id}, this.checked)">

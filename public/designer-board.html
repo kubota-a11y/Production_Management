@@ -76,6 +76,35 @@
       padding: 4px 6px; border: 1px solid #c4b5fd; border-radius: 6px;
       font-size: .8rem; background: #fff; color: #6d28d9; font-family: inherit; max-width: 140px;
     }
+    /* タスク単位の作業状態(2026-08-20)。案件単位の「初校/修正/校了」とは別の軸で、
+       このカード1枚が いま作業中なのか / 誰の返事待ちなのか を表す。
+       待ちの状態(お客様・社内)は自分の手が動いていないので、作業中とは色を分ける */
+    .work-state-badge {
+      font-size: .72rem; font-weight: 700; padding: 2px 10px; border-radius: 999px;
+      white-space: nowrap; border: 1px solid transparent;
+    }
+    .work-state-badge.ws-WORKING { color: #1d4ed8; background: #dbeafe; border-color: #93c5fd; }
+    .work-state-badge.ws-CUSTOMER_REVIEW { color: #b45309; background: #fef3c7; border-color: #fcd34d; }
+    .work-state-badge.ws-INTERNAL_REVIEW { color: #6d28d9; background: #ede9fe; border-color: #c4b5fd; }
+    .work-state-select {
+      padding: 4px 6px; border: 1px solid #cbd5e1; border-radius: 6px;
+      font-size: .8rem; background: #fff; color: #0f172a; font-family: inherit; max-width: 130px;
+    }
+    /* ひとことメモ。書いてあるときだけカードに1行出る */
+    .chip-work-note { color: #0f766e; margin-top: 2px; word-break: break-word; }
+    .btn-note {
+      border: 1px solid #99f6e4; background: #f0fdfa; color: #0f766e; border-radius: 999px;
+      padding: 3px 10px; font-size: .74rem; font-weight: 700; cursor: pointer;
+      white-space: nowrap; font-family: inherit;
+    }
+    .btn-note:hover { background: #ccfbf1; color: #115e59; }
+    .note-task { font-weight: 700; font-size: .92rem; margin-bottom: 10px; word-break: break-word; }
+    .note-input {
+      width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 8px;
+      font-size: .95rem; font-family: inherit; resize: vertical; min-height: 76px; color: #0f172a;
+    }
+    .note-input::placeholder { color: #94a3b8; }
+
     /* 修正往復のバッジと修正指示メモ。山本さんが「修正で戻す」と付く(2026-08-07) */
     .revision-badge {
       font-size: .72rem; font-weight: 700; padding: 2px 10px; border-radius: 999px;
@@ -391,6 +420,21 @@
         <button class="danger" onclick="board.submitAvailability('clear')">↩️ 通常の予定に戻す</button>
       </div>
       <button class="modal-close" onclick="board.closeAvailabilityModal()">閉じる</button>
+    </div>
+  </div>
+
+  <!-- タスクのひとことメモ。カードの「📝 メモ」から開く(上書き式) -->
+  <div class="modal-bg" id="note-modal">
+    <div class="modal-box">
+      <h2>📝 このタスクのメモ</h2>
+      <div class="modal-date">社内のスケジュールボードからも見えます</div>
+      <div class="note-task" id="note-modal-task"></div>
+      <textarea class="note-input" id="note-input" maxlength="200"
+                placeholder="例）8/18 勝又様に連絡済み"></textarea>
+      <div class="carryover-buttons">
+        <button type="button" class="cancel" onclick="board.closeNoteModal()">やめる</button>
+        <button type="button" class="apply" onclick="board.submitNote()">保存する</button>
+      </div>
     </div>
   </div>
 

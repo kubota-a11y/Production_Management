@@ -357,6 +357,20 @@ function initDatabase(dbFile = dbPath) {
     console.log('✓ case_preparation_items.designer_released_at を追加しました');
   }
 
+  // タスク単位の作業状態とひとことメモ(2026-08-20 社長要望)。
+  // work_state は lib/prep-items.js の WORK_STATES のキー(作業中/お客様確認中/社内確認待ち)。
+  // null = 未着手でバッジを出さない。完了かどうかは従来どおり status が持つので別の列にする
+  // (同じ列に混ぜると、完了を外したときに「お客様確認中だった」情報まで消えてしまう)。
+  // work_note は「8/18 勝又様に連絡済み」のような申し送りを1行だけ上書きで持つ
+  if (!prepItemColumns.includes('work_state')) {
+    db.prepare(`ALTER TABLE case_preparation_items ADD COLUMN work_state TEXT`).run();
+    console.log('✓ case_preparation_items.work_state を追加しました');
+  }
+  if (!prepItemColumns.includes('work_note')) {
+    db.prepare(`ALTER TABLE case_preparation_items ADD COLUMN work_note TEXT`).run();
+    console.log('✓ case_preparation_items.work_note を追加しました');
+  }
+
   // 既存DBに preparation_item_master.is_designer_item カラムがない場合は追加。
   // 1の項目は「デザイン担当者の専用項目」= どの案件種別でも登録時にデザイン担当へ自動割り当てされる
   const prepMasterColumns = db.prepare(`PRAGMA table_info('preparation_item_master')`).all().map(col => col.name);

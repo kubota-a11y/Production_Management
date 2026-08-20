@@ -417,6 +417,42 @@
   padding: 12px;
 }
 
+/* デザイン担当がマイスケジュールボードで付けたタスクの状態とメモ(2026-08-20)。
+   ここは表示だけで、切り替えは本人のボードから行う */
+.sb-work-state {
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.sb-work-state.ws-WORKING {
+  color: var(--info-text);
+  background: var(--info-soft);
+  border-color: var(--primary-border);
+}
+
+.sb-work-state.ws-CUSTOMER_REVIEW {
+  color: var(--warning-text);
+  background: var(--warning-soft);
+  border-color: var(--warning-color);
+}
+
+.sb-work-state.ws-INTERNAL_REVIEW {
+  color: var(--purple-text);
+  background: var(--purple-soft);
+  border-color: var(--purple-text);
+}
+
+.sb-work-note {
+  font-size: var(--text-xs);
+  color: var(--success-dark);
+  margin-top: var(--space-1);
+  word-break: break-word;
+}
+
 .sb-prep-complete-check {
   display: flex;
   align-items: center;

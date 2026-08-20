@@ -16,6 +16,9 @@ const board = {
   availabilityDate: null,
   carryoverReasons: [],
   carryoverNoteMax: 200,    // 持ち越しメモの文字数上限(サーバーから受け取る)
+  workStates: [],           // タスクの作業状態の選択肢(作業中/お客様確認中/社内確認待ち)
+  workNoteMax: 200,         // タスクのひとことメモの文字数上限
+  noteItemId: null,         // メモ編集ウィンドウで開いているタスク
   pendingMove: null,        // 持ち越し確認ダイアログで承認待ちの移動
 
   init() {
@@ -63,6 +66,8 @@ const board = {
       this.proofStages = data.proof_stages || [];
       this.carryoverReasons = data.carryover_reasons || [];
       this.carryoverNoteMax = data.carryover_note_max || 200;
+      this.workStates = data.work_states || [];
+      this.workNoteMax = data.work_note_max || 200;
       this.designerName = data.designer_name;
       this.selectedItemId = null;
       this.selectedTodoText = null;
@@ -443,13 +448,17 @@ const board = {
            ondragstart="board.onChipDragStart(event, ${i.id})" ondragend="board.onChipDragEnd(event)"
            onclick="event.stopPropagation(); board.onChipTap(${i.id})">
         <div class="chip-main">
-          <div class="chip-name">${this.esc(i.project_name)} ${i.is_carve ? `<span class="carve-badge">🔶 ${this.esc(this.carveStageLabel(i.carve_stage))}</span>` : ''}${i.revision_round ? ` <span class="revision-badge">🔁 修正${i.revision_round}回目</span>` : ''}${this.carryoverBadgeHtml(i.carryover_count)}</div>
+          <div class="chip-name">${this.esc(i.project_name)} ${this.workStateBadgeHtml(i.work_state)}${i.is_carve ? `<span class="carve-badge">🔶 ${this.esc(this.carveStageLabel(i.carve_stage))}</span>` : ''}${i.revision_round ? ` <span class="revision-badge">🔁 修正${i.revision_round}回目</span>` : ''}${this.carryoverBadgeHtml(i.carryover_count)}</div>
           <div class="chip-meta">${this.esc(i.preparation_item_name)} ｜ ${this.esc(dueLabel)} <span class="${soon ? 'chip-deadline-soon' : ''}">${deadline}</span></div>
           ${i.revision_round && i.revision_note ? `<div class="chip-meta chip-revision-note">✏️ 修正指示: ${this.esc(i.revision_note)}</div>` : ''}
+          ${this.workNoteHtml(i)}
           ${this.roughLinksHtml(i.case_id)}
           ${this.proofBadgesHtml(i)}
         </div>
         <div class="chip-controls" onclick="event.stopPropagation()">
+          ${this.workStateSelectHtml(i)}
+          <button type="button" class="btn-note" onclick="board.openNoteModal(${i.id})"
+                  title="このタスクのメモを書く（例: 8/18 勝又様に連絡済み）">📝 メモ</button>
           ${this.carveSelectHtml(i)}
           <select class="chip-date" onchange="board.onItemDateChange(${i.id}, this.value)">
             ${this.dateOptionsHtml(i.scheduled_date)}
@@ -565,6 +574,69 @@ const board = {
 
   async onTodoDateChange(encodedTask, value) {
     await this.requestMove({ kind: 'todo', task: decodeURIComponent(encodedTask) }, value || null);
+  },
+
+  // ===== タスクの作業状態とひとことメモ(2026-08-20 社長要望) =====
+  // 「初校/修正/校了」やCARVEの作業段階は案件単位なので、同じ案件のカードは全部同じ表示になる。
+  // こちらはタスク1枚ごとの状態で、「このカードは作業中 / このカードはお客様待ち」を表す。
+  // 完了かどうかは従来どおり右の完了チェックが持つ(別の軸)。
+
+  workStateLabel(key) {
+    const st = (this.workStates || []).find(w => w.key === key);
+    return st ? st.label : '';
+  },
+
+  // 状態バッジ。未設定(未着手)のときは何も出さない — 既定の状態でバッジを増やしても情報にならない
+  workStateBadgeHtml(key) {
+    const label = this.workStateLabel(key);
+    if (!label) return '';
+    return `<span class="work-state-badge ws-${key}">${this.esc(label)}</span> `;
+  },
+
+  workStateSelectHtml(i) {
+    const options = [`<option value="" ${!i.work_state ? 'selected' : ''}>状態なし</option>`]
+      .concat((this.workStates || []).map(w =>
+        `<option value="${w.key}" ${w.key === i.work_state ? 'selected' : ''}>${this.esc(w.label)}</option>`));
+    return `<select class="work-state-select" title="このタスクの状態"
+                    onchange="board.onWorkStateChange(${i.id}, this.value)">${options.join('')}</select>`;
+  },
+
+  async onWorkStateChange(itemId, value) {
+    const label = this.workStateLabel(value);
+    await this.updateItem(itemId, { work_state: value },
+      label ? `「${label}」にしました` : '状態を外しました');
+  },
+
+  // カードに出すメモ。書いてあるときだけ1行出す
+  workNoteHtml(i) {
+    if (!i.work_note) return '';
+    return `<div class="chip-meta chip-work-note">📝 ${this.esc(i.work_note)}</div>`;
+  },
+
+  openNoteModal(itemId) {
+    const item = this.findItem(itemId);
+    if (!item) return;
+    this.noteItemId = itemId;
+    document.getElementById('note-modal-task').textContent =
+      `${item.project_name} / ${item.preparation_item_name}`;
+    const input = document.getElementById('note-input');
+    input.maxLength = this.workNoteMax;
+    input.value = item.work_note || '';
+    document.getElementById('note-modal').classList.add('active');
+    input.focus();
+  },
+
+  closeNoteModal() {
+    this.noteItemId = null;
+    document.getElementById('note-modal').classList.remove('active');
+  },
+
+  async submitNote() {
+    if (!this.noteItemId) return;
+    const itemId = this.noteItemId;
+    const note = document.getElementById('note-input').value.trim();
+    this.closeNoteModal();
+    await this.updateItem(itemId, { work_note: note }, note ? 'メモを保存しました' : 'メモを消しました');
   },
 
   // ===== 持ち越し(予定日が来ているタスクを後ろへ動かす) =====
