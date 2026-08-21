@@ -503,6 +503,38 @@ const scheduleBoard = {
     return `<div class="sb-day-mode-badge ${isDesign ? 'sb-day-mode-design' : 'sb-day-mode-related'}" title="本人がマイスケジュールボードで申告した、この日の仕事の種類">${label}</div>`;
   },
 
+  // 本人がマイスケジュールボードで申告した中抜けの時間帯とひとことメモ(閲覧のみ)。
+  // 勤務時間の合計はセルの「◯h / ◯h」に出ているが、それだけでは
+  // 「9:00〜12:00 と 14:00〜17:00 に分かれている」ことが社内から分からないため添える
+  getAvailabilityBadge(employeeId, dateISO) {
+    const override = this.getOverrideFor(employeeId, dateISO);
+    if (!override) return '';
+
+    const segments = this.parseWorkSegments(override.work_segments);
+    // 1本だけの日は開始〜終了がそのまま勤務時間なので、あえて出さない
+    const segmentsHtml = segments.length > 1
+      ? `<div class="sb-day-segments" title="本人が申告した稼働できる時間帯（中抜けあり）">⏱ ${
+          segments.map(seg => `${this.escapeHtml(seg.start)}〜${this.escapeHtml(seg.end)}`).join(' / ')}</div>`
+      : '';
+    const noteHtml = override.note
+      ? `<div class="sb-day-note" title="本人がマイスケジュールボードで残したメモ">📝 ${this.escapeHtml(override.note)}</div>`
+      : '';
+    return segmentsHtml + noteHtml;
+  },
+
+  // schedule_overrides.work_segments(JSON文字列)を [{start,end}] に戻す。
+  // 未設定・壊れた値は空配列(=中抜けなしの日として扱う)
+  parseWorkSegments(json) {
+    if (!json) return [];
+    try {
+      const parsed = JSON.parse(json);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter(seg => seg && seg.start && seg.end);
+    } catch (error) {
+      return [];
+    }
+  },
+
   getProjectColor(projectId) {
     return this.colorPalette[projectId % this.colorPalette.length];
   },
@@ -588,8 +620,10 @@ const scheduleBoard = {
   // HTML組み立て。ドラッグ&ドロップのハンドラは各呼び出し元(セル/カード)側で付与する
   renderCellContent(employee, dateISO, referenceHours) {
     const dayModeBadge = this.getDayModeBadge(employee.id, dateISO);
+    // 中抜けの時間帯・本人のメモ。休みの日もメモだけは出す(「終日通院」等の事情が分かるように)
+    const availabilityBadge = this.getAvailabilityBadge(employee.id, dateISO);
     if (referenceHours <= 0) {
-      return `${dayModeBadge}<div class="sb-cell-off">休み</div>`;
+      return `${dayModeBadge}${availabilityBadge}<div class="sb-cell-off">休み</div>`;
     }
 
     const dayAllocations = this.getAllocationsFor(employee.id, dateISO);
@@ -665,6 +699,7 @@ const scheduleBoard = {
 
     return `
       ${dayModeBadge}
+      ${availabilityBadge}
       ${isShort ? `<div class="sb-cell-warning" title="この日はまだ${this.roundHours(referenceHours - plannedTotal)}h ぶんの余裕があります(予定${this.roundHours(plannedTotal)}h / 勤務${this.roundHours(referenceHours)}h)。案件を追加で置けます">🕗 空きあり</div>` : ''}
       ${plannedTotal > referenceHours + 0.01 ? `<div class="sb-cell-warning sb-cell-overload" title="予定(${this.roundHours(plannedTotal)}h)が勤務時間(${this.roundHours(referenceHours)}h)を超えています。この日には入りきりません">🔥 入りきらない</div>` : ''}
       <div class="sb-cell-hours-label">${this.roundHours(plannedTotal)}h / ${this.roundHours(referenceHours)}h</div>
@@ -1654,6 +1689,7 @@ const scheduleBoard = {
     document.getElementById('ov-break-minutes').value = override?.break_minutes ?? 0;
     document.getElementById('ov-reserved-hours').value = override?.reserved_hours ?? 0;
     this.toggleOverrideTimeInputs(isDayOff);
+    this.renderDeclaredAvailability(override);
 
     document.getElementById('ov-delete-btn').style.display = override ? 'inline-block' : 'none';
 
@@ -1663,6 +1699,33 @@ const scheduleBoard = {
     this.updateOverrideSummary();
 
     document.getElementById('sb-override-modal').style.display = 'flex';
+  },
+
+  // 本人がマイスケジュールボードで申告した内容(中抜けの時間帯・ひとことメモ)を
+  // モーダル上部に閲覧専用で出す。この画面は出勤〜退勤の1本しか扱わないため、
+  // 中抜けのある日はここで保存し直すと内訳が消える。その注意も一緒に出しておく
+  renderDeclaredAvailability(override) {
+    const box = document.getElementById('ov-declared');
+    const body = document.getElementById('ov-declared-body');
+    if (!box || !body) return;
+
+    const segments = override ? this.parseWorkSegments(override.work_segments) : [];
+    const note = override && override.note ? override.note : '';
+    if (segments.length <= 1 && !note) {
+      box.style.display = 'none';
+      body.innerHTML = '';
+      return;
+    }
+
+    const parts = [];
+    if (segments.length > 1) {
+      parts.push(`<div>⏱ 稼働できる時間帯: <strong>${
+        segments.map(seg => `${this.escapeHtml(seg.start)}〜${this.escapeHtml(seg.end)}`).join(' / ')}</strong></div>`);
+      parts.push(`<div class="field-hint">この画面で保存すると、中抜けの内訳は出勤〜退勤＋休憩にまとめられます。</div>`);
+    }
+    if (note) parts.push(`<div>📝 ${this.escapeHtml(note)}</div>`);
+    body.innerHTML = parts.join('');
+    box.style.display = '';
   },
 
   // 「この日は休み」チェックボックスに応じて時刻・休憩の入力可否を切り替える

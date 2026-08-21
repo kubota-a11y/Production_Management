@@ -3231,16 +3231,20 @@ app.post('/api/schedule-overrides', (req, res) => {
     if (validationError) return res.status(400).json({ error: validationError });
 
     // 同一従業員×同一日はUPSERT(2026-07-27)。以前は2人が同時に同じ日を開くと重複行が
-    // 生まれ、空き時間計算がどちらの勤務時間を使うか不定になっていた
+    // 生まれ、空き時間計算がどちらの勤務時間を使うか不定になっていた。
+    // work_segments(マイスケジュールボードで申告された中抜けの内訳)はこの画面が
+    // 開始〜終了の1本しか扱わないため、社内側で保存し直したらクリアする —
+    // 残すと画面の入力値と内訳表示が食い違う。本人のメモ(note)は申し送りなので消さない
     db.prepare(`
-      INSERT INTO schedule_overrides (employee_id, work_date, start_time, end_time, break_minutes, is_day_off, reserved_hours)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO schedule_overrides (employee_id, work_date, start_time, end_time, break_minutes, is_day_off, reserved_hours, work_segments)
+      VALUES (?, ?, ?, ?, ?, ?, ?, NULL)
       ON CONFLICT(employee_id, work_date) DO UPDATE SET
         start_time = excluded.start_time,
         end_time = excluded.end_time,
         break_minutes = excluded.break_minutes,
         is_day_off = excluded.is_day_off,
-        reserved_hours = excluded.reserved_hours
+        reserved_hours = excluded.reserved_hours,
+        work_segments = NULL
     `).run(employeeId, work_date, start_time || null, end_time || null, break_minutes || 0, is_day_off ? 1 : 0, reserved_hours || 0);
     const row = db.prepare('SELECT id FROM schedule_overrides WHERE employee_id = ? AND work_date = ?').get(employeeId, work_date);
     res.status(201).json({ id: row.id, message: 'Schedule override created successfully' });
@@ -3256,8 +3260,9 @@ app.put('/api/schedule-overrides/:id', (req, res) => {
     const { start_time, end_time, break_minutes, is_day_off, reserved_hours } = req.body;
     const validationError = validateOverridePayload(req.body, { requireDate: false });
     if (validationError) return res.status(400).json({ error: validationError });
+    // POSTと同じ理由で、社内側から保存し直したら中抜けの内訳はクリアする(メモは残す)
     db.prepare(`
-      UPDATE schedule_overrides SET start_time=?, end_time=?, break_minutes=?, is_day_off=?, reserved_hours=? WHERE id=?
+      UPDATE schedule_overrides SET start_time=?, end_time=?, break_minutes=?, is_day_off=?, reserved_hours=?, work_segments=NULL WHERE id=?
     `).run(start_time || null, end_time || null, break_minutes || 0, is_day_off ? 1 : 0, reserved_hours || 0, req.params.id);
     res.json({ message: 'Schedule override updated successfully' });
   } catch (error) {

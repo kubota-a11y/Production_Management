@@ -217,9 +217,15 @@
     .day-cap .over { color: #dc2626; font-weight: 700; }
     .day-off-badge { font-size: .74rem; font-weight: 700; color: #64748b; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 999px; padding: 1px 10px; }
     .day-override-badge { font-size: .74rem; font-weight: 700; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 999px; padding: 1px 10px; }
-    /* その日の稼働時刻(申告した時間帯 / 未申告なら基本の勤務時間) */
+    /* その日の稼働時刻(申告した時間帯 / 未申告なら基本の勤務時間)。
+       中抜けのある日は時間帯の数だけ並ぶ */
     .day-time { font-size: .78rem; font-weight: 700; color: #334155; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 999px; padding: 1px 10px; white-space: nowrap; }
     .day-time.is-override { color: #b45309; background: #fffbeb; border-color: #fde68a; }
+    /* 中抜けの申告に添えたひとことメモ。日カードの見出しの下に1行で出す */
+    .day-note {
+      width: 100%; margin-top: 6px; font-size: .78rem; color: #92400e;
+      background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 5px 10px; word-break: break-word;
+    }
     .btn-availability {
       margin-left: auto; border: 1px solid #cbd5e1; background: #fff; border-radius: 8px;
       padding: 4px 10px; font-size: .76rem; cursor: pointer; color: #334155; white-space: nowrap;
@@ -251,12 +257,44 @@
     }
     .modal-actions button:hover { background: #f8fafc; }
     .modal-actions .danger { color: #991b1b; border-color: #fecaca; }
-    .hours-input-row { display: none; gap: 8px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
+    /* 稼働できる時間帯の入力。中抜けする日は行を増やして複数の時間帯を申告できる(2026-08-21) */
+    .hours-input-row { display: none; flex-direction: column; gap: 8px; margin-top: 4px; }
     .hours-input-row.active { display: flex; }
-    .hours-input-row input { width: 108px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; }
-    .hours-input-row .apply { background: #db2777; color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-weight: 700; cursor: pointer; }
+    .hours-input-row input[type="time"] { width: 112px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; font-family: inherit; }
+    .hours-input-row .apply { background: #db2777; color: #fff; border: none; border-radius: 8px; padding: 10px 16px; font-weight: 700; cursor: pointer; font-family: inherit; font-size: .9rem; text-align: center; }
+    .hours-input-row .apply:hover { background: #be185d; color: #fff; }
+    .seg-rows { display: flex; flex-direction: column; gap: 8px; }
+    /* 1本ぶんを枠で囲む。スマホ幅では削除ボタンが折り返すため、
+       枠が無いとどの時間帯の削除ボタンなのか分からなくなる */
+    .seg-row {
+      display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+      border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px; background: #fcfcfd;
+    }
+    .seg-row .seg-index { font-size: .76rem; font-weight: 700; color: #64748b; min-width: 40px; }
+    .seg-row .seg-remove {
+      margin-left: auto;
+      border: 1px solid #fecaca; background: #fff; color: #991b1b; border-radius: 8px;
+      padding: 6px 10px; font-size: .76rem; font-weight: 700; cursor: pointer; font-family: inherit; text-align: center;
+    }
+    .seg-row .seg-remove:hover { background: #fef2f2; color: #991b1b; }
+    .hours-input-row .seg-add {
+      border: 1px dashed #cbd5e1; background: #fff; color: #475569; border-radius: 8px;
+      padding: 8px 12px; font-size: .82rem; font-weight: 700; cursor: pointer; font-family: inherit; text-align: center;
+    }
+    .hours-input-row .seg-add:hover { background: #f8fafc; color: #0f172a; }
+    .hours-input-row .seg-add:disabled { opacity: .45; cursor: default; background: #fff; }
     /* 指定した時間帯が何時間になるかの目安。入力のたびに更新する */
     .hours-hint { width: 100%; margin: 2px 0 0; font-size: .78rem; color: #64748b; }
+
+    /* 稼働申告に添えるひとことメモ。「終日稼働できない」の申告にも付けられる */
+    .availability-note-block { margin-top: 16px; border-top: 1px solid #f1f5f9; padding-top: 14px; }
+    .availability-note-label { display: block; font-size: .82rem; font-weight: 700; color: #334155; margin-bottom: 6px; }
+    .availability-note {
+      width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 8px;
+      font-size: .9rem; font-family: inherit; resize: vertical; min-height: 58px; color: #0f172a;
+    }
+    .availability-note::placeholder { color: #94a3b8; }
+    .availability-note-hint { margin-top: 6px; font-size: .76rem; color: #64748b; line-height: 1.5; }
     .modal-close { margin-top: 14px; width: 100%; border: none; background: #f1f5f9; border-radius: 10px; padding: 9px; font-size: .85rem; cursor: pointer; color: #475569; }
 
     /* 持ち越し(2026-08-20)。予定日が来ているタスクを後ろへ動かしたときだけ出る確認。
@@ -410,14 +448,23 @@
       <div class="modal-actions">
         <button onclick="board.submitAvailability('off')">🚫 この日は稼働できない（終日）</button>
         <button onclick="board.showHoursInput()">⏱ 稼働できる時間帯を指定する</button>
+        <!-- 中抜けする日は「＋ 時間帯を追加」で行を増やし、午前・午後などを分けて申告する -->
         <div class="hours-input-row" id="hours-input-row">
-          <input type="time" id="start-input" step="900" value="09:00" oninput="board.updateHoursHint()">
-          <span>〜</span>
-          <input type="time" id="end-input" step="900" value="17:00" oninput="board.updateHoursHint()">
-          <button class="apply" onclick="board.submitAvailability('hours')">設定</button>
+          <div class="seg-rows" id="seg-rows"></div>
+          <button type="button" class="seg-add" id="seg-add-btn" onclick="board.addSegmentRow()">＋ 時間帯を追加（中抜けする場合）</button>
           <p class="hours-hint" id="hours-hint"></p>
+          <button type="button" class="apply" onclick="board.submitAvailability('hours')">この時間帯で設定する</button>
         </div>
         <button class="danger" onclick="board.submitAvailability('clear')">↩️ 通常の予定に戻す</button>
+      </div>
+      <!-- 稼働の変更に添えるひとことメモ。上のボタンを押したときに一緒に保存される -->
+      <div class="availability-note-block">
+        <label class="availability-note-label" for="availability-note">📝 ひとことメモ（任意）</label>
+        <textarea class="availability-note" id="availability-note" maxlength="200"
+                  placeholder="例）10時から通院のため中抜けします"></textarea>
+        <p class="availability-note-hint">
+          社内のスケジュールボードからも見えます。「通常の予定に戻す」を押すとメモも一緒に消えます。
+        </p>
       </div>
       <button class="modal-close" onclick="board.closeAvailabilityModal()">閉じる</button>
     </div>

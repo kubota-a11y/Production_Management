@@ -20,6 +20,8 @@ const board = {
   workNoteMax: 200,         // タスクのひとことメモの文字数上限
   noteItemId: null,         // メモ編集ウィンドウで開いているタスク
   pendingMove: null,        // 持ち越し確認ダイアログで承認待ちの移動
+  maxWorkSegments: 6,       // 1日に申告できる稼働時間帯の本数(サーバーから受け取る)
+  availabilityNoteMax: 200, // 稼働申告のひとことメモの文字数上限(同上)
 
   init() {
     const m = location.pathname.match(/^\/designer\/([^/]+)/);
@@ -68,6 +70,8 @@ const board = {
       this.carryoverNoteMax = data.carryover_note_max || 200;
       this.workStates = data.work_states || [];
       this.workNoteMax = data.work_note_max || 200;
+      this.maxWorkSegments = data.max_work_segments || 6;
+      this.availabilityNoteMax = data.availability_note_max || 200;
       this.designerName = data.designer_name;
       this.selectedItemId = null;
       this.selectedTodoText = null;
@@ -131,10 +135,13 @@ const board = {
         : `<span class="day-cap"><span class="${over ? 'over' : ''}">${this.round(planned)}h</span> / ${this.round(day.hours)}h</span>`;
       const overrideBadge = day.source === 'override' ? `<span class="day-override-badge">変更申告あり</span>` : '';
       // その日の稼働時刻。申告した時間帯(override)は色を変えて区別し、未申告の日は基本の勤務時間を出す。
+      // 中抜けする日は時間帯が複数あるので、申告された本数だけ並べる。
       // 稼働なしの日は時刻が無いので出さない
-      const timeHtml = (!day.is_day_off && day.start_time && day.end_time)
-        ? `<span class="day-time${day.source === 'override' ? ' is-override' : ''}">${day.start_time}〜${day.end_time}</span>`
-        : '';
+      const timeHtml = day.is_day_off ? '' : (day.segments || [])
+        .map(seg => `<span class="day-time${day.source === 'override' ? ' is-override' : ''}">${this.esc(seg.start)}〜${this.esc(seg.end)}</span>`)
+        .join('');
+      // 稼働申告に添えられたひとことメモ(中抜けの理由など)。稼働なしの日にも出す
+      const noteHtml = day.note ? `<div class="day-note">📝 ${this.esc(day.note)}</div>` : '';
       const dow = this.dowLabel(day.date);
       // 日別モード(この日の仕事の種類の意向)。選択中のボタンをもう一度押すと解除
       const modeButtons = `
@@ -156,6 +163,7 @@ const board = {
             ${timeHtml}
             ${overrideBadge}
             <button type="button" class="btn-availability" onclick="event.stopPropagation(); board.openAvailabilityModal('${day.date}')">⚙ 稼働変更</button>
+            ${noteHtml}
           </div>
           ${modeButtons}
           <div class="day-chips">
@@ -874,38 +882,110 @@ const board = {
   },
 
   // ===== 稼働申告 =====
+  // 1日の稼働時間は複数の時間帯で申告できる(2026-08-21 社長要望)。
+  // 「9:00〜12:00 と 14:00〜17:00」のように中抜けを挟む日をそのまま書けるようにするため。
+  // 入力中の値はDOMが持ち、行の増減のときだけ読み取って組み直す(再描画で入力中の値を失わないため)。
+  MAX_TIME: '23:59',
+
   openAvailabilityModal(dateISO) {
     this.availabilityDate = dateISO;
     document.getElementById('availability-modal-date').textContent = `${this.dowLabel(dateISO).text} ${this.fmtDate(dateISO)}`;
     document.getElementById('hours-input-row').classList.remove('active');
-    // すでに時間帯を申告している日は、その値を初期表示して直しやすくする
+
+    // すでに申告している日は、その内容を初期表示して直しやすくする
     const day = (this.days || []).find(d => d.date === dateISO);
-    document.getElementById('start-input').value = (day && day.start_time) || '09:00';
-    document.getElementById('end-input').value = (day && day.end_time) || '17:00';
-    this.updateHoursHint();
+    const segments = (day && day.segments && day.segments.length)
+      ? day.segments.map(seg => ({ start: seg.start, end: seg.end }))
+      : [{ start: '09:00', end: '17:00' }];
+    this.renderSegmentRows(segments);
+
+    const noteInput = document.getElementById('availability-note');
+    noteInput.maxLength = this.availabilityNoteMax;
+    noteInput.value = (day && day.note) || '';
+
     document.getElementById('availability-modal').classList.add('active');
   },
 
-  // 指定した時間帯が何時間になるかを表示する(終了が開始より前なら注意を出す)
-  updateHoursHint() {
-    const hint = document.getElementById('hours-hint');
-    const hours = this.rangeHours();
-    if (hours === null) {
-      hint.textContent = '終了時刻は開始時刻より後にしてください。';
-      hint.style.color = '#b91c1c';
-    } else {
-      hint.textContent = `この時間帯の稼働時間: ${hours}時間`;
-      hint.style.color = '#64748b';
-    }
+  // 時間帯の入力行を組み直す。行の追加・削除のときだけ呼ぶ
+  renderSegmentRows(segments) {
+    const container = document.getElementById('seg-rows');
+    container.innerHTML = segments.map((seg, idx) => `
+      <div class="seg-row">
+        <span class="seg-index">${idx + 1}本目</span>
+        <input type="time" class="seg-start" step="900" value="${this.esc(seg.start)}" oninput="board.updateHoursHint()">
+        <span>〜</span>
+        <input type="time" class="seg-end" step="900" value="${this.esc(seg.end)}" oninput="board.updateHoursHint()">
+        ${segments.length > 1 ? `<button type="button" class="seg-remove" onclick="board.removeSegmentRow(${idx})">✕ 削除</button>` : ''}
+      </div>
+    `).join('');
+    document.getElementById('seg-add-btn').disabled = segments.length >= this.maxWorkSegments;
+    this.updateHoursHint();
   },
 
-  // 入力中の開始〜終了から稼働時間を求める。不正な並びなら null
-  rangeHours() {
-    const toMin = v => { const [h, m] = String(v || '').split(':').map(Number); return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : NaN; };
-    const s = toMin(document.getElementById('start-input').value);
-    const e = toMin(document.getElementById('end-input').value);
-    if (Number.isNaN(s) || Number.isNaN(e) || e <= s) return null;
-    return Math.round(((e - s) / 60) * 100) / 100;
+  // 現在の入力欄の値をそのまま読み取る(未入力・不正な値もそのまま返し、判定は呼び出し側で行う)
+  collectSegmentRows() {
+    return [...document.querySelectorAll('#seg-rows .seg-row')].map(row => ({
+      start: row.querySelector('.seg-start').value,
+      end: row.querySelector('.seg-end').value,
+    }));
+  },
+
+  // 中抜け後の時間帯を足す。直前の終了の1時間後から3時間ぶんを初期値にする
+  addSegmentRow() {
+    const segments = this.collectSegmentRows();
+    if (segments.length >= this.maxWorkSegments) return;
+    const last = segments[segments.length - 1];
+    const lastEnd = this.toMinutes(last && last.end);
+    const maxMin = this.toMinutes(this.MAX_TIME);
+    let start = Number.isNaN(lastEnd) ? this.toMinutes('13:00') : lastEnd + 60;
+    if (start >= maxMin) start = maxMin - 60;
+    const end = Math.min(start + 180, maxMin);
+    segments.push({ start: this.fmtTime(start), end: this.fmtTime(end) });
+    this.renderSegmentRows(segments);
+  },
+
+  removeSegmentRow(index) {
+    const segments = this.collectSegmentRows();
+    if (segments.length <= 1) return;
+    segments.splice(index, 1);
+    this.renderSegmentRows(segments);
+  },
+
+  // 入力中の時間帯を検証する。エラー文字列 or 合計時間(数値)を返す。
+  // サーバー(lib/designer-board.js の normalizeSegments)と同じ規則で判定する
+  validateSegments(segments) {
+    if (!segments.length) return { error: '稼働できる時間帯を1つ以上入力してください' };
+    const parsed = [];
+    for (const seg of segments) {
+      const s = this.toMinutes(seg.start);
+      const e = this.toMinutes(seg.end);
+      if (Number.isNaN(s) || Number.isNaN(e)) return { error: '時刻を入力してください。' };
+      if (e <= s) return { error: '終了時刻は開始時刻より後にしてください。' };
+      parsed.push({ s, e });
+    }
+    parsed.sort((a, b) => a.s - b.s);
+    for (let i = 1; i < parsed.length; i++) {
+      if (parsed[i].s < parsed[i - 1].e) return { error: '時間帯が重なっています。中抜けの時間を空けてください。' };
+    }
+    const hours = parsed.reduce((sum, p) => sum + (p.e - p.s), 0) / 60;
+    if (hours > 14) return { error: '稼働時間の合計は14時間以内で入力してください。' };
+    return { hours: Math.round(hours * 100) / 100 };
+  },
+
+  // 入力中の時間帯が合計何時間になるかを表示する(不正な入力なら注意を出す)
+  updateHoursHint() {
+    const hint = document.getElementById('hours-hint');
+    if (!hint) return;
+    const segments = this.collectSegmentRows();
+    const result = this.validateSegments(segments);
+    if (result.error) {
+      hint.textContent = result.error;
+      hint.style.color = '#b91c1c';
+    } else {
+      const breakText = segments.length > 1 ? `（${segments.length}本の時間帯・中抜けは差し引き）` : '';
+      hint.textContent = `この日の稼働時間: 合計${result.hours}時間${breakText}`;
+      hint.style.color = '#64748b';
+    }
   },
 
   closeAvailabilityModal() {
@@ -915,16 +995,23 @@ const board = {
 
   showHoursInput() {
     document.getElementById('hours-input-row').classList.add('active');
-    document.getElementById('start-input').focus();
+    const first = document.querySelector('#seg-rows .seg-start');
+    if (first) first.focus();
   },
 
   async submitAvailability(mode) {
     if (!this.availabilityDate) return;
     const body = { work_date: this.availabilityDate, mode };
+    // メモは「稼働なし」の申告にも添えられる(例: 終日通院)。
+    // 「通常の予定に戻す」は申告そのものを取り消す操作なので送らない
+    if (mode !== 'clear') {
+      body.note = document.getElementById('availability-note').value.trim();
+    }
     if (mode === 'hours') {
-      if (this.rangeHours() === null) return this.toast('終了時刻は開始時刻より後にしてください');
-      body.start_time = document.getElementById('start-input').value;
-      body.end_time = document.getElementById('end-input').value;
+      const segments = this.collectSegmentRows();
+      const result = this.validateSegments(segments);
+      if (result.error) return this.toast(result.error);
+      body.segments = segments;
     }
     try {
       const res = await fetch(`/api/designer/${this.token}/availability`, {
@@ -968,6 +1055,17 @@ const board = {
 
   round(h) {
     return Math.round(h * 10) / 10;
+  },
+
+  // 'HH:MM' ⇔ 分。時刻が未入力・不正なら NaN を返す(呼び出し側で弾く)
+  toMinutes(hhmm) {
+    const [h, m] = String(hhmm || '').split(':').map(Number);
+    return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : NaN;
+  },
+
+  fmtTime(minutes) {
+    const m = Math.max(0, Math.min(minutes, 23 * 60 + 59));
+    return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
   },
 
   esc(text) {

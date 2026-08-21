@@ -245,6 +245,21 @@ function initDatabase(dbFile = dbPath) {
     db.prepare(`ALTER TABLE schedule_overrides ADD COLUMN reserved_hours REAL DEFAULT 0`).run();
   }
 
+  // 中抜けのある日の稼働時間帯の内訳(2026-08-21)。マイスケジュールボードで
+  // 「9:00〜12:00 と 14:00〜17:00」のように1日に複数の時間帯を申告できるようにした。
+  // JSON配列 [{"start":"09:00","end":"12:00"}, ...] を入れる。NULL/空 = 従来どおり1本
+  // (start_time〜end_time)。既存の空き時間計算を変えずに済むよう、start_time には最初の開始・
+  // end_time には最後の終了・break_minutes には中抜け合計分を入れて集約も同時に保存する
+  if (scheduleOverrideColumns.length > 0 && !scheduleOverrideColumns.includes('work_segments')) {
+    db.prepare(`ALTER TABLE schedule_overrides ADD COLUMN work_segments TEXT`).run();
+  }
+
+  // その日の稼働についてのひとことメモ(2026-08-21)。「10時から通院」等の事情を残す。
+  // 社内の週間スケジュールボードにも表示する
+  if (scheduleOverrideColumns.length > 0 && !scheduleOverrideColumns.includes('note')) {
+    db.prepare(`ALTER TABLE schedule_overrides ADD COLUMN note TEXT`).run();
+  }
+
   // 既存DBの employee_default_schedule に reserved_hours カラムがない場合は追加
   const employeeDefaultScheduleColumns = db.prepare(`PRAGMA table_info('employee_default_schedule')`).all().map(col => col.name);
   if (employeeDefaultScheduleColumns.length > 0 && !employeeDefaultScheduleColumns.includes('reserved_hours')) {

@@ -151,6 +151,14 @@
           </label>
         </div>
 
+        <!-- 本人がマイスケジュールボードで申告した中抜けの時間帯とメモ(閲覧のみ)。
+             申告がある日だけ出す。この画面は出勤〜退勤の1本しか扱わないため、
+             ここで保存し直すと中抜けの内訳は消える(その注意も添える) -->
+        <div class="form-group sb-override-declared" id="ov-declared" style="display:none;">
+          <div class="form-label">🎨 本人からの申告</div>
+          <div class="sb-override-declared-body" id="ov-declared-body"></div>
+        </div>
+
         <div class="form-row">
           <div class="form-group">
             <label for="ov-start-time">出勤時刻</label>
