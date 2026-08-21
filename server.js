@@ -485,6 +485,25 @@ app.get('/api/projects', (req, res) => {
   }
 });
 
+// 見積シミュレーターの「案件を検索して紐づける」用。顧客名・案件名・品名の部分一致で
+// 直近の案件を返す(最大20件)。★/:id より先に定義すること(後ろだと "quote-search" が :id に食われる)
+app.get('/api/projects/quote-search', (req, res) => {
+  try {
+    const q = String(req.query.q || '').trim();
+    if (!q) return res.json([]);
+    const like = `%${q}%`;
+    const rows = db.prepare(`
+      SELECT id, customer_name, project_name, item_name, status, deadline, quantity
+      FROM projects
+      WHERE customer_name LIKE ? OR project_name LIKE ? OR item_name LIKE ?
+      ORDER BY id DESC LIMIT 20
+    `).all(like, like, like);
+    res.json(rows);
+  } catch (error) {
+    sendServerError(res, req, error);
+  }
+});
+
 app.get('/api/projects/:id', (req, res) => {
   try {
     const project = db.prepare(`

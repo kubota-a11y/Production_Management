@@ -2894,3 +2894,17 @@ td.empty-notice {
 .qs-over100 { background: var(--warning-soft); border: 1px solid var(--warning-color);
   color: var(--warning-text); border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-4); margin-top: var(--space-2); font-size: var(--text-sm); }
+
+/* 見積シミュレーター: サイズ・色別の内訳とKRATVSサイズ帯別枚数(2026-08-21 追加) */
+.qs-bd-row { display: flex; flex-wrap: wrap; gap: var(--space-1); align-items: center;
+  border: 1px solid var(--border-color); border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2); margin-bottom: var(--space-1); }
+.qs-bd-row select { max-width: 46%; }
+.qs-bd-row input[type="text"] { width: 90px; }
+.qs-bd-row input[type="number"] { width: 72px; }
+.qs-kband { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.qs-kband input { width: 90px; }
+.qs-unit-lines { display: flex; flex-direction: column; gap: 2px; text-align: right; }
+.qs-unit-line { font-size: var(--text-sm); }
+#case-search-select { width: 100%; padding: var(--space-1); border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm); font-size: var(--text-sm); }

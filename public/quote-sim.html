@@ -48,7 +48,15 @@
                 <datalist id="body-list"></datalist>
               </label>
               <label>リストに無い場合の税込単価 <input type="number" id="body-manual" min="0" placeholder="持込・その他のとき"></label>
-              <label>枚数 <input type="number" id="qty" min="1" value="15"></label>
+              <label>枚数(総数) <input type="number" id="qty" min="1" value="15"></label>
+              <p class="qs-note" id="qty-note" hidden>内訳を入力中は総数を自動集計しています(内訳行をすべて消すと手入力に戻ります)。</p>
+            </div>
+
+            <div class="qs-block">
+              <div class="form-label">サイズ・色別の内訳(任意)</div>
+              <div id="breakdown"></div>
+              <button type="button" class="btn btn-secondary btn-small" id="btn-add-bd">＋ 内訳行を追加</button>
+              <p class="qs-note">内訳を入れると、ボディ単価がサイズ帯・色区分で自動で変わり、freeeの明細もサイズ・色ごとに分かれます。枚数帯・ミニマム手数料の判定は総数のままです。</p>
             </div>
 
             <div class="qs-block">
@@ -72,8 +80,8 @@
           <div id="panel-kratvs" hidden>
             <div class="qs-block">
               <label>アイテム <select id="k-item"></select></label>
-              <label>サイズ帯 <select id="k-size"></select></label>
-              <label>枚数 <input type="number" id="k-qty" min="1" value="15"></label>
+              <div class="form-label">サイズ帯ごとの枚数(単価が帯で変わります)</div>
+              <div id="k-bands"></div>
             </div>
             <div class="qs-block">
               <div class="form-label">オプションプリント(セット割は自動適用)</div>
@@ -91,6 +99,13 @@
                 <option value="none">工場受け取り(無料)</option>
                 <option value="s80">80サイズ(税込1,100円)</option>
                 <option value="s100">100サイズ(税込1,320円)</option>
+              </select>
+            </label>
+            <label>袋入れ(1枚あたり・割引対象外)
+              <select id="bagging">
+                <option value="none">なし</option>
+                <option value="tee">Tシャツ(税込44円/枚)</option>
+                <option value="sweat">スウェット(税込66円/枚)</option>
               </select>
             </label>
           </div>
@@ -121,6 +136,18 @@
           <!-- 発行後にfreeeの見積書へのリンクを残す。ポップアップが開けなかった
                ときや、案件と紐づけずに使ったときの受け皿 -->
           <p class="qs-issued" id="freee-issued" hidden></p>
+
+          <!-- 案件と紐づいていないときだけ出る「あとから紐づける」ブロック -->
+          <div id="case-link" class="qs-case-actions">
+            <div class="form-label">案件と紐づける(任意)</div>
+            <div class="qs-partner-search">
+              <input type="text" id="case-search" placeholder="顧客名・案件名・品名で検索">
+              <button type="button" class="btn btn-secondary btn-small" id="case-search-btn">🔍 検索</button>
+            </div>
+            <select id="case-search-select" size="5" hidden></select>
+            <button type="button" class="btn btn-secondary btn-small" id="btn-link-case" hidden>📌 この案件と紐づける</button>
+            <p class="qs-note" id="case-search-note">紐づけておくと、freeeで発行した見積書URLと概算がその案件へ自動で保存されます。</p>
+          </div>
 
           <!-- 案件と紐づいているときだけ出る連携ブロック -->
           <div id="case-actions" class="qs-case-actions" hidden>
