@@ -69,30 +69,33 @@
     rows.push({
       id: ++rowSeq, method: 'auto', size: 'A4', colors: 1, markKey: 'num_l',
       embPlaces: '1〜2箇所', embTime: '〜15分', embSize: 0, patch: false, surcharges: new Set(),
+      targets: null, // null = すべてのボディに載せる
     });
   }
 
   /* ---------- 1行ぶんの単価計算(税抜) ----------
      返り値 {label, unit, initial, initialLabel, note} */
-  function calcRow(row, qty, opt) {
+  /* qty     … 枚数帯(10枚〜/30枚〜/50枚〜)の判定に使う枚数。その加工を刷る総枚数
+     minQty  … ミニマム手数料の判定に使う枚数。料金表の文言どおり「同一型番」= ボディ品番ごと */
+  function calcRow(row, qty, minQty, opt) {
     const tbl = activeTables();
     // 持込料は八木繊維様は「サービス」なのでチェックが残っていても掛けない
     const sur = [...row.surcharges]
       .filter((k) => !(tbl.bringFree && k === 'bring'))
       .reduce((m, k) => m * surRate(k), 1);
-    const minFee = (tbl.minFeeApplies && qty < 10) ? window.QS_COMMON.minFeeRate : 1;
+    const minFee = (tbl.minFeeApplies && minQty < 10) ? window.QS_COMMON.minFeeRate : 1;
     const expr = opt.express ? 1.5 : 1;
     const mul = (u) => Math.round(u * sur * minFee * expr);
 
     if (row.method === 'marking') {
       const m = window.QS_MARKING.find((x) => x.key === row.markKey);
-      return { label: `マーキング ${m.name}(${m.size})`, unit: mul(m.p), initial: 0, note: window.QS_MARKING_NOTE };
+      return { label: `マーキング ${m.name}(${m.size})`, short: 'マーキング', unit: mul(m.p), initial: 0, note: window.QS_MARKING_NOTE };
     }
     if (row.method === 'nameEmb') {
-      return { label: 'ネーム刺繍(1.5×8cm以内)', unit: mul(window.QS_EMB.nameOnly), initial: 0, note: '' };
+      return { label: 'ネーム刺繍(1.5×8cm以内)', short: 'ネーム刺繍', unit: mul(window.QS_EMB.nameOnly), initial: 0, note: '' };
     }
     if (row.method === 'dtfName') {
-      return { label: 'DTFネームプリント', unit: mul(window.QS_COMMON.dtfName), initial: 0, note: '登録業者様向けの単価です' };
+      return { label: 'DTFネームプリント', short: 'DTFネーム', unit: mul(window.QS_COMMON.dtfName), initial: 0, note: '登録業者様向けの単価です' };
     }
     if (row.method === 'emb' || row.method === 'cap') {
       const isCap = row.method === 'cap';
@@ -106,15 +109,16 @@
       const patchFee = row.patch ? window.QS_EMB.patch : 0;
       return {
         label: `${isCap ? '帽子刺繍' : '刺繍'} ${row.embPlaces}・${row.embTime}・${sizeName}${row.patch ? '・ワッペン用資材一式' : ''}`,
+        short: isCap ? '帽子刺繍' : '刺繍',
         unit: mul(base) + patchFee, initial: punch, initialLabel: 'パンチング代(初回のみ)',
         note: '加工時間は刺繍データ完成後に確定(この金額は概算)',
       };
     }
     if (row.method === 'rubber') {
       const table = tbl.rubber[row.size];
-      if (!table) return { label: 'ラバー転写', unit: 0, initial: 0, note: 'B8はラバー転写の設定なし' };
+      if (!table) return { label: 'ラバー転写', short: 'ラバー転写', unit: 0, initial: 0, note: 'B8はラバー転写の設定なし' };
       const u = table[tierOf(table, qty)];
-      return { label: `ラバー転写 ${row.size}`, unit: mul(u), initial: 0, note: '' };
+      return { label: `ラバー転写 ${row.size}`, short: 'ラバー転写', unit: mul(u), initial: 0, note: '' };
     }
 
     // シルク/DTF/自動
@@ -125,9 +129,9 @@
     const plateOne = tbl.silk.plate[SMALL_PLATE.has(row.size) ? 'small' : 'large'];
     const silkPlate = plateOne * row.colors;
 
-    const dtf = { label: `DTFプリント ${row.size}(フルカラー可)`, unit: mul(dtfUnit), initial: 0, note: '' };
+    const dtf = { label: `DTFプリント ${row.size}(フルカラー可)`, short: 'DTF', unit: mul(dtfUnit), initial: 0, note: '' };
     const silk = silkUnit === null ? null : {
-      label: `シルク ${row.size}・${row.colors}色`, unit: mul(silkUnit),
+      label: `シルク ${row.size}・${row.colors}色`, short: `シルク${row.colors}色`, unit: mul(silkUnit),
       initial: silkPlate, initialLabel: `製版代 ${row.colors}版(初回のみ)`, note: '版の保管期間1年',
     };
 
@@ -140,32 +144,52 @@
     return { ...dtf, note: silk ? 'この枚数・大きさではDTFのほうがお得' : 'シルク設定が無いためDTFで計算' };
   }
 
-  /* ---------- サイズ・色別の内訳 ----------
-     ボディ単価はサイズ帯・色区分で変わる(QS_BODY_SIZES)。内訳行を入れると
-     枚数は自動集計になり、転記シート・freeeの明細も行ごとに分かれる。
-     ★枚数帯・ミニマム手数料の判定は「同一型番の総数」のまま(従来ルール) */
-  let bdSeq = 0;
-  const breakdown = []; // {id, variant(色区分idx), band(サイズ帯idx), sizeText, color(自由記述), qty}
+  /* ---------- ボディ(複数)とサイズ・色別の内訳 ----------
+     1案件でボディが複数になることが多い(Tシャツ＋パーカー等)ため、ボディは配列で持つ。
+     ボディごとに品番・枚数・サイズ色の内訳を持ち、加工行は「どのボディに載せるか」を選ぶ。
 
-  function currentSku() {
-    const v = el('body-input').value.trim();
-    const hit = window.QS_BODIES.find((b) => v.startsWith(b.sku) || v === `${b.sku} ${b.name}`);
+     ★枚数帯(10枚〜/30枚〜/50枚〜)は **その加工を刷る総枚数** で判定する
+       (同じ版で刷るので、ボディが分かれても刷り数は合算されるという考え方)
+     ★ミニマム手数料は料金表の文言どおり **「同一型番10枚未満」= ボディ品番ごと** に判定する
+     どちらもボディが1つのときは従来と同じ結果になる(回帰なし) */
+  let bodySeq = 0, bdSeq = 0;
+  const bodies = []; // {id, input, manual, qty, breakdown:[{id, variant, band, sizeText, color, qty}]}
+
+  function newBody(preset) {
+    bodies.push({ id: ++bodySeq, input: '', manual: '', qty: 15, breakdown: [], ...(preset || {}) });
+    return bodies[bodies.length - 1];
+  }
+
+  /** 入力値 → ボディの情報 {name, unit(税抜), quoteOnly} */
+  function bodyInfo(b) {
+    const v = String(b.input || '').trim();
+    const hit = window.QS_BODIES.find((x) => v.startsWith(x.sku) || v === `${x.sku} ${x.name}`);
+    if (hit) return { name: `${hit.name}(${hit.sku})`, short: hit.sku, cat: hit.cat, unit: hit.body, quoteOnly: hit.quote };
+    const manual = parseInt(b.manual, 10);
+    if (v && manual > 0) return { name: v, short: v, unit: Math.round(manual / (1 + TAX / 100)), manual: true };
+    return { name: '(ボディなし・加工のみ)', short: '加工のみ', unit: 0, none: true };
+  }
+
+  function bodySku(b) {
+    const v = String(b.input || '').trim();
+    const hit = window.QS_BODIES.find((x) => v.startsWith(x.sku) || v === `${x.sku} ${x.name}`);
     return hit ? hit.sku : null;
   }
-  function bodySizeData() {
-    const sku = currentSku();
+  function bodySizeData(b) {
+    const sku = bodySku(b);
     return sku ? (window.QS_BODY_SIZES[sku] || null) : null;
   }
 
-  /** 内訳行 → 計算グループ {label, qty, bodyUnit(税抜)}。内訳なしなら総数1グループ */
-  function currentGroups(body) {
-    const data = bodySizeData();
-    const list = breakdown.filter((r) => r.qty > 0);
+  /** 1つのボディ → 計算グループ [{label, qty, bodyUnit(税抜)}]。内訳が無ければ枚数の1グループ */
+  function bodyGroups(b) {
+    const data = bodySizeData(b);
+    const info = bodyInfo(b);
+    const list = b.breakdown.filter((r) => r.qty > 0);
     if (!list.length) {
-      return [{ label: '', qty: Math.max(1, parseInt(el('qty').value, 10) || 1), bodyUnit: body.unit }];
+      return [{ label: '', qty: Math.max(1, parseInt(b.qty, 10) || 1), bodyUnit: info.unit }];
     }
     return list.map((r) => {
-      let unit = body.unit;
+      let unit = info.unit;
       let label = '';
       if (data) {
         const variant = data.v[Math.min(r.variant, data.v.length - 1)];
@@ -180,39 +204,74 @@
     });
   }
 
+  /** 加工行がそのボディに載るか。targets が無い行は全ボディ共通(既定) */
+  function rowAppliesTo(row, bodyId) {
+    return !row.targets || row.targets.has(bodyId);
+  }
+
   /* ---------- 通常加工モードの合計 ---------- */
   function calcNormal() {
     const opt = { express: el('opt-express').checked };
-    const body = currentBody(); // {name, unit(税抜), quoteOnly}
-    const groups = currentGroups(body);
-    const qty = groups.reduce((s, g) => s + g.qty, 0);
-    const lines = rows.map((r) => calcRow(r, qty, opt));
 
-    // サイトのsimulate.jsと同じく「箇所ごとに税込へ切り上げ→合算」で1枚単価を作る
-    // (税抜合算→税込だと内訳の見た目と1円ずれることがある)
-    const printUnitTax = lines.reduce((s, l) => s + taxIn(l.unit), 0);
-    const printUnitRaw = lines.reduce((s, l) => s + l.unit, 0);
+    // ボディごとに枚数とグループを出す
+    const bodyCalcs = bodies.map((b) => {
+      const info = bodyInfo(b);
+      const groups = bodyGroups(b);
+      return { b, info, groups, qty: groups.reduce((s, g) => s + g.qty, 0) };
+    });
+    const qty = bodyCalcs.reduce((s, bc) => s + bc.qty, 0);
+
+    // 加工行ごと: 枚数帯は対象ボディの合計枚数、ミニマムはボディごとに判定するので
+    // 同じ行でもボディによって単価が変わりうる(byBody に持つ)。
+    // 製版代・パンチング代(initial)は版の数ぶんなので、行につき1回だけ数える
+    const lines = rows.map((r) => {
+      const targets = bodyCalcs.filter((bc) => rowAppliesTo(r, bc.b.id));
+      const tierQty = targets.reduce((s, bc) => s + bc.qty, 0) || qty || 1;
+      const byBody = new Map();
+      targets.forEach((bc) => byBody.set(bc.b.id, calcRow(r, tierQty, bc.qty, opt)));
+      // 表(内訳表示)に出す代表値は、ミニマムのかからない側=単価が安いほう
+      const rep = byBody.size
+        ? [...byBody.values()].reduce((a, x) => (x.unit < a.unit ? x : a))
+        : calcRow(r, tierQty, tierQty, opt);
+      const varies = byBody.size > 1 && new Set([...byBody.values()].map((x) => x.unit)).size > 1;
+      return {
+        ...rep, byBody, varies,
+        targetIds: targets.map((t) => t.b.id),
+        targetNames: targets.map((t) => t.info.short),
+      };
+    });
     const initial = lines.reduce((s, l) => s + l.initial, 0);  // 税抜・初回
 
     // 割引。八木繊維様は卸価格自体が特別価格のため割引は適用しない
     const d = isYagi() ? { key: 'none', rate: 0, name: '割引なし' } : currentDiscount();
     let discountNote = '';
-    groups.forEach((g) => {
-      g.unitBefore = taxIn(g.bodyUnit) + printUnitTax;
-      if (d.key === 'staff') {
-        g.cost = Math.round(g.bodyUnit * 0.55); // 推定仕入値(税抜)
-        g.unitAfter = taxIn(g.cost) + taxIn(Math.round(printUnitRaw * 0.5));
-      } else if (d.rate > 0) {
-        g.unitAfter = Math.ceil(g.unitBefore * (100 - d.rate) / 100);
-      } else {
-        g.unitAfter = g.unitBefore;
-      }
-    });
     if (d.key === 'staff') {
       discountNote = '社員特価: ボディ推定仕入値(表示価格×0.55・要実額確認)+加工賃50%OFF';
     } else if (d.rate > 0) {
       discountNote = `${d.name} ${d.rate}%OFF(1枚単価に適用・初期費用は対象外)`;
     }
+
+    // ボディごとに「そのボディに載る加工」の1枚あたり加工賃を出して単価を作る。
+    // サイトのsimulate.jsと同じく「箇所ごとに税込へ切り上げ→合算」(内訳の見た目と合わせるため)
+    const groups = [];
+    bodyCalcs.forEach((bc) => {
+      const mine = lines.filter((l) => l.targetIds.includes(bc.b.id));
+      const printUnitTax = mine.reduce((s, l) => s + taxIn(l.byBody.get(bc.b.id).unit), 0);
+      const printUnitRaw = mine.reduce((s, l) => s + l.byBody.get(bc.b.id).unit, 0);
+      const parts = mine.map((l) => l.byBody.get(bc.b.id).label);
+      bc.groups.forEach((g) => {
+        g.unitBefore = taxIn(g.bodyUnit) + printUnitTax;
+        if (d.key === 'staff') {
+          g.cost = Math.round(g.bodyUnit * 0.55); // 推定仕入値(税抜)
+          g.unitAfter = taxIn(g.cost) + taxIn(Math.round(printUnitRaw * 0.5));
+        } else if (d.rate > 0) {
+          g.unitAfter = Math.ceil(g.unitBefore * (100 - d.rate) / 100);
+        } else {
+          g.unitAfter = g.unitBefore;
+        }
+        groups.push({ ...g, parts, bodyId: bc.b.id, bodyName: bc.info.name, bodyShort: bc.info.short });
+      });
+    });
 
     const bag = baggingUnit(); // 袋入れは割引対象外の実費(1枚あたり・税込)
     const shipping = shippingCost();
@@ -220,7 +279,9 @@
     const total = goods + (bag ? bag.unitTax * qty : 0) + taxIn(initial) + shipping;
 
     return {
-      mode: isYagi() ? 'yagi' : 'normal', qty, body, lines, opt, groups,
+      mode: isYagi() ? 'yagi' : 'normal', qty, lines, opt, groups, bodyCalcs,
+      multiBody: bodyCalcs.length > 1,
+      quoteOnlyNames: bodyCalcs.filter((bc) => bc.info.quoteOnly).map((bc) => bc.info.name),
       unitBefore: groups[0].unitBefore, unitAfter: groups[0].unitAfter,
       discount: d, discountNote, bag,
       initialTax: taxIn(initial), shipping, total,
@@ -294,15 +355,6 @@
   /* ---------- 画面部品 ---------- */
   const el = (id) => document.getElementById(id);
 
-  function currentBody() {
-    const v = el('body-input').value.trim();
-    const hit = window.QS_BODIES.find((b) => v.startsWith(b.sku) || v === `${b.sku} ${b.name}`);
-    if (hit) return { name: `${hit.name}(${hit.sku})`, unit: hit.body, quoteOnly: hit.quote };
-    const manual = parseInt(el('body-manual').value, 10);
-    if (v && manual > 0) return { name: v, unit: Math.round(manual / (1 + TAX / 100)), manual: true };
-    return { name: '(ボディなし・加工のみ)', unit: 0, none: true };
-  }
-
   function currentDiscount(prefix) {
     const key = document.querySelector(`input[name="${prefix === 'k' ? 'k-discount' : 'discount'}"]:checked`).value;
     const d = window.QS_DISCOUNTS.find((x) => x.key === key);
@@ -328,25 +380,86 @@
     return null;
   }
 
-  /* ---------- サイズ・色別の内訳のUI ---------- */
-  function addBreakdownRow(preset) {
-    const data = bodySizeData();
-    breakdown.push({
+  /* ---------- ボディと内訳のUI ----------
+     ★入力のたびに全体を作り直すとフォーカスが飛ぶので、文字入力は再描画せずに
+       recalc だけ行い、選択肢が変わる操作(品番の変更・色区分の変更)のときだけ
+       そのボディの内訳を描き直す */
+  const escAttr = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+
+  function addBreakdownRow(b) {
+    const data = bodySizeData(b);
+    b.breakdown.push({
       id: ++bdSeq,
       variant: data ? data.base[0] : 0,
       band: data ? data.base[1] : 0,
       sizeText: '', color: '', qty: 0,
-      ...(preset || {}),
     });
   }
 
-  const escAttr = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-
-  function renderBreakdown() {
-    const wrap = el('breakdown');
-    const data = bodySizeData();
+  function renderBodies() {
+    const wrap = el('bodies');
     wrap.innerHTML = '';
-    breakdown.forEach((r) => {
+    bodies.forEach((b, i) => {
+      const div = document.createElement('div');
+      div.className = 'qs-body-block';
+      div.innerHTML = `
+        <div class="qs-row-head">
+          <span class="qs-row-no">ボディ ${i + 1}</span>
+          ${bodies.length > 1 ? `<button type="button" class="btn-icon-remove" data-body-del="${b.id}" aria-label="このボディを削除">✕</button>` : ''}
+        </div>
+        <label>品番か名前で検索
+          <input type="text" data-bo="input" list="body-list" value="${escAttr(b.input)}" placeholder="例: 5982-01">
+        </label>
+        <label>リストに無い場合の税込単価
+          <input type="number" data-bo="manual" min="0" value="${escAttr(b.manual)}" placeholder="持込・その他のとき">
+        </label>
+        <label>枚数 <input type="number" data-bo="qty" min="1" value="${escAttr(b.qty)}"></label>
+        <p class="qs-note" data-qty-note hidden>内訳を入力中は枚数を自動集計しています(内訳行をすべて消すと手入力に戻ります)。</p>
+        <div class="form-label">サイズ・色別の内訳(任意)</div>
+        <div class="qs-bd-wrap" data-bd-wrap></div>
+        <button type="button" class="btn btn-secondary btn-small" data-bd-add="${b.id}">＋ 内訳行を追加</button>`;
+      wrap.appendChild(div);
+
+      div.querySelectorAll('[data-bo]').forEach((input) => {
+        const f = input.dataset.bo;
+        input.oninput = () => {
+          const before = bodySku(b);
+          b[f] = input.value;
+          if (f === 'input' && bodySku(b) !== before) {
+            // 品番が変わるとサイズ帯・色区分の選択肢が変わるので、そのボディの内訳を描き直す
+            renderBreakdown(b, div);
+            // 加工行の「対象ボディ」に出る品番の表示も古くなるので直す
+            // (描き直すのは #rows だけなので、入力中のこの欄からフォーカスは外れない)
+            if (bodies.length > 1) renderRows();
+          }
+          recalc();
+        };
+      });
+      div.querySelector('[data-bd-add]').onclick = () => {
+        addBreakdownRow(b); renderBreakdown(b, div); recalc();
+      };
+      const del = div.querySelector('[data-body-del]');
+      if (del) del.onclick = () => {
+        const idx = bodies.findIndex((x) => x.id === b.id);
+        if (idx >= 0) bodies.splice(idx, 1);
+        // 消したボディを対象にしていた加工行の指定を掃除する(空になったら全ボディ扱いへ戻す)
+        rows.forEach((r) => {
+          if (!r.targets) return;
+          r.targets.delete(b.id);
+          if (!r.targets.size || r.targets.size === bodies.length) r.targets = null;
+        });
+        renderBodies(); renderRows(); recalc();
+      };
+      renderBreakdown(b, div);
+    });
+  }
+
+  /** 1つのボディの内訳行を描く(block はそのボディのブロック要素) */
+  function renderBreakdown(b, block) {
+    const wrap = block.querySelector('[data-bd-wrap]');
+    const data = bodySizeData(b);
+    wrap.innerHTML = '';
+    b.breakdown.forEach((r) => {
       const div = document.createElement('div');
       div.className = 'qs-bd-row';
       let selects = '';
@@ -358,8 +471,8 @@
             `<option value="${i}"${i === vi ? ' selected' : ''}>${v.l}</option>`).join('')}</select>`;
         }
         const bi = Math.min(r.band, variant.b.length - 1);
-        selects += `<select data-bf="band" aria-label="サイズ帯">${variant.b.map((b, i) =>
-          `<option value="${i}"${i === bi ? ' selected' : ''}>${b[0]}(税込${taxIn(b[1]).toLocaleString()}円)</option>`).join('')}</select>`;
+        selects += `<select data-bf="band" aria-label="サイズ帯">${variant.b.map((bd, i) =>
+          `<option value="${i}"${i === bi ? ' selected' : ''}>${bd[0]}(税込${taxIn(bd[1]).toLocaleString()}円)</option>`).join('')}</select>`;
       } else {
         selects += `<input type="text" data-bf="sizeText" value="${escAttr(r.sizeText)}" placeholder="サイズ(例: L)" aria-label="サイズ">`;
       }
@@ -372,30 +485,33 @@
       div.querySelectorAll('[data-bf]').forEach((input) => {
         const f = input.dataset.bf;
         input.onchange = () => {
-          if (f === 'qty') { r.qty = Math.max(0, parseInt(input.value, 10) || 0); syncQtyInput(); }
+          if (f === 'qty') { r.qty = Math.max(0, parseInt(input.value, 10) || 0); syncQtyInput(b, block); }
           else if (f === 'variant' || f === 'band') {
             r[f] = +input.value;
-            if (f === 'variant') { r.band = 0; renderBreakdown(); }
+            if (f === 'variant') { r.band = 0; renderBreakdown(b, block); }
           } else r[f] = input.value.trim();
           recalc();
         };
       });
       div.querySelector('[data-bd-del]').onclick = () => {
-        const idx = breakdown.findIndex((x) => x.id === r.id);
-        if (idx >= 0) breakdown.splice(idx, 1);
-        renderBreakdown(); recalc();
+        const idx = b.breakdown.findIndex((x) => x.id === r.id);
+        if (idx >= 0) b.breakdown.splice(idx, 1);
+        renderBreakdown(b, block); recalc();
       };
     });
-    syncQtyInput();
+    syncQtyInput(b, block);
   }
 
-  /** 内訳が入っている間は総数入力を自動集計(読み取り専用)にする */
-  function syncQtyInput() {
-    const sum = breakdown.reduce((s, r) => s + r.qty, 0);
-    const active = breakdown.length > 0;
-    el('qty').readOnly = active;
-    if (active) el('qty').value = sum;
-    el('qty-note').hidden = !active;
+  /** 内訳が入っている間は、そのボディの枚数入力を自動集計(読み取り専用)にする */
+  function syncQtyInput(b, block) {
+    const active = b.breakdown.length > 0;
+    const input = block.querySelector('[data-bo="qty"]');
+    input.readOnly = active;
+    if (active) {
+      b.qty = b.breakdown.reduce((s, r) => s + r.qty, 0);
+      input.value = b.qty;
+    }
+    block.querySelector('[data-qty-note]').hidden = !active;
   }
 
   /* ---------- 加工行のUI ---------- */
@@ -491,7 +607,25 @@
         <label class="qs-check"><input type="checkbox" data-sur="${k}"${row.surcharges.has(k) ? ' checked' : ''}>
         ${window.QS_SURCHARGE[k].name}(${Math.round((surRate(k) - 1) * 100)}%増)</label>`).join('')}</div>`;
     }
+    // 対象ボディ(ボディが2つ以上のときだけ出す)。既定はすべてのボディに載せる
+    if (bodies.length > 1) {
+      html += `<div class="qs-targets"><span class="form-label">この加工を載せるボディ</span>${bodies.map((b, i) => `
+        <label class="qs-check"><input type="checkbox" data-target="${b.id}"${rowAppliesTo(row, b.id) ? ' checked' : ''}>
+        ${i + 1}. ${bodyInfo(b).short}</label>`).join('')}</div>`;
+    }
     box.innerHTML = html;
+    box.querySelectorAll('[data-target]').forEach((cb) => {
+      cb.onchange = () => {
+        const ids = [...box.querySelectorAll('[data-target]')].filter((x) => x.checked).map((x) => +x.dataset.target);
+        if (!ids.length) {
+          cb.checked = true;
+          HiUI.toast('この加工を載せるボディを1つ以上選んでください');
+          return;
+        }
+        row.targets = ids.length === bodies.length ? null : new Set(ids);
+        recalc();
+      };
+    });
     box.querySelectorAll('[data-f]').forEach((input) => {
       input.onchange = () => {
         const f = input.dataset.f;
@@ -522,6 +656,7 @@
     const r = mode === 'kratvs' ? calcKratvs() : calcNormal();
     lastResult = r;
     renderResult(r);
+    syncSubject(r);
     // 割引の有無で承認欄の出し入れが変わる。転記シートもここで作り直す
     syncApproval();
   }
@@ -532,18 +667,20 @@
       box.innerHTML = `<p class="empty-notice">サイズ帯ごとの枚数を入力してください。</p>`;
       return;
     }
-    if (r.mode !== 'kratvs' && r.body.quoteOnly) {
-      box.innerHTML = `<p class="empty-notice">このボディ(中綿・ナイロン等)は概算対象外です。個別見積りにしてください。</p>`;
+    if (r.mode !== 'kratvs' && r.quoteOnlyNames.length) {
+      box.innerHTML = `<p class="empty-notice">${r.quoteOnlyNames.join('・')}は概算対象外(中綿・ナイロン等)です。個別見積りにしてください。</p>`;
       return;
     }
     const multi = r.groups.length > 1;
     let rowsHtml = '';
     if (r.mode !== 'kratvs') {
       r.groups.forEach((g) => {
-        rowsHtml += `<tr><td>ボディ ${r.body.name}${g.label ? `【${g.label}】` : ''}${multi ? ` × ${g.qty}枚` : ''}</td><td class="qs-num">${yen(taxIn(g.bodyUnit))}</td></tr>`;
+        rowsHtml += `<tr><td>ボディ ${g.bodyName}${g.label ? `【${g.label}】` : ''}${multi ? ` × ${g.qty}枚` : ''}</td><td class="qs-num">${yen(taxIn(g.bodyUnit))}</td></tr>`;
       });
       r.lines.forEach((l) => {
-        rowsHtml += `<tr><td>${l.label}${l.note ? `<div class="qs-note">${l.note}</div>` : ''}</td><td class="qs-num">${yen(taxIn(l.unit))}</td></tr>`;
+        // 複数ボディのときは、その加工がどのボディに載るかを添える
+        const target = r.multiBody ? `<div class="qs-note">対象: ${l.targetNames.join('・') || 'なし'}${l.varies ? '(10枚未満のボディはミニマム手数料で単価が上がります)' : ''}</div>` : '';
+        rowsHtml += `<tr><td>${l.label}${l.note ? `<div class="qs-note">${l.note}</div>` : ''}${target}</td><td class="qs-num">${yen(taxIn(l.unit))}</td></tr>`;
         if (l.initial) rowsHtml += `<tr class="qs-initial"><td>└ ${l.initialLabel}</td><td class="qs-num">${yen(taxIn(l.initial))}</td></tr>`;
       });
     } else {
@@ -560,7 +697,7 @@
     // 1枚あたり。内訳があるときはグループごとに並べる
     const unitHtml = multi
       ? `<div><span>1枚あたり(割引後)</span><span class="qs-unit-lines">${r.groups.map((g) =>
-          `<span class="qs-unit-line">${g.label || '標準'} × ${g.qty}枚: <b>${yen(g.unitAfter)}</b>${g.unitAfter !== g.unitBefore ? `<s>${yen(g.unitBefore)}</s>` : ''}</span>`).join('')}</span></div>`
+          `<span class="qs-unit-line">${r.multiBody ? `${g.bodyShort}${g.label ? `・${g.label}` : ''}` : (g.label || '標準')} × ${g.qty}枚: <b>${yen(g.unitAfter)}</b>${g.unitAfter !== g.unitBefore ? `<s>${yen(g.unitBefore)}</s>` : ''}</span>`).join('')}</span></div>`
       : `<div>1枚あたり(割引後)<b>${yen(r.unitAfter)}</b>${r.discount.rate > 0 || r.discount.key === 'staff' ? `<s>${yen(r.unitBefore)}</s>` : ''}</div>`;
 
     // 原価・粗利(トグル)。内訳があるときはグループごとの推定仕入で合算する
@@ -589,6 +726,49 @@
         : '<p class="qs-note">金額はすべて税込の概算です。10枚未満はミニマム手数料(加工代5割増)を自動適用しています。</p>'}`;
   }
 
+  /* ---------- 件名(案件名)の自動生成 ----------
+     freeeの一覧で見て分かるように「顧客名 品名 加工名 数量」で組み立てる(社長指示 2026-08-21)。
+     同じ文面をfreeeの社内メモにも入れる。人が件名欄を直したらそちらを優先する */
+  let subjectDirty = false;
+
+  /** 加工名の要約。同じ加工が複数箇所あるときはまとめる */
+  function processSummary(r) {
+    if (!r) return '';
+    if (r.mode === 'kratvs') {
+      const prints = [...(r.setApplied ? [r.setApplied.t] : []), ...r.rest.map((p) => p.t)];
+      return prints.join('・');
+    }
+    return [...new Set(r.lines.map((l) => l.short).filter(Boolean))].join('・');
+  }
+
+  /** 品名が空のときに使う既定の品名。
+      freeeの一覧で長くなりすぎないよう、品番名ではなく種類(Tシャツ/パーカー等)でまとめる */
+  function defaultItemName(r) {
+    if (!r) return 'オリジナルウェア';
+    if (r.mode === 'kratvs') return `KRATVS ${r.item.name}`;
+    const cats = [...new Set(r.bodyCalcs.map((bc) => bc.info.cat).filter(Boolean))];
+    if (cats.length) return cats.join('＋');
+    // 品番リストに無いボディ(持込等)は入力された名前をそのまま使う
+    const names = [...new Set(r.bodyCalcs.filter((bc) => !bc.info.none).map((bc) => bc.info.name))];
+    return names.length ? names.join('＋') : 'オリジナルウェア';
+  }
+
+  function autoSubject(r) {
+    const parts = [
+      el('customer').value.trim(),
+      el('item-title').value.trim() || defaultItemName(r),
+      processSummary(r),
+      r ? `${r.qty}枚` : '',
+    ];
+    return parts.filter(Boolean).join(' ');
+  }
+
+  /** 件名欄を自動生成の内容に合わせる(人が直していれば触らない) */
+  function syncSubject(r) {
+    if (subjectDirty) return;
+    el('subject').value = autoSubject(r);
+  }
+
   /* ---------- freee転記シート ----------
      三浦さん・山本さんは画面を見ながらfreeeへ手入力する。
      久保田さんは同じテキストをClaudeに貼れば /mitsumori で自動入力できる。
@@ -596,15 +776,17 @@
   function buildSheet() {
     const r = lastResult;
     if (!r) return null;
-    const title = el('item-title').value.trim() || 'オリジナルウェア';
+    const title = el('item-title').value.trim() || defaultItemName(r);
     const customer = el('customer').value.trim();
+    const subject = el('subject').value.trim() || autoSubject(r);
     const lines = [];
 
-    // 内訳(サイズ・色)があるときはグループごとに明細を分ける(単価が違うため)
+    // ボディ・内訳(サイズ・色)ごとに明細を分ける(単価が違うため)。
+    // 加工の並びもボディごとに違いうるので、グループが持つ parts を使う
     if (r.mode !== 'kratvs') {
-      const parts = r.lines.map((l) => l.label).join('・');
       r.groups.forEach((g) => {
-        let desc = `${title}(${parts})`;
+        let desc = r.multiBody ? `${title}【${g.bodyName}】` : `${title}`;
+        if (g.parts.length) desc += `(${g.parts.join('・')})`;
         if (g.label) desc += `【${g.label}】`;
         if (r.discount.rate > 0) desc += `　通常価格 ${g.unitBefore.toLocaleString()}円 → 特別割引 ${r.discount.rate}%OFF`;
         if (r.discount.key === 'staff') desc += '　社員特価';
@@ -641,7 +823,7 @@
     }
 
     return {
-      customer, title, qty: r.qty, lines,
+      customer, title, subject, qty: r.qty, lines,
       date: iso(today), due: iso(due),
       total: r.total, taxOut, tax: r.total - taxOut,
       notes,
@@ -654,7 +836,7 @@
     const L = [];
     L.push('【freee見積書 転記シート】');
     L.push(`取引先  : ${sh.customer || '(未入力)'}`);
-    L.push(`件名    : ${sh.title} ${sh.qty}枚`);
+    L.push(`件名    : ${sh.subject}`);
     L.push(`見積日  : ${sh.date}　有効期限: ${sh.due}`);
     L.push('税区分  : 内税(単価は税込)　★freeeの初期値は外税なので必ず切り替える');
     L.push('─ 明細 ─');
@@ -771,7 +953,11 @@
     el('customer').value = linkedCase.customer_name || '';
     el('item-title').value = linkedCase.item_name || linkedCase.project_name || '';
     const q = parseInt(linkedCase.quantity, 10);
-    if (q > 0) el('qty').value = q;
+    if (q > 0 && bodies.length) {
+      bodies[0].qty = q;
+      bodies[0].breakdown.length = 0; // 案件の枚数を入れ直すので内訳はリセットする
+      renderBodies();
+    }
 
     // プリント箇所 → 加工行。既定の1行を置き換える
     if (data.print_locations.length) {
@@ -1129,29 +1315,28 @@
     };
   });
 
-  ['qty', 'body-input', 'body-manual', 'shipping', 'customer', 'item-title'].forEach((id) => {
+  ['shipping', 'customer', 'item-title'].forEach((id) => {
     el(id).addEventListener('input', recalc);
   });
   el('bagging').onchange = recalc;
   el('opt-express').onchange = recalc;
   el('toggle-cost').onchange = recalc;
   el('btn-add-row').onclick = () => { newRow(); renderRows(); recalc(); };
-  el('btn-add-bd').onclick = () => { addBreakdownRow(); renderBreakdown(); recalc(); };
+  // ボディを足すと、加工行に「どのボディに載せるか」の選択が出る
+  el('btn-add-body').onclick = () => { newBody(); renderBodies(); renderRows(); recalc(); };
 
-  // ボディの品番が変わったら内訳のサイズ帯・色区分の選択肢を作り直す
-  let lastBdSku = null;
-  el('body-input').addEventListener('input', () => {
-    const sku = currentSku();
-    if (sku !== lastBdSku) { lastBdSku = sku; renderBreakdown(); }
-  });
+  // 件名は自動生成。人が書き換えたらそれを優先し、ボタンで自動生成に戻せる
+  el('subject').addEventListener('input', () => { subjectDirty = true; });
+  el('btn-subject-auto').onclick = () => { subjectDirty = false; syncSubject(lastResult); renderSheet(); };
 
   setupBodyList();
   setupKratvs();
   setupDiscounts('discount', 'discounts', 'custom-rate');
   setupDiscounts('k-discount', 'k-discounts', 'k-custom-rate');
+  newBody();
+  renderBodies();
   newRow();
   renderRows();
-  renderBreakdown();
   recalc();
 
   loadFreeeStatus();

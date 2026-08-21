@@ -1708,11 +1708,16 @@ app.post('/api/freee/quotations', async (req, res) => {
 
     const created = await freeeQuote.createQuotation(sheet, partner);
 
+    // 社内メモだけ入らなかった場合は、発行は成功しているので警告で伝える
+    let memoWarning = created.memo_skipped
+      ? '見積書は発行できましたが、社内メモは入りませんでした(freee側の項目が変わった可能性)。必要ならfreeeで直接ご記入ください'
+      : null;
+
     // ★ここから先の失敗を「発行失敗」として返してはいけない。
     //   freeeにはもう見積書が出来ていて番号も採番されているので、画面が
     //   「発行できませんでした」と出すと利用者が押し直し、二重発行になる。
     //   後片付け(記録)が転んでも発行そのものは成功として返し、警告だけ添える
-    let warning = null;
+    let warning = memoWarning;
     try {
       // 次回から名前で引けるよう、選ばれた取引先を覚える
       const customerName = String(sheet.customer || '').trim();

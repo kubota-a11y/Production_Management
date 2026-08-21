@@ -2895,6 +2895,15 @@ td.empty-notice {
   color: var(--warning-text); border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-4); margin-top: var(--space-2); font-size: var(--text-sm); }
 
+/* 見積シミュレーター: 複数ボディ(2026-08-21 追加) */
+.qs-body-block { border: 1px solid var(--border-color); border-radius: var(--radius-sm);
+  padding: var(--space-2); margin-bottom: var(--space-2); background: var(--surface-sunken); }
+.qs-body-block .qs-bd-wrap { margin-top: var(--space-1); }
+.qs-targets { margin-top: var(--space-1); padding-top: var(--space-1);
+  border-top: 1px dashed var(--border-color); display: flex; flex-wrap: wrap;
+  align-items: center; gap: var(--space-1) var(--space-2); }
+.qs-targets .form-label { margin: 0; }
+
 /* 見積シミュレーター: サイズ・色別の内訳とKRATVSサイズ帯別枚数(2026-08-21 追加) */
 .qs-bd-row { display: flex; flex-wrap: wrap; gap: var(--space-1); align-items: center;
   border: 1px solid var(--border-color); border-radius: var(--radius-sm);

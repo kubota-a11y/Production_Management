@@ -38,25 +38,26 @@
             <div class="form-label">見積の基本情報(freee連携で使います)</div>
             <label>取引先名 <input type="text" id="customer" placeholder="例: ACTIVE"></label>
             <label>品名 <input type="text" id="item-title" placeholder="例: オリジナルデザイン ベースボールシャツ"></label>
+            <label>件名(freeeの見積書・社内メモに入ります)
+              <input type="text" id="subject" placeholder="見積内容から自動で作られます">
+            </label>
+            <p class="qs-note">件名は「顧客名 品名 加工名 数量」で自動生成されます。書き換えると自動生成は止まります。
+              <button type="button" class="btn btn-ghost btn-small" id="btn-subject-auto">🔄 自動生成に戻す</button>
+            </p>
           </div>
 
           <!-- 通常加工 -->
           <div id="panel-normal">
             <div class="qs-block">
-              <label>ボディ(品番か名前で検索)
-                <input type="text" id="body-input" list="body-list" placeholder="例: 5982-01">
-                <datalist id="body-list"></datalist>
-              </label>
-              <label>リストに無い場合の税込単価 <input type="number" id="body-manual" min="0" placeholder="持込・その他のとき"></label>
-              <label>枚数(総数) <input type="number" id="qty" min="1" value="15"></label>
-              <p class="qs-note" id="qty-note" hidden>内訳を入力中は総数を自動集計しています(内訳行をすべて消すと手入力に戻ります)。</p>
-            </div>
-
-            <div class="qs-block">
-              <div class="form-label">サイズ・色別の内訳(任意)</div>
-              <div id="breakdown"></div>
-              <button type="button" class="btn btn-secondary btn-small" id="btn-add-bd">＋ 内訳行を追加</button>
-              <p class="qs-note">内訳を入れると、ボディ単価がサイズ帯・色区分で自動で変わり、freeeの明細もサイズ・色ごとに分かれます。枚数帯・ミニマム手数料の判定は総数のままです。</p>
+              <div class="form-label">ボディ(1案件に何点でも足せます)</div>
+              <div id="bodies"></div>
+              <datalist id="body-list"></datalist>
+              <button type="button" class="btn btn-secondary btn-small" id="btn-add-body">＋ ボディを追加</button>
+              <p class="qs-note">
+                Tシャツ＋パーカーのように品番が分かれる案件は、ボディを足して品番ごとに枚数を入れてください。<br>
+                各ボディの「サイズ・色別の内訳」を入れると、サイズ帯・色区分でボディ単価が自動で変わり、freeeの明細も分かれます。<br>
+                ボディが2つ以上あるときは、加工ごとに<strong>どのボディに載せるか</strong>を選べます(既定はすべて)。
+              </p>
             </div>
 
             <div class="qs-block">
