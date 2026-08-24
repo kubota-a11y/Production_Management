@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<title>山本さん 制作実績の登録ガイド</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif; color: #1a2733; font-size: 9pt; line-height: 1.4; background: #f1f5f9; }
+  .page { width: 210mm; min-height: 297mm; padding: 11mm 13mm; page-break-after: always; background: #fff; margin: 0 auto 6mm; }
+  .page:last-child { page-break-after: auto; }
+  /* 画面で見るときのページ間の隙間は印刷では消す(残すと余白だけの最終ページができる) */
+  @media print { body { background: #fff; } .page { margin: 0; } }
+
+  .head { border-bottom: 3px solid #1d4ed8; padding-bottom: 2.4mm; margin-bottom: 3mm; display: flex; justify-content: space-between; align-items: flex-end; }
+  .head h1 { font-size: 15pt; color: #1d4ed8; }
+  .head .meta { font-size: 8pt; color: #667; text-align: right; }
+
+  h2 { font-size: 10.4pt; color: #fff; background: #1d4ed8; padding: 1.2mm 3mm; border-radius: 1.5mm; margin: 3.4mm 0 1.4mm; }
+  h2.c { background: #444; }
+  h2.s { background: #9d174d; }
+  h3 { font-size: 9.7pt; color: #1d4ed8; margin: 2.6mm 0 1mm; border-left: 3px solid #1d4ed8; padding-left: 2.5mm; }
+
+  p { margin-bottom: 1.2mm; }
+  ul, ol { margin: 1mm 0 1.6mm 5.5mm; }
+  li { margin-bottom: 0.6mm; }
+  strong { color: #0b2a52; }
+
+  table { width: 100%; border-collapse: collapse; margin: 1.3mm 0 1.8mm; font-size: 8.7pt; }
+  th { background: #eef2f9; color: #1d3f74; padding: 1.1mm 2.5mm; text-align: left; border: 1px solid #cbd5e1; font-weight: 600; }
+  td { border: 1px solid #cbd5e1; padding: 1.1mm 2.5mm; vertical-align: top; }
+  td.k { background: #fafafa; font-weight: 600; white-space: nowrap; }
+  td.auto { background: #f0fdf4; }
+  td.me { background: #fafafa; font-family: "Hiragino Sans", sans-serif; }
+
+  .lead { background: #eef4fd; border-radius: 2mm; padding: 2mm 3mm; margin-bottom: 1.6mm; }
+  .note { background: #fff8e6; border: 1px solid #e6c67a; border-radius: 2mm; padding: 1.7mm 2.6mm; margin: 1.3mm 0; font-size: 8.7pt; }
+  .key { background: #fdeeee; border: 1px solid #e0a3a3; border-radius: 2mm; padding: 1.7mm 2.6mm; margin: 1.3mm 0; font-size: 8.7pt; }
+  .key strong { color: #8a1f1f; }
+  .small { font-size: 8.3pt; color: #556; }
+
+  .flow { display: flex; align-items: stretch; gap: 1.4mm; margin: 2mm 0 1mm; }
+  .step { flex: 1; border-radius: 2mm; padding: 1.8mm 1.2mm; text-align: center; border: 1.3px solid; }
+  .step .n { font-size: 7.4pt; opacity: .8; }
+  .step .t { font-size: 8.5pt; font-weight: 600; margin: 0.5mm 0; }
+  .step .w { font-size: 7.2pt; }
+  .yam { background: #eaf1fd; border-color: #1d4ed8; color: #12356e; }
+  .oth { background: #f1f1ee; border-color: #8a8a80; color: #3f3f3a; }
+  .aut { background: #eefaf1; border-color: #2f855a; color: #1d5137; }
+
+  .btn { display: inline-block; background: #1d4ed8; color: #fff; border-radius: 1.4mm; padding: 0.4mm 2.4mm; font-size: 8pt; font-weight: 700; white-space: nowrap; }
+  .menu { display: inline-block; background: #eef2f9; border: 1px solid #cbd5e1; border-radius: 1.4mm; padding: 0.3mm 2mm; font-size: 8pt; font-weight: 600; white-space: nowrap; }
+
+  .cols { display: flex; gap: 4mm; }
+  .cols > div { flex: 1; }
+  .shot { width: 100%; border: 1px solid #cbd5e1; border-radius: 1.5mm; display: block; }
+  .cap { font-size: 7.6pt; color: #667; margin-top: 0.8mm; text-align: center; }
+</style></head><body>
+
+<!-- ============ 1ページ目 ============ -->
+<div class="page">
+  <div class="head">
+    <h1>📸 制作実績の登録ガイド</h1>
+    <div class="meta">山本さん用／2026-08-24 版<br>有限会社HiYOSHi　HiBoard</div>
+  </div>
+
+  <p class="lead">
+    加工が仕上がった商品の写真を、<strong>会社のホームページ「制作実績」に載せる作業</strong>です。
+    HiBoardの画面に写真を入れて5つの項目を選ぶだけで、<strong>写真の縮小もページ作りも自動</strong>で行われます。1件あたり<strong>2〜3分</strong>で終わります。
+  </p>
+
+  <div class="flow">
+    <div class="step oth"><div class="n">①</div><div class="t">写真を受け取る</div><div class="w">久保田が共有ドライブに置きます</div></div>
+    <div class="step yam"><div class="n">②</div><div class="t">HiBoardで登録</div><div class="w">山本さん（この資料）</div></div>
+    <div class="step aut"><div class="n">③</div><div class="t">写真を自動で縮小</div><div class="w">自動</div></div>
+    <div class="step aut"><div class="n">④</div><div class="t">ホームページに公開</div><div class="w">自動・数分後</div></div>
+  </div>
+
+  <h2 class="c">はじめる前の確認</h2>
+  <table>
+    <tr><th style="width:26%">項目</th><th>内容</th></tr>
+    <tr><td class="k">使うパソコン</td><td><strong>社内LANにつながっているパソコン</strong>。いつもHiBoardを開いているアドレスから入ります。<br>お客様向けのアドレス（order.kubota-tunnel.com）からは開けません（「見つかりません」と出ます）</td></tr>
+    <tr><td class="k">写真の置き場所</td><td>久保田が共有ドライブに置きます（フォルダ名は都度お伝えします）</td></tr>
+    <tr><td class="k">写真の準備</td><td class="auto"><strong>小さくする必要はありません。</strong>カメラから出したままのサイズで大丈夫です<br><span class="small">（サイズ変更や明るさの調整をすると、かえって画質が落ちます）</span></td></tr>
+    <tr><td class="k">お客様の許可</td><td><strong>掲載の許可が取れているものだけ</strong>を登録します（次ページ参照）</td></tr>
+  </table>
+
+  <h2>画面の開き方</h2>
+  <p>HiBoardの画面上部にある <span class="menu">⚙ 管理 ▾</span> を押して、<span class="menu">📸 制作実績の登録</span> を選びます。</p>
+
+  <div class="cols">
+    <div style="flex:0 0 82mm">
+      <img class="shot" src="画面_制作実績の登録.png" alt="制作実績の登録画面">
+      <div class="cap">▲ 実際の画面（上から順に①〜⑤を埋めます）</div>
+    </div>
+    <div>
+      <h3>① 写真</h3>
+      <p>枠の中に写真を<strong>ドラッグ＆ドロップ</strong>するか、枠を押して選びます。</p>
+      <ul>
+        <li><strong>1枚だけでも登録できます</strong></li>
+        <li>最大3枚。<strong>正面・背面・横</strong>の3枚を入れると、ホームページ上でスライドとして見比べられます</li>
+        <li>写真を入れたあと、1枚ごとに「正面／背面／横／アップ／着用／その他」のラベルを選べます</li>
+        <li>スマホで撮った写真もそのまま使えます</li>
+      </ul>
+
+      <h3>② 内容</h3>
+      <ul>
+        <li><strong>取引先</strong>… 例）山田FC　→「様」は自動で付きます</li>
+        <li><strong>つくったもの</strong>… 例）練習着の作成</li>
+      </ul>
+
+      <h3>③ 加工内容</h3>
+      <p>左の欄で<strong>位置</strong>、右の欄で<strong>加工方法</strong>を選び、<span class="btn">＋ 追加</span> を押します。何か所でも足せます。</p>
+      <ul>
+        <li>位置：左胸／右胸／フロント／背面／袖／裾／フード／その他</li>
+        <li>加工：DTFプリント／シルクプリント／刺繍／ラバー転写／カッティング／昇華</li>
+      </ul>
+      <p class="small">黒い帯に出てくる文章が、<strong>そのままホームページに載る文言</strong>です。ここを見て確認してください。</p>
+
+      <h3>④ カテゴリ</h3>
+      <p>チーム・クラブ／クラスT・部活T／法人・店舗／イベント・記念品 から1つ。<br>実績一覧ページで絞り込むときの分類になります。</p>
+
+      <h3>⑤ 掲載許可</h3>
+      <p>お客様から許可をいただいていることを確認して、チェックを入れます。<strong>チェックが無いと登録できません。</strong></p>
+
+      <p style="margin-top:2mm">最後に <span class="btn">サイトに登録する</span> を押します。</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 2ページ目 ============ -->
+<div class="page">
+  <div class="head">
+    <h1>📸 制作実績の登録ガイド（つづき）</h1>
+    <div class="meta">山本さん用／2026-08-24 版<br>有限会社HiYOSHi　HiBoard</div>
+  </div>
+
+  <h2>登録したあと</h2>
+  <p>画面に <strong>「登録しました（写真◯枚）。数分後にサイトへ反映されます。」</strong> と出れば、山本さんの作業は完了です。</p>
+  <table>
+    <tr><th style="width:26%">いつ</th><th>何が起きているか</th></tr>
+    <tr><td class="k">押した直後</td><td class="auto">写真がホームページ用の大きさに自動で縮小されます。<strong>色や明るさは変えません</strong></td></tr>
+    <tr><td class="k">数分後</td><td class="auto">ホームページが自動で作り直され、公開されます</td></tr>
+  </table>
+  <p>反映されたかどうかは <strong>https://hiyoshi-1954.com/works/</strong> で確認できます（ホームページのトップにも新しい順に6件出ます）。</p>
+  <div class="note">
+    すぐに出てこないときは<strong>5分ほど待ってから</strong> <strong>Ctrl + Shift + R</strong> で読み込み直してください。それでも出ないときは久保田までご連絡ください。
+  </div>
+
+  <h2 class="s">これだけは守ってください</h2>
+  <div class="key">
+    <strong>① お客様の掲載許可が取れていない実績は登録しない</strong><br>
+    許可が取れていないものは、写真も情報も入れずにそのままにしておいてください。あとから登録できます。<br>
+    <strong>② 登録した実績は、画面から取り消せません</strong><br>
+    間違えて登録した・お客様から取り下げの申し出があったときは、<strong>すぐに久保田までご連絡ください</strong>（ホームページ側の操作で消します）。<br>
+    <strong>③ お客様ご本人の顔がはっきり写っている写真は、登録前に久保田へ確認してください</strong>（商品の掲載許可と、顔写真の掲載許可は別の話になるためです）
+  </div>
+
+  <h2 class="c">きれいに見せるための撮り方のコツ</h2>
+  <ul>
+    <li><strong>トルソー（マネキン）に着せて撮る</strong>と、他の実績と並んだときに揃って見えます</li>
+    <li>正面・背面・横の<strong>3枚セット</strong>にすると、スライドで見比べられます（加工部分の<strong>アップ</strong>も効果的）</li>
+  </ul>
+
+  <h2>うまくいかないときは（画面に出るメッセージ別）</h2>
+  <table>
+    <tr><th style="width:44%">画面に出るメッセージ</th><th>どうすればよいか</th></tr>
+    <tr><td class="me">写真を選んでください<br>取引先を入力してください<br>内容を入力してください<br>カテゴリを選んでください</td><td>その欄がまだ空です。埋めてからもう一度押してください</td></tr>
+    <tr><td class="me">加工内容を1つ以上追加してください</td><td>③で位置と加工方法を選んだあと、<strong>「＋ 追加」を押し忘れている</strong>ときに出ます</td></tr>
+    <tr><td class="me">掲載許可の確認にチェックを入れてください</td><td>⑤のチェックが入っていません</td></tr>
+    <tr><td class="me">写真は3枚までです</td><td>3枚までに減らしてください。4枚目以降は別の実績として登録します</td></tr>
+    <tr><td class="me">写真1枚あたり60MBまでです</td><td>通常のカメラ写真では出ません。出たときは久保田までご連絡ください</td></tr>
+    <tr><td class="me">画像ファイル（JPEG/PNG/WebP）を選んでください</td><td>写真以外のファイル（PDFやZIPなど）を選んでいます</td></tr>
+    <tr><td class="me">GitHubトークンが…<br>リポジトリ…へ書き込めませんでした<br>画像処理ライブラリ(sharp)が…</td><td><strong>設定側の問題</strong>です。山本さんの操作では直りません。<br>画面に出た文章をそのまま久保田へお伝えください</td></tr>
+    <tr><td class="me">（画面自体が開けない・「見つかりません」）</td><td>社外向けのアドレスから開いています。<strong>社内LANのアドレス</strong>で開き直してください</td></tr>
+  </table>
+
+  <h2 class="c">困ったときの連絡先</h2>  <p>迷ったとき・エラーが出たとき・取り消したいときは<strong>久保田</strong>まで。「どのボタンで、どんな文字が出たか」をお伝えください。</p>
+</div>
+
+</body></html>
