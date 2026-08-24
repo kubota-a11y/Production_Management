@@ -1757,6 +1757,11 @@ const scheduleBoard = {
 
   isProjectAssignable(project) {
     if (!this.ASSIGNABLE_PROJECT_STATUSES.includes(project.status)) return false;
+    // カーヴ案件(鈴木さん専用)は生産の予定として置くものではないため、手動追加の選択肢にも出さない
+    // (2026-08-24 社長指示。サーバー側でも提案・自動割当の対象外にしている)。
+    // すでに置かれている案件は getProjectOptionsHtml が選択中のものとして残すので、
+    // 既存の割り当てを編集したときに選択が消えることはない
+    if (project.paper_source === 'CARVE') return false;
     if (this.hasUndecidedPlannedHours(project)) return true;
     const budgetHours = (project.planned_hours || 0) / 60;
     const allocatedHours = project.allocated_hours_total || 0;

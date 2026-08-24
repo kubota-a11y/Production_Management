@@ -1004,6 +1004,14 @@ const SCHEDULABLE_PROJECT_STATUSES = ['CONFIRMED', 'WAITING', 'PREP_COMPLETE', '
 // 工数が積まれないようにしている
 const PROPOSAL_PANEL_PROJECT_STATUSES = ['PRE_ORDER', ...SCHEDULABLE_PROJECT_STATUSES];
 
+// カーヴ案件(鈴木さんがCARVEで受けている紙媒体。paper_source='CARVE')は鈴木さん専用で、
+// 生産の担当者に割り振る作業が無いため、スケジュールボードの提案・自動割当の対象外にする
+// (2026-08-24 社長指示)。鈴木さんの作業は準備項目としてマイスケジュールボードに載る。
+// 社内デザイン案件(INTERNAL_DESIGN)と同じ扱いだが、案件種別ではなく紙媒体の出どころで判定する
+function isCarveProject(project) {
+  return project && project.paper_source === 'CARVE';
+}
+
 // 案件1件に対して、最上位担当者を選び、受付日から順に空き時間へ割り振って
 // case_time_allocations に status:'提案' で登録する
 function autoProposeForProject(db, projectId) {
@@ -1011,6 +1019,9 @@ function autoProposeForProject(db, projectId) {
   if (!project) return { project_id: projectId, error: '案件が見つかりません' };
   if (!SCHEDULABLE_PROJECT_STATUSES.includes(project.status)) {
     return { project_id: projectId, error: `対象外のステータス(${project.status})のため自動割当できません` };
+  }
+  if (isCarveProject(project)) {
+    return { project_id: projectId, error: 'カーヴ案件は鈴木さん専用のためスケジュールボードの対象外です' };
   }
 
   const receivedDate = project.received_date ? new Date(project.received_date) : new Date();
@@ -1128,6 +1139,9 @@ function autoProposeForProjectInRange(db, projectId, rangeStart, rangeEnd) {
   if (!SCHEDULABLE_PROJECT_STATUSES.includes(project.status)) {
     return { project_id: projectId, error: `対象外のステータス(${project.status})のため自動割当できません` };
   }
+  if (isCarveProject(project)) {
+    return { project_id: projectId, error: 'カーヴ案件は鈴木さん専用のためスケジュールボードの対象外です' };
+  }
 
   // 一覧表示など高頻度に複数案件へ呼ぶ場面でdebug.logが肥大化しないようquiet指定
   const suggestions = calculateSuggestions(db, project, { quiet: true });
@@ -1187,10 +1201,11 @@ app.post('/api/schedule-board/auto-propose-range', (req, res) => {
         .map(r => r.case_id)
     );
 
-    // 社内デザイン案件は生産の自動割り当て対象外(デザイン作業は準備項目でデザイナーに割り当てる)
+    // 社内デザイン案件・カーヴ案件は生産の自動割り当て対象外
+    // (デザイン作業は準備項目でデザイナーに割り当てる)
     const candidateProjects = db.prepare('SELECT * FROM projects WHERE assigned_employee_id IS NULL').all()
       .filter(p => !alreadyProposedCaseIds.has(p.id) && SCHEDULABLE_PROJECT_STATUSES.includes(p.status)
-        && p.project_kind !== 'INTERNAL_DESIGN');
+        && p.project_kind !== 'INTERNAL_DESIGN' && !isCarveProject(p));
 
     let proposedCount = 0;
     let skippedExpiredCount = 0;
@@ -1309,6 +1324,8 @@ app.get('/api/proposals', (req, res) => {
       // 検品・納品待ちなどスケジュール調整が不要なステータスの案件は
       // 提案確認パネルの対象外にする(PROPOSAL_PANEL_PROJECT_STATUSES参照)
       if (!PROPOSAL_PANEL_PROJECT_STATUSES.includes(project.status)) return null;
+      // カーヴ案件は鈴木さん専用のためパネルに出さない(過去に作られた'提案'行が残っていても隠す)
+      if (isCarveProject(project)) return null;
 
       const suggestions = calculateSuggestions(db, project, { quiet: true });
       const matched = suggestions.find(s => s.employee_id === row.employee_id);
@@ -1335,13 +1352,15 @@ app.get('/api/proposals', (req, res) => {
     // (PROPOSAL_PANEL_PROJECT_STATUSES = 受注前を含む)。status='提案'の案件は上のresultsに、
     // status='予定'等の確定済み案件はcase_time_allocationsに行があるため、ここには含まれない
     // (=既存カードと重複しない)
-    // 社内デザイン案件(INTERNAL_DESIGN)は生産の担当割り当て対象外のため除外する
+    // 社内デザイン案件(INTERNAL_DESIGN)とカーヴ案件(paper_source='CARVE')は
+    // 生産の担当割り当て対象外のため除外する
     // (デザイン作業は準備項目としてデザイナーに割り当てる)
     const schedulablePlaceholders = PROPOSAL_PANEL_PROJECT_STATUSES.map(() => '?').join(', ');
     const unassignedProjects = db.prepare(`
       SELECT * FROM projects
       WHERE status IN (${schedulablePlaceholders})
         AND COALESCE(project_kind, 'NORMAL') != 'INTERNAL_DESIGN'
+        AND COALESCE(paper_source, 'HIYOSHI') != 'CARVE'
         AND id NOT IN (SELECT DISTINCT case_id FROM case_time_allocations)
       ORDER BY id ASC
     `).all(...PROPOSAL_PANEL_PROJECT_STATUSES);
@@ -1845,8 +1864,8 @@ function createProjectRecord(data) {
 app.post('/api/projects', (req, res) => {
   try {
     const id = createProjectRecord(req.body);
-    // 社内デザイン案件は生産作業ではないため、従業員への自動割り当て提案の対象外にする
-    if (req.body.project_kind !== 'INTERNAL_DESIGN') {
+    // 社内デザイン案件とカーヴ案件は生産作業ではないため、従業員への自動割り当て提案の対象外にする
+    if (req.body.project_kind !== 'INTERNAL_DESIGN' && req.body.paper_source !== 'CARVE') {
       try {
         const autoProposeResult = autoProposeForProject(db, id);
         if (autoProposeResult.error) {

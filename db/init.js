@@ -1025,6 +1025,19 @@ function initDatabase(dbFile = dbPath) {
     )
   `);
 
+  // カーヴ案件(paper_source='CARVE')は鈴木さん専用でスケジュールボードの対象外にしたが
+  // (2026-08-24 社長指示)、それ以前に案件登録時の自動提案で作られた「提案」行が残っていると
+  // ボードの破線ブロックとして出続けるため、起動時に消しておく。
+  // 人が確定した「予定」「実績確定」等の行は消さない(実績が消えるため)
+  const carveProposals = db.prepare(`
+    DELETE FROM case_time_allocations
+    WHERE status = '提案'
+      AND case_id IN (SELECT id FROM projects WHERE COALESCE(paper_source, 'HIYOSHI') = 'CARVE')
+  `).run().changes;
+  if (carveProposals > 0) {
+    console.log(`✓ カーヴ案件の未確定の提案 ${carveProposals}件をスケジュールボードから外しました`);
+  }
+
   // 初回のみサンプル担当者を挿入
   if (!dbExists) {
     const now = new Date().toISOString();
