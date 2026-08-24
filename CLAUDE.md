@@ -4,7 +4,7 @@
 
 ## 環境
 
-- **開発**: このMac(`/Users/kubota/Desktop/GITHUB_Production_Management`)。DBは `db/projects.db`
+- **開発**: このMac(`/Users/kubota/Projects/GITHUB_Production_Management`)。DBは `db/projects.db`
 - **本番**: Windows機の `C:\Production_Management_v2` で稼働。社内LANからアクセスされ、業務データが入っている
 - **本番機の `db/projects.db` と `.env` には絶対に触れない・読まない**(顧客データ・SMTP認証情報等が入っている)
 
@@ -65,7 +65,7 @@
 - 祝日は `lib/jp-holidays.js` の静的テーブル(2027年分まで)。**毎年、翌年分を手で追加する運用**
 - 公開フォームの誤送信対策は `public/js/form-guard.js` を3フォーム(Web注文/チーム追加/取引先加工依頼)で共有。**Enter送信の無効化と確認ウィンドウは両方必要**(確認ウィンドウだけではEnter2回で送信できてしまう)
 - 受付番号プレフィックスは4系統: W-=Web注文 / T-=チーム追加 / P-=取引先加工依頼 / LINEはバッジなし(`public/js/app.js` の receiptPrefix)
-- **注文フォームは `?sim=` でコーポレートサイトの料金シミュレーターの内容を受け取る**(`order.js` の `applySim`)。**形式の単一の情報源は別リポジトリの `~/Desktop/GITHUB_HiYOSHi_WEB/src/lib/sim-handoff.ts`** なので、変えるときは必ず両方を直す(項目を足すだけなら、フォーム側が知らない項目を無視するので壊れない)。**サイトの概算金額は備考に文字として残すだけで、業務データの金額として扱わない**(URLは誰でも書き換えられるため)。想定外の値は黙って無視してフォームを通常表示する
+- **注文フォームは `?sim=` でコーポレートサイトの料金シミュレーターの内容を受け取る**(`order.js` の `applySim`)。**形式の単一の情報源は別リポジトリの `~/Projects/GITHUB_HiYOSHi_WEB/src/lib/sim-handoff.ts`** なので、変えるときは必ず両方を直す(項目を足すだけなら、フォーム側が知らない項目を無視するので壊れない)。**サイトの概算金額は備考に文字として残すだけで、業務データの金額として扱わない**(URLは誰でも書き換えられるため)。想定外の値は黙って無視してフォームを通常表示する
 - 進捗確認URLの案内メールは **`PUBLIC_ORDER_BASE_URL` 未設定だと黙って省略される**ので気づきにくい
 - TODOシート連携はシート行にIDが無く employee_id+タスク本文で同一視するため、**シート側で文言を書き換えると紐づけが外れる**
 - 共有モジュールを壊さない: `js/ui.js`(ヘッダー・モーダル・トースト)・`js/nas-browse.js`(NASフォルダ閲覧)・`js/case-detail.js`(案件詳細)・`js/form-guard.js`。プリント箇所/準備項目の描画・収集は `containerId` 引数で新規案件モーダルと受注候補確定画面が実装を共有している(片方を直せば両方に効く)
