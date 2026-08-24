@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>社内システムお知らせ Vol.6(A4印刷用)</title>
+<style>
+  /* A4印刷用。Chromeのヘッドレス印刷でPDF化する(生成手順はdocs/weekly-news/README.md参照) */
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #1c1917;
+    --text: #44403c;
+    --muted: #78716c;
+    --hairline: #e7e2dc;
+    --accent-bg: #f5f2ee;
+    --ask-bg: #f2f6f3;
+    --ask-line: #cfdfd4;
+    --ask-text: #3f6b50;
+    --serif: "Hiragino Mincho ProN", "Yu Mincho", serif;
+    --sans: "Hiragino Sans", "Noto Sans JP", sans-serif;
+  }
+
+  body {
+    font-family: var(--sans);
+    color: var(--text);
+    line-height: 1.65;
+    font-size: 9pt;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .page {
+    width: 210mm; height: 297mm;
+    padding: 14mm 18mm 13mm;
+    page-break-after: always;
+    position: relative;
+    background: #fff;
+  }
+  .page:last-child { page-break-after: auto; }
+
+  /* ===== ヘッダー ===== */
+  .hero { text-align: center; margin-bottom: 5.5mm; }
+  .overline {
+    font-size: 7pt; letter-spacing: .32em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 2mm;
+  }
+  h1 {
+    font-family: var(--serif); font-size: 19pt; font-weight: 600;
+    letter-spacing: .12em; color: var(--ink);
+  }
+  .hero.sub h1 { font-size: 15pt; }
+  .divider { width: 12mm; height: .35mm; background: var(--ink); margin: 3.2mm auto; }
+  .lead { color: var(--muted); font-size: 8.4pt; }
+
+  .intro {
+    background: var(--accent-bg);
+    border-radius: 1.5mm;
+    padding: 3.2mm 5mm;
+    margin-bottom: 5.5mm;
+    font-size: 8.8pt;
+  }
+  .intro strong { color: var(--ink); }
+
+  /* ===== セクション ===== */
+  .sec { margin-bottom: 4.8mm; }
+  .sec-head {
+    display: flex; align-items: baseline; gap: 3mm;
+    border-bottom: .3mm solid var(--ink);
+    padding-bottom: 1.2mm; margin-bottom: 2mm;
+  }
+  .sec-head h2 {
+    font-family: var(--serif); font-size: 11.5pt; font-weight: 600;
+    letter-spacing: .08em; color: var(--ink);
+  }
+  .sec-head .sub { margin-left: auto; font-size: 7.2pt; color: var(--muted); letter-spacing: .06em; }
+
+  ul.items { list-style: none; }
+  ul.items li {
+    position: relative;
+    padding-left: 4.2mm;
+    margin-bottom: 1.1mm;
+  }
+  ul.items li::before {
+    content: ""; position: absolute; left: .6mm; top: 2mm;
+    width: 1.5mm; height: 1.5mm; border-radius: 50%;
+    background: var(--ink);
+  }
+  ul.items strong { color: var(--ink); font-weight: 600; }
+  .note { color: var(--muted); font-size: 8.2pt; }
+
+  /* ===== テーマ見出し ===== */
+  .theme {
+    display: inline-block;
+    font-size: 7pt; font-weight: 600; letter-spacing: .14em;
+    color: #fff; background: var(--ink);
+    padding: .4mm 2.6mm; border-radius: .8mm;
+    margin-right: 2mm; vertical-align: middle;
+  }
+
+  /* ===== 対象バッジ ===== */
+  .aud {
+    display: inline-block;
+    font-size: 6.8pt; font-weight: 600; letter-spacing: .1em;
+    padding: .3mm 2.2mm; border-radius: 3mm;
+    margin-left: 2mm; vertical-align: middle;
+    white-space: nowrap;
+  }
+  .aud-staff { border: .25mm solid var(--muted); color: var(--muted); background: #fff; }
+  .aud-all { border: .25mm solid var(--ask-line); color: var(--ask-text); background: var(--ask-bg); }
+
+  /* ===== 段階の流れ図 ===== */
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 1.4mm;
+    background: var(--accent-bg);
+    border-radius: 1.5mm;
+    padding: 2.4mm 3mm;
+    margin-bottom: 2.4mm;
+    font-size: 8pt;
+  }
+  .flow span {
+    background: #fff; border: .25mm solid var(--hairline); border-radius: .8mm;
+    padding: .5mm 2.2mm; color: var(--ink); font-weight: 600;
+  }
+  .flow em { font-style: normal; color: var(--muted); align-self: center; }
+
+  /* ===== お願いボックス ===== */
+  .ask {
+    background: var(--ask-bg);
+    border: .3mm solid var(--ask-line);
+    border-radius: 1.5mm;
+    padding: 3.2mm 5mm 2.8mm;
+    margin-top: 5mm;
+  }
+  .ask h3 {
+    font-family: var(--serif); font-size: 10.5pt; font-weight: 600;
+    letter-spacing: .1em; color: var(--ask-text); margin-bottom: 1.6mm;
+  }
+  .ask ul.items li::before { background: var(--ask-text); }
+
+  /* ===== フッター ===== */
+  .foot {
+    position: absolute; left: 18mm; right: 18mm; bottom: 9mm;
+    border-top: .3mm solid var(--hairline);
+    padding-top: 2mm;
+    display: flex; justify-content: space-between;
+    font-size: 7.2pt; color: var(--muted); letter-spacing: .06em;
+  }
+</style>
+</head>
+<body>
+
+
+<div class="page">
+  <header class="hero">
+    <div class="overline">HIYOSHI DX WEEKLY</div>
+    <h1>社内システムお知らせ</h1>
+    <div class="divider"></div>
+    <div class="lead">Vol.6 ─ 2026年8月24日発行 ─ 対象期間:8月18日〜8月24日</div>
+  </header>
+
+  <div class="intro">
+    今回は変更が多い回です。大きくは3つ。<strong>①8/18のミーティングで決めた案件登録のルールが画面に入りました</strong>。<strong>②見積りをHiBoardで作り、そのままfreeeで見積書を発行できるようになりました</strong>。<strong>③自分の予定表(マイスケジュール)が大きく使いやすくなりました</strong>。<br>
+    各見出しの右にある<span class="aud aud-staff">社員</span><span class="aud aud-all">全従業員</span>は、<strong>その項目を読んでいただきたい方</strong>の目安です。
+  </div>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">受注</span>
+      <h2>案件の登録が「決まっていなくても進める」形になりました</h2>
+      <span class="aud aud-all">全従業員</span>
+      <span class="sub">8/18</span>
+    </div>
+    <ul class="items">
+      <li>受付の時点で決まっていない項目のせいで登録が止まらないよう、<strong>必須をぐっと減らしました</strong>。加工内容・プリント箇所は<strong>空のままでも登録できます</strong>。</li>
+      <li>案件一覧に<strong>「アイテム名」の列</strong>が増えました。→ <strong>案件名には正式名称</strong>(例:◯◯少年団記念品)、<strong>アイテム名には作る物そのもの</strong>(Tシャツ、パーカー等)を入れてください。</li>
+      <li>納期が<strong>2つに分かれました</strong>。<strong>「アイテムの納品納期」(任意)</strong>と<strong>「デザインの入稿納期」</strong>です。入稿納期は<strong>デザインが絡む案件だけ必須</strong>です。</li>
+      <li>作業予定時間も<strong>「制作予定時間」と「デザイン予定時間」</strong>に分かれ、<strong>どちらも任意</strong>になりました。未定のままスケジュールに置いておき、<strong>ボードで入れた時間がそのまま案件に反映</strong>されます。</li>
+      <li><strong>「必要スキル」と「担当者」の入力欄は無くなりました</strong>。→ 加工種別を選べば必要スキルは自動で入り、担当者のおすすめもこれまでどおり出ます。<strong>入力の手間だけが減った</strong>とお考えください。</li>
+      <li>連絡経路の選択肢に<strong>「Googleチャット」「社長」</strong>を追加しました。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">お金</span>
+      <h2>入金と支払方法を、案件一覧のその場で記録できます</h2>
+      <span class="aud aud-all">全従業員</span>
+      <span class="sub">8/18</span>
+    </div>
+    <ul class="items">
+      <li>現金の受け渡しを電話で確認し合っていた状態を解消しました。案件一覧の<strong>「決済」列</strong>から、その場で記録できます。</li>
+      <li>記録は<strong>2つの軸</strong>です。<strong>入金の状態</strong>=未入金 / 現金預かり(<strong>預かった人の名前つき</strong>)/ 入金済み。<strong>支払方法</strong>=現金 / 振込 / クレジットカード(未選択でも可)。</li>
+      <li>分けているのは<strong>「振込だが、まだ入金が確認できていない」</strong>という状態をそのまま表せるようにするためです。一覧のバッジには<strong>「入金済み｜振込」</strong>のように両方が並びます。</li>
+      <li>支払方法が<strong>振込・クレジットカードのときは「現金預かり」を選べません</strong>(現金の受け渡しが起こらないため)。</li>
+      <li>画面や通知の担当表記を<strong>「山本さん」から「三浦さん又は山本さん」に統一</strong>しました。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">その他</span>
+      <h2>直したところ・配ったもの</h2>
+      <span class="aud aud-staff">社員</span>
+      <span class="sub">8/18〜8/19</span>
+    </div>
+    <ul class="items">
+      <li><strong>予定日を入れたTODOが、週をまたぐと画面から消えていた不具合</strong>を直しました。今は<strong>「📅 8/25 に予定」</strong>のバッジ付きで一覧に残ります。</li>
+      <li><strong>加工だけの追加注文が、鈴木さんのボードに残り続ける不具合</strong>を直しました。デザイン作業が無い案件には初校提出が付かなくなります。</li>
+      <li><strong>三浦さん向けのHiBoard運用手順書(A4・8ページ)</strong>を作りました。1日・1週間の流れから、受注候補の取り込み・スケジュールの組み方・納品と記録まで1冊にまとまっています。</li>
+      <li>鈴木さん向けの操作ガイドと、HiBoard右上の<strong>「📖 使い方」</strong>を新しい画面に合わせて更新しました。</li>
+    </ul>
+  </section>
+
+  <div class="foot">
+    <span>株式会社ヒヨシ ─ 社内システムお知らせ Vol.6</span>
+    <span>1 / 3</span>
+  </div>
+</div>
+
+<div class="page">
+  <header class="hero sub">
+    <div class="overline">WEEKLY UPDATE</div>
+    <h1>見積りが HiBoard で完結します</h1>
+    <div class="divider"></div>
+    <div class="lead">Vol.6 ─ 対象期間:8月18日〜8月24日</div>
+  </header>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">見積</span>
+      <h2>社内用「見積シミュレーター」ができました</h2>
+      <span class="aud aud-staff">社員</span>
+      <span class="sub">8/20〜8/21</span>
+    </div>
+    <div class="flow">
+      <span>受注候補を確認</span><em>→</em><span>案件を登録</span><em>→</em><span>見積シミュレーター</span><em>→</em><span>freeeで見積書を発行</span>
+    </div>
+    <ul class="items">
+      <li>HiBoardに<strong>見積シミュレーター</strong>が入りました。<strong>加工料金表がまるごと入っている</strong>ので、料金表を紙でめくらずに金額が出せます(シルク・DTF・ラバー転写・マーキング・刺繍・帽子刺繍、特急や持込などの割増も含みます)。ボディは<strong>253品番</strong>、ホームページの料金シミュレーターと同じデータです。</li>
+      <li>お取引先に合わせて<strong>3つのモード</strong>があります。<strong>通常</strong> / <strong>KRATVSカスタムオーダー</strong>(セット割を自動判定)/ <strong>八木繊維様(卸)</strong>(卸専用の価格表で計算)。</li>
+      <li><strong>サイズ・色ごとの内訳</strong>を入れられます。→ サイズで単価が変わる品番も正しい金額になり、見積書の明細もサイズ・色ごとに分かれます。</li>
+      <li><strong>1つの案件に複数のボディ</strong>を入れられます。「Tシャツ30枚+パーカー6枚、刺繍はパーカーだけ」といった組み合わせもそのまま計算できます。</li>
+      <li><strong>割引を使うときは、社長承認のチェックと承認者名を入れないと先へ進めません</strong>。値付けの歯止めを画面で担保しています。</li>
+      <li>案件詳細の<strong>「概算の履歴」</strong>から開けば、顧客名・品名・枚数・プリント箇所が<strong>入った状態</strong>で始まります。出した概算は<strong>すべて履歴として案件に残ります</strong>。単体で開いたときも、あとから案件を検索して紐づけられます。</li>
+      <li class="note">あわせて料金表全体を点検し、抜けていたオプション(色変え手数料・ネーム刺繍・袋入れ 等)を追加、確認シートの取り違えで高くなっていた品番1件を<strong>カタログどおりの金額に修正</strong>しました。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">見積</span>
+      <h2>ボタン1つで freee の見積書ができます</h2>
+      <span class="aud aud-staff">社員</span>
+      <span class="sub">8/21</span>
+    </div>
+    <ul class="items">
+      <li>これまで転記シートを見ながらfreeeへ手入力していた作業が、<strong>HiBoardのボタン1つ</strong>で終わります。→ <strong>税区分(内税)の切り替え・宛名の記号・金額の打ち直しが要りません</strong>。</li>
+      <li>見積書の<strong>件名は自動で作られます</strong>(顧客名・品名・加工名・数量)。<strong>書き換えれば手書きが優先</strong>され、ボタンで自動に戻せます。同じ文字列がfreeeの社内メモにも入ります。</li>
+      <li>発行した見積書のURLは<strong>案件に自動でひもづき</strong>ます。顧客台帳・納品履歴からもそのまま開けます。</li>
+      <li class="note">Claude Codeが入っていないパソコンからでも使えます。これまでの<strong>「転記シート」方式も残して</strong>ありますので、当面はどちらでも構いません。</li>
+    </ul>
+  </section>
+
+  <div class="foot">
+    <span>株式会社ヒヨシ ─ 社内システムお知らせ Vol.6</span>
+    <span>2 / 3</span>
+  </div>
+</div>
+
+<div class="page">
+  <header class="hero sub">
+    <div class="overline">WEEKLY UPDATE</div>
+    <h1>自分の予定表・今週のお願い</h1>
+    <div class="divider"></div>
+    <div class="lead">Vol.6 ─ 対象期間:8月18日〜8月24日</div>
+  </header>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">スケジュール</span>
+      <h2>マイスケジュールが見やすくなりました</h2>
+      <span class="aud aud-all">全従業員</span>
+      <span class="sub">8/19〜8/21</span>
+    </div>
+    <ul class="items">
+      <li>パソコンでは<strong>左に今週の予定、右にタスク一覧</strong>の2列になりました。→ <strong>下までスクロールしても両方が見えます</strong>。スマホ・タブレットはこれまでどおり縦並びです。</li>
+      <li>右側の<strong>「日付が未定のタスク」「CARVE案件」「TODOリスト」は開け閉め</strong>できます。閉じていても<strong>見出しに件数</strong>が出ます。開け閉めの状態はその端末で覚えます。</li>
+      <li>日付の選択欄に<strong>残り時間</strong>が出ます(例:<strong>木 8/20(残り5.5h / 8h)</strong>、多すぎる日は「2.5h超過 / 8h」)。→ <strong>空いている日がひと目で分かります</strong>。</li>
+      <li><strong>1日に複数の稼働時間帯</strong>を申告できるようになりました。通院などで中抜けする日は<strong>「9:00〜12:00 と 14:00〜17:00」</strong>のように分けて入れ、<strong>ひとことメモ</strong>で事情を添えられます。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">現場作業</span>
+      <h2>タスク1枚ごとに「今どうなっているか」を書けます</h2>
+      <span class="aud aud-all">全従業員</span>
+      <span class="sub">8/18〜8/20</span>
+    </div>
+    <ul class="items">
+      <li>作業カードに<strong>状態のバッジ</strong>が付けられます。<strong>作業中 / お客様確認中 / 社内確認待ち</strong>の3つ。→ <strong>止まっている相手が分かる</strong>ので、声をかける先が決まります。完了にすると自動で外れます。</li>
+      <li>カードに<strong>ひとことメモ</strong>を残せます(「8/18 ◯◯様に連絡済み」など)。<strong>完了後も消えません</strong>。</li>
+      <li>自分の担当ではない作業が載っていたら、<strong>「🙅 自分の担当ではない」ボタン</strong>で自分のボードから下ろせます。→ 案件から作業が消えるわけではなく、<strong>担当未定として社内のスケジュールボードに残り</strong>、三浦さんが決め直します。※「初校提出」「入稿完了」は案件を先へ進める操作なので外せません。</li>
+      <li>予定日を先へ動かすと<strong>持ち越しとして記録</strong>されます。動かすときに<strong>理由とひとことメモ</strong>を伺うウィンドウが出て、カードには<strong>「⏩ ◯回持ち越し」</strong>が付きます。→ 責任追及ではなく、<strong>1日の仕事量が適正だったかを見直す</strong>ための記録です。</li>
+      <li><strong>「見積書作成」「作業指示書作成」は鈴木さんのボードから外れました</strong>。→ <strong>三浦さん・山本さんの作業</strong>として扱います。</li>
+    </ul>
+  </section>
+
+  <div class="ask">
+    <h3>皆さんへのお願い(今週からの動き方)</h3>
+    <ul class="items">
+      <li>案件登録では<strong>「アイテム名」に作る物</strong>を入れてください。決まっていない項目は<strong>空のままで構いません</strong>。分かった時点で足していきましょう。</li>
+      <li><strong>現金をお預かりしたら、その場で案件一覧の「決済」列に記録</strong>してください。電話での確認は不要になります。</li>
+      <li>お見積りは<strong>見積シミュレーター</strong>で出してください。<strong>割引を使う場合は必ず社長の承認</strong>を取り、承認者名を入れてください。</li>
+      <li>自分の担当ではないタスクが載っていたら、<strong>「🙅 自分の担当ではない」で下ろして</strong>ください。放置せず、その場で解消をお願いします。</li>
+      <li>タスクを翌日以降へ動かすときは、<strong>理由とひとことメモを一言</strong>お願いします。仕事量の見直しに使わせていただきます。</li>
+      <li>中抜けのある日は、<strong>稼働時間を分けて申告</strong>してください。予定の組み方が正確になります。</li>
+    </ul>
+  </div>
+
+  <div class="note" style="margin-top: 2.4mm; text-align: right;">次号予定:2026年8月31日(月)</div>
+
+  <div class="foot">
+    <span>株式会社ヒヨシ ─ 社内システムお知らせ Vol.6</span>
+    <span>3 / 3</span>
+  </div>
+</div>
+
+</body>
+</html>
