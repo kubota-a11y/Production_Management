@@ -36,7 +36,7 @@
 
 ## HiBoardを触るときの必須ルール
 
-作業場所は `~/Projects/GITHUB_Production_Management`。
+作業場所は `C:\Users\<ユーザー名>\Projects\GITHUB_Production_Management`(自分のWindows PC内)。
 **そのフォルダ内の `CLAUDE.md`(開発ルール・本番反映手順)を必ず読んでから作業すること。**
 
 特に守るもの:

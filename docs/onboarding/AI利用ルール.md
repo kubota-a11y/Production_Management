@@ -10,7 +10,7 @@ Claude Code 側の禁止事項は `.claude/settings.json` と個人別の `CLAUD
 
 現状(2026-08-25 時点):
 
-- **三浦さん** — AIは Gemini のみ使用。Claude Code を使うかは**ヒアリング中**
+- **三浦さん** — Gemini に加えて **Claude のチームシートを2026-08-25に発行**。まずはチャット中心、慣れてからリポジトリを扱う段階的な立ち上げ
 - **山本さん** — Claude のチャット中心＋最小構成の Claude Code
 - **HiBoard の中身を作っているのは久保田 + Claude Code。** 三浦さん・山本さんは「使う側」
 
