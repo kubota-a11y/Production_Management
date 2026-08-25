@@ -225,7 +225,80 @@
     return sku ? (window.QS_BODY_SIZES[sku] || null) : null;
   }
 
-  /** 1つのボディ → 計算グループ [{label, qty, bodyUnit(税抜)}]。内訳が無ければ枚数の1グループ */
+  /* ---------- サイズ帯 → 個別サイズへの展開 ----------
+     価格表は「S〜XL」「2XL・3XL」のような**単価が同じサイズのまとまり(帯)**で持っている。
+     見積書には「S:2・M:3・L:5」のようにサイズごとの枚数を出したいので、帯を個別サイズへ開く。
+     ★単価は帯のものをそのまま使う(展開しても金額は1円も変わらない)。
+     ★同じサイズが1つの色区分の中で2つの帯に出ないことは全253品番で機械確認済み。
+       つまりサイズを決めれば単価が一意に決まる(検証スクリプトは2026-08-25の作業ログ) */
+  const SIZE_FAMILIES = [
+    ['70', '80', '90', '100', '110', '120', '130', '140', '150', '160'], // 子供(cm)
+    ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', '6XL'],      // アルファ
+    ['SS', 'S', 'M', 'L', 'LL', '3L', '4L', '5L', '6L', '7L'],           // 日本式
+    ['WS', 'WM', 'WL'],                                                   // レディース
+  ];
+
+  /** 表記ゆれを1つに寄せる(XXL→2XL・XXXL→3XL など)。末尾のcmは落とす */
+  function normSize(s) {
+    let t = String(s).trim().replace(/cm$/i, '');
+    const x = t.match(/^(X{2,})L$/i);
+    if (x) t = `${x[1].length}XL`;
+    return t;
+  }
+
+  /** "S"〜"XL" → ['S','M','L','XL']。体系をまたぐ範囲(150〜XLなど)は null */
+  function expandRange(a, b) {
+    const from = normSize(a), to = normSize(b);
+    for (const fam of SIZE_FAMILIES) {
+      const i = fam.indexOf(from), j = fam.indexOf(to);
+      if (i >= 0 && j >= 0 && i <= j) return fam.slice(i, j + 1);
+    }
+    return null;
+  }
+
+  /** サイズ帯ラベル → 個別サイズの配列。開けない範囲はラベルのまま1件で返す
+      (150〜XL・WM〜LL・WS〜LL の3帯だけが該当。従来どおり1つの選択肢になる) */
+  function expandBand(label) {
+    const out = [];
+    String(label).split('・').forEach((part) => {
+      const p = part.trim();
+      if (!p) return;
+      if (p.includes('〜')) {
+        const [a, b] = p.split('〜');
+        const r = expandRange(a, b);
+        if (r) { out.push(...r); return; }
+        out.push(p);
+        return;
+      }
+      out.push(normSize(p));
+    });
+    return [...new Set(out)];
+  }
+
+  /** 色区分 → 選べる個別サイズ [{size, price, bandIdx}](価格表の帯の順に並ぶ) */
+  function variantSizes(variant) {
+    const out = [];
+    const seen = new Set();
+    variant.b.forEach((band, bandIdx) => {
+      expandBand(band[0]).forEach((size) => {
+        if (seen.has(size)) return; // 起こらないはずだが、起きたら先の帯を優先する
+        seen.add(size);
+        out.push({ size, price: band[1], bandIdx });
+      });
+    });
+    return out;
+  }
+
+  /** 内訳1行の枚数。サイズ別に入れた枚数の合計(サイズ表の無いボディは手入力のまま) */
+  function syncRowQty(b, r) {
+    if (!bodySizeData(b)) return r.qty;
+    r.qty = Object.values(r.sizes).reduce((s, n) => s + (parseInt(n, 10) || 0), 0);
+    return r.qty;
+  }
+
+  /** 1つのボディ → 計算グループ [{label, qty, bodyUnit(税抜)}]。内訳が無ければ枚数の1グループ
+      ★内訳1行でも**単価の違うサイズが混ざれば複数グループに分かれる**
+        (例: S〜XLは748円・2XLは935円 → 2行の明細になる) */
   function bodyGroups(b) {
     const data = bodySizeData(b);
     const info = bodyInfo(b);
@@ -233,20 +306,41 @@
     if (!list.length) {
       return [{ label: '', qty: Math.max(1, parseInt(b.qty, 10) || 1), bodyUnit: info.unit }];
     }
-    return list.map((r) => {
-      let unit = info.unit;
-      let label = '';
-      if (data) {
-        const variant = data.v[Math.min(r.variant, data.v.length - 1)];
-        const band = variant.b[Math.min(r.band, variant.b.length - 1)];
-        unit = band[1];
-        label = `${variant.l ? `${variant.l}・` : ''}${band[0]}`;
-      } else if (r.sizeText) {
-        label = r.sizeText;
+    const groups = [];
+    list.forEach((r) => {
+      if (!data) {
+        // サイズ表の無いボディ(持込・リスト外)は、これまでどおりサイズを手打ちする
+        let label = r.sizeText || '';
+        if (r.color) label += `${label ? '・' : ''}${r.color}`;
+        groups.push({ label, qty: r.qty, bodyUnit: info.unit });
+        return;
       }
-      if (r.color) label += `${label ? '・' : ''}${r.color}`;
-      return { label, qty: r.qty, bodyUnit: unit };
+      const variant = data.v[Math.min(r.variant, data.v.length - 1)];
+      // 色区分(ホワイト/カラー)と入力された色名が同じときは1つにまとめる(「ホワイト・ホワイト」を防ぐ)
+      const head = [...new Set([variant.l, r.color].filter(Boolean))].join('・');
+      // 入力されたサイズを単価(帯)ごとにまとめる
+      const byBand = new Map();
+      variantSizes(variant).forEach((s) => {
+        const n = Math.max(0, parseInt(r.sizes[s.size], 10) || 0);
+        if (!n) return;
+        if (!byBand.has(s.bandIdx)) byBand.set(s.bandIdx, { unit: s.price, parts: [], qty: 0 });
+        const g = byBand.get(s.bandIdx);
+        g.parts.push(`${s.size}:${n}`);
+        g.qty += n;
+      });
+      byBand.forEach((g) => {
+        groups.push({
+          label: [head, g.parts.join('・')].filter(Boolean).join('　'),
+          qty: g.qty, bodyUnit: g.unit,
+        });
+      });
     });
+    // ★1つも作れなかったときも必ず1グループ返す。calcNormal が groups[0] を見るため
+    //   (品番を変えた直後など、行の枚数と入力済みサイズが噛み合わない瞬間の保険)
+    if (!groups.length) {
+      return [{ label: '', qty: Math.max(1, parseInt(b.qty, 10) || 1), bodyUnit: info.unit }];
+    }
+    return groups;
   }
 
   /** 加工行がそのボディに載るか。targets が無い行は全ボディ共通(既定) */
@@ -510,7 +604,7 @@
     b.breakdown.push({
       id: ++bdSeq,
       variant: data ? data.base[0] : 0,
-      band: data ? data.base[1] : 0,
+      sizes: {},        // サイズ名 → 枚数(サイズ表のあるボディ)
       sizeText: '', color: '', qty: 0,
     });
   }
@@ -535,8 +629,9 @@
         <label>枚数 <input type="number" data-bo="qty" min="1" value="${escAttr(b.qty)}"></label>
         <p class="qs-note" data-qty-note hidden>内訳を入力中は枚数を自動集計しています(内訳行をすべて消すと手入力に戻ります)。</p>
         <div class="form-label">サイズ・色別の内訳(任意)</div>
+        <p class="qs-note">色ごとに1行を足し、その行の中で<b>サイズごとの枚数</b>を入れてください(例: S:2・M:3・L:5)。枚数は自動で合計され、単価はサイズから自動で決まります。</p>
         <div class="qs-bd-wrap" data-bd-wrap></div>
-        <button type="button" class="btn btn-secondary btn-small" data-bd-add="${b.id}">＋ 内訳行を追加</button>`;
+        <button type="button" class="btn btn-secondary btn-small" data-bd-add="${b.id}">＋ 色の行を追加</button>`;
       wrap.appendChild(div);
 
       div.querySelectorAll('[data-bo]').forEach((input) => {
@@ -545,6 +640,14 @@
           const before = bodySku(b);
           b[f] = input.value;
           if (f === 'input' && bodySku(b) !== before) {
+            /* 品番が変わるとサイズの体系も色区分も単価も変わる。入れてあった枚数を
+               持ち越すと、新しい品番に無いサイズの枚数が宙に浮いて総数だけ残るので必ず消す */
+            const nd = bodySizeData(b);
+            b.breakdown.forEach((r) => {
+              r.sizes = {};
+              r.qty = 0;
+              r.variant = nd ? nd.base[0] : 0;
+            });
             // 品番が変わるとサイズ帯・色区分の選択肢が変わるので、そのボディの内訳を描き直す
             renderBreakdown(b, div);
             // 加工行の「対象ボディ」に出る品番の表示も古くなるので直す
@@ -581,34 +684,57 @@
     b.breakdown.forEach((r) => {
       const div = document.createElement('div');
       div.className = 'qs-bd-row';
-      let selects = '';
+      let head = '';
+      let grid = '';
       if (data) {
         const vi = Math.min(r.variant, data.v.length - 1);
         const variant = data.v[vi];
         if (data.v.length > 1) {
-          selects += `<select data-bf="variant" aria-label="色区分">${data.v.map((v, i) =>
+          head += `<select data-bf="variant" aria-label="色区分">${data.v.map((v, i) =>
             `<option value="${i}"${i === vi ? ' selected' : ''}>${v.l}</option>`).join('')}</select>`;
         }
-        const bi = Math.min(r.band, variant.b.length - 1);
-        selects += `<select data-bf="band" aria-label="サイズ帯">${variant.b.map((bd, i) =>
-          `<option value="${i}"${i === bi ? ' selected' : ''}>${bd[0]}(税抜${bd[1].toLocaleString()}円)</option>`).join('')}</select>`;
+        /* サイズごとに枚数を入れる。単価はサイズから自動で決まるので帯を選ぶ必要はない。
+           単価が違うサイズが混ざったら、見積書の明細のほうが自動で分かれる */
+        grid = `<div class="qs-size-grid">${variantSizes(variant).map((s) => `
+          <label class="qs-size-cell"><span class="qs-size-name">${s.size}</span>
+          <span class="qs-size-price">${s.price.toLocaleString()}円</span>
+          <input type="number" min="0" data-size="${escAttr(s.size)}" value="${r.sizes[s.size] || ''}"
+            placeholder="0" aria-label="${escAttr(s.size)}の枚数"></label>`).join('')}</div>`;
       } else {
-        selects += `<input type="text" data-bf="sizeText" value="${escAttr(r.sizeText)}" placeholder="サイズ(例: L)" aria-label="サイズ">`;
+        head += `<input type="text" data-bf="sizeText" value="${escAttr(r.sizeText)}" placeholder="サイズ(例: L)" aria-label="サイズ">`;
       }
       div.innerHTML = `
-        ${selects}
-        <input type="text" data-bf="color" value="${escAttr(r.color)}" placeholder="色(例: 白)" aria-label="色">
-        <input type="number" data-bf="qty" min="0" value="${r.qty || ''}" placeholder="枚数" aria-label="枚数">
-        <button type="button" class="btn-icon-remove" data-bd-del="${r.id}" aria-label="この内訳行を削除">✕</button>`;
+        <div class="qs-bd-head">
+          ${head}
+          <input type="text" data-bf="color" value="${escAttr(r.color)}" placeholder="色(例: 白)" aria-label="色">
+          <input type="number" data-bf="qty" min="0" value="${r.qty || ''}" placeholder="枚数" aria-label="枚数"${data ? ' readonly' : ''}>
+          <button type="button" class="btn-icon-remove" data-bd-del="${r.id}" aria-label="この内訳行を削除">✕</button>
+        </div>
+        ${grid}`;
       wrap.appendChild(div);
       div.querySelectorAll('[data-bf]').forEach((input) => {
         const f = input.dataset.bf;
         input.onchange = () => {
           if (f === 'qty') { r.qty = Math.max(0, parseInt(input.value, 10) || 0); syncQtyInput(b, block); }
-          else if (f === 'variant' || f === 'band') {
-            r[f] = +input.value;
-            if (f === 'variant') { r.band = 0; renderBreakdown(b, block); }
+          else if (f === 'variant') {
+            // 色区分でサイズの並びも単価も変わるので、入力済みの枚数は引き継がず開き直す
+            r.variant = +input.value;
+            r.sizes = {};
+            syncRowQty(b, r);
+            renderBreakdown(b, block);
           } else r[f] = input.value.trim();
+          recalc();
+        };
+      });
+      // サイズ別の枚数。打つそばから行の枚数とボディの総数へ反映する
+      div.querySelectorAll('[data-size]').forEach((input) => {
+        input.oninput = () => {
+          const n = Math.max(0, parseInt(input.value, 10) || 0);
+          if (n) r.sizes[input.dataset.size] = n; else delete r.sizes[input.dataset.size];
+          syncRowQty(b, r);
+          const qtyInput = div.querySelector('[data-bf="qty"]');
+          if (qtyInput) qtyInput.value = r.qty || '';
+          syncQtyInput(b, block);
           recalc();
         };
       });

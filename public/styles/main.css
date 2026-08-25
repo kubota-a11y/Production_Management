@@ -2905,12 +2905,22 @@ td.empty-notice {
 .qs-targets .form-label { margin: 0; }
 
 /* 見積シミュレーター: サイズ・色別の内訳とKRATVSサイズ帯別枚数(2026-08-21 追加) */
-.qs-bd-row { display: flex; flex-wrap: wrap; gap: var(--space-1); align-items: center;
-  border: 1px solid var(--border-color); border-radius: var(--radius-sm);
+.qs-bd-row { border: 1px solid var(--border-color); border-radius: var(--radius-sm);
   padding: var(--space-1) var(--space-2); margin-bottom: var(--space-1); }
+.qs-bd-head { display: flex; flex-wrap: wrap; gap: var(--space-1); align-items: center; }
 .qs-bd-row select { max-width: 46%; }
 .qs-bd-row input[type="text"] { width: 90px; }
 .qs-bd-row input[type="number"] { width: 72px; }
+/* サイズごとの枚数入力(2026-08-25 追加)。単価はサイズから自動で決まる */
+.qs-size-grid { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2);
+  margin-top: var(--space-1); padding-top: var(--space-1);
+  border-top: 1px dashed var(--border-color); }
+.qs-size-cell { display: flex; flex-direction: column; align-items: center; gap: 1px;
+  font-size: var(--text-sm); }
+.qs-size-name { font-weight: 600; }
+.qs-size-price { font-size: var(--text-xs); color: var(--text-muted); }
+.qs-size-grid input[type="number"] { width: 60px; text-align: center; }
+.qs-bd-row input[readonly] { background: var(--surface-sunken); color: var(--text-muted); }
 .qs-kband { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .qs-kband input { width: 90px; }
 .qs-unit-lines { display: flex; flex-direction: column; gap: 2px; text-align: right; }
