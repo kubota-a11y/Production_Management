@@ -13,7 +13,10 @@ HiBoard の**操作方法**は `docs/操作説明資料/` にある別資料を�
 | `三浦さん_CLAUDE.md` | 本人PCの `~/.claude/CLAUDE.md` | 三浦さん個人の役割・ルール |
 | `山本さん_CLAUDE.md` | 本人PCの `~/.claude/CLAUDE.md` | 山本さん個人の役割・ルール |
 | `三浦さん_settings.local.json` | 本人PCのリポジトリ内 `.claude/settings.local.json` | 三浦さんの権限設定 |
-| `山本さん_settings.local.json` | 本人PCのリポジトリ内 `.claude/settings.local.json` | 山本さんの権限設定 |
+| `山本さん_settings.local.json` | 本人PCのリポジトリ内 `.claude/settings.local.json` | 山本さんの権限設定(リポジトリを使う場合のみ) |
+| `山本さん_ユーザー設定_settings.json` | 本人PCの `~/.claude/settings.json` | **山本さんのPC全体に効く禁止設定**(リポジトリ無しでも効く) |
+| `山本さん_使い始めガイド.md` | 印刷して手渡し | 最初の2週間の使い方・プロンプト例 |
+| `AI利用ルール_社内共通.pdf` | 印刷して手渡し | チャット含む全AI利用の人間側ルール |
 
 Windows では `~/.claude/` は `C:\Users\<ユーザー名>\.claude\` にあたる。
 

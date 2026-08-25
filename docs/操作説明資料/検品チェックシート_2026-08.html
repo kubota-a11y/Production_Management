@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<title>検品チェックシート</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif; color: #1a2733; font-size: 9pt; line-height: 1.35; background: #f1f5f9; }
+  .page { width: 210mm; min-height: 297mm; padding: 9mm 11mm; page-break-after: always; background: #fff; margin: 0 auto 6mm; }
+  .page:last-child { page-break-after: auto; }
+  @media print { body { background: #fff; } .page { margin: 0; } }
+
+  .head { border-bottom: 3px solid #1d4ed8; padding-bottom: 2.2mm; margin-bottom: 2.6mm; display: flex; justify-content: space-between; align-items: flex-end; }
+  .head h1 { font-size: 15pt; color: #1d4ed8; }
+  .head .meta { font-size: 8pt; color: #667; text-align: right; }
+
+  h2 { font-size: 10pt; color: #fff; background: #1d4ed8; padding: 0.9mm 2.6mm; border-radius: 1.5mm; margin: 1.8mm 0 1mm; }
+  h2.g { background: #2f855a; }
+  h2.c { background: #444; }
+  h2.s { background: #9d174d; }
+  h3 { font-size: 9pt; color: #1d4ed8; margin: 1.4mm 0 0.7mm; border-left: 3px solid #1d4ed8; padding-left: 2.2mm; }
+  h3.g { color: #2f855a; border-left-color: #2f855a; }
+
+  p { margin-bottom: 1mm; }
+  ul, ol { margin: 0.8mm 0 1.4mm 5mm; }
+  li { margin-bottom: 0.5mm; }
+  strong { color: #0b2a52; }
+
+  table { width: 100%; border-collapse: collapse; margin: 1.2mm 0 1.6mm; font-size: 8.5pt; }
+  th { background: #eef2f9; color: #1d3f74; padding: 0.8mm 2.2mm; text-align: left; border: 1px solid #cbd5e1; font-weight: 600; }
+  td { border: 1px solid #cbd5e1; padding: 0.7mm 2.2mm; vertical-align: top; }
+  td.k { background: #fafafa; font-weight: 600; white-space: nowrap; }
+  td.c { text-align: center; }
+
+  .lead { background: #eef4fd; border-radius: 2mm; padding: 1.4mm 2.6mm; margin-bottom: 1.4mm; font-size: 8.6pt; }
+  .note { background: #fff8e6; border: 1px solid #e6c67a; border-radius: 2mm; padding: 1.2mm 2.4mm; margin: 1mm 0; font-size: 8.3pt; }
+  .key { background: #fdeeee; border: 1px solid #e0a3a3; border-radius: 2mm; padding: 1.2mm 2.4mm; margin: 1mm 0; font-size: 8.3pt; }
+  .key strong { color: #8a1f1f; }
+  .small { font-size: 8pt; color: #556; }
+
+  /* チェック項目 */
+  .cb { display: inline-block; width: 3.4mm; height: 3.4mm; border: 1.2px solid #64748b; border-radius: 0.6mm; vertical-align: -0.5mm; margin-right: 1.6mm; flex: 0 0 auto; }
+  .ck { display: flex; align-items: flex-start; font-size: 8.4pt; padding: 0.45mm 0 0.45mm 1mm; border-bottom: 1px dotted #d5dde6; line-height: 1.28; }
+  .ck:last-child { border-bottom: none; }
+  .ck .t { flex: 1; }
+  .ck .t .sub { display: block; font-size: 7.4pt; color: #667; }
+
+  /* 記入枠 */
+  .fill { display: inline-block; border-bottom: 1px solid #94a3b8; min-width: 14mm; height: 3.6mm; }
+  .fill.w { min-width: 26mm; }
+  .fill.s { min-width: 9mm; }
+
+  .box { border: 1px solid #cbd5e1; border-radius: 2mm; padding: 1.8mm 2.4mm; margin: 1.2mm 0; }
+  .box.blue { border-color: #1d4ed8; background: #f7faff; }
+  .box.green { border-color: #2f855a; background: #f6fdf8; }
+
+  .cols { display: flex; gap: 4mm; }
+  .cols > div { flex: 1; min-width: 0; }
+
+  .sign { display: flex; gap: 3mm; margin-top: 1.4mm; font-size: 8.3pt; align-items: center; }
+  .sign > span { white-space: nowrap; }
+
+  .flow { display: flex; align-items: stretch; gap: 1.4mm; margin: 1.8mm 0 1mm; }
+  .step { flex: 1; border-radius: 2mm; padding: 1.6mm 1.2mm; text-align: center; border: 1.3px solid; }
+  .step .n { font-size: 7.2pt; opacity: .8; }
+  .step .t { font-size: 8.4pt; font-weight: 600; margin: 0.4mm 0; }
+  .step .w { font-size: 7.2pt; }
+  .p1 { background: #eefaf1; border-color: #2f855a; color: #1d5137; }
+  .p2 { background: #eaf1fd; border-color: #1d4ed8; color: #12356e; }
+  .p3 { background: #f1f1ee; border-color: #8a8a80; color: #3f3f3a; }
+</style></head><body>
+
+<!-- ============================================================ -->
+<!-- 1ページ目：案件に添えて回す記入シート                        -->
+<!-- ============================================================ -->
+<div class="page">
+  <div class="head">
+    <h1>🔍 検品チェックシート</h1>
+    <div class="meta">案件1件につき1枚／2026-08 版<br>有限会社HiYOSHi　HiBoard</div>
+  </div>
+
+  <table>
+    <tr>
+      <td class="k" style="width:16mm">取引先</td><td style="width:56mm"></td>
+      <td class="k" style="width:16mm">案件名</td><td></td>
+    </tr>
+    <tr>
+      <td class="k">納品予定日</td><td>　　　　月　　　　日</td>
+      <td class="k">総枚数</td><td>　　　　　　枚　（予備　　　　枚を含む）</td>
+    </tr>
+    <tr>
+      <td class="k">加工内容</td>
+      <td colspan="3">□ DTFプリント　□ シルクプリント　□ 刺繍　□ ラバー転写　□ カッティング　□ 昇華　　位置：　　　　　　　　　　　　　　　　　　　　</td>
+    </tr>
+  </table>
+
+  <p class="lead">
+    <strong>使い方</strong>／このシートを<strong>指示書と一緒に商品に添えて</strong>回します。左半分を<strong>加工した本人</strong>が、
+    右半分を<strong>責任者</strong>が記入し、<strong>右下の署名まで埋まってはじめて納品に進めます。</strong>
+  </p>
+
+  <div class="cols">
+    <!-- ============ 左：一次検品 ============ -->
+    <div>
+      <h2 class="g">A. 一次検品 ── 加工した本人</h2>
+      <p class="small" style="margin-bottom:1.2mm">加工が終わったその場で。だいたい5分。<strong>数える・見比べる</strong>だけの作業です。</p>
+
+      <h3 class="g">① 指示書との照合</h3>
+      <div class="box green" style="padding:0.8mm 2.4mm">
+        <div class="ck"><span class="cb"></span><span class="t">総枚数が指示書と合っている<span class="sub">数えた枚数を上の「総枚数」欄に記入</span></span></div>
+        <div class="ck"><span class="cb"></span><span class="t">サイズ別の内訳が合っている<span class="sub">S／M／L／O／XO を1つずつ数える</span></span></div>
+        <div class="ck"><span class="cb"></span><span class="t">ボディの品番・カラーが指示書どおり</span></div>
+        <div class="ck"><span class="cb"></span><span class="t">加工の位置が指示書どおり<span class="sub">左胸・背中・袖・裾 など</span></span></div>
+        <div class="ck"><span class="cb"></span><span class="t">加工方法が指示書どおり</span></div>
+        <div class="ck"><span class="cb"></span><span class="t">名前・番号・スペルが一覧と1件ずつ合っている<span class="sub">個別名入れがある場合のみ／必ず全数</span></span></div>
+      </div>
+
+      <h3 class="g">② 仕上がりの確認（1枚ずつ）</h3>
+      <div class="box green" style="padding:0.8mm 2.4mm">
+        <div class="ck"><span class="cb"></span><span class="t">かすれ・欠け・にじみがない</span></div>
+        <div class="ck"><span class="cb"></span><span class="t">位置ズレ・傾きがない<span class="sub">左右の中心／襟からの高さ</span></span></div>
+        <div class="ck"><span class="cb"></span><span class="t">色が見本・前回品と合っている</span></div>
+        <div class="ck"><span class="cb"></span><span class="t">端のめくれ・剥がれがない<span class="sub">角を軽く引っぱって確認</span></span></div>
+        <div class="ck"><span class="cb"></span><span class="t">刺繍：糸の切り残し・目飛び・生地のつれがない<span class="sub">刺繍の場合のみ</span></span></div>
+        <div class="ck"><span class="cb"></span><span class="t">プレスのテカリ・跡が残っていない</span></div>
+        <div class="ck"><span class="cb"></span><span class="t">汚れがない<span class="sub">インク・糊・指紋・機械の油</span></span></div>
+        <div class="ck"><span class="cb"></span><span class="t">ボディ自体に傷・穴・ほつれ・汚れがない<span class="sub">メーカー不良。見つけたら必ず残しておく</span></span></div>
+      </div>
+
+      <h3 class="g">③ 仕分けと記入</h3>
+      <div class="box green" style="padding:0.8mm 2.4mm">
+        <div class="ck"><span class="cb"></span><span class="t">不良品は<strong>別の場所に分けて置いた</strong><span class="sub">良品と絶対に混ぜない</span></span></div>
+        <div class="ck"><span class="cb"></span><span class="t">たたんで、数えやすい単位の束にした<span class="sub">10枚ごとなど</span></span></div>
+      </div>
+      <table style="margin-top:1.4mm">
+        <tr><th style="width:50%">良品</th><th>不良・要相談</th></tr>
+        <tr><td class="c" style="padding:2mm">　　　　　　　　枚</td><td class="c" style="padding:2mm">　　　　　　　　枚</td></tr>
+      </table>
+
+      <div class="box green">
+        <div class="sign">
+          <span><strong>一次検品者</strong></span><span class="fill w"></span>
+          <span>日付</span><span class="fill s"></span><span>/</span><span class="fill s"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ 右：二次検品 ============ -->
+    <div>
+      <h2>B. 二次検品 ── 責任者</h2>
+      <p class="small" style="margin-bottom:1.2mm">三浦さん／山本さん／渡邉さんのいずれか。まず下の区分を判定します。</p>
+
+      <h3>① 全数か抜き取りかを決める</h3>
+      <div class="box blue" style="padding:0.8mm 2.4mm">
+        <div class="ck"><span class="cb"></span><span class="t">新規のお客様、または初めてのデザイン</span></div>
+        <div class="ck"><span class="cb"></span><span class="t">過去に不良・クレームがあったお客様／加工</span></div>
+        <div class="ck"><span class="cb"></span><span class="t">100枚以上の大口</span></div>
+        <div class="ck"><span class="cb"></span><span class="t">個別の名前・番号入れがある</span></div>
+      </div>
+      <div class="key" style="margin-top:1.2mm">
+        <strong>1つでも該当 → 全数検品。</strong>ひとつも該当しなければ（実績のあるリピート案件）<strong>抜き取りでOK</strong>です。
+      </div>
+
+      <table>
+        <tr><th style="width:42%">総枚数</th><th>抜き取る枚数</th></tr>
+        <tr><td class="k">〜10枚</td><td>全数</td></tr>
+        <tr><td class="k">11〜30枚</td><td>5枚</td></tr>
+        <tr><td class="k">31〜100枚</td><td>10枚</td></tr>
+        <tr><td class="k">101枚〜</td><td>総数の1割（最大20枚）</td></tr>
+      </table>
+      <div class="key">
+        <strong>抜き取りで1枚でも不良が出たら、その場で全数検品に切り替えます。</strong>
+      </div>
+
+      <h3>② 責任者が自分の目で見る</h3>
+      <div class="box blue" style="padding:0.8mm 2.4mm">
+        <div class="ck"><span class="cb"></span><span class="t">指示書・デザイン最終稿と現物を突き合わせた<span class="sub">一次検品の結果を信じず、必ず自分で見る</span></span></div>
+        <div class="ck"><span class="cb"></span><span class="t">数量とサイズ内訳を数え直した</span></div>
+        <div class="ck"><span class="cb"></span><span class="t">名前・番号を一覧と突き合わせた<span class="sub">個別名入れは抜き取りにせず必ず全数</span></span></div>
+        <div class="ck"><span class="cb"></span><span class="t">前回の納品品と並べて色味を確認した<span class="sub">リピート案件の場合</span></span></div>
+        <div class="ck"><span class="cb"></span><span class="t">上の枚数だけ抜き取って、Aの②を見た<span class="sub">見た枚数：　　　　枚</span></span></div>
+      </div>
+
+      <h2 class="c">C. 出荷準備</h2>
+      <div class="box" style="padding:0.8mm 2.4mm">
+        <div class="ck"><span class="cb"></span><span class="t">たたみ・袋詰めが済んでいる</span></div>
+        <div class="ck"><span class="cb"></span><span class="t">名前ごとの仕分けが済んでいる<span class="sub">個別名入れの場合</span></span></div>
+        <div class="ck"><span class="cb"></span><span class="t">同梱物を入れた<span class="sub">納品書／見本／支給品の返却物</span></span></div>
+        <div class="ck"><span class="cb"></span><span class="t">送り先・送り状、または引き渡し方法を確認した</span></div>
+        <div class="ck"><span class="cb"></span><span class="t">制作実績用の写真を撮った<span class="sub">掲載の許可が取れている案件のみ</span></span></div>
+        <div class="ck"><span class="cb"></span><span class="t">HiBoardのステータスを「納品」に進めた</span></div>
+      </div>
+
+      <div class="box blue">
+        <div class="sign">
+          <span><strong>二次検品者</strong></span><span class="fill w"></span>
+          <span>日付</span><span class="fill s"></span><span>/</span><span class="fill s"></span>
+        </div>
+        <div class="sign" style="margin-top:1.6mm">
+          <span>判定</span>
+          <span><span class="cb"></span>全数</span>
+          <span><span class="cb"></span>抜き取り</span>
+          <span style="margin-left:2mm"><span class="cb"></span><strong>出荷OK</strong></span>
+          <span><span class="cb"></span>要相談</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" style="margin-top:1.6mm">
+    <strong>不良が出たとき</strong>／① その場で分けて置く（良品と混ぜない）　→　② 責任者へ口頭で報告　→　③ 責任者が「作り直し／予備で補充／メーカー返品」を判断
+    　→　④ <strong>納期に影響しそうなら三浦さんへ</strong>。お客様への連絡は自分の判断でしないこと。
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 2ページ目：掲示用の運用ルール                                -->
+<!-- ============================================================ -->
+<div class="page">
+  <div class="head">
+    <h1>📋 検品の進め方（掲示用）</h1>
+    <div class="meta">2026-08 版<br>有限会社HiYOSHi</div>
+  </div>
+
+  <p class="lead">
+    これまで検品は<strong>三浦さんがひとりで全数を見る</strong>形で、手が回らず仕上がったのに止まる案件が出ていました。そこで検品を<strong>二段階</strong>に分け、
+    <strong>加工した本人が一次検品</strong>を行い、<strong>責任者は「全部見る人」から「最終的に承認する人」</strong>に役割を変えます。
+  </p>
+
+  <div class="flow">
+    <div class="step p3"><div class="n">①</div><div class="t">加工</div><div class="w">加工担当</div></div>
+    <div class="step p1"><div class="n">②</div><div class="t">一次検品</div><div class="w">加工した本人<br>（シート左半分）</div></div>
+    <div class="step p2"><div class="n">③</div><div class="t">二次検品</div><div class="w">責任者<br>（シート右半分）</div></div>
+    <div class="step p3"><div class="n">④</div><div class="t">出荷・納品</div><div class="w">責任者の署名後</div></div>
+  </div>
+
+  <h2>誰が何をするか</h2>
+  <table>
+    <tr><th style="width:22%">担当</th><th style="width:26%">役割</th><th>やること</th></tr>
+    <tr>
+      <td class="k">加工した本人<br><span class="small">渋川・塩野・太田</span></td>
+      <td>一次検品</td>
+      <td>加工が終わったその場で、シート左半分（A）を全部埋める。<strong>数える・見比べる作業が中心</strong>で、判断は要りません。迷ったら止めて責任者に聞く</td>
+    </tr>
+    <tr>
+      <td class="k">渡邉さん</td>
+      <td><strong>二次検品の主担当</strong></td>
+      <td>作業指示を出している立場で加工内容を一番把握しているため、通常の案件はここで完結させる</td>
+    </tr>
+    <tr>
+      <td class="k">山本さん</td>
+      <td>二次検品のサブ</td>
+      <td>渡邉さんが手を離せないときに代わる。<span class="small">2026年9月からフルタイムのため、ここを主戦力にしていく</span></td>
+    </tr>
+    <tr>
+      <td class="k">三浦さん</td>
+      <td><strong>高リスク案件の最終承認のみ</strong></td>
+      <td>新規・初回デザイン・クレーム歴あり・大口。<strong>それ以外の案件は見なくてよい</strong></td>
+    </tr>
+  </table>
+
+  <div class="key">
+    <strong>いちばん大事なこと</strong>／案件ごとに<strong>二次検品の担当者名をシートに書き残す</strong>こと。
+    「手が空いた人がやる」にすると、結局いちばん責任感のある三浦さんに寄っていき、元に戻ります。
+  </div>
+
+  <h2>全数で見る案件・抜き取りでよい案件</h2>
+  <table>
+    <tr><th style="width:50%">全数検品（1枚ずつ全部見る）</th><th>抜き取り検品</th></tr>
+    <tr>
+      <td>
+        次のどれか1つでも当てはまる案件：
+        <ul style="margin-bottom:0">
+          <li>新規のお客様／初めてのデザイン</li>
+          <li>過去に不良・クレームがあった</li>
+          <li>100枚以上の大口</li>
+          <li>個別の名前・番号入れがある</li>
+        </ul>
+      </td>
+      <td>
+        上のどれにも当てはまらない案件：
+        <ul style="margin-bottom:0">
+          <li>チーム追加注文などのリピート</li>
+          <li>版もデータも実績があるもの</li>
+        </ul>
+        <p class="small" style="margin-top:1mm">枚数に応じて5〜20枚。<strong>1枚でも不良が出たら全数に切り替え</strong></p>
+      </td>
+    </tr>
+  </table>
+
+  <div class="note">
+    <strong>なぜ抜き取りでよいのか</strong>／検品の大半は「目利き」ではなく<strong>指示書との照合</strong>で、それは一次検品で全数やっています。
+    二次検品は「一次検品が正しく行われたかを確かめる」ためのもので、実績のあるリピート案件まで責任者が1枚ずつ見直す必要はありません。
+  </div>
+
+  <h2 class="s">不良が出たときの動き</h2>
+  <table>
+    <tr><th style="width:8%">順</th><th style="width:22%">誰が</th><th>やること</th></tr>
+    <tr><td class="c">1</td><td class="k">見つけた人</td><td>その場で<strong>別の場所に分けて置く</strong>。良品と混ぜたら、探し直しで何倍も時間がかかります</td></tr>
+    <tr><td class="c">2</td><td class="k">見つけた人</td><td>責任者へ<strong>口頭で報告</strong>。枚数と、どこがおかしいかを伝える</td></tr>
+    <tr><td class="c">3</td><td class="k">責任者</td><td><strong>作り直し／予備で補充／メーカー返品</strong>のどれかを判断する</td></tr>
+    <tr><td class="c">4</td><td class="k">責任者</td><td>不良の枚数と原因を<strong>HiBoardのメモに残す</strong>。次に同じお客様の案件が来たとき、全数検品の対象にするかの判断材料になります</td></tr>
+    <tr><td class="c">5</td><td class="k">責任者</td><td><strong>納期に影響しそうなら三浦さんへ</strong>。三浦さんから社長へ。<span class="key" style="display:inline; padding:0.3mm 1.5mm">お客様への連絡は自分の判断でしない</span></td></tr>
+  </table>
+
+  <h2 class="c">運用の始め方</h2>
+  <table>
+    <tr><th style="width:22%">時期</th><th>やること</th></tr>
+    <tr><td class="k">最初の1〜2週間</td><td>この紙のシートで回す。<strong>項目の過不足を書き込んでもらう</strong>（「この項目は要らない」「これが抜けている」を余白にメモ）</td></tr>
+    <tr><td class="k">2週間後</td><td>集まったメモをもとに項目を確定させ、シートを刷り直す</td></tr>
+    <tr><td class="k">その後</td><td>項目が固まったら<strong>HiBoardの検品ステージに載せる</strong>。検品担当者とチェック完了が入っていないと「納品」に進めない仕組みにすれば、紙の運用が自然に置き換わります</td></tr>
+  </table>
+
+  <div class="note">
+    シートは記入後、<strong>指示書と一緒に案件のフォルダへ保管</strong>します（G:\共有ドライブ\HiYOSHi共有）。
+    クレームがあったときに「誰が何を確認したか」をさかのぼれるようにするためです。
+  </div>
+</div>
+
+</body></html>
