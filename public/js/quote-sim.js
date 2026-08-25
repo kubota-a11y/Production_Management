@@ -80,6 +80,8 @@
       // 見積書の摘要の頭に出す箇所名(例: 左胸・背面・両襟)。案件から開くと自動で入る。
       // 金額には一切影響しない表示専用の項目
       locationName: '',
+      // 追加注文などで版・刺繍データが既にあるとき、初期費用(製版代・パンチング代)を外す
+      noInitial: false,
     });
   }
 
@@ -122,7 +124,8 @@
       const base = isCap
         ? t.rows[row.embPlaces][row.embTime]
         : t.rows[row.embPlaces][row.embTime][row.embSize];
-      const punch = isCap ? t.punching : t.punching[row.embSize];
+      // 刺繍データが作成済み(追加注文など)ならパンチング代を落とす
+      const punch = row.noInitial ? 0 : (isCap ? t.punching : t.punching[row.embSize]);
       const sizeName = isCap ? '100cm²以内' : window.QS_EMB.normal.sizes[row.embSize];
       // ワッペン用資材一式は割増ではなく1枚あたりの実費(円加算)
       const patchFee = row.patch ? window.QS_EMB.patch : 0;
@@ -131,6 +134,8 @@
         short: isCap ? '帽子刺繍' : '刺繍',
         cust: `${isCap ? '帽子刺繍' : '刺繍'}(${sizeName})${row.patch ? '・ワッペン用資材一式' : ''}`,
         unit: mul(base) + patchFee, initial: punch, initialLabel: 'パンチング代(初回のみ)',
+        initialWaived: Boolean(row.noInitial),
+        waivedNote: '※作成済みの刺繍データを使用(パンチング代なし)',
         note: '加工時間は刺繍データ完成後に確定(この金額は概算)',
       };
     }
@@ -155,7 +160,9 @@
     if (silkBelowMin) silkTier = Math.min(...Object.keys(silkTable).map(Number));
     const silkUnit = silkTier !== null ? silkTable[silkTier] : null;
     const plateOne = tbl.silk.plate[SMALL_PLATE.has(row.size) ? 'small' : 'large'];
-    const silkPlate = plateOne * row.colors;
+    // 版が既にある(追加注文など)なら製版代を落とす。
+    // ★ここで0にしておくと、自動(シルク/DTFの安い方)の総額比較にも正しく効く
+    const silkPlate = row.noInitial ? 0 : plateOne * row.colors;
 
     const dtf = {
       label: `DTFプリント ${row.size}(フルカラー可)`, short: 'DTF',
@@ -167,6 +174,8 @@
       cust: `シルクプリント ${row.colors === 1 ? '単色' : `${row.colors}色`}(${row.size}以内)`,
       unit: mul(silkUnit),
       initial: silkPlate, initialLabel: `製版代 ${row.colors}版(初回のみ)`,
+      initialWaived: Boolean(row.noInitial),
+      waivedNote: '※前回の版を使用(製版代なし)',
       note: `${silkBelowMin ? `10枚未満の特別対応: ${silkTier}枚時の単価にミニマム手数料(5割増)を適用しています。` : ''}版の保管期間1年`,
     };
 
@@ -311,7 +320,8 @@
         const c = l.byBody.get(bc.b.id);
         return {
           kind: 'print', label: c.cust || c.label, location: l.locationName,
-          minFee: c.minFee, bodyShort: bc.info.short, qty: bc.qty, unitName: '式',
+          minFee: c.minFee, initialWaived: c.initialWaived, waivedNote: c.waivedNote,
+          bodyShort: bc.info.short, qty: bc.qty, unitName: '式',
           unitBefore: c.unit, unit: discountUnit(c.unit, 'print'),
         };
       });
@@ -701,6 +711,14 @@
       html += `<label class="qs-check"><input type="checkbox" data-patch${row.patch ? ' checked' : ''}>
         ワッペン用資材一式(+税抜${window.QS_EMB.patch.toLocaleString()}円/枚)</label>`;
     }
+    /* 追加注文で版・刺繍データが既にあるときは初期費用を外せる。
+       初期費用があり得る加工(シルク・刺繍・帽子刺繍と、シルクになりうる自動)だけに出す */
+    if (['auto', 'silk', 'emb', 'cap'].includes(row.method)) {
+      const initialName = (row.method === 'emb' || row.method === 'cap') ? 'パンチング代' : '製版代';
+      html += `<label class="qs-check"><input type="checkbox" data-noinit${row.noInitial ? ' checked' : ''}>
+        ${initialName}を含めない(追加注文・データ作成済み)</label>`;
+    }
+
     // 割増オプション(方法に関係するものだけ表示)
     const nylonSheets = ['sheetNylon', 'sheetNylonGold', 'sheetNylonRef'];
     const colorSheets = ['sheetMetallic', 'sheetPearl', 'sheetPearlNeon', 'sheetReflex', 'sheetSilver', 'sheet3M', 'sheetGlow'];
@@ -753,6 +771,8 @@
     // 箇所名は打つそばから転記シートへ反映したい(金額に影響しないので描き直しは起きない)
     const locInput = box.querySelector('[data-f="locationName"]');
     if (locInput) locInput.oninput = () => { row.locationName = locInput.value; recalc(); };
+    const noInit = box.querySelector('[data-noinit]');
+    if (noInit) noInit.onchange = () => { row.noInitial = noInit.checked; recalc(); };
     box.querySelectorAll('[data-sur]').forEach((cb) => {
       cb.onchange = () => {
         cb.checked ? row.surcharges.add(cb.dataset.sur) : row.surcharges.delete(cb.dataset.sur);
@@ -912,6 +932,8 @@
         // どのボディへの加工かは、ボディが複数のときだけ添える
         if (r.multiBody && x.bodyShort) bits.push(`対象: ${x.bodyShort}`);
         if (x.minFee) bits.push('※ミニマム手数料込み');
+        // 製版代・パンチング代を外した行は、なぜ初期費用が無いのかをお客様に伝える
+        if (x.initialWaived && x.waivedNote) bits.push(x.waivedNote);
       } else if (x.kind !== 'body') {
         bits.unshift(x.label); // 初期費用・袋入れ・送料は品名を立てず摘要だけで書く
       }
