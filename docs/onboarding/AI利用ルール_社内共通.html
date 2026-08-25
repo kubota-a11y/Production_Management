@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<title>AI利用ルール 社内共通</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif; color: #1a2733; font-size: 8.3pt; line-height: 1.19; background: #f1f5f9; }
+  .page { width: 210mm; min-height: 297mm; padding: 7.5mm 12mm; page-break-after: always; background: #fff; margin: 0 auto 6mm; }
+  .page:last-child { page-break-after: auto; }
+  @media print { body { background: #fff; } .page { margin: 0; } }
+
+  .head { border-bottom: 3px solid #1d4ed8; padding-bottom: 2.2mm; margin-bottom: 2.6mm; display: flex; justify-content: space-between; align-items: flex-end; }
+  .head h1 { font-size: 15pt; color: #1d4ed8; }
+  .head .meta { font-size: 8pt; color: #667; text-align: right; }
+
+  h2 { font-size: 10.2pt; color: #fff; background: #1d4ed8; padding: 0.9mm 3mm; border-radius: 1.5mm; margin: 1.5mm 0 0.7mm; }
+  h2.c { background: #444; }
+  h2.s { background: #9d174d; }
+
+  p { margin-bottom: 1mm; }
+  ul { margin: 0.7mm 0 1.1mm 4.6mm; }
+  li { margin-bottom: 0.35mm; }
+  strong { color: #0b2a52; }
+
+  table { width: 100%; border-collapse: collapse; margin: 0.8mm 0 1mm; font-size: 8.05pt; }
+  th { background: #eef2f9; color: #1d3f74; padding: 0.85mm 2.2mm; text-align: left; border: 1px solid #cbd5e1; font-weight: 600; }
+  td { border: 1px solid #cbd5e1; padding: 0.85mm 2.2mm; vertical-align: top; }
+  td.k { background: #fafafa; font-weight: 600; }
+  td.ok { background: #f0fdf4; text-align: center; font-weight: 700; color: #1d5137; white-space: nowrap; }
+  td.ng { background: #fdeeee; text-align: center; font-weight: 700; color: #8a1f1f; white-space: nowrap; }
+
+  .lead { background: #eef4fd; border-radius: 2mm; padding: 1.6mm 2.8mm; margin-bottom: 1.1mm; }
+  .note { background: #fff8e6; border: 1px solid #e6c67a; border-radius: 2mm; padding: 1.4mm 2.4mm; margin: 1mm 0; font-size: 8.3pt; }
+  .key { background: #fdeeee; border: 1px solid #e0a3a3; border-radius: 2mm; padding: 1.4mm 2.4mm; margin: 1mm 0; font-size: 8.3pt; }
+  .key strong { color: #8a1f1f; }
+  .small { font-size: 8pt; color: #556; }
+  .cols { display: flex; gap: 4mm; }
+  .cols > div { flex: 1; }
+  .foot { margin-top: 1.5mm; border-top: 1px solid #cbd5e1; padding-top: 1mm; font-size: 8pt; color: #667; }
+</style></head><body>
+
+<div class="page">
+  <div class="head">
+    <h1>🤖 AI利用ルール</h1>
+    <div class="meta">社内共通／2026-08-25 案<br>有限会社HiYOSHi</div>
+  </div>
+
+  <p class="lead">
+    会社で AI を使うときの共通ルールです。<strong>対象は Claude と Gemini の両方。</strong><strong>AIは「よく調べてくれる新人」だと思ってください。</strong>仕事は速いですが、<strong>思い込みで数字を間違えることがあり、判断はしません。</strong>最後に確認して決めるのは、いつも人です。
+  </p>
+
+  <h2>1. アカウント ─ 必ず会社のアカウントで使う</h2>
+  <table>
+    <tr><th style="width:27%">使うもの</th><th>入力した内容の扱い</th></tr>
+    <tr><td class="k">Claude<br>チームプラン(Standard)</td><td class="auto"><strong>入力した内容・AIの回答が、AIモデルの学習に使われません。</strong><span class="small">（法人向けの商用利用規約が適用されるため）</span></td></tr>
+    <tr><td class="k">Gemini（会社のWorkspace）</td><td>会社アカウントで使う限り<strong>業務向けの契約が適用</strong>されます。<span class="small">個人のGoogleアカウントで開いたGeminiは対象外</span></td></tr>
+    <tr><td class="k">個人の無料・Proアカウント<br>自分のスマホのアプリ</td><td><strong style="color:#8a1f1f">会社の仕事に使わないでください。</strong>設定によっては<strong style="color:#8a1f1f">入力内容が学習に使われます</strong></td></tr>
+  </table>
+  <p class="small">ログイン情報を他人に貸さない。退職・異動のときは席を返却する。</p>
+
+  <h2>2. 入れてよい情報／入れてはいけない情報</h2>
+  <div class="note">
+    <strong>迷ったときの目安：「これを社外の業者さんにメールで送れるか?」</strong> 送れないものは、AIにも入れない。
+  </div>
+  <table>
+    <tr><th style="width:9%">判断</th><th>情報の種類</th></tr>
+    <tr><td class="ok">入れてよい</td><td>案件の内容、加工の種類・枚数・納期、<strong>お客様の会社名・お名前・電話番号・住所</strong>、社内の資料・議事録、HiBoardの画面の見え方、文章の下書き</td></tr>
+    <tr><td class="ok">入れてよい</td><td><strong>自社の価格・原価・仕入単価</strong><span class="small">（見積書づくりなど、業務に必要な範囲で）</span></td></tr>
+    <tr><td class="ng">入れない</td><td><strong>パスワード、APIキー、各種サービスのログイン情報</strong></td></tr>
+    <tr><td class="ng">入れない</td><td><strong>マイナンバー、口座番号、生年月日</strong></td></tr>
+    <tr><td class="ng">入れない</td><td><strong>従業員の給与・評価・人事に関する情報</strong></td></tr>
+    <tr><td class="ng">入れない</td><td><strong>取引先から「社外秘」と示された資料・契約条件</strong></td></tr>
+    <tr><td class="ng">入れない</td><td><strong>お客様の顔が写っている写真</strong><span class="small">（掲載許可が取れているものを除く）</span></td></tr>
+  </table>
+
+  <h2 class="s">3. 出す前に、必ず人が確認する ─ AIが作ったものをそのまま外に出さない</h2>
+  <table>
+    <tr><th style="width:46%">出すもの</th><th>確認する人</th></tr>
+    <tr><td class="k">SNS投稿（KRATVSのInstagramリールなど）</td><td><strong>社長</strong>　※投稿前に必ず</td></tr>
+    <tr><td class="k">協賛・取引条件の提示</td><td><strong>社長</strong>　※条件を伝える前に必ず</td></tr>
+    <tr><td class="k">ホームページに載せる文章・制作実績</td><td><strong>社長</strong>　※お客様の掲載許可も必要</td></tr>
+    <tr><td class="k">お客様・取引先へ送るメール、見積書</td><td>山本さん → <strong>三浦さん</strong>／三浦さん → 自分で確認</td></tr>
+    <tr><td class="k">社内資料・議事録のまとめ</td><td>作った本人が<strong>原本と突き合わせる</strong></td></tr>
+  </table>
+
+  <h2 class="c">4. AIは間違える ─ 数字と事実は自分で確かめる</h2>
+  <div class="key">
+    <strong>実際に起きた例（2026年8月24日）</strong>
+    <ul style="margin-bottom:0">
+      <li>KRATVSのカタログを確認させたところ、AIは<strong>「152ページ」と認識。実際は18ページ</strong>でした</li>
+      <li>議事録と録音で<strong>「大人ネイビーのインク色」が食い違い</strong>。AIは食い違いを見つけられますが、<strong>どちらが正しいかを決めるのは人</strong>です</li>
+    </ul>
+  </div>
+  <p><strong>金額・数量・納期・サイズ・品番は、AIの出力をそのまま信じない。必ず原本で確認する。</strong></p>
+
+  <div class="cols">
+    <div>
+  <h2>5. HiBoard(生産管理)のこと ─ 誰に聞くか</h2>
+  <table>
+    <tr><th style="width:46%">こと</th><th>担当・相談先</th></tr>
+    <tr><td class="k">HiBoardを日々<strong>使う</strong>（受付・案件登録・進捗入力）</td><td>三浦さん・山本さん</td></tr>
+    <tr><td class="k">画面の<strong>操作</strong>が分からない</td><td>操作説明資料 → それでも不明なら<strong>三浦さん</strong></td></tr>
+    <tr><td class="k">HiBoardの<strong>中身を作る・直す</strong>（仕組み・不具合・機能追加）</td><td><strong>久保田</strong><span class="small">（Claude Codeで開発）</span></td></tr>
+    <tr><td class="k"><strong>「動きがおかしい」「こう変えたい」</strong></td><td><strong>久保田へ。</strong>自分で直そうとしない。<strong>「どの画面で・何をしたら・どうなったか」</strong>を書いて渡す</td></tr>
+  </table>
+  <p class="small">※ Claude Codeで<strong>ファイルを直接触る場合のみ</strong>：開発ルール(CLAUDE.md)を必ず読む／<strong>本番反映は久保田の承認後</strong>／山本さんは本番反映を行わない。</p>
+
+    </div>
+    <div>
+  <h2 class="c">6. 困ったとき</h2>
+  <table>
+    <tr><th style="width:52%">状況</th><th>相談先</th></tr>
+    <tr><td class="k">仕事の進め方の判断</td><td>山本さん → <strong>三浦さん</strong>／三浦さん → <strong>久保田</strong></td></tr>
+    <tr><td class="k">この情報をAIに入れてよいか判断がつかない</td><td><strong>入れる前に久保田</strong></td></tr>
+    <tr><td class="k">誤って入れてはいけない情報を入れてしまった</td><td><strong>すぐ久保田に報告</strong>（隠さない。早いほど手が打てます）</td></tr>
+  </table>
+    </div>
+  </div>
+
+  <div class="foot">
+    ※規約は改定されることがあります。契約時と年1回、最新の規約を確認します（久保田）。　このルールは運用しながら見直します。使ってみて「これは判断に困る」という場面があれば、久保田まで教えてください。
+  </div>
+</div>
+
+</body></html>
