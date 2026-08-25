@@ -146,6 +146,8 @@ window.QS_KRATVS = {
       price: [{ size: '130〜XXL', p: 4620 }] },
     { code: 'S-03', kind: 'shorts', name: 'ドライショーツ 3.9oz',
       price: [{ size: '130〜XXXL', p: 3850 }] },
+    { code: 'B-01', kind: 'bib',    name: 'ビブス 4.4oz ドライメッシュ',
+      price: [{ size: '全サイズ', p: 1100 }] },
     { code: 'O-01', kind: 'other',  name: 'サッカーソックス',
       price: [{ size: '全サイズ', p: 660 }] },
   ],
@@ -158,6 +160,14 @@ window.QS_KRATVS = {
     { t: '選手名',                size: 'タテ7.5cm以下', p: 930 },
     { t: 'スポンサー名(小)',      size: '50cm²以下',    p: 930 },
     { t: 'スポンサー名(大)',      size: '前300cm²/後150〜200cm²以下', p: 990 },
+  ],
+  // ビブス専用(2026-08-25追加)。シャツより安いのは低価格帯アイテムのため(社長判断)。
+  // ★セット料金は設定しない(sets に scope:'bib' を作らない)
+  printsBib: [
+    { t: '背番号',                size: 'タテ25cm以下', p: 770 },
+    { t: 'チーム名／スポンサー名', size: '300cm²以下',   p: 660 },
+    { t: 'エンブレム',            size: '10cm角以下',   p: 660 },
+    { t: 'ワンポイント',          size: '10cm角以下',   p: 660 },
   ],
   printsShorts: [
     { t: '選手番号',     size: 'タテ10〜15cm',        p: 880 },

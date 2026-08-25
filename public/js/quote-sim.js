@@ -26,6 +26,14 @@
   const taxOut = (n) => Math.round((n * 100) / (100 + TAX));
   /** 小計(税抜) → 消費税。**行ごとではなく小計に1回だけ**掛ける(freeeの外税と同じ計算) */
   const taxOf = (n) => Math.round((n * TAX) / 100);
+  /** KRATVSアイテムの種類に対応するプリント表を返す(shirt/shorts/bib) */
+  function kratvsPrintList(item) {
+    const k = window.QS_KRATVS;
+    if (item.kind === 'shorts') return k.printsShorts;
+    if (item.kind === 'bib') return k.printsBib;
+    return k.printsShirt;
+  }
+
   const yen = (n) => n.toLocaleString('ja-JP') + '円';
 
   const SIZES_ALL = ['B8', 'B7', 'A5', 'A4', 'A3'];
@@ -480,7 +488,7 @@
   let kBandQty = {};           // サイズ帯idx → 枚数
   function calcKratvs() {
     const item = window.QS_KRATVS.items[+el('k-item').value];
-    const printList = item.kind === 'shorts' ? window.QS_KRATVS.printsShorts : window.QS_KRATVS.printsShirt;
+    const printList = kratvsPrintList(item);
     const picked = printList.filter((p) => kSelected.has(p.t));
 
     // セット自動判定(3点→2点の順で1回だけ適用)
@@ -1541,7 +1549,7 @@
       el('k-bands').querySelectorAll('[data-kb]').forEach((inp) => {
         inp.oninput = () => { kBandQty[+inp.dataset.kb] = Math.max(0, parseInt(inp.value, 10) || 0); recalc(); };
       });
-      const list = it.kind === 'shorts' ? k.printsShorts : k.printsShirt;
+      const list = kratvsPrintList(it);
       el('k-prints').innerHTML = list.map((p) => `
         <label class="qs-check"><input type="checkbox" data-kp="${p.t}"${kSelected.has(p.t) ? ' checked' : ''}>
         ${p.t}(${p.size})+税抜${taxOut(p.p).toLocaleString()}円</label>`).join('');
