@@ -2,12 +2,14 @@
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "ask": [
-      "Bash(git push:*)",
-      "Bash(update.bat:*)"
+      "Bash(git push:*)"
     ],
     "deny": [
+      "Bash(update.bat:*)",
+      "Bash(*update.bat*)",
       "Bash(sqlite3:*)",
-      "Read(//**/Production_Management_v2/db/**)"
+      "Read(//**/Production_Management_v2/**)",
+      "Bash(*Production_Management_v2*)"
     ]
   }
 }
