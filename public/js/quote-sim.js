@@ -31,6 +31,7 @@
     const k = window.QS_KRATVS;
     if (item.kind === 'shorts') return k.printsShorts;
     if (item.kind === 'bib') return k.printsBib;
+    if (item.kind === 'cap') return k.printsCap;
     return k.printsShirt;
   }
 

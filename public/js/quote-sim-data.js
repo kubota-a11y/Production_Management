@@ -149,6 +149,9 @@ window.QS_KRATVS = {
     { code: 'B-01', kind: 'bib',    name: 'ビブス 4.4oz ドライメッシュ',
       // ボディ glimmer 00336。下代 JL・F=490円/XXL=545円 のためサイズ帯を分ける
       price: [{ size: 'ジュニアL・フリー', p: 1100 }, { size: 'XXL', p: 1320 }] },
+    { code: 'C-01', kind: 'cap',    name: 'メッシュキャップ',
+      // ボディ glimmer 00700。JL・F とも下代195円のためサイズ一律
+      price: [{ size: 'ジュニア・フリー', p: 1210 }] },
     { code: 'O-01', kind: 'other',  name: 'サッカーソックス',
       price: [{ size: '全サイズ', p: 660 }] },
   ],
@@ -169,6 +172,13 @@ window.QS_KRATVS = {
     { t: 'チーム名／スポンサー名', size: '300cm²以下',   p: 660 },
     { t: 'エンブレム',            size: '10cm角以下',   p: 660 },
     { t: 'ワンポイント',          size: '10cm角以下',   p: 660 },
+  ],
+  // キャップ専用(2026-08-25追加)。ビブスと同じ660円の段。
+  // ★セット料金は設定しない(sets に scope:'cap' を作らない)
+  printsCap: [
+    { t: 'エンブレム',   size: '10cm角以下',  p: 660 },
+    { t: 'ワンポイント', size: '10cm角以下',  p: 660 },
+    { t: 'チーム名',     size: 'ヨコ10cm以下', p: 660 },
   ],
   printsShorts: [
     { t: '選手番号',     size: 'タテ10〜15cm',        p: 880 },
