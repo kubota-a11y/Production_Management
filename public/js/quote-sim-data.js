@@ -147,7 +147,8 @@ window.QS_KRATVS = {
     { code: 'S-03', kind: 'shorts', name: 'ドライショーツ 3.9oz',
       price: [{ size: '130〜XXXL', p: 3850 }] },
     { code: 'B-01', kind: 'bib',    name: 'ビブス 4.4oz ドライメッシュ',
-      price: [{ size: '全サイズ', p: 1100 }] },
+      // ボディ glimmer 00336。下代 JL・F=490円/XXL=545円 のためサイズ帯を分ける
+      price: [{ size: 'ジュニアL・フリー', p: 1100 }, { size: 'XXL', p: 1320 }] },
     { code: 'O-01', kind: 'other',  name: 'サッカーソックス',
       price: [{ size: '全サイズ', p: 660 }] },
   ],
