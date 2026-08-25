@@ -1720,16 +1720,18 @@ app.post('/api/freee/quotations', async (req, res) => {
     if (!check.ok) {
       return res.status(400).json({
         ok: false,
-        error: `金額が合わないため発行を止めました(明細の積み上げ ${check.sum.toLocaleString()}円 / 画面の合計 ${check.total.toLocaleString()}円)。`
+        error: `金額が合わないため発行を止めました(明細の積み上げ ${check.sum.toLocaleString()}円 / 画面の小計 ${Number(check.subtotal || 0).toLocaleString()}円・いずれも税抜)。`
           + 'お急ぎのときは「転記シートをコピー」してfreeeに手入力してください。この画面のことは社長へ連絡をお願いします',
       });
     }
 
     const created = await freeeQuote.createQuotation(sheet, partner);
 
-    // 社内メモだけ入らなかった場合は、発行は成功しているので警告で伝える
-    let memoWarning = created.memo_skipped
-      ? '見積書は発行できましたが、社内メモは入りませんでした(freee側の項目が変わった可能性)。必要ならfreeeで直接ご記入ください'
+    // 補助的な項目だけ入らなかった場合は、発行は成功しているので警告で伝える
+    const skippedLabels = { memo: '社内メモ', item_name: '明細の品名(摘要にまとめて発行しました)' };
+    const skipped = created.skipped || [];
+    let memoWarning = skipped.length
+      ? `見積書は発行できましたが、${skipped.map((k) => skippedLabels[k] || k).join('・')}はfreee側の項目に入りませんでした。必要ならfreeeで直接ご修正ください`
       : null;
 
     // ★ここから先の失敗を「発行失敗」として返してはいけない。

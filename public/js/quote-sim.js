@@ -3,7 +3,11 @@
 
    サイトの料金シミュレーター(GITHUB_HiYOSHi_WEB/functions/api/simulate.js)
    と同じ計算方針:
-   - 単価表は税抜で持ち、お客様に見せる金額は taxIn() で税込へ(1円未満切り上げ)
+   - **金額はすべて税抜(外税)**。単価表も税抜なので換算せずそのまま使い、
+     消費税は小計に対して最後に1回だけ足す(2026-08-25 社長指示)
+     ★公開サイトの料金ページ・料金シミュレーターは**税込のまま**にすること。
+       消費者向けの価格表示には総額表示義務があるため、あちらを税抜にはできない。
+       見積書(商習慣として税抜単価+消費税)とは表記が違って正しい
    - モノクロ(1〜4色)はシルクとDTFの両方を計算して安い方を採用
    - 製版代は「箇所×色数」の版の数だけ。小版=A4以内4,000/大版=A3 8,000
    - ミニマム手数料: 同一型番10枚未満は加工代5割増
@@ -18,7 +22,10 @@
 
   const TAX = window.QS_COMMON.taxPercent;
   // 浮動小数点誤差を避けるため整数のまま計算(simulate.jsと同じ)
-  const taxIn = (n) => Math.ceil((n * (100 + TAX)) / 100);
+  /** 税込 → 税抜。KRATVSのカタログだけ税込表記なので、そこだけこれで税抜へ戻す */
+  const taxOut = (n) => Math.round((n * 100) / (100 + TAX));
+  /** 小計(税抜) → 消費税。**行ごとではなく小計に1回だけ**掛ける(freeeの外税と同じ計算) */
+  const taxOf = (n) => Math.round((n * TAX) / 100);
   const yen = (n) => n.toLocaleString('ja-JP') + '円';
 
   const SIZES_ALL = ['B8', 'B7', 'A5', 'A4', 'A3'];
@@ -70,14 +77,26 @@
       id: ++rowSeq, method: 'auto', size: 'A4', colors: 1, markKey: 'num_l',
       embPlaces: '1〜2箇所', embTime: '〜15分', embSize: 0, patch: false, surcharges: new Set(),
       targets: null, // null = すべてのボディに載せる
+      // 見積書の摘要の頭に出す箇所名(例: 左胸・背面・両襟)。案件から開くと自動で入る。
+      // 金額には一切影響しない表示専用の項目
+      locationName: '',
     });
   }
 
   /* ---------- 1行ぶんの単価計算(税抜) ----------
-     返り値 {label, unit, initial, initialLabel, note} */
+     返り値 {label, cust, unit, initial, initialLabel, note, minFee}
+     - label … 社内の内訳表示用(大きさ・条件まで入った詳しい名前)
+     - cust  … お客様向けの見積書に出す加工名(料金表の用語ではなく通じる言葉で書く) */
   /* qty     … 枚数帯(10枚〜/30枚〜/50枚〜)の判定に使う枚数。その加工を刷る総枚数
      minQty  … ミニマム手数料の判定に使う枚数。料金表の文言どおり「同一型番」= ボディ品番ごと */
   function calcRow(row, qty, minQty, opt) {
+    const tbl = activeTables();
+    // 見積書の摘要に「※ミニマム手数料込み」と書くために、乗ったかどうかを返す
+    const minFeeOn = tbl.minFeeApplies && minQty < 10;
+    return { ...calcRowBase(row, qty, minQty, opt), minFee: minFeeOn };
+  }
+
+  function calcRowBase(row, qty, minQty, opt) {
     const tbl = activeTables();
     // 持込料は八木繊維様は「サービス」なのでチェックが残っていても掛けない
     const sur = [...row.surcharges]
@@ -89,13 +108,13 @@
 
     if (row.method === 'marking') {
       const m = window.QS_MARKING.find((x) => x.key === row.markKey);
-      return { label: `マーキング ${m.name}(${m.size})`, short: 'マーキング', unit: mul(m.p), initial: 0, note: window.QS_MARKING_NOTE };
+      return { label: `マーキング ${m.name}(${m.size})`, short: 'マーキング', cust: `マーキング ${m.name}`, unit: mul(m.p), initial: 0, note: window.QS_MARKING_NOTE };
     }
     if (row.method === 'nameEmb') {
-      return { label: 'ネーム刺繍(1.5×8cm以内)', short: 'ネーム刺繍', unit: mul(window.QS_EMB.nameOnly), initial: 0, note: '' };
+      return { label: 'ネーム刺繍(1.5×8cm以内)', short: 'ネーム刺繍', cust: 'ネーム刺繍', unit: mul(window.QS_EMB.nameOnly), initial: 0, note: '' };
     }
     if (row.method === 'dtfName') {
-      return { label: 'DTFネームプリント', short: 'DTFネーム', unit: mul(window.QS_COMMON.dtfName), initial: 0, note: '登録業者様向けの単価です' };
+      return { label: 'DTFネームプリント', short: 'DTFネーム', cust: 'DTFネームプリント', unit: mul(window.QS_COMMON.dtfName), initial: 0, note: '登録業者様向けの単価です' };
     }
     if (row.method === 'emb' || row.method === 'cap') {
       const isCap = row.method === 'cap';
@@ -110,29 +129,45 @@
       return {
         label: `${isCap ? '帽子刺繍' : '刺繍'} ${row.embPlaces}・${row.embTime}・${sizeName}${row.patch ? '・ワッペン用資材一式' : ''}`,
         short: isCap ? '帽子刺繍' : '刺繍',
+        cust: `${isCap ? '帽子刺繍' : '刺繍'}(${sizeName})${row.patch ? '・ワッペン用資材一式' : ''}`,
         unit: mul(base) + patchFee, initial: punch, initialLabel: 'パンチング代(初回のみ)',
         note: '加工時間は刺繍データ完成後に確定(この金額は概算)',
       };
     }
     if (row.method === 'rubber') {
       const table = tbl.rubber[row.size];
-      if (!table) return { label: 'ラバー転写', short: 'ラバー転写', unit: 0, initial: 0, note: 'B8はラバー転写の設定なし' };
+      if (!table) return { label: 'ラバー転写', short: 'ラバー転写', cust: 'ラバー転写プリント', unit: 0, initial: 0, note: 'B8はラバー転写の設定なし' };
       const u = table[tierOf(table, qty)];
-      return { label: `ラバー転写 ${row.size}`, short: 'ラバー転写', unit: mul(u), initial: 0, note: '' };
+      return { label: `ラバー転写 ${row.size}`, short: 'ラバー転写', cust: `ラバー転写プリント(${row.size}以内)`, unit: mul(u), initial: 0, note: '' };
     }
 
     // シルク/DTF/自動
     const dtfUnit = tbl.dtf[row.size][tierOf(tbl.dtf[row.size], qty)];
-    const silkTier = (row.colors !== 'full' && row.colors <= tbl.silk.maxColors)
-      ? tierOf(tbl.silk.print[row.colors], qty) : null;
-    const silkUnit = silkTier !== null ? tbl.silk.print[row.colors][silkTier] : null;
+    const silkTable = (row.colors !== 'full' && row.colors <= tbl.silk.maxColors)
+      ? tbl.silk.print[row.colors] : null;
+    let silkTier = silkTable ? tierOf(silkTable, qty) : null;
+    /* 一般価格表のシルクは10枚〜からしか帯が無い。**10枚未満は原則お受けしない**が、
+       強くご希望のお客様には特別対応しており、そのときの単価は
+       「10枚(ミニマム枚数)時の単価 × ミニマム手数料5割増」で出す運用(2026-08-25 社長確認)。
+       ★例外対応なので「自動(安い方)」では選ばない。シルクを明示的に選んだときだけ出す
+       (八木繊維様の卸表は1枚〜の帯があるので、ここには入らない) */
+    const silkBelowMin = Boolean(silkTable) && silkTier === null && row.method === 'silk';
+    if (silkBelowMin) silkTier = Math.min(...Object.keys(silkTable).map(Number));
+    const silkUnit = silkTier !== null ? silkTable[silkTier] : null;
     const plateOne = tbl.silk.plate[SMALL_PLATE.has(row.size) ? 'small' : 'large'];
     const silkPlate = plateOne * row.colors;
 
-    const dtf = { label: `DTFプリント ${row.size}(フルカラー可)`, short: 'DTF', unit: mul(dtfUnit), initial: 0, note: '' };
+    const dtf = {
+      label: `DTFプリント ${row.size}(フルカラー可)`, short: 'DTF',
+      cust: `DTFプリント フルカラー(${row.size}以内)`, unit: mul(dtfUnit), initial: 0, note: '',
+    };
     const silk = silkUnit === null ? null : {
-      label: `シルク ${row.size}・${row.colors}色`, short: `シルク${row.colors}色`, unit: mul(silkUnit),
-      initial: silkPlate, initialLabel: `製版代 ${row.colors}版(初回のみ)`, note: '版の保管期間1年',
+      label: `シルク ${row.size}・${row.colors}色`, short: `シルク${row.colors}色`,
+      // 見積書は料金表の言葉(シルク)ではなくお客様に通じる言葉で書く。1色は「単色」
+      cust: `シルクプリント ${row.colors === 1 ? '単色' : `${row.colors}色`}(${row.size}以内)`,
+      unit: mul(silkUnit),
+      initial: silkPlate, initialLabel: `製版代 ${row.colors}版(初回のみ)`,
+      note: `${silkBelowMin ? `10枚未満の特別対応: ${silkTier}枚時の単価にミニマム手数料(5割増)を適用しています。` : ''}版の保管期間1年`,
     };
 
     if (row.method === 'dtf' || row.colors === 'full') return dtf;
@@ -166,7 +201,8 @@
     const hit = window.QS_BODIES.find((x) => v.startsWith(x.sku) || v === `${x.sku} ${x.name}`);
     if (hit) return { name: `${hit.name}(${hit.sku})`, short: hit.sku, cat: hit.cat, unit: hit.body, quoteOnly: hit.quote };
     const manual = parseInt(b.manual, 10);
-    if (v && manual > 0) return { name: v, short: v, unit: Math.round(manual / (1 + TAX / 100)), manual: true };
+    // 手入力の単価も税抜で受け取る(画面の入力欄も「税抜単価」に統一・2026-08-25)
+    if (v && manual > 0) return { name: v, short: v, unit: manual, manual: true };
     return { name: '(ボディなし・加工のみ)', short: '加工のみ', unit: 0, none: true };
   }
 
@@ -236,6 +272,7 @@
       const varies = byBody.size > 1 && new Set([...byBody.values()].map((x) => x.unit)).size > 1;
       return {
         ...rep, byBody, varies,
+        locationName: String(r.locationName || '').trim(),
         targetIds: targets.map((t) => t.b.id),
         targetNames: targets.map((t) => t.info.short),
       };
@@ -251,41 +288,82 @@
       discountNote = `${d.name} ${d.rate}%OFF(1枚単価に適用・初期費用は対象外)`;
     }
 
-    // ボディごとに「そのボディに載る加工」の1枚あたり加工賃を出して単価を作る。
-    // サイトのsimulate.jsと同じく「箇所ごとに税込へ切り上げ→合算」(内訳の見た目と合わせるため)
+    /* 割引は「ボディ」と「加工1箇所」のそれぞれに掛ける。
+       ★明細を1行ずつに割る都合上、**行の単価を先に確定させて積み上げる**。
+         1枚あたりも小計もこの積み上げから出すので、画面の金額とfreeeの見積書が
+         構造的にズレない(合計に1回だけ割引を掛ける作りだと1円ズレが出る) */
+    const discountUnit = (u, kind) => {
+      // 社員特価: ボディは推定仕入値(表示価格×0.55)、加工賃は半額
+      if (d.key === 'staff') return Math.round(u * (kind === 'body' ? 0.55 : 0.5));
+      if (d.rate > 0) return Math.ceil((u * (100 - d.rate)) / 100);
+      return u;
+    };
+
+    // 見積書の明細(すべて税抜)。ボディ行 → 加工行 の順に並べる
+    const items = [];
     const groups = [];
     bodyCalcs.forEach((bc) => {
       const mine = lines.filter((l) => l.targetIds.includes(bc.b.id));
-      const printUnitTax = mine.reduce((s, l) => s + taxIn(l.byBody.get(bc.b.id).unit), 0);
-      const printUnitRaw = mine.reduce((s, l) => s + l.byBody.get(bc.b.id).unit, 0);
       const parts = mine.map((l) => l.byBody.get(bc.b.id).label);
+      /* 加工は「1箇所につき1行」。サイズ・色の内訳で分けても加工賃は変わらないので、
+         行はボディごとに1本にまとめ、数量はそのボディの総枚数にする */
+      const printItems = mine.map((l) => {
+        const c = l.byBody.get(bc.b.id);
+        return {
+          kind: 'print', label: c.cust || c.label, location: l.locationName,
+          minFee: c.minFee, bodyShort: bc.info.short, qty: bc.qty, unitName: '式',
+          unitBefore: c.unit, unit: discountUnit(c.unit, 'print'),
+        };
+      });
+      const printBefore = printItems.reduce((s, x) => s + x.unitBefore, 0);
+      const printAfter = printItems.reduce((s, x) => s + x.unit, 0);
+
       bc.groups.forEach((g) => {
-        g.unitBefore = taxIn(g.bodyUnit) + printUnitTax;
-        if (d.key === 'staff') {
-          g.cost = Math.round(g.bodyUnit * 0.55); // 推定仕入値(税抜)
-          g.unitAfter = taxIn(g.cost) + taxIn(Math.round(printUnitRaw * 0.5));
-        } else if (d.rate > 0) {
-          g.unitAfter = Math.ceil(g.unitBefore * (100 - d.rate) / 100);
-        } else {
-          g.unitAfter = g.unitBefore;
+        const bodyAfter = bc.info.none ? 0 : discountUnit(g.bodyUnit, 'body');
+        // ボディなし(加工のみ)のときは行を作らない
+        if (!bc.info.none) {
+          items.push({
+            kind: 'body', label: bc.info.name, location: g.label,
+            bodyShort: bc.info.short, qty: g.qty, unitName: '枚',
+            unitBefore: g.bodyUnit, unit: bodyAfter,
+          });
         }
+        g.unitBefore = g.bodyUnit + printBefore;
+        g.unitAfter = bodyAfter + printAfter;
+        if (d.key === 'staff') g.cost = Math.round(g.bodyUnit * 0.55); // 推定仕入値(税抜)
         groups.push({ ...g, parts, bodyId: bc.b.id, bodyName: bc.info.name, bodyShort: bc.info.short });
+      });
+      items.push(...printItems);
+    });
+
+    // 製版代・パンチング代は版の数ぶんの実費。割引対象外なので unitBefore と同額
+    lines.filter((l) => l.initial).forEach((l) => {
+      items.push({
+        // 製版代は箇所ごとに1行ずつ並ぶので、どの箇所のぶんか分かるように箇所名も添える
+        kind: 'initial', label: l.initialLabel,
+        location: [l.locationName, l.cust || l.label].filter(Boolean).join('　'),
+        qty: 1, unitName: '式', unitBefore: l.initial, unit: l.initial,
       });
     });
 
-    const bag = baggingUnit(); // 袋入れは割引対象外の実費(1枚あたり・税込)
+    const bag = baggingUnit(); // 袋入れは割引対象外の実費(1枚あたり・税抜)
     const shipping = shippingCost();
-    const goods = groups.reduce((s, g) => s + g.unitAfter * g.qty, 0);
-    const total = goods + (bag ? bag.unitTax * qty : 0) + taxIn(initial) + shipping;
+    if (bag) items.push({ kind: 'bag', label: bag.name, qty, unitName: '枚', unitBefore: bag.unit, unit: bag.unit });
+    if (shipping) items.push({ kind: 'shipping', label: '送料', qty: 1, unitName: '式', unitBefore: shipping, unit: shipping });
+
+    // 外税: 明細(税抜)を積み上げて小計 → 小計に1回だけ消費税を掛ける
+    const subtotal = items.reduce((s, x) => s + x.unit * x.qty, 0);
+    const tax = taxOf(subtotal);
+    const total = subtotal + tax;
 
     return {
       mode: isYagi() ? 'yagi' : 'normal', qty, lines, opt, groups, bodyCalcs,
       multiBody: bodyCalcs.length > 1,
       quoteOnlyNames: bodyCalcs.filter((bc) => bc.info.quoteOnly).map((bc) => bc.info.name),
       unitBefore: groups[0].unitBefore, unitAfter: groups[0].unitAfter,
-      discount: d, discountNote, bag,
-      initialTax: taxIn(initial), shipping, total,
-      perPieceAll: Math.round(total / qty),
+      discount: d, discountNote, bag, items,
+      initial, shipping, subtotal, tax, total,
+      perPieceAll: Math.round(subtotal / qty),
       // 卸表の「100枚以上は要相談」。概算は出すが目立つ警告を添える(2026-08-20社長判断)
       yagiOver100: isYagi() && qty >= 100,
     };
@@ -318,37 +396,67 @@
       rest = rest.filter((p) => !used.includes(p.t));
       break;
     }
-    const printTotal = (setApplied ? setApplied.p : 0) + rest.reduce((s, p) => s + p.p, 0);
-
     const d = currentDiscount('k');
     let discountNote = '';
     if (d.key === 'staff') discountNote = '社員特価(KRATVSは完成品価格のため一律50%OFFで計算)';
     else if (d.rate > 0) discountNote = `${d.name} ${d.rate}%OFF`;
+    const discountUnit = (u) => {
+      if (d.key === 'staff') return Math.ceil(u * 0.5);
+      if (d.rate > 0) return Math.ceil((u * (100 - d.rate)) / 100);
+      return u;
+    };
 
-    // サイズ帯ごとのグループ(枚数が入っている帯だけ)。すべて税込
+    /* ★KRATVSのカタログだけ税込表記なので、ここで税抜へ戻す。
+       他モードは料金表がもともと税抜なので換算しない(換算はこの1か所だけ) */
+    const prints = [
+      ...(setApplied ? [{ t: setApplied.t, detail: setApplied.used.join('＋'), p: taxOut(setApplied.p) }] : []),
+      ...rest.map((p) => ({ t: p.t, detail: p.size, p: taxOut(p.p) })),
+    ];
+    const printBefore = prints.reduce((s, p) => s + p.p, 0);
+    const printAfter = prints.reduce((s, p) => s + discountUnit(p.p), 0);
+
+    // サイズ帯ごとのグループ(枚数が入っている帯だけ)。すべて税抜
     const groups = item.price
       .map((band, i) => ({ band, qty: kBandQty[i] || 0 }))
       .filter((b) => b.qty > 0)
       .map(({ band, qty }) => {
-        const unitBefore = band.p + printTotal;
-        let unitAfter = unitBefore;
-        if (d.key === 'staff') unitAfter = Math.ceil(unitBefore * 0.5);
-        else if (d.rate > 0) unitAfter = Math.ceil(unitBefore * (100 - d.rate) / 100);
-        return { label: band.size, band, qty, unitBefore, unitAfter };
+        const bodyBefore = taxOut(band.p);
+        const bodyAfter = discountUnit(bodyBefore);
+        return {
+          label: band.size, band, qty, bodyBefore, bodyAfter,
+          unitBefore: bodyBefore + printBefore, unitAfter: bodyAfter + printAfter,
+        };
       });
     if (!groups.length) return null; // どの帯にも枚数が無い
 
     const qty = groups.reduce((s, g) => s + g.qty, 0);
+    // 見積書の明細: サイズ帯ごとの本体行 → プリント行(1箇所1行・数量は総数)
+    const items = groups.map((g) => ({
+      kind: 'body', label: `KRATVS ${item.name}`, location: g.label,
+      qty: g.qty, unitName: '枚', unitBefore: g.bodyBefore, unit: g.bodyAfter,
+    }));
+    prints.forEach((p) => {
+      items.push({
+        // KRATVSのプリントは箇所名ではなく大きさが添え字なので、名前のうしろに括弧で付ける
+        kind: 'print', label: `${p.t}(${p.detail})`, location: '',
+        qty, unitName: '式', unitBefore: p.p, unit: discountUnit(p.p),
+      });
+    });
+
     const bag = baggingUnit();
     const shipping = shippingCost();
-    const total = groups.reduce((s, g) => s + g.unitAfter * g.qty, 0)
-      + (bag ? bag.unitTax * qty : 0) + shipping;
+    if (bag) items.push({ kind: 'bag', label: bag.name, qty, unitName: '枚', unitBefore: bag.unit, unit: bag.unit });
+    if (shipping) items.push({ kind: 'shipping', label: '送料', qty: 1, unitName: '式', unitBefore: shipping, unit: shipping });
+
+    const subtotal = items.reduce((s, x) => s + x.unit * x.qty, 0);
+    const tax = taxOf(subtotal);
+    const total = subtotal + tax;
     return {
-      mode: 'kratvs', qty, item, groups, picked, setApplied, rest,
+      mode: 'kratvs', qty, item, groups, picked, setApplied, rest, prints, items,
       unitBefore: groups[0].unitBefore, unitAfter: groups[0].unitAfter,
       discount: d, discountNote, bag, shipping,
-      initialTax: 0, total,
-      perPieceAll: Math.round(total / qty),
+      initial: 0, subtotal, tax, total,
+      perPieceAll: Math.round(subtotal / qty),
     };
   }
 
@@ -365,18 +473,19 @@
     return d;
   }
 
+  /** 送料(税抜) */
   function shippingCost() {
     const v = el('shipping').value;
-    if (v === 's80') return taxIn(window.QS_COMMON.shipping.s80);
-    if (v === 's100') return taxIn(window.QS_COMMON.shipping.s100);
+    if (v === 's80') return window.QS_COMMON.shipping.s80;
+    if (v === 's100') return window.QS_COMMON.shipping.s100;
     return 0;
   }
 
-  /** 袋入れ(共通オプション)。1枚あたりの実費なので割引対象外 */
+  /** 袋入れ(共通オプション・税抜)。1枚あたりの実費なので割引対象外 */
   function baggingUnit() {
     const v = el('bagging').value;
-    if (v === 'tee') return { name: '袋入れ(Tシャツ)', unitTax: taxIn(window.QS_COMMON.bagging.tee) };
-    if (v === 'sweat') return { name: '袋入れ(スウェット)', unitTax: taxIn(window.QS_COMMON.bagging.sweat) };
+    if (v === 'tee') return { name: '袋入れ(Tシャツ)', unit: window.QS_COMMON.bagging.tee };
+    if (v === 'sweat') return { name: '袋入れ(スウェット)', unit: window.QS_COMMON.bagging.sweat };
     return null;
   }
 
@@ -410,7 +519,7 @@
         <label>品番か名前で検索
           <input type="text" data-bo="input" list="body-list" value="${escAttr(b.input)}" placeholder="例: 5982-01">
         </label>
-        <label>リストに無い場合の税込単価
+        <label>リストに無い場合の税抜単価
           <input type="number" data-bo="manual" min="0" value="${escAttr(b.manual)}" placeholder="持込・その他のとき">
         </label>
         <label>枚数 <input type="number" data-bo="qty" min="1" value="${escAttr(b.qty)}"></label>
@@ -472,7 +581,7 @@
         }
         const bi = Math.min(r.band, variant.b.length - 1);
         selects += `<select data-bf="band" aria-label="サイズ帯">${variant.b.map((bd, i) =>
-          `<option value="${i}"${i === bi ? ' selected' : ''}>${bd[0]}(税込${taxIn(bd[1]).toLocaleString()}円)</option>`).join('')}</select>`;
+          `<option value="${i}"${i === bi ? ' selected' : ''}>${bd[0]}(税抜${bd[1].toLocaleString()}円)</option>`).join('')}</select>`;
       } else {
         selects += `<input type="text" data-bf="sizeText" value="${escAttr(r.sizeText)}" placeholder="サイズ(例: L)" aria-label="サイズ">`;
       }
@@ -546,6 +655,9 @@
     const extraMethods = isYagi() ? ''
       : `${sel('marking', 'マーキング')}${sel('emb', '刺繍')}${sel('cap', '帽子刺繍')}${sel('nameEmb', 'ネーム刺繍(1.5×8cm)')}`;
     let html = `
+      <label>箇所(見積書の摘要に出ます)
+        <input type="text" data-f="locationName" value="${escAttr(row.locationName)}" placeholder="例: 左胸・背面・両襟">
+      </label>
       <label>加工方法
         <select data-f="method">
           ${sel('auto', '自動(シルク/DTFの安い方)')}${sel('silk', 'シルクスクリーン')}${sel('dtf', 'DTF(フルカラー)')}
@@ -587,7 +699,7 @@
         </label>`;
       }
       html += `<label class="qs-check"><input type="checkbox" data-patch${row.patch ? ' checked' : ''}>
-        ワッペン用資材一式(+税込${taxIn(window.QS_EMB.patch).toLocaleString()}円/枚)</label>`;
+        ワッペン用資材一式(+税抜${window.QS_EMB.patch.toLocaleString()}円/枚)</label>`;
     }
     // 割増オプション(方法に関係するものだけ表示)
     const nylonSheets = ['sheetNylon', 'sheetNylonGold', 'sheetNylonRef'];
@@ -638,6 +750,9 @@
         recalc();
       };
     });
+    // 箇所名は打つそばから転記シートへ反映したい(金額に影響しないので描き直しは起きない)
+    const locInput = box.querySelector('[data-f="locationName"]');
+    if (locInput) locInput.oninput = () => { row.locationName = locInput.value; recalc(); };
     box.querySelectorAll('[data-sur]').forEach((cb) => {
       cb.onchange = () => {
         cb.checked ? row.surcharges.add(cb.dataset.sur) : row.surcharges.delete(cb.dataset.sur);
@@ -675,55 +790,61 @@
     let rowsHtml = '';
     if (r.mode !== 'kratvs') {
       r.groups.forEach((g) => {
-        rowsHtml += `<tr><td>ボディ ${g.bodyName}${g.label ? `【${g.label}】` : ''}${multi ? ` × ${g.qty}枚` : ''}</td><td class="qs-num">${yen(taxIn(g.bodyUnit))}</td></tr>`;
+        rowsHtml += `<tr><td>ボディ ${g.bodyName}${g.label ? `【${g.label}】` : ''}${multi ? ` × ${g.qty}枚` : ''}</td><td class="qs-num">${yen(g.bodyUnit)}</td></tr>`;
       });
       r.lines.forEach((l) => {
         // 複数ボディのときは、その加工がどのボディに載るかを添える
         const target = r.multiBody ? `<div class="qs-note">対象: ${l.targetNames.join('・') || 'なし'}${l.varies ? '(10枚未満のボディはミニマム手数料で単価が上がります)' : ''}</div>` : '';
-        rowsHtml += `<tr><td>${l.label}${l.note ? `<div class="qs-note">${l.note}</div>` : ''}${target}</td><td class="qs-num">${yen(taxIn(l.unit))}</td></tr>`;
-        if (l.initial) rowsHtml += `<tr class="qs-initial"><td>└ ${l.initialLabel}</td><td class="qs-num">${yen(taxIn(l.initial))}</td></tr>`;
+        rowsHtml += `<tr><td>${l.label}${l.note ? `<div class="qs-note">${l.note}</div>` : ''}${target}</td><td class="qs-num">${yen(l.unit)}</td></tr>`;
+        if (l.initial) rowsHtml += `<tr class="qs-initial"><td>└ ${l.initialLabel}</td><td class="qs-num">${yen(l.initial)}</td></tr>`;
       });
     } else {
       r.groups.forEach((g) => {
-        rowsHtml += `<tr><td>${r.item.name}(${g.label})${multi ? ` × ${g.qty}枚` : ''}</td><td class="qs-num">${yen(g.band.p)}</td></tr>`;
+        rowsHtml += `<tr><td>${r.item.name}(${g.label})${multi ? ` × ${g.qty}枚` : ''}</td><td class="qs-num">${yen(g.bodyBefore)}</td></tr>`;
       });
-      if (r.setApplied) rowsHtml += `<tr><td>${r.setApplied.t}(${r.setApplied.used.join('+')})</td><td class="qs-num">${yen(r.setApplied.p)}</td></tr>`;
-      r.rest.forEach((p) => { rowsHtml += `<tr><td>${p.t}(${p.size})</td><td class="qs-num">${yen(p.p)}</td></tr>`; });
+      // r.prints は税抜へ戻したあとの値(カタログは税込表記)
+      r.prints.forEach((p) => {
+        rowsHtml += `<tr><td>${p.t}(${p.detail})</td><td class="qs-num">${yen(p.p)}</td></tr>`;
+      });
     }
-    if (r.bag) rowsHtml += `<tr><td>${r.bag.name}(割引対象外)</td><td class="qs-num">${yen(r.bag.unitTax)}</td></tr>`;
+    if (r.bag) rowsHtml += `<tr><td>${r.bag.name}(割引対象外)</td><td class="qs-num">${yen(r.bag.unit)}</td></tr>`;
     const discountRow = r.discountNote
       ? `<tr class="qs-discount"><td>${r.discountNote}</td><td class="qs-num">${multi ? '下記参照' : `${yen(r.unitAfter)}/枚`}</td></tr>` : '';
 
     // 1枚あたり。内訳があるときはグループごとに並べる
     const unitHtml = multi
-      ? `<div><span>1枚あたり(割引後)</span><span class="qs-unit-lines">${r.groups.map((g) =>
+      ? `<div><span>1枚あたり(割引後・税抜)</span><span class="qs-unit-lines">${r.groups.map((g) =>
           `<span class="qs-unit-line">${r.multiBody ? `${g.bodyShort}${g.label ? `・${g.label}` : ''}` : (g.label || '標準')} × ${g.qty}枚: <b>${yen(g.unitAfter)}</b>${g.unitAfter !== g.unitBefore ? `<s>${yen(g.unitBefore)}</s>` : ''}</span>`).join('')}</span></div>`
-      : `<div>1枚あたり(割引後)<b>${yen(r.unitAfter)}</b>${r.discount.rate > 0 || r.discount.key === 'staff' ? `<s>${yen(r.unitBefore)}</s>` : ''}</div>`;
+      : `<div>1枚あたり(割引後・税抜)<b>${yen(r.unitAfter)}</b>${r.discount.rate > 0 || r.discount.key === 'staff' ? `<s>${yen(r.unitBefore)}</s>` : ''}</div>`;
 
-    // 原価・粗利(トグル)。内訳があるときはグループごとの推定仕入で合算する
+    // 原価・粗利(トグル)。内訳があるときはグループごとの推定仕入で合算する(すべて税抜)
     let costHtml = '';
     if (el('toggle-cost').checked && r.mode !== 'kratvs' && r.groups.some((g) => g.bodyUnit > 0)) {
-      const costTax = r.groups.reduce((s, g) => s + taxIn(Math.round(g.bodyUnit * 0.55)) * g.qty, 0);
-      const profit = r.total - costTax - r.shipping - (r.bag ? r.bag.unitTax * r.qty : 0);
+      const cost = r.groups.reduce((s, g) => s + Math.round(g.bodyUnit * 0.55) * g.qty, 0);
+      const profit = r.subtotal - cost - r.shipping - (r.bag ? r.bag.unit * r.qty : 0);
       costHtml = `<div class="qs-cost">
-        <b>原価めやす(社外秘)</b> ボディ推定仕入 合計${yen(costTax)}(表示価格×0.55・要実額確認)
-        → 粗利 ${yen(profit)}(${Math.round(profit / r.total * 100)}%)※加工材料費・人件費は含まず</div>`;
+        <b>原価めやす(社外秘)</b> ボディ推定仕入 合計${yen(cost)}(表示価格×0.55・要実額確認)
+        → 粗利 ${yen(profit)}(${Math.round(profit / r.subtotal * 100)}%)※加工材料費・人件費は含まず</div>`;
     }
 
     box.innerHTML = `
       <table class="qs-table"><tbody>${rowsHtml}${discountRow}</tbody></table>
       <div class="qs-summary">
         ${unitHtml}
-        ${r.initialTax ? `<div>初期費用(割引対象外)<b>${yen(r.initialTax)}</b></div>` : ''}
-        ${r.bag ? `<div>${r.bag.name}<b>${yen(r.bag.unitTax)}/枚</b></div>` : ''}
+        ${r.initial ? `<div>初期費用(割引対象外)<b>${yen(r.initial)}</b></div>` : ''}
+        ${r.bag ? `<div>${r.bag.name}<b>${yen(r.bag.unit)}/枚</b></div>` : ''}
         ${r.shipping ? `<div>送料<b>${yen(r.shipping)}</b></div>` : ''}
-        <div class="qs-total">合計(${r.qty}枚・税込)<b>${yen(r.total)}</b><span>実質 ${yen(r.perPieceAll)}/枚</span></div>
+        <div>小計(${r.qty}枚・税抜)<b>${yen(r.subtotal)}</b><span>実質 ${yen(r.perPieceAll)}/枚</span></div>
+        <div>消費税(${TAX}%)<b>${yen(r.tax)}</b></div>
+        <div class="qs-total">合計(税込)<b>${yen(r.total)}</b></div>
       </div>
       ${costHtml}
       ${r.yagiOver100 ? '<div class="qs-over100">⚠️ 100枚以上は「要相談」です(八木繊維様専用価格表)。この概算は目安として使い、正式には個別にお見積りしてください。</div>' : ''}
       ${r.mode === 'yagi'
-        ? '<p class="qs-note">八木繊維様専用価格表(2026-05-01改定)に基づく税込の概算です。ミニマム手数料なし・持込料サービス・版下データ作成料0円を適用しています。</p>'
-        : '<p class="qs-note">金額はすべて税込の概算です。10枚未満はミニマム手数料(加工代5割増)を自動適用しています。</p>'}`;
+        ? '<p class="qs-note">八木繊維様専用価格表(2026-05-01改定)に基づく税抜の概算です。ミニマム手数料なし・持込料サービス・版下データ作成料0円を適用しています。</p>'
+        : r.mode === 'kratvs'
+          ? '<p class="qs-note">単価はすべて税抜の概算です(消費税は小計に対して加算)。KRATVSは完成品価格のためミニマム手数料はかかりません。</p>'
+          : '<p class="qs-note">単価はすべて税抜の概算です(消費税は小計に対して加算)。10枚未満はミニマム手数料(加工代5割増)を自動適用しています。</p>'}`;
   }
 
   /* ---------- 件名(案件名)の自動生成 ----------
@@ -779,41 +900,39 @@
     const title = el('item-title').value.trim() || defaultItemName(r);
     const customer = el('customer').value.trim();
     const subject = el('subject').value.trim() || autoSubject(r);
-    const lines = [];
-
-    // ボディ・内訳(サイズ・色)ごとに明細を分ける(単価が違うため)。
-    // 加工の並びもボディごとに違いうるので、グループが持つ parts を使う
-    if (r.mode !== 'kratvs') {
-      r.groups.forEach((g) => {
-        let desc = r.multiBody ? `${title}【${g.bodyName}】` : `${title}`;
-        if (g.parts.length) desc += `(${g.parts.join('・')})`;
-        if (g.label) desc += `【${g.label}】`;
-        if (r.discount.rate > 0) desc += `　通常価格 ${g.unitBefore.toLocaleString()}円 → 特別割引 ${r.discount.rate}%OFF`;
-        if (r.discount.key === 'staff') desc += '　社員特価';
-        lines.push({ desc, qty: g.qty, unit: '枚', price: g.unitAfter });
-      });
-      r.lines.forEach((l) => {
-        if (l.initial) lines.push({ desc: `${l.initialLabel}(${l.label})`, qty: 1, unit: '式', price: taxIn(l.initial) });
-      });
-    } else {
-      const prints = [...(r.setApplied ? r.setApplied.used : []), ...r.rest.map((p) => p.t)];
-      r.groups.forEach((g) => {
-        let desc = `KRATVSカスタムオーダー ${r.item.name}(${g.label})`;
-        if (prints.length) desc += `＋${prints.join('・')}`;
-        if (r.discount.rate > 0) desc += `　通常価格 ${g.unitBefore.toLocaleString()}円 → 特別割引 ${r.discount.rate}%OFF`;
-        if (r.discount.key === 'staff') desc += '　社員特価';
-        lines.push({ desc, qty: g.qty, unit: '枚', price: g.unitAfter });
-      });
-    }
-    if (r.bag) lines.push({ desc: `${r.bag.name}`, qty: r.qty, unit: '枚', price: r.bag.unitTax });
-    if (r.shipping) lines.push({ desc: '送料', qty: 1, unit: '式', price: r.shipping });
+    /* 明細は calcNormal / calcKratvs が作った items(税抜)をそのまま1行=1明細にする。
+       ★添付の見積書と同じ並べ方: ボディ行(◯枚) → 加工1箇所ごとの行(◯式) → 初期費用 → 送料
+       ★品名(name)と摘要(desc)を分けて持つ。freeeの帳票は品名を行の見出しに、
+         摘要をその隣の列に出すので、色・サイズや箇所名は摘要側へ入れる */
+    const lines = r.items.map((x) => {
+      const bits = [];
+      if (x.location) bits.push(x.location);
+      if (x.kind === 'print') {
+        bits.push(x.label);
+        // どのボディへの加工かは、ボディが複数のときだけ添える
+        if (r.multiBody && x.bodyShort) bits.push(`対象: ${x.bodyShort}`);
+        if (x.minFee) bits.push('※ミニマム手数料込み');
+      } else if (x.kind !== 'body') {
+        bits.unshift(x.label); // 初期費用・袋入れ・送料は品名を立てず摘要だけで書く
+      }
+      // 割引が乗った行にだけ「通常価格→割引後」を書く(初期費用・実費は対象外なので出ない)
+      if (x.unit !== x.unitBefore) {
+        bits.push(r.discount.key === 'staff'
+          ? `社員特価(通常価格 ${x.unitBefore.toLocaleString()}円)`
+          : `通常価格 ${x.unitBefore.toLocaleString()}円 → 特別割引 ${r.discount.rate}%OFF`);
+      }
+      return {
+        name: x.kind === 'body' ? x.label : '',
+        desc: bits.join('　'),
+        qty: x.qty, unit: x.unitName, price: x.unit,
+      };
+    });
 
     const today = new Date();
     const iso = (d) => d.toLocaleDateString('sv-SE');
     const due = new Date(today.getTime() + 30 * 86400000);
-    const taxOut = Math.round(r.total / (1 + TAX / 100));
 
-    const notes = ['※表示金額はすべて税込です。'];
+    const notes = ['※表示金額はすべて税抜です。別途消費税を申し受けます。'];
     if (r.mode === 'yagi') {
       notes.push('※八木繊維様専用価格表(2026年5月1日改定)に基づく金額です。');
       if (r.yagiOver100) notes.push('※100枚以上のため要相談です。本見積は目安としてご利用ください。');
@@ -825,7 +944,8 @@
     return {
       customer, title, subject, qty: r.qty, lines,
       date: iso(today), due: iso(due),
-      total: r.total, taxOut, tax: r.total - taxOut,
+      // 外税なので単価も小計も税抜。total(税込)は画面表示と案件への記録に使う
+      subtotal: r.subtotal, tax: r.tax, total: r.total,
       notes,
       discount: r.discount,
     };
@@ -838,14 +958,15 @@
     L.push(`取引先  : ${sh.customer || '(未入力)'}`);
     L.push(`件名    : ${sh.subject}`);
     L.push(`見積日  : ${sh.date}　有効期限: ${sh.due}`);
-    L.push('税区分  : 内税(単価は税込)　★freeeの初期値は外税なので必ず切り替える');
+    L.push('税区分  : 外税(単価は税抜)　★freeeの初期値のままでよい');
     L.push('─ 明細 ─');
     sh.lines.forEach((l, i) => {
-      L.push(`${i + 1}) ${l.desc}`);
-      L.push(`   数量 ${l.qty} ${l.unit} ／ 単価 ${l.price.toLocaleString()}円 → ${(l.price * l.qty).toLocaleString()}円`);
+      L.push(`${i + 1}) 品名 ${l.name || '(なし)'}`);
+      L.push(`   摘要 ${l.desc || '(なし)'}`);
+      L.push(`   数量 ${l.qty} ${l.unit} ／ 単価 ${l.price.toLocaleString()}円(税抜) → ${(l.price * l.qty).toLocaleString()}円`);
     });
     L.push('─ 合計 ─');
-    L.push(`${sh.total.toLocaleString()}円（小計 ${sh.taxOut.toLocaleString()}円 ＋ 消費税 ${sh.tax.toLocaleString()}円）`);
+    L.push(`小計 ${sh.subtotal.toLocaleString()}円 ＋ 消費税 ${sh.tax.toLocaleString()}円 ＝ ${sh.total.toLocaleString()}円(税込)`);
     L.push('─ 備考 ─');
     sh.notes.forEach((n) => L.push(n));
     return L.join('\n');
@@ -966,6 +1087,8 @@
         newRow();
         const row = rows[rows.length - 1];
         row.size = guessSize(loc.location_name);
+        // 箇所名(左胸・背面など)はそのまま見積書の摘要に出す
+        row.locationName = String(loc.location_name || '').trim();
         const c = parseInt(loc.color_count, 10);
         row.colors = (c >= 1 && c <= window.QS_SILK.maxColors) ? c : 'full';
       });
@@ -1253,7 +1376,7 @@
     window.QS_BODIES.forEach((b) => {
       const o = document.createElement('option');
       o.value = `${b.sku} ${b.name}`;
-      o.label = `${b.cat} / 税込${taxIn(b.body).toLocaleString()}円${b.quote ? '(個別見積り)' : ''}`;
+      o.label = `${b.cat} / 税抜${b.body.toLocaleString()}円${b.quote ? '(個別見積り)' : ''}`;
       dl.appendChild(o);
     });
   }
@@ -1265,7 +1388,7 @@
       const it = k.items[+el('k-item').value];
       // サイズ帯ごとの枚数入力。単価が帯で違うため、総数ではなく帯別に入れてもらう
       el('k-bands').innerHTML = it.price.map((p, i) => `
-        <label class="qs-kband">${p.size}(${p.p.toLocaleString()}円)
+        <label class="qs-kband">${p.size}(税抜${taxOut(p.p).toLocaleString()}円)
         <input type="number" min="0" data-kb="${i}" value="${kBandQty[i] || ''}" placeholder="0"></label>`).join('');
       el('k-bands').querySelectorAll('[data-kb]').forEach((inp) => {
         inp.oninput = () => { kBandQty[+inp.dataset.kb] = Math.max(0, parseInt(inp.value, 10) || 0); recalc(); };
@@ -1273,7 +1396,7 @@
       const list = it.kind === 'shorts' ? k.printsShorts : k.printsShirt;
       el('k-prints').innerHTML = list.map((p) => `
         <label class="qs-check"><input type="checkbox" data-kp="${p.t}"${kSelected.has(p.t) ? ' checked' : ''}>
-        ${p.t}(${p.size})+${p.p.toLocaleString()}円</label>`).join('');
+        ${p.t}(${p.size})+税抜${taxOut(p.p).toLocaleString()}円</label>`).join('');
       el('k-prints').querySelectorAll('[data-kp]').forEach((cb) => {
         cb.onchange = () => { cb.checked ? kSelected.add(cb.dataset.kp) : kSelected.delete(cb.dataset.kp); recalc(); };
       });
