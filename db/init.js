@@ -121,6 +121,16 @@ function initDatabase(dbFile = dbPath) {
     db.prepare(`ALTER TABLE ai_extracted_intake ADD COLUMN triage_at TEXT`).run();
     console.log('✓ ai_extracted_intake に振り分け列(triage_type/triage_by/triage_at)を追加しました');
   }
+  // 持ち込み品の到着状態(2026-08-27 追加)。取引先(八木繊維など)のオーダーフォームが
+  // 持ち込みボディより先に届くケースがあり、「登録が遅れている」のか「未着で登録を
+  // 止めている」のかを受注候補カード上で区別するため。status とは別軸で持つ。
+  // 値: 'awaiting'=未着 / 'arrived'=届いた / NULL=持ち込みの概念なし(通常の候補)
+  if (aiIntakeColumns.length > 0 && !aiIntakeColumns.includes('dropoff_status')) {
+    db.prepare(`ALTER TABLE ai_extracted_intake ADD COLUMN dropoff_status TEXT`).run();
+    db.prepare(`ALTER TABLE ai_extracted_intake ADD COLUMN dropoff_status_at TEXT`).run();
+    db.prepare(`ALTER TABLE ai_extracted_intake ADD COLUMN dropoff_status_by TEXT`).run();
+    console.log('✓ ai_extracted_intake に持ち込み状態列(dropoff_status/dropoff_status_at/dropoff_status_by)を追加しました');
+  }
 
   // 顧客メモ(顧客台帳ページ用)。顧客マスタは持たず projects.customer_name の
   // TRIM値をキーに、担当窓口・連絡先・注意点などを顧客単位で書き残す

@@ -2589,6 +2589,38 @@ app.post('/api/ai-intake/:id/triage', (req, res) => {
   }
 });
 
+// 持ち込み状態: オーダーフォームが持ち込み品より先に届いた候補に「未着」の印を付ける。
+// 「案件登録が遅れている」のか「持ち込みボディ未着で登録を止めている」のかを
+// 受注候補カード上で区別するための軸で、status・triage_type とは独立に更新する。
+const DROPOFF_STATUSES = new Set(['awaiting', 'arrived']);
+
+app.post('/api/ai-intake/:id/dropoff-status', (req, res) => {
+  try {
+    const intake = db.prepare(`SELECT id FROM ai_extracted_intake WHERE id = ?`).get(req.params.id);
+    if (!intake) return res.status(404).json({ error: 'Intake not found' });
+
+    const { dropoff_status, dropoff_status_by } = req.body || {};
+    // 空文字/null は「持ち込みの概念なし(印を外す)」に戻す
+    const status = dropoff_status ? String(dropoff_status) : null;
+    if (status && !DROPOFF_STATUSES.has(status)) {
+      return res.status(400).json({ error: '持ち込み状態の値が不正です' });
+    }
+
+    db.prepare(`
+      UPDATE ai_extracted_intake SET dropoff_status = ?, dropoff_status_by = ?, dropoff_status_at = ? WHERE id = ?
+    `).run(
+      status,
+      status ? String(dropoff_status_by || '').slice(0, 50) || null : null,
+      status ? new Date().toISOString() : null,
+      req.params.id,
+    );
+
+    res.json({ ok: true, dropoff_status: status });
+  } catch (error) {
+    sendServerError(res, req, error);
+  }
+});
+
 app.post('/api/ai-intake/:id/reject', (req, res) => {
   try {
     const intake = db.prepare(`SELECT id FROM ai_extracted_intake WHERE id = ?`).get(req.params.id);

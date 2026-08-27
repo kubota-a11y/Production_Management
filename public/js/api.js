@@ -419,6 +419,16 @@ const API = {
     return response.json();
   },
 
+  // 持ち込み状態('awaiting'=未着 / 'arrived'=届いた / null=印を外す)
+  async setAiIntakeDropoffStatus(id, status, by) {
+    const response = await fetch(`/api/ai-intake/${id}/dropoff-status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dropoff_status: status, dropoff_status_by: by })
+    });
+    return response.json();
+  },
+
   // 振り分け(生産 / デザイン進行ボード / 要相談)。type に null を渡すと未振り分けへ戻す
   async triageAiIntake(id, type, by) {
     const response = await fetch(`/api/ai-intake/${id}/triage`, {

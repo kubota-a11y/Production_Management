@@ -841,6 +841,7 @@ const app = {
     const visible = this.aiIntakeList.filter(intake => {
       if (this.triageFilter === 'all') return true;
       if (this.triageFilter === 'none') return !intake.triage_type;
+      if (this.triageFilter === 'awaiting') return intake.dropoff_status === 'awaiting';
       return intake.triage_type === this.triageFilter;
     });
 
@@ -894,9 +895,16 @@ const app = {
       items.textContent = intake.items || '(内容未抽出)';
       body.appendChild(items);
 
+      // 「持ち込みボディ未着」か「単に登録が遅れている」かを区別する状態バッジ
+      body.appendChild(this.buildIntakeStateRow(intake));
+
       const dateEl = document.createElement('div');
       dateEl.className = 'ai-intake-card-date';
-      dateEl.textContent = formatDateTime(intake.extracted_at);
+      // 経過日数を併記して「遅れている」度合いが一覧で分かるようにする
+      const elapsedDays = this.intakeElapsedDays(intake.extracted_at);
+      dateEl.textContent = elapsedDays >= 1
+        ? `${formatDateTime(intake.extracted_at)}(受付から${elapsedDays}日)`
+        : formatDateTime(intake.extracted_at);
       body.appendChild(dateEl);
 
       card.appendChild(body);
@@ -982,6 +990,92 @@ const app = {
     } catch (error) {
       console.error('振り分けエラー:', error);
       HiUI.toast('振り分けに失敗しました');
+    }
+  },
+
+  // ===== 持ち込み状態(オーダーフォーム先着・持ち込みボディ未着の区別) =====
+
+  DROPOFF_LABELS: {
+    awaiting: { chip: '📦 持ち込みボディ未着', className: 'intake-state-awaiting' },
+    arrived: { chip: '✅ 持ち込み済・登録待ち', className: 'intake-state-arrived' },
+  },
+
+  // 受付日時からの経過日数(日付をまたいだ回数ではなく24時間単位の切り捨て)
+  intakeElapsedDays(extractedAt) {
+    const t = new Date(extractedAt).getTime();
+    if (Number.isNaN(t)) return 0;
+    return Math.max(0, Math.floor((Date.now() - t) / 86400000));
+  },
+
+  // 取引先フォームの「持ち込み予定日」(新規案件のみ・任意入力)。raw_ai_response のJSONから読む
+  intakeDropoffPlannedDate(intake) {
+    try {
+      const raw = JSON.parse(intake.raw_ai_response || '{}');
+      return raw && raw.dropoff && raw.dropoff.date ? raw.dropoff.date : null;
+    } catch {
+      return null;
+    }
+  },
+
+  // 状態バッジと切り替えボタンの行。カード本体のクリック(確認モーダル)とは別の操作領域
+  buildIntakeStateRow(intake) {
+    const row = document.createElement('div');
+    row.className = 'intake-state-row';
+    row.onclick = (e) => e.stopPropagation();
+
+    const label = this.DROPOFF_LABELS[intake.dropoff_status];
+    const chip = document.createElement('span');
+    chip.className = `intake-state-chip ${label ? label.className : 'intake-state-waiting'}`;
+    // 印なしの候補は「品物は揃っていて、こちらの登録作業が残っているだけ」の状態
+    chip.textContent = label ? label.chip : '⏳ 登録待ち';
+    row.appendChild(chip);
+
+    if (intake.dropoff_status === 'awaiting') {
+      const planned = this.intakeDropoffPlannedDate(intake);
+      if (planned) {
+        const plan = document.createElement('span');
+        plan.className = 'intake-state-planned';
+        plan.textContent = `持ち込み予定 ${formatDate(planned)}`;
+        row.appendChild(plan);
+      }
+    }
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-small btn-ghost';
+    if (intake.dropoff_status === 'awaiting') {
+      btn.textContent = '✓ 届いた';
+      btn.onclick = () => this.setDropoffStatus(intake.id, 'arrived');
+    } else if (intake.dropoff_status === 'arrived') {
+      btn.textContent = '未着に戻す';
+      btn.onclick = () => this.setDropoffStatus(intake.id, 'awaiting');
+    } else {
+      // 取引先以外のチャネル(LINE・Web注文など)でも持ち込み待ちを手動で付けられる
+      btn.textContent = '📦 未着にする';
+      btn.onclick = () => this.setDropoffStatus(intake.id, 'awaiting');
+    }
+    row.appendChild(btn);
+    return row;
+  },
+
+  async setDropoffStatus(id, status) {
+    const operator = this.getTriageOperator();
+    if (!operator) {
+      HiUI.toast('先に「振り分ける人」を選んでください');
+      document.getElementById('triage-operator-select')?.focus();
+      return;
+    }
+    try {
+      const res = await API.setAiIntakeDropoffStatus(id, status, operator);
+      if (!res || res.error) {
+        HiUI.toast(res?.error || '持ち込み状態の更新に失敗しました');
+        return;
+      }
+      HiUI.toast(status === 'arrived' ? '✅ 持ち込み済みにしました' : '📦 持ち込み未着にしました');
+      await this.loadAiIntakeList();
+    } catch (error) {
+      console.error('持ち込み状態の更新エラー:', error);
+      HiUI.toast('持ち込み状態の更新に失敗しました');
     }
   },
 
@@ -1074,6 +1168,15 @@ const app = {
         const chip = document.createElement('span');
         chip.className = `triage-chip triage-chip-${intake.triage_type}`;
         chip.textContent = `${triageLabel.icon} ${triageLabel.text}へ`;
+        title.appendChild(document.createTextNode(' '));
+        title.appendChild(chip);
+      }
+      // 持ち込み未着のまま登録しようとしていることに気づけるよう、持ち込み状態も見出しに出す
+      const dropoffLabel = this.DROPOFF_LABELS[intake.dropoff_status];
+      if (dropoffLabel) {
+        const chip = document.createElement('span');
+        chip.className = `intake-state-chip ${dropoffLabel.className}`;
+        chip.textContent = dropoffLabel.chip;
         title.appendChild(document.createTextNode(' '));
         title.appendChild(chip);
       }

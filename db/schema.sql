@@ -144,6 +144,9 @@ CREATE TABLE IF NOT EXISTS ai_extracted_intake (
   triage_type TEXT,
   triage_by TEXT,
   triage_at TEXT,
+  dropoff_status TEXT,
+  dropoff_status_at TEXT,
+  dropoff_status_by TEXT,
   FOREIGN KEY (line_user_id) REFERENCES line_users(line_user_id)
 );
 
