@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>社内システムお知らせ Vol.7(A4印刷用)</title>
+<style>
+  /* A4印刷用。Chromeのヘッドレス印刷でPDF化する(生成手順はdocs/weekly-news/README.md参照) */
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #1c1917;
+    --text: #44403c;
+    --muted: #78716c;
+    --hairline: #e7e2dc;
+    --accent-bg: #f5f2ee;
+    --ask-bg: #f2f6f3;
+    --ask-line: #cfdfd4;
+    --ask-text: #3f6b50;
+    --serif: "Hiragino Mincho ProN", "Yu Mincho", serif;
+    --sans: "Hiragino Sans", "Noto Sans JP", sans-serif;
+  }
+
+  body {
+    font-family: var(--sans);
+    color: var(--text);
+    line-height: 1.65;
+    font-size: 9pt;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .page {
+    width: 210mm; height: 297mm;
+    padding: 14mm 18mm 13mm;
+    page-break-after: always;
+    position: relative;
+    background: #fff;
+  }
+  .page:last-child { page-break-after: auto; }
+
+  /* ===== ヘッダー ===== */
+  .hero { text-align: center; margin-bottom: 5.5mm; }
+  .overline {
+    font-size: 7pt; letter-spacing: .32em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 2mm;
+  }
+  h1 {
+    font-family: var(--serif); font-size: 19pt; font-weight: 600;
+    letter-spacing: .12em; color: var(--ink);
+  }
+  .hero.sub h1 { font-size: 15pt; }
+  .divider { width: 12mm; height: .35mm; background: var(--ink); margin: 3.2mm auto; }
+  .lead { color: var(--muted); font-size: 8.4pt; }
+
+  .intro {
+    background: var(--accent-bg);
+    border-radius: 1.5mm;
+    padding: 3.2mm 5mm;
+    margin-bottom: 5.5mm;
+    font-size: 8.8pt;
+  }
+  .intro strong { color: var(--ink); }
+
+  /* ===== セクション ===== */
+  .sec { margin-bottom: 4.8mm; }
+  .sec-head {
+    display: flex; align-items: baseline; gap: 3mm;
+    border-bottom: .3mm solid var(--ink);
+    padding-bottom: 1.2mm; margin-bottom: 2mm;
+  }
+  .sec-head h2 {
+    font-family: var(--serif); font-size: 11.5pt; font-weight: 600;
+    letter-spacing: .08em; color: var(--ink);
+  }
+  .sec-head .sub { margin-left: auto; font-size: 7.2pt; color: var(--muted); letter-spacing: .06em; }
+
+  ul.items { list-style: none; }
+  ul.items li {
+    position: relative;
+    padding-left: 4.2mm;
+    margin-bottom: 1.1mm;
+  }
+  ul.items li::before {
+    content: ""; position: absolute; left: .6mm; top: 2mm;
+    width: 1.5mm; height: 1.5mm; border-radius: 50%;
+    background: var(--ink);
+  }
+  ul.items strong { color: var(--ink); font-weight: 600; }
+  .note { color: var(--muted); font-size: 8.2pt; }
+
+  /* ===== テーマ見出し ===== */
+  .theme {
+    display: inline-block;
+    font-size: 7pt; font-weight: 600; letter-spacing: .14em;
+    color: #fff; background: var(--ink);
+    padding: .4mm 2.6mm; border-radius: .8mm;
+    margin-right: 2mm; vertical-align: middle;
+  }
+
+  /* ===== 対象バッジ ===== */
+  .aud {
+    display: inline-block;
+    font-size: 6.8pt; font-weight: 600; letter-spacing: .1em;
+    padding: .3mm 2.2mm; border-radius: 3mm;
+    margin-left: 2mm; vertical-align: middle;
+    white-space: nowrap;
+  }
+  .aud-staff { border: .25mm solid var(--muted); color: var(--muted); background: #fff; }
+  .aud-all { border: .25mm solid var(--ask-line); color: var(--ask-text); background: var(--ask-bg); }
+
+  /* ===== 段階の流れ図 ===== */
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 1.4mm;
+    background: var(--accent-bg);
+    border-radius: 1.5mm;
+    padding: 2.4mm 3mm;
+    margin-bottom: 2.4mm;
+    font-size: 8pt;
+  }
+  .flow span {
+    background: #fff; border: .25mm solid var(--hairline); border-radius: .8mm;
+    padding: .5mm 2.2mm; color: var(--ink); font-weight: 600;
+  }
+  .flow em { font-style: normal; color: var(--muted); align-self: center; }
+
+  /* ===== お願いボックス ===== */
+  .ask {
+    background: var(--ask-bg);
+    border: .3mm solid var(--ask-line);
+    border-radius: 1.5mm;
+    padding: 3.2mm 5mm 2.8mm;
+    margin-top: 5mm;
+  }
+  .ask h3 {
+    font-family: var(--serif); font-size: 10.5pt; font-weight: 600;
+    letter-spacing: .1em; color: var(--ask-text); margin-bottom: 1.6mm;
+  }
+  .ask ul.items li::before { background: var(--ask-text); }
+
+  /* ===== フッター ===== */
+  .foot {
+    position: absolute; left: 18mm; right: 18mm; bottom: 9mm;
+    border-top: .3mm solid var(--hairline);
+    padding-top: 2mm;
+    display: flex; justify-content: space-between;
+    font-size: 7.2pt; color: var(--muted); letter-spacing: .06em;
+  }
+</style>
+</head>
+<body>
+
+
+<div class="page">
+  <header class="hero">
+    <div class="overline">HIYOSHI DX WEEKLY</div>
+    <h1>社内システムお知らせ</h1>
+    <div class="divider"></div>
+    <div class="lead">Vol.7 ─ 2026年8月31日発行 ─ 対象期間:8月25日〜8月31日</div>
+  </header>
+
+  <div class="intro">
+    今週は<strong>見積シミュレーターの作り込み</strong>が中心です。大きくは3つ。<strong>①金額の表示が「税抜(外税)」に統一されました</strong>。<strong>②見積書の明細が、手書きで作っていたときと同じ並びになりました</strong>。<strong>③サイズごとの枚数を入れられるようになりました</strong>。<br>
+    各見出しの右にある<span class="aud aud-staff">社員</span><span class="aud aud-all">全従業員</span>は、<strong>その項目を読んでいただきたい方</strong>の目安です。
+  </div>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">見積</span>
+      <h2>金額の表示が「税抜」に統一されました</h2>
+      <span class="aud aud-staff">社員</span>
+      <span class="sub">8/25</span>
+    </div>
+    <ul class="items">
+      <li>見積シミュレーターの画面・転記シート・freeeの見積書が<strong>すべて税抜(外税)</strong>になりました。消費税は<strong>小計に対して最後に1回だけ</strong>かかります。</li>
+      <li><strong>お客様にお出しする合計金額は今までと変わりません</strong>。料金表の単価がすべて10円単位のため、計算の順番を変えても総額が同じになることを確認済みです。</li>
+      <li>送料・袋入れ・ボディ単価の手入力も<strong>税抜で入れてください</strong>。画面のラベルもすべて「税抜」に直してあります。</li>
+      <li class="note">ホームページの料金シミュレーター(お客様向け)は<strong>税込表示のまま</strong>です。一般のお客様への価格表示は総額で出す決まりのため、意図的に分けています。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">見積</span>
+      <h2>見積書の明細が、手書きのときと同じ形になりました</h2>
+      <span class="aud aud-staff">社員</span>
+      <span class="sub">8/25</span>
+    </div>
+    <div class="flow">
+      <span>ボディ(枚数)</span><em>→</em><span>加工1箇所ごと</span><em>→</em><span>製版代</span><em>→</em><span>袋入れ</span><em>→</em><span>送料</span>
+    </div>
+    <ul class="items">
+      <li>これまで1行にまとまっていた見積書が、<strong>上の並びで1行ずつ</strong>に分かれます。→ <strong>お客様が何にいくら払うのかが読み取れる</strong>見積書になりました。</li>
+      <li>明細に<strong>「品名」の欄</strong>が増え、「摘要」と分かれました。品名に商品名、摘要に色・サイズ・加工の内容が入ります。</li>
+      <li><strong>割引を使ったときは、行ごとに「通常価格◯円 → 特別割引◯%OFF」</strong>と摘要に出ます。値引きしたことが見積書の上でも分かる形です。</li>
+      <li>ミニマム手数料がかかる場合は摘要に<strong>「※ミニマム手数料込み」</strong>と入ります。</li>
+      <li class="note">これまで手作業で作っていた見積書を、シミュレーターで<strong>1円まで同じに再現できることを確認済み</strong>です。</li>
+    </ul>
+  </section>
+
+  <div class="foot">
+    <span>有限会社HiYOSHi ─ 社内システムお知らせ Vol.7</span>
+    <span>1 / 3</span>
+  </div>
+</div>
+
+<div class="page">
+  <header class="hero sub">
+    <div class="overline">WEEKLY UPDATE</div>
+    <h1>サイズ内訳・製版代・品番の追加</h1>
+    <div class="divider"></div>
+    <div class="lead">Vol.7 ─ 対象期間:8月25日〜8月31日</div>
+  </header>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">見積</span>
+      <h2>サイズごとの枚数を入れられます</h2>
+      <span class="aud aud-staff">社員</span>
+      <span class="sub">8/25</span>
+    </div>
+    <ul class="items">
+      <li>内訳の入力が<strong>「価格帯を選ぶ」から「サイズごとに枚数を入れる」</strong>形に変わりました。→ <strong>S:2・M:3・L:5・XL:5・2XL:5</strong> のように入れると、行の合計枚数は自動で出ます。</li>
+      <li>価格帯は<strong>サイズから自動で決まります</strong>。子供サイズ(110〜150)・アルファベット・日本式・レディースの4体系に対応しています。</li>
+      <li><strong>単価の違うサイズが混ざると、見積書の明細も自動で分かれます</strong>。→ 上の例なら「S〜XLで15枚」と「2XLで5枚」の2行になり、それぞれの摘要にサイズ内訳が入ります。</li>
+      <li class="note">持込ボディやリストに無い品番は、これまでどおり<strong>サイズを手打ち+枚数</strong>で入力してください。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">見積</span>
+      <h2>追加注文で「製版代を含めない」を選べます</h2>
+      <span class="aud aud-staff">社員</span>
+      <span class="sub">8/25</span>
+    </div>
+    <ul class="items">
+      <li>前回の版や作成済みの刺繍データが使える追加注文のとき、加工の行にある<strong>「製版代を含めない」</strong>にチェックを入れると初期費用が外れます。刺繍・帽子刺繍のときは<strong>「パンチング代を含めない」</strong>の表記になります。</li>
+      <li>チェックが出るのは<strong>初期費用がありうる加工だけ</strong>(シルク・刺繍・帽子刺繍)です。DTF・ラバー転写・マーキングには出ません。</li>
+      <li>見積書の摘要に<strong>「※前回の版を使用(製版代なし)」</strong>と自動で入ります。→ <strong>なぜ初期費用が無いのかがお客様に伝わります</strong>。</li>
+      <li><strong>10枚未満のシルクプリント</strong>も金額が出せるようになりました。原則お受けしない加工ですが、ご希望のお客様には<strong>10枚時の単価×ミニマム5割増</strong>で特別対応する運用に合わせています。→ <strong>「自動(安い方)」では選ばれません</strong>。シルクを指定したときだけ出ます。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">見積</span>
+      <h2>選べる品番が369品番になりました</h2>
+      <span class="aud aud-staff">社員</span>
+      <span class="sub">8/25〜8/28</span>
+    </div>
+    <ul class="items">
+      <li><strong>SLOTHのプライスリストから116品番</strong>を追加し、選べるボディが<strong>253品番 → 369品番</strong>になりました。サイズ帯とホワイト／カラーの区分もカタログどおりに入っています。</li>
+      <li>KRATVSカスタムオーダーに<strong>ビブス</strong>と<strong>キャップ</strong>が加わりました。ビブスは<strong>ジュニアL・フリー 税込1,100円 / XXL 税込1,320円</strong>、キャップは基本の構成(フロント1箇所)で<strong>1個 税込1,870円</strong>です。</li>
+      <li>ビブス・キャップ専用のプリント料金も入っています(背番号・チーム名・エンブレム・ワンポイント)。<strong>セット割引の対象外</strong>です。</li>
+      <li class="note">キャップのボディは<strong>8色が廃番</strong>(在庫限り・返品不可)です。色をお選びいただく前に在庫の確認をお願いします。</li>
+    </ul>
+  </section>
+
+  <div class="foot">
+    <span>有限会社HiYOSHi ─ 社内システムお知らせ Vol.7</span>
+    <span>2 / 3</span>
+  </div>
+</div>
+
+<div class="page">
+  <header class="hero sub">
+    <div class="overline">WEEKLY UPDATE</div>
+    <h1>受注候補・制作実績・AI利用ルール</h1>
+    <div class="divider"></div>
+    <div class="lead">Vol.7 ─ 対象期間:8月25日〜8月31日</div>
+  </header>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">受注</span>
+      <h2>受注候補に「持ち込みボディが届いたか」が出ます</h2>
+      <span class="aud aud-all">全従業員</span>
+      <span class="sub">8/27</span>
+    </div>
+    <ul class="items">
+      <li>お取引先からはオーダーフォームが先に届き、<strong>持ち込みのボディが未着のまま受注候補に残る</strong>ことがあります。「登録が遅れている」のか「ボディ待ちで止めている」のかを、カード上で区別できるようにしました。</li>
+      <li>バッジは3つ。<strong>📦持ち込みボディ未着 / ✅持ち込み済・登録待ち / ⏳登録待ち</strong>。取引先フォームからの受付は<strong>「未着」で始まります</strong>。</li>
+      <li>ボディが届いたら<strong>「✓届いた」</strong>を押してください。戻すときは<strong>「📦未着にする」</strong>です。未着のカードには<strong>持ち込み予定日</strong>、すべてのカードに<strong>受付からの経過日数</strong>が出ます。</li>
+      <li>絞り込みに<strong>「📦持ち込み未着」</strong>を追加しました。→ <strong>ボディ待ちの案件だけをまとめて確認</strong>できます。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">その他</span>
+      <h2>制作実績の取り下げ / AI利用ルールを配りました</h2>
+      <span class="aud aud-all">全従業員</span>
+      <span class="sub">8/25〜8/27</span>
+    </div>
+    <ul class="items">
+      <li>ホームページに載せた<strong>制作実績を、あとから取り下げられる</strong>ようになりました。→ 実績の本文とその実績だけで使っている写真がまとめて消えます。ガイドの「登録すると取り消せません」の記載も直しました。</li>
+      <li><strong>AI利用ルール(社内共通・A4 1枚)</strong>を作りました。Claude・Gemini<strong>どちらにも共通</strong>のルールです。会社のアカウントを使うこと・<strong>個人アカウントでの業務利用は禁止</strong>・入れてよい情報とだめな情報・外に出す前の確認者、をまとめてあります。</li>
+      <li>お客様の氏名・電話番号・住所、原価や仕入単価は<strong>「入れてよい」</strong>情報です(会社のTeamプランは入力内容が学習に使われないため)。</li>
+      <li><strong>三浦さん・山本さんのClaude導入準備</strong>が整いました。使い始めガイドと初期設定の手順書を用意しています。HiBoardの<strong>「動きがおかしい・こう変えたい」の相談先は久保田</strong>です。</li>
+    </ul>
+  </section>
+
+  <div class="ask">
+    <h3>皆さんへのお願い(今週からの動き方)</h3>
+    <ul class="items">
+      <li>見積シミュレーターに入れる金額は<strong>すべて税抜</strong>です。送料・袋入れ・ボディ単価の手入力にご注意ください。</li>
+      <li>内訳は<strong>サイズごとに枚数</strong>を入れてください。単価の違うサイズが混ざっても、見積書は自動で分かれます。</li>
+      <li>前回の版・刺繍データが使える追加注文は、<strong>「製版代を含めない」にチェック</strong>をお願いします。外し忘れるとお客様に二重請求になります。</li>
+      <li>持ち込みボディが届いたら、受注候補のカードで<strong>「✓届いた」</strong>を押してください。→ ボディ待ちなのか登録待ちなのかが全員に伝わります。</li>
+      <li>AIを使うときは<strong>必ず会社のアカウント</strong>で。個人アカウントでの業務利用は禁止です。ルールはA4 1枚にまとめてありますので、一度目を通してください。</li>
+    </ul>
+  </div>
+
+  <div class="note" style="margin-top: 2.4mm; text-align: right;">次号予定:2026年9月7日(月)</div>
+
+  <div class="foot">
+    <span>有限会社HiYOSHi ─ 社内システムお知らせ Vol.7</span>
+    <span>3 / 3</span>
+  </div>
+</div>
+
+</body>
+</html>
