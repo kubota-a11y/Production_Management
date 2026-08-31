@@ -217,7 +217,14 @@
   function bodyInfo(b) {
     const v = String(b.input || '').trim();
     const hit = window.QS_BODIES.find((x) => v.startsWith(x.sku) || v === `${x.sku} ${x.name}`);
-    if (hit) return { name: `${hit.name}(${hit.sku})`, short: hit.sku, cat: hit.cat, unit: hit.body, quoteOnly: hit.quote };
+    // 概算の可否は QS_isQuoteOnly() で判定する(hit.quote を直接見ない)。
+    // SLOTHの品番は価格表の発効日 2026-10-05 まで個別見積りに倒している(2026-08-31 社長判断)
+    if (hit) {
+      return {
+        name: `${hit.name}(${hit.sku})`, short: hit.sku, cat: hit.cat, unit: hit.body,
+        quoteOnly: window.QS_isQuoteOnly(hit), quoteReason: window.QS_quoteOnlyReason(hit),
+      };
+    }
     const manual = parseInt(b.manual, 10);
     // 手入力の単価も税抜で受け取る(画面の入力欄も「税抜単価」に統一・2026-08-25)
     if (v && manual > 0) return { name: v, short: v, unit: manual, manual: true };
@@ -474,6 +481,7 @@
       mode: isYagi() ? 'yagi' : 'normal', qty, lines, opt, groups, bodyCalcs,
       multiBody: bodyCalcs.length > 1,
       quoteOnlyNames: bodyCalcs.filter((bc) => bc.info.quoteOnly).map((bc) => bc.info.name),
+      quoteOnlyReasons: bodyCalcs.filter((bc) => bc.info.quoteOnly).map((bc) => bc.info.quoteReason),
       unitBefore: groups[0].unitBefore, unitAfter: groups[0].unitAfter,
       discount: d, discountNote, bag, items,
       initial, shipping, subtotal, tax, total,
@@ -939,7 +947,12 @@
       return;
     }
     if (r.mode !== 'kratvs' && r.quoteOnlyNames.length) {
-      box.innerHTML = `<p class="empty-notice">${r.quoteOnlyNames.join('・')}は概算対象外(中綿・ナイロン等)です。個別見積りにしてください。</p>`;
+      // 理由が「価格表の発効前」のものが混ざっていたら、いつから概算が出るかまで出す
+      const pending = r.quoteOnlyReasons && r.quoteOnlyReasons.includes('not-effective-yet');
+      const why = pending
+        ? `価格表の改定中(SLOTHは${window.QS_SLOTH_EFFECTIVE_FROM.replace(/-/g, '/')}から概算が出せます)`
+        : '中綿・ナイロン等';
+      box.innerHTML = `<p class="empty-notice">${r.quoteOnlyNames.join('・')}は概算対象外(${why})です。個別見積りにしてください。</p>`;
       return;
     }
     const multi = r.groups.length > 1;
@@ -1534,7 +1547,7 @@
     window.QS_BODIES.forEach((b) => {
       const o = document.createElement('option');
       o.value = `${b.sku} ${b.name}`;
-      o.label = `${b.cat} / 税抜${b.body.toLocaleString()}円${b.quote ? '(個別見積り)' : ''}`;
+      o.label = `${b.cat} / 税抜${b.body.toLocaleString()}円${window.QS_isQuoteOnly(b) ? '(個別見積り)' : ''}`;
       dl.appendChild(o);
     });
   }
