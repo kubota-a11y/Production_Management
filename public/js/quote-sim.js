@@ -10,7 +10,9 @@
        見積書(商習慣として税抜単価+消費税)とは表記が違って正しい
    - モノクロ(1〜4色)はシルクとDTFの両方を計算して安い方を採用
    - 製版代は「箇所×色数」の版の数だけ。小版=A4以内4,000/大版=A3 8,000
-   - ミニマム手数料: 同一型番10枚未満は加工代5割増
+   - ミニマム手数料: 同一型番10枚未満は加工代5割増。★DTFプリントには掛けない
+     (加工料金表20260414改定の印字どおり、DTFのオプションは特急・一重ブルゾン・
+      持込料のみ。2026-09-01 社長確定)
    価格データはすべて quote-sim-data.js(出典コメントあり)。
    割引はこの画面だけの機能(サイトには無い):
    - 距離基準プリセット(10〜50%)…1枚単価(ボディ+加工)に適用。
@@ -106,9 +108,11 @@
      minQty  … ミニマム手数料の判定に使う枚数。料金表の文言どおり「同一型番」= ボディ品番ごと */
   function calcRow(row, qty, minQty, opt) {
     const tbl = activeTables();
-    // 見積書の摘要に「※ミニマム手数料込み」と書くために、乗ったかどうかを返す
-    const minFeeOn = tbl.minFeeApplies && minQty < 10;
-    return { ...calcRowBase(row, qty, minQty, opt), minFee: minFeeOn };
+    const base = calcRowBase(row, qty, minQty, opt);
+    // 見積書の摘要に「※ミニマム手数料込み」と書くために、乗ったかどうかを返す。
+    // DTF系(minFeeExempt)は「自動」でDTFに落ちた場合も含めて掛からない
+    const minFeeOn = tbl.minFeeApplies && minQty < 10 && !base.minFeeExempt;
+    return { ...base, minFee: minFeeOn };
   }
 
   function calcRowBase(row, qty, minQty, opt) {
@@ -121,6 +125,9 @@
     const expr = opt.express ? 1.5 : 1;
     // 割増・ミニマム・特急で出る1円単位の端数は10円単位へ切り上げる
     const mul = (u) => up10(u * sur * minFee * expr);
+    /* DTFプリントにはミニマム手数料を掛けない(2026-09-01 社長確定。加工料金表の印字どおり、
+       DTFのオプションは特急料金・一重ブルゾン小/大・持込料のみ)。割増・特急はそのまま掛かる */
+    const mulDtf = (u) => up10(u * sur * expr);
 
     if (row.method === 'marking') {
       const m = window.QS_MARKING.find((x) => x.key === row.markKey);
@@ -130,7 +137,7 @@
       return { label: 'ネーム刺繍(1.5×8cm以内)', short: 'ネーム刺繍', cust: 'ネーム刺繍', unit: mul(window.QS_EMB.nameOnly), initial: 0, note: '' };
     }
     if (row.method === 'dtfName') {
-      return { label: 'DTFネームプリント', short: 'DTFネーム', cust: 'DTFネームプリント', unit: mul(window.QS_COMMON.dtfName), initial: 0, note: '登録業者様向けの単価です' };
+      return { label: 'DTFネームプリント', short: 'DTFネーム', cust: 'DTFネームプリント', unit: mulDtf(window.QS_COMMON.dtfName), initial: 0, note: '登録業者様向けの単価です', minFeeExempt: true };
     }
     if (row.method === 'emb' || row.method === 'cap') {
       const isCap = row.method === 'cap';
@@ -180,7 +187,8 @@
 
     const dtf = {
       label: `DTFプリント ${row.size}(フルカラー可)`, short: 'DTF',
-      cust: `DTFプリント フルカラー(${row.size}以内)`, unit: mul(dtfUnit), initial: 0, note: '',
+      cust: `DTFプリント フルカラー(${row.size}以内)`, unit: mulDtf(dtfUnit), initial: 0, note: '',
+      minFeeExempt: true,
     };
     const silk = silkUnit === null ? null : {
       label: `シルク ${row.size}・${row.colors}色`, short: `シルク${row.colors}色`,
@@ -1022,7 +1030,7 @@
         ? '<p class="qs-note">八木繊維様専用価格表(2026-05-01改定)に基づく税抜の概算です。ミニマム手数料なし・持込料サービス・版下データ作成料0円を適用しています。</p>'
         : r.mode === 'kratvs'
           ? '<p class="qs-note">単価はすべて税抜の概算です(消費税は小計に対して加算)。KRATVSは完成品価格のためミニマム手数料はかかりません。</p>'
-          : '<p class="qs-note">単価はすべて税抜の概算です(消費税は小計に対して加算)。10枚未満はミニマム手数料(加工代5割増)を自動適用しています。</p>'}`;
+          : '<p class="qs-note">単価はすべて税抜の概算です(消費税は小計に対して加算)。10枚未満はミニマム手数料(加工代5割増)を自動適用しています(DTFプリントは対象外)。</p>'}`;
   }
 
   /* ---------- 件名(案件名)の自動生成 ----------

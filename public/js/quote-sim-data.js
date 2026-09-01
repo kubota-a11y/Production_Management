@@ -115,7 +115,7 @@ window.QS_SURCHARGE = {
 
 /* ---- 共通(税抜) ---- */
 window.QS_COMMON = {
-  minFeeRate: 1.5,          // ミニマム手数料(同一型番10枚未満・加工代5割増)
+  minFeeRate: 1.5,          // ミニマム手数料(同一型番10枚未満・加工代5割増。DTFには掛けない・2026-09-01)
   shipping: { s80: 1000, s100: 1200 },
   bagging: { tee: 40, sweat: 60 },
   dtfName: 370,             // DTFネームプリント(登録業者のみ・1枚1箇所)
