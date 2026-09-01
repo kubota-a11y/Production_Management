@@ -26,6 +26,10 @@
   const taxOut = (n) => Math.round((n * 100) / (100 + TAX));
   /** 小計(税抜) → 消費税。**行ごとではなく小計に1回だけ**掛ける(freeeの外税と同じ計算) */
   const taxOf = (n) => Math.round((n * TAX) / 100);
+  /** 単価の10円単位への切り上げ。見積書の単価に1円単位の端数を出さない(2026-09-01 社長指示)
+      ★掛け算の浮動小数点誤差(650.00000000000002等)で1つ上に繰り上がらないよう、
+        先に銭単位で丸めてから切り上げる */
+  const up10 = (n) => Math.ceil(Math.round(n * 100) / 1000) * 10;
   /** KRATVSアイテムの種類に対応するプリント表を返す(shirt/shorts/bib) */
   function kratvsPrintList(item) {
     const k = window.QS_KRATVS;
@@ -115,7 +119,8 @@
       .reduce((m, k) => m * surRate(k), 1);
     const minFee = (tbl.minFeeApplies && minQty < 10) ? window.QS_COMMON.minFeeRate : 1;
     const expr = opt.express ? 1.5 : 1;
-    const mul = (u) => Math.round(u * sur * minFee * expr);
+    // 割増・ミニマム・特急で出る1円単位の端数は10円単位へ切り上げる
+    const mul = (u) => up10(u * sur * minFee * expr);
 
     if (row.method === 'marking') {
       const m = window.QS_MARKING.find((x) => x.key === row.markKey);
@@ -320,8 +325,9 @@
     const data = bodySizeData(b);
     const info = bodyInfo(b);
     const list = b.breakdown.filter((r) => r.qty > 0);
+    // ボディ単価もカタログ由来の1円単位の端数(853円等)を10円単位へ切り上げて使う
     if (!list.length) {
-      return [{ label: '', qty: Math.max(1, parseInt(b.qty, 10) || 1), bodyUnit: info.unit }];
+      return [{ label: '', qty: Math.max(1, parseInt(b.qty, 10) || 1), bodyUnit: up10(info.unit) }];
     }
     const groups = [];
     list.forEach((r) => {
@@ -329,7 +335,7 @@
         // サイズ表の無いボディ(持込・リスト外)は、これまでどおりサイズを手打ちする
         let label = r.sizeText || '';
         if (r.color) label += `${label ? '・' : ''}${r.color}`;
-        groups.push({ label, qty: r.qty, bodyUnit: info.unit });
+        groups.push({ label, qty: r.qty, bodyUnit: up10(info.unit) });
         return;
       }
       const variant = data.v[Math.min(r.variant, data.v.length - 1)];
@@ -348,14 +354,14 @@
       byBand.forEach((g) => {
         groups.push({
           label: [head, g.parts.join('・')].filter(Boolean).join('　'),
-          qty: g.qty, bodyUnit: g.unit,
+          qty: g.qty, bodyUnit: up10(g.unit),
         });
       });
     });
     // ★1つも作れなかったときも必ず1グループ返す。calcNormal が groups[0] を見るため
     //   (品番を変えた直後など、行の枚数と入力済みサイズが噛み合わない瞬間の保険)
     if (!groups.length) {
-      return [{ label: '', qty: Math.max(1, parseInt(b.qty, 10) || 1), bodyUnit: info.unit }];
+      return [{ label: '', qty: Math.max(1, parseInt(b.qty, 10) || 1), bodyUnit: up10(info.unit) }];
     }
     return groups;
   }
@@ -414,8 +420,9 @@
          構造的にズレない(合計に1回だけ割引を掛ける作りだと1円ズレが出る) */
     const discountUnit = (u, kind) => {
       // 社員特価: ボディは推定仕入値(表示価格×0.55)、加工賃は半額
-      if (d.key === 'staff') return Math.round(u * (kind === 'body' ? 0.55 : 0.5));
-      if (d.rate > 0) return Math.ceil((u * (100 - d.rate)) / 100);
+      // 割引後の単価も1円単位の端数が出ないよう10円単位へ切り上げる
+      if (d.key === 'staff') return up10(u * (kind === 'body' ? 0.55 : 0.5));
+      if (d.rate > 0) return up10((u * (100 - d.rate)) / 100);
       return u;
     };
 
@@ -523,16 +530,18 @@
     if (d.key === 'staff') discountNote = '社員特価(KRATVSは完成品価格のため一律50%OFFで計算)';
     else if (d.rate > 0) discountNote = `${d.name} ${d.rate}%OFF`;
     const discountUnit = (u) => {
-      if (d.key === 'staff') return Math.ceil(u * 0.5);
-      if (d.rate > 0) return Math.ceil((u * (100 - d.rate)) / 100);
+      // 割引後の単価も1円単位の端数が出ないよう10円単位へ切り上げる
+      if (d.key === 'staff') return up10(u * 0.5);
+      if (d.rate > 0) return up10((u * (100 - d.rate)) / 100);
       return u;
     };
 
     /* ★KRATVSのカタログだけ税込表記なので、ここで税抜へ戻す。
-       他モードは料金表がもともと税抜なので換算しない(換算はこの1か所だけ) */
+       他モードは料金表がもともと税抜なので換算しない(換算はこの1か所だけ)。
+       換算で出る1円単位の端数は10円単位へ切り上げる */
     const prints = [
-      ...(setApplied ? [{ t: setApplied.t, detail: setApplied.used.join('＋'), p: taxOut(setApplied.p) }] : []),
-      ...rest.map((p) => ({ t: p.t, detail: p.size, p: taxOut(p.p) })),
+      ...(setApplied ? [{ t: setApplied.t, detail: setApplied.used.join('＋'), p: up10(taxOut(setApplied.p)) }] : []),
+      ...rest.map((p) => ({ t: p.t, detail: p.size, p: up10(taxOut(p.p)) })),
     ];
     const printBefore = prints.reduce((s, p) => s + p.p, 0);
     const printAfter = prints.reduce((s, p) => s + discountUnit(p.p), 0);
@@ -542,7 +551,7 @@
       .map((band, i) => ({ band, qty: kBandQty[i] || 0 }))
       .filter((b) => b.qty > 0)
       .map(({ band, qty }) => {
-        const bodyBefore = taxOut(band.p);
+        const bodyBefore = up10(taxOut(band.p));
         const bodyAfter = discountUnit(bodyBefore);
         return {
           label: band.size, band, qty, bodyBefore, bodyAfter,
@@ -715,7 +724,7 @@
            単価が違うサイズが混ざったら、見積書の明細のほうが自動で分かれる */
         grid = `<div class="qs-size-grid">${variantSizes(variant).map((s) => `
           <label class="qs-size-cell"><span class="qs-size-name">${s.size}</span>
-          <span class="qs-size-price">${s.price.toLocaleString()}円</span>
+          <span class="qs-size-price">${up10(s.price).toLocaleString()}円</span>
           <input type="number" min="0" data-size="${escAttr(s.size)}" value="${r.sizes[s.size] || ''}"
             placeholder="0" aria-label="${escAttr(s.size)}の枚数"></label>`).join('')}</div>`;
       } else {
@@ -1017,7 +1026,9 @@
   }
 
   /* ---------- 件名(案件名)の自動生成 ----------
-     freeeの一覧で見て分かるように「顧客名 品名 加工名 数量」で組み立てる(社長指示 2026-08-21)。
+     freeeの一覧で見て分かるように「品名 加工名 数量」で組み立てる
+     (2026-08-21 社長指示の「顧客名 品名 加工名 数量」から、顧客名は取引先欄で
+      分かるため外した・2026-09-01 社長指示)。
      同じ文面をfreeeの社内メモにも入れる。人が件名欄を直したらそちらを優先する */
   let subjectDirty = false;
 
@@ -1045,7 +1056,6 @@
 
   function autoSubject(r) {
     const parts = [
-      el('customer').value.trim(),
       el('item-title').value.trim() || defaultItemName(r),
       processSummary(r),
       r ? `${r.qty}枚` : '',
@@ -1071,8 +1081,8 @@
     const subject = el('subject').value.trim() || autoSubject(r);
     /* 明細は calcNormal / calcKratvs が作った items(税抜)をそのまま1行=1明細にする。
        ★添付の見積書と同じ並べ方: ボディ行(◯枚) → 加工1箇所ごとの行(◯式) → 初期費用 → 送料
-       ★品名(name)と摘要(desc)を分けて持つ。freeeの帳票は品名を行の見出しに、
-         摘要をその隣の列に出すので、色・サイズや箇所名は摘要側へ入れる */
+       ★品名(name)は使わず、すべて摘要(desc)に書く。ボディ行も品名(行の見出し)には
+         出さず、本体の品番と名称を摘要の頭に入れる(2026-09-01 社長指示) */
     const lines = r.items.map((x) => {
       const bits = [];
       if (x.location) bits.push(x.location);
@@ -1083,8 +1093,9 @@
         if (x.minFee) bits.push('※ミニマム手数料込み');
         // 製版代・パンチング代を外した行は、なぜ初期費用が無いのかをお客様に伝える
         if (x.initialWaived && x.waivedNote) bits.push(x.waivedNote);
-      } else if (x.kind !== 'body') {
-        bits.unshift(x.label); // 初期費用・袋入れ・送料は品名を立てず摘要だけで書く
+      } else {
+        // ボディ(品番と名称)・初期費用・袋入れ・送料は摘要の頭に書く
+        bits.unshift(x.label);
       }
       // 割引が乗った行にだけ「通常価格→割引後」を書く(初期費用・実費は対象外なので出ない)
       if (x.unit !== x.unitBefore) {
@@ -1093,7 +1104,7 @@
           : `通常価格 ${x.unitBefore.toLocaleString()}円 → 特別割引 ${r.discount.rate}%OFF`);
       }
       return {
-        name: x.kind === 'body' ? x.label : '',
+        name: '',
         desc: bits.join('　'),
         qty: x.qty, unit: x.unitName, price: x.unit,
       };
@@ -1547,7 +1558,8 @@
     window.QS_BODIES.forEach((b) => {
       const o = document.createElement('option');
       o.value = `${b.sku} ${b.name}`;
-      o.label = `${b.cat} / 税抜${b.body.toLocaleString()}円${window.QS_isQuoteOnly(b) ? '(個別見積り)' : ''}`;
+      // 見積書の単価(10円単位へ切り上げ)と表示を揃える
+      o.label = `${b.cat} / 税抜${up10(b.body).toLocaleString()}円${window.QS_isQuoteOnly(b) ? '(個別見積り)' : ''}`;
       dl.appendChild(o);
     });
   }
@@ -1559,7 +1571,7 @@
       const it = k.items[+el('k-item').value];
       // サイズ帯ごとの枚数入力。単価が帯で違うため、総数ではなく帯別に入れてもらう
       el('k-bands').innerHTML = it.price.map((p, i) => `
-        <label class="qs-kband">${p.size}(税抜${taxOut(p.p).toLocaleString()}円)
+        <label class="qs-kband">${p.size}(税抜${up10(taxOut(p.p)).toLocaleString()}円)
         <input type="number" min="0" data-kb="${i}" value="${kBandQty[i] || ''}" placeholder="0"></label>`).join('');
       el('k-bands').querySelectorAll('[data-kb]').forEach((inp) => {
         inp.oninput = () => { kBandQty[+inp.dataset.kb] = Math.max(0, parseInt(inp.value, 10) || 0); recalc(); };
@@ -1567,7 +1579,7 @@
       const list = kratvsPrintList(it);
       el('k-prints').innerHTML = list.map((p) => `
         <label class="qs-check"><input type="checkbox" data-kp="${p.t}"${kSelected.has(p.t) ? ' checked' : ''}>
-        ${p.t}(${p.size})+税抜${taxOut(p.p).toLocaleString()}円</label>`).join('');
+        ${p.t}(${p.size})+税抜${up10(taxOut(p.p)).toLocaleString()}円</label>`).join('');
       el('k-prints').querySelectorAll('[data-kp]').forEach((cb) => {
         cb.onchange = () => { cb.checked ? kSelected.add(cb.dataset.kp) : kSelected.delete(cb.dataset.kp); recalc(); };
       });
