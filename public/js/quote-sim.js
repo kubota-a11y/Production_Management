@@ -135,7 +135,8 @@
       return { label: `マーキング ${m.name}(${m.size})`, short: 'マーキング', cust: `マーキング ${m.name}`, unit: mul(m.p), initial: 0, note: window.QS_MARKING_NOTE };
     }
     if (row.method === 'nameEmb') {
-      return { label: 'ネーム刺繍(1.5×8cm以内)', short: 'ネーム刺繍', cust: 'ネーム刺繍', unit: mul(window.QS_EMB.nameOnly), initial: 0, note: '' };
+      // 刺繍にはミニマム手数料を掛けない(2026-09-02 社長確定・下のemb/capと同じ)
+      return { label: 'ネーム刺繍(1.5×8cm以内)', short: 'ネーム刺繍', cust: 'ネーム刺繍', unit: mulDtf(window.QS_EMB.nameOnly), initial: 0, note: '', minFeeExempt: true };
     }
     if (row.method === 'dtfName') {
       return { label: 'DTFネームプリント', short: 'DTFネーム', cust: 'DTFネームプリント', unit: mulDtf(window.QS_COMMON.dtfName), initial: 0, note: '登録業者様向けの単価です', minFeeExempt: true };
@@ -151,11 +152,15 @@
       const sizeName = isCap ? '100cm²以内' : window.QS_EMB.normal.sizes[row.embSize];
       // ワッペン用資材一式は割増ではなく1枚あたりの実費(円加算)
       const patchFee = row.patch ? window.QS_EMB.patch : 0;
+      /* 刺繍にはミニマム手数料を掛けない(2026-09-02 社長確定)。代わりに箇所数の段
+         (1〜2/3〜9/10〜49/50〜)へ小口の割高単価を折り込んである(QS_EMBのコメント参照)。
+         特殊糸・特殊生地・3D・持込などの割増と特急はそのまま掛かる */
       return {
         label: `${isCap ? '帽子刺繍' : '刺繍'} ${row.embPlaces}・${row.embTime}・${sizeName}${row.patch ? '・ワッペン用資材一式' : ''}`,
         short: isCap ? '帽子刺繍' : '刺繍',
         cust: `${isCap ? '帽子刺繍' : '刺繍'}(${sizeName})${row.patch ? '・ワッペン用資材一式' : ''}`,
-        unit: mul(base) + patchFee, initial: punch, initialLabel: 'パンチング代(初回のみ)',
+        unit: mulDtf(base) + patchFee, initial: punch, initialLabel: 'パンチング代(初回のみ)',
+        minFeeExempt: true,
         initialWaived: Boolean(row.noInitial),
         waivedNote: '※作成済みの刺繍データを使用(パンチング代なし)',
         note: '加工時間は刺繍データ完成後に確定(この金額は概算)',
@@ -1034,7 +1039,7 @@
         ? '<p class="qs-note">八木繊維様専用価格表(2026-05-01改定)に基づく税抜の概算です。ミニマム手数料なし・持込料サービス・版下データ作成料0円を適用しています。</p>'
         : r.mode === 'kratvs'
           ? '<p class="qs-note">単価はすべて税抜の概算です(消費税は小計に対して加算)。KRATVSは完成品価格のためミニマム手数料はかかりません。</p>'
-          : '<p class="qs-note">単価はすべて税抜の概算です(消費税は小計に対して加算)。10枚未満はミニマム手数料(加工代5割増)を自動適用しています(DTFプリント・ラバー転写は対象外)。</p>'}`;
+          : '<p class="qs-note">単価はすべて税抜の概算です(消費税は小計に対して加算)。10枚未満はミニマム手数料(加工代5割増)を自動適用しています(DTFプリント・ラバー転写・刺繍は対象外)。</p>'}`;
   }
 
   /* ---------- 件名(案件名)の自動生成 ----------
