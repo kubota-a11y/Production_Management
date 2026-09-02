@@ -159,6 +159,10 @@ window.QS_KRATVS = {
       price: [{ size: '120〜160', p: 2530 }, { size: 'S〜XL', p: 2640 }, { size: 'XXL〜XXXXL', p: 2970 }, { size: '5XL・6XL', p: 3520 }] },
     { code: 'T-03', kind: 'shirt',  name: 'スペシャルドライTシャツ 4.4oz',
       price: [{ size: 'S〜XL', p: 2970 }, { size: 'XXL〜', p: 3190 }] },
+    { code: 'T-04', kind: 'shirt',  name: 'ドライ長袖Tシャツ 4.4oz',
+      // 2026-09-02追加(社長決定)。ボディ UA 5709-01(下代 S〜XL=485円/XXL=525円)。
+      // 上代+約1,650円の現行ルールで 3,080/3,300(税込)。サイズはS〜XLとXXLのみ
+      price: [{ size: 'S〜XL', p: 3080 }, { size: 'XXL', p: 3300 }] },
     { code: 'P-01', kind: 'shirt',  name: 'ドライポロシャツ 4.4oz',
       price: [{ size: '120〜160', p: 3190 }, { size: 'S〜XL', p: 3300 }, { size: 'XXL〜XXXXL', p: 3630 }] },
     { code: 'S-01', kind: 'shorts', name: 'ドライショーツ 4.4oz',
