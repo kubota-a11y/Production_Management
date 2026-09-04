@@ -166,9 +166,12 @@ const factoryDisplay = {
     if (working.length === 0) {
       listHtml = '<span class="fd-next-empty">全員休み</span>';
     } else {
+      // 1人につき「最初の1件(12文字まで)+ほかN件」に絞る。TODOの長文などで他の人の分が
+      // 押し出されて「渡邉 …」しか見えなくなるのを防ぐ(明日の行は「何が来るか」が分かれば十分)
       listHtml = working.map(e => {
-        const names = e.items.filter(i => !i.done).map(i => i.kind === 'prep' ? `準備:${i.title}` : i.title);
-        const body = names.length ? names.join('、') : '予定なし';
+        const titles = e.items.filter(i => !i.done).map(i => this.truncate(i.kind === 'prep' ? `準備:${i.title}` : i.title, 12));
+        const more = titles.length - 1;
+        const body = titles.length ? titles[0] + (more > 0 ? ` ほか${more}件` : '') : '予定なし';
         return `<span class="fd-next-emp"><b>${this.escapeHtml(this.shortName(e.name))}</b>${this.escapeHtml(body)}</span>`;
       }).join('');
     }
@@ -238,6 +241,11 @@ const factoryDisplay = {
     return String(csv).split(',').map(p => p.trim()).filter(Boolean)
       .map(p => this.shortProcessLabels[p] || (typeof getProcessLabel === 'function' ? getProcessLabel(p) : p))
       .join('・');
+  },
+
+  truncate(text, max) {
+    const s = String(text || '');
+    return s.length > max ? `${s.slice(0, max - 1)}…` : s;
   },
 
   // 「渡邉　颯」→「渡邉」。明日の1行は幅が限られるので姓だけにする

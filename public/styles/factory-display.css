@@ -331,43 +331,48 @@ html, body {
 }
 
 /* ===== 明日の予定(1行) ===== */
+/* 本文と同じ大きさで、1人ずつ札にして最大2行まで折り返す(3行目以降は隠す)。
+   以前は小さな文字で1行に詰めていて、長いTODOがあると他の人の分が「…」で消えていた */
 .fd-next {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   gap: var(--space-5);
   flex: none;
   padding: var(--space-3) var(--space-6);
   border-top: 4px solid var(--border-strong);
   background: var(--surface-sunken);
-  font-size: var(--fd-small);
-  white-space: nowrap;
-  overflow: hidden;
+  font-size: calc(var(--fd-base) * 0.9);
+  line-height: 1.35;
 }
 
 .fd-next-label {
   flex: none;
   font-size: var(--fd-base);
   font-weight: 800;
+  white-space: nowrap;
 }
 
 .fd-next-list {
   display: flex;
-  gap: var(--space-6);
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
   min-width: 0;
+  /* 札は3行まで(iPad幅で5人分が収まる高さ)。4行目以降は途中で切れて見えないように丸ごと隠す */
+  max-height: calc(1.35em * 3 + var(--space-2) * 2);
   overflow: hidden;
 }
 
 .fd-next-emp {
-  overflow: hidden;
-  text-overflow: ellipsis;
+  padding: 0 0.6em;
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  white-space: nowrap;
 }
 
 .fd-next-emp b {
-  margin-right: 0.3em;
-}
-
-.fd-next-emp.is-off {
-  color: var(--text-muted);
+  margin-right: 0.4em;
+  color: var(--primary-darker);
 }
 
 .fd-next-empty {
