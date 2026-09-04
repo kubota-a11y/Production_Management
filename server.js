@@ -3255,6 +3255,148 @@ app.get('/schedule', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'schedule-board.html'));
 });
 
+// ===== 工場モニター表示(閲覧専用) =====
+// 工場のテレビに映す「今日の作業予定」。週間スケジュールボードと同じデータを、
+// 1日分だけ・1人1行・大きな文字で出す。編集はできない(ドラッグ・モーダル・提案なし)。
+// 社内画面なので外部公開ガードの対象(公開ドメインでは404)
+app.get('/schedule/display', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'factory-display.html'));
+});
+
+// その日の基準勤務時間(h)。週間ボード(public/js/schedule-board.js の getReferenceInfo)と
+// 同じ判定順にして、テレビの「◯h / ◯h」がボードの表示と一致するようにしている:
+//   個別の勤務時間(schedule_overrides。休み・確保時間を反映) → 祝日は休み → 曜日の標準勤務パターン
+// ※自動割当(allocateHoursForEmployee)は標準パターンでも reserved_hours を引くが、
+//   ボードの表示は引いていないので、ここではボードに合わせる
+function getFactoryReferenceHours(employeeId, dateStr) {
+  const override = db.prepare('SELECT * FROM schedule_overrides WHERE employee_id = ? AND work_date = ?').get(employeeId, dateStr);
+  if (override) {
+    if (override.is_day_off) return { hours: 0, note: override.note || '' };
+    const gross = timeToHours(override.start_time, override.end_time, override.break_minutes);
+    return { hours: Math.max(gross - (override.reserved_hours || 0), 0), note: override.note || '' };
+  }
+  if (isJpHoliday(dateStr)) return { hours: 0, note: '' };
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const weekday = new Date(y, m - 1, d).getDay();
+  const def = db.prepare('SELECT * FROM employee_default_schedule WHERE employee_id = ? AND weekday = ?').get(employeeId, weekday);
+  if (!def || !def.is_working) return { hours: 0, note: '' };
+  return { hours: timeToHours(def.start_time, def.end_time, def.break_minutes), note: '' };
+}
+
+// 1日分の「誰が・何を・どれだけ」をまとめる。項目は週間ボードのセルと同じ3種類:
+// 案件の作業(case_time_allocations)・【準備】(case_preparation_items)・【TODO】(designer_sheet_todo_plans)
+function buildFactoryDay(dateStr, employees) {
+  const allocations = db.prepare(`
+    SELECT ta.id, ta.case_id, ta.employee_id, ta.planned_hours, ta.actual_hours, ta.status,
+           ta.setup_minutes, ta.cleanup_minutes,
+           p.project_name, p.quantity, p.process_type
+    FROM case_time_allocations ta
+    JOIN projects p ON ta.case_id = p.id
+    WHERE ta.work_date = ?
+    ORDER BY ta.id ASC
+  `).all(dateStr);
+  const prepItems = db.prepare(`
+    SELECT cpi.id, cpi.case_id, cpi.assigned_staff_id, cpi.status, cpi.estimated_hours,
+           pim.name AS preparation_item_name, p.project_name
+    FROM case_preparation_items cpi
+    JOIN preparation_item_master pim ON cpi.preparation_item_id = pim.id
+    JOIN projects p ON cpi.case_id = p.id
+    WHERE cpi.scheduled_date = ? AND cpi.assigned_staff_id IS NOT NULL
+    ORDER BY cpi.id ASC
+  `).all(dateStr);
+  const todoPlans = db.prepare(`
+    SELECT id, employee_id, task_text, estimated_hours, completed_at
+    FROM designer_sheet_todo_plans WHERE scheduled_date = ? ORDER BY id ASC
+  `).all(dateStr);
+
+  const rows = employees.map(emp => {
+    const ref = getFactoryReferenceHours(emp.id, dateStr);
+    const items = [];
+    let planned = 0;
+    allocations.filter(a => a.employee_id === emp.id).forEach(a => {
+      const overhead = ((a.setup_minutes || 0) + (a.cleanup_minutes || 0)) / 60;
+      planned += (a.planned_hours || 0) + overhead;
+      items.push({
+        kind: 'work',
+        case_id: a.case_id,
+        title: a.project_name,
+        quantity: a.quantity,
+        process_type: a.process_type,
+        hours: a.planned_hours || 0,
+        overhead_minutes: (a.setup_minutes || 0) + (a.cleanup_minutes || 0),
+        proposed: a.status === '提案',
+        done: a.status === '実績確定',
+      });
+    });
+    prepItems.filter(i => i.assigned_staff_id === emp.id).forEach(i => {
+      planned += i.estimated_hours || 0;
+      items.push({
+        kind: 'prep',
+        case_id: i.case_id,
+        title: i.project_name,
+        sub: i.preparation_item_name,
+        hours: i.estimated_hours || 0,
+        proposed: false,
+        done: i.status === '完了',
+      });
+    });
+    todoPlans.filter(p => p.employee_id === emp.id).forEach(p => {
+      planned += p.estimated_hours || 0;
+      items.push({
+        kind: 'todo',
+        case_id: null,
+        title: p.task_text,
+        hours: p.estimated_hours || 0,
+        proposed: false,
+        done: !!p.completed_at,
+      });
+    });
+    const referenceHours = Math.round(ref.hours * 100) / 100;
+    const plannedHours = Math.round(planned * 100) / 100;
+    let state = 'ok';
+    if (referenceHours <= 0) state = 'off';
+    else if (plannedHours > referenceHours + 0.01) state = 'over';
+    else if (plannedHours < referenceHours) state = 'short';
+    return { id: emp.id, name: emp.name, reference_hours: referenceHours, planned_hours: plannedHours, state, note: ref.note, items };
+  });
+
+  return {
+    date: dateStr,
+    holiday_name: HOLIDAYS[dateStr] || null,
+    anyone_working: rows.some(r => r.state !== 'off'),
+    employees: rows,
+  };
+}
+
+// 工場モニター表示のデータ。?date=YYYY-MM-DD で任意の日を見られる(未指定なら今日)。
+// next は「明日」。明日が全員休み(土日祝など)のときは、7日先までで最初に誰かが出勤する日を返し、
+// next_is_tomorrow=false で区別する(金曜のテレビに「明日は休み」とだけ出しても段取りに役立たないため)
+app.get('/api/factory-display', (req, res) => {
+  try {
+    const base = isValidDateStr(req.query.date) ? req.query.date : formatLocalDate(new Date());
+    const employees = db.prepare('SELECT id, name FROM employees WHERE is_active = 1 ORDER BY id ASC').all();
+    const today = buildFactoryDay(base, employees);
+
+    const [y, m, d] = base.split('-').map(Number);
+    let next = null;
+    let nextIsTomorrow = true;
+    for (let offset = 1; offset <= 7; offset++) {
+      const candidate = formatLocalDate(new Date(y, m - 1, d + offset));
+      const day = buildFactoryDay(candidate, employees);
+      if (offset === 1) next = day;
+      if (day.anyone_working) {
+        next = day;
+        nextIsTomorrow = offset === 1;
+        break;
+      }
+    }
+
+    res.json({ generated_at: new Date().toISOString(), today, next, next_is_tomorrow: nextIsTomorrow });
+  } catch (error) {
+    sendServerError(res, req, error);
+  }
+});
+
 // その日ごとの勤務時間（employee_fixed_scheduleは廃止し、勤務時間の管理はこのテーブルに一本化）を一括取得
 // 日本の祝日一覧(スケジュールボードの表示用)。データはlib/jp-holidays.jsの静的テーブル
 app.get('/api/holidays', (req, res) => {

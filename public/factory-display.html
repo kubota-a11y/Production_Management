@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- iPadの「ホーム画面に追加」から開いたときにSafariのアドレスバーを消して全画面にする -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="工場モニター">
+  <title>工場モニター表示 - HiBoard</title>
+  <!-- 共通ヘッダー(ui.js)は載せない: テレビに映す閲覧専用画面のため、ナビもモーダルも不要 -->
+  <link rel="stylesheet" href="/styles/tokens.css">
+  <link rel="stylesheet" href="/styles/factory-display.css">
+</head>
+<body class="fd-body">
+  <header class="fd-header">
+    <div class="fd-date">
+      <span id="fd-date">--月--日</span>
+      <span class="fd-holiday" id="fd-holiday"></span>
+    </div>
+    <div class="fd-title">今日の作業予定</div>
+    <div class="fd-clock" id="fd-clock">--:--</div>
+    <div class="fd-meta" id="fd-meta">
+      <span id="fd-updated">読み込み中…</span>
+      <button type="button" class="fd-fullscreen-btn" id="fd-fullscreen" hidden>全画面</button>
+    </div>
+  </header>
+
+  <main class="fd-rows" id="fd-rows" aria-live="polite">
+    <div class="fd-loading">読み込み中…</div>
+  </main>
+
+  <footer class="fd-next" id="fd-next"></footer>
+
+  <script src="/js/utils.js"></script>
+  <script src="/js/factory-display.js"></script>
+</body>
+</html>

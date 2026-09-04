@@ -30,6 +30,8 @@ const HiUI = {
     // 毎日見る画面ではなく、社長が週次・月次で振り返るための画面なのでここに畳む
     // (navDaily に足すと横並びのリンクが増えて、全画面でタイトルが2行に折り返す)
     { key: 'workload', href: '/workload', label: '📊 業務量レポート' },
+    // 工場のテレビに映す閲覧専用画面。開く人はテレビを設定する人だけなので管理メニューに畳む
+    { key: 'factory-display', href: '/schedule/display', label: '📺 工場モニター表示' },
     { divider: true },
     { key: 'staff', href: '/?open=staff', label: '👥 担当者マスタ（案件の窓口）' },
     { key: 'employees', href: '/employees', label: '🧑‍🏭 従業員マスタ（作業する人）' },

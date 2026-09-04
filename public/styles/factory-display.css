@@ -1,0 +1,375 @@
+/* ========================================
+   工場モニター表示(閲覧専用サイネージ) /schedule/display
+
+   3mほど離れたテレビから読む画面なので、文字サイズだけは tokens.css の段
+   (最大24px)では足りない。画面の高さ(vh)と従業員の行数(--fd-rows。JSが設定)から
+   算出した専用の段をここで定義し、色・余白・角丸・影は tokens.css を使う。
+   従業員が増えると行が細くなり、それに合わせて文字も自動で小さくなる
+   (5人・フルHDで本文およそ36px、見出しおよそ58px)。
+   ======================================== */
+
+:root {
+  --fd-rows: 5;
+  --fd-base: clamp(16px, calc(72vh / var(--fd-rows) / 4.2), 46px);
+  --fd-name: calc(var(--fd-base) * 1.25);
+  --fd-date: calc(var(--fd-base) * 1.6);
+  --fd-small: calc(var(--fd-base) * 0.72);
+  /* 案件の色はJSがインラインで塗る(週間ボードと同じパレット) */
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+.fd-body {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--surface);
+  color: var(--gray-900);
+  font-family: var(--font-sans);
+  font-size: var(--fd-base);
+  line-height: 1.3;
+  /* iPadの「ホーム画面に追加」で全画面にしたとき、ノッチ・ホームバーに文字が重ならないようにする */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  box-sizing: border-box;
+}
+
+/* ===== ヘッダー(日付・時計) ===== */
+.fd-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-3) var(--space-6);
+  border-bottom: 4px solid var(--gray-800);
+  flex: none;
+}
+
+.fd-date {
+  font-size: var(--fd-date);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.fd-holiday {
+  margin-left: var(--space-3);
+  font-size: var(--fd-small);
+  font-weight: 700;
+  color: var(--danger-text);
+}
+
+.fd-holiday:empty {
+  display: none;
+}
+
+.fd-title {
+  font-size: var(--fd-base);
+  font-weight: 700;
+  color: var(--text-subtle);
+  white-space: nowrap;
+}
+
+.fd-clock {
+  margin-left: auto;
+  font-size: var(--fd-date);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.fd-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+  font-size: var(--fd-small);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* 5分以上更新できていないときは目立たせる(古い予定を信じて動かないように) */
+.fd-meta.is-stale {
+  color: var(--danger-text);
+  font-weight: 700;
+}
+
+.fd-fullscreen-btn {
+  font: inherit;
+  font-size: var(--fd-small);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+  color: var(--text-subtle);
+  cursor: pointer;
+}
+
+.fd-fullscreen-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* ===== 従業員の行 ===== */
+.fd-rows {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.fd-loading,
+.fd-error {
+  padding: var(--space-8);
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.fd-error {
+  color: var(--danger-text);
+  font-weight: 700;
+}
+
+.fd-row {
+  display: grid;
+  /* 名前 / 時間と状態 / 作業の札 */
+  grid-template-columns: minmax(0, 7.2em) minmax(0, 6.2em) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: center;
+  flex: 1 1 0;
+  min-height: 0;
+  padding: var(--space-2) var(--space-6);
+  border-bottom: 2px solid var(--border-color);
+  overflow: hidden;
+}
+
+.fd-row:nth-child(even) {
+  background: var(--surface-muted);
+}
+
+/* 休みの人の行は細くして、出勤している人の行に高さを回す */
+.fd-row.is-off {
+  flex-grow: 0.5;
+  color: var(--text-muted);
+  background: var(--surface-sunken);
+}
+
+.fd-row.is-over {
+  background: var(--danger-soft);
+}
+
+/* 名前は「山本　勇一郎」のように姓と名の間の空白でだけ折り返す(文字の途中で切らない) */
+.fd-name {
+  font-size: var(--fd-name);
+  font-weight: 800;
+  line-height: 1.15;
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+
+/* 予定時間 / 勤務時間 と 状態の札 */
+.fd-load {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.fd-hours {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.fd-hours-ref {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.fd-bar {
+  position: relative;
+  height: 0.45em;
+  border-radius: var(--radius-pill);
+  background: var(--gray-200);
+  overflow: hidden;
+}
+
+.fd-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--primary-color);
+}
+
+.fd-row.is-over .fd-bar-fill {
+  background: var(--danger-color);
+}
+
+.fd-chip {
+  display: inline-block;
+  align-self: flex-start;
+  padding: 0 0.55em;
+  border-radius: var(--radius-pill);
+  font-size: var(--fd-small);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.fd-chip-short {
+  background: var(--info-soft);
+  color: var(--info-text);
+}
+
+.fd-chip-over {
+  background: var(--danger-color);
+  color: var(--surface);
+}
+
+.fd-chip-off {
+  background: var(--gray-200);
+  color: var(--text-subtle);
+}
+
+/* 本人が申告したひとことメモ(「午後通院」など) */
+.fd-note {
+  font-size: var(--fd-small);
+  color: var(--text-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===== 作業の札 ===== */
+.fd-items {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  gap: var(--space-2) var(--space-3);
+  min-width: 0;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.fd-empty {
+  color: var(--text-muted);
+  font-size: var(--fd-small);
+}
+
+.fd-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  max-width: 100%;
+  padding: 0.12em 0.6em 0.12em 0.45em;
+  border: 3px solid var(--border-strong);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  line-height: 1.2;
+}
+
+/* まだ確定していない予定(週間ボードの破線わくと同じ意味) */
+.fd-item.is-proposed {
+  border-style: dashed;
+}
+
+/* 終わった作業は薄く・取り消し線。行からは消さない(「今日これをやった」が分かるように) */
+.fd-item.is-done {
+  opacity: 0.55;
+}
+
+.fd-item.is-done .fd-item-name {
+  text-decoration: line-through;
+}
+
+.fd-item-dot {
+  flex: none;
+  width: 0.7em;
+  height: 0.7em;
+  border-radius: 50%;
+  background: var(--gray-400);
+}
+
+.fd-item-name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.fd-item-sub {
+  font-size: var(--fd-small);
+  color: var(--text-subtle);
+  white-space: nowrap;
+}
+
+.fd-tag {
+  flex: none;
+  padding: 0 0.45em;
+  border-radius: var(--radius-sm);
+  font-size: var(--fd-small);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.fd-tag-prep {
+  background: var(--warning-soft);
+  color: var(--warning-text);
+}
+
+.fd-tag-todo {
+  background: var(--purple-soft);
+  color: var(--purple-text);
+}
+
+.fd-tag-proposed {
+  background: var(--gray-200);
+  color: var(--text-subtle);
+}
+
+.fd-tag-done {
+  background: var(--success-soft);
+  color: var(--success-text);
+}
+
+/* ===== 明日の予定(1行) ===== */
+.fd-next {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-5);
+  flex: none;
+  padding: var(--space-3) var(--space-6);
+  border-top: 4px solid var(--border-strong);
+  background: var(--surface-sunken);
+  font-size: var(--fd-small);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.fd-next-label {
+  flex: none;
+  font-size: var(--fd-base);
+  font-weight: 800;
+}
+
+.fd-next-list {
+  display: flex;
+  gap: var(--space-6);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.fd-next-emp {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fd-next-emp b {
+  margin-right: 0.3em;
+}
+
+.fd-next-emp.is-off {
+  color: var(--text-muted);
+}
+
+.fd-next-empty {
+  color: var(--text-muted);
+}
