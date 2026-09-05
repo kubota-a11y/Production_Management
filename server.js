@@ -3353,10 +3353,15 @@ function buildFactoryDay(dateStr, employees) {
     });
     const referenceHours = Math.round(ref.hours * 100) / 100;
     const plannedHours = Math.round(planned * 100) / 100;
+    // 空きあり/入りきらないの判定は、テレビに出す小数1桁の数字どうしで行う。
+    // 週間ボードと同じ0.01h基準にすると、前準備・後片付け込みで2分だけ超えた日に
+    // 「3h / 3h 🔥入りきらない」と矛盾して見える(工場の実機で実際にそう見えた)
+    const referenceShown = Math.round(referenceHours * 10) / 10;
+    const plannedShown = Math.round(plannedHours * 10) / 10;
     let state = 'ok';
     if (referenceHours <= 0) state = 'off';
-    else if (plannedHours > referenceHours + 0.01) state = 'over';
-    else if (plannedHours < referenceHours) state = 'short';
+    else if (plannedShown > referenceShown) state = 'over';
+    else if (plannedShown < referenceShown) state = 'short';
     return { id: emp.id, name: emp.name, reference_hours: referenceHours, planned_hours: plannedHours, state, note: ref.note, items };
   });
 
