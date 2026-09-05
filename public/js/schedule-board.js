@@ -692,7 +692,8 @@ const scheduleBoard = {
     const todoSegments = dayTodoPlans.map(p => {
       const hours = p.estimated_hours || 0;
       const widthPct = (hours / scaleMax) * 100;
-      const label = `【TODO】${p.task_text}`;
+      // 本人が付けた作業段階バッジ(制作/修正/入稿)があれば「【TODO・制作】」のように出す
+      const label = `【TODO${p.work_stage_label ? `・${p.work_stage_label}` : ''}】${p.task_text}`;
       const title = `${label}: 予定${hours}h（社員用TODOリストより・本人が予定に入れたタスク）`;
       return `<div class="sb-bar-segment sb-bar-segment-todo" style="width:${widthPct}%;" title="${this.escapeHtml(title)}">${this.escapeHtml(label)}</div>`;
     }).join('');

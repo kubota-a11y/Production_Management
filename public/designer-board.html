@@ -201,6 +201,16 @@
       color: #b45309; background: #fef3c7; border: 1px solid #fcd34d;
     }
     .todo-status-inprogress { color: #1d4ed8; background: #dbeafe; border: 1px solid #93c5fd; }
+    /* TODOカードの作業段階バッジ(制作/修正/入稿)。校正バッジと同じ形で、
+       選択中はTODOチップの縁と同じ緑青系で塗る(校正の桃色と見分けるため)(2026-09-04) */
+    .todo-stage-row { display: flex; gap: 6px; margin-top: 5px; flex-wrap: wrap; }
+    .todo-stage-badge {
+      font-size: .74rem; font-weight: 700; padding: 3px 12px; border-radius: 999px;
+      border: 1px solid #cbd5e1; background: #fff; color: #64748b;
+      cursor: pointer; white-space: nowrap; font-family: inherit;
+    }
+    .todo-stage-badge:hover { background: #f8fafc; color: #0f172a; }
+    .todo-stage-badge.active { border-color: #0d9488; background: #ccfbf1; color: #115e59; }
 
     /* 日カード */
     .days { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }

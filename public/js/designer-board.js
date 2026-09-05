@@ -66,6 +66,7 @@ const board = {
       this.roughFiles = data.rough_files || {};
       this.carveStages = data.carve_stages || [];
       this.proofStages = data.proof_stages || [];
+      this.todoStages = data.todo_stages || [];
       this.carryoverReasons = data.carryover_reasons || [];
       this.carryoverNoteMax = data.carryover_note_max || 200;
       this.workStates = data.work_states || [];
@@ -257,6 +258,7 @@ const board = {
         <div class="chip-main">
           <div class="chip-name">📝 ${this.esc(t.task)}${this.carryoverBadgeHtml(t.carryover_count)}</div>
           ${metaParts.length ? `<div class="chip-meta">${metaParts.join(' ｜ ')}</div>` : ''}
+          ${this.todoStageBadgesHtml(t, encoded)}
         </div>
         <div class="chip-controls" onclick="event.stopPropagation()">
           <select class="chip-date" onchange="board.onTodoDateChange('${encoded}', this.value)">
@@ -272,6 +274,42 @@ const board = {
         </div>
       </div>
     `;
+  },
+
+  // TODOカードの作業段階バッジ(制作/修正/入稿)。校正バッジ(初校/修正/校了)のTODO版で、
+  // 3つとも常に出し、押すとその状態、もう一度押すと未選択に戻る(2026-09-04 社長指示)。
+  // タスク1件ごとの状態。シートには書き戻さず、HiBoard側だけで持つ
+  todoStageBadgesHtml(t, encoded) {
+    const buttons = (this.todoStages || []).map(p => `
+      <button type="button" class="todo-stage-badge${t.work_stage === p.key ? ' active' : ''}"
+              onclick="event.stopPropagation(); board.onTodoStageChange('${encoded}', '${p.key}')"
+              title="このタスクの状態を「${this.esc(p.label)}」にします（もう一度押すと未選択）">${this.esc(p.label)}</button>
+    `).join('');
+    return `<div class="todo-stage-row" onclick="event.stopPropagation()">${buttons}</div>`;
+  },
+
+  async onTodoStageChange(encodedTask, stage) {
+    const task = decodeURIComponent(encodedTask);
+    const current = (this.sheetTodos || []).find(t => t.task === task);
+    const next = current && current.work_stage === stage ? '' : stage;
+    try {
+      const res = await fetch(`/api/designer/${this.token}/sheet-todo-stage`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task_text: task, stage: next }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        this.toast(data.error || '保存に失敗しました');
+      } else {
+        const label = (this.todoStages || []).find(p => p.key === stage);
+        this.toast(next ? `状態を「${label ? label.label : stage}」にしました` : '状態を未選択に戻しました');
+      }
+    } catch (e) {
+      console.error(e);
+      this.toast('通信エラーで保存できませんでした');
+    }
+    await this.load();
   },
 
   // ===== TODOの予定操作 =====

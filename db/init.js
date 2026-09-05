@@ -603,6 +603,14 @@ function initDatabase(dbFile = dbPath) {
     db.prepare(`ALTER TABLE designer_sheet_todo_plans ADD COLUMN completed_at TEXT`).run();
     console.log('✓ designer_sheet_todo_plans.completed_at を追加しました');
   }
+  // TODOリスト由来のカードの作業段階バッジ「制作/修正/入稿」(2026-09-04 社長指示)。
+  // シート側には持たず(シートは内容と未着手/進行中/完了の状態だけがマスター)、
+  // 準備項目の校正バッジと同じくデザイン担当本人が押して切り替える。
+  // 値は lib/designer-board.js の TODO_STAGES(PRODUCTION/REVISION/SUBMISSION)。未選択はNULL
+  if (!sheetTodoPlanColumns.includes('work_stage')) {
+    db.prepare(`ALTER TABLE designer_sheet_todo_plans ADD COLUMN work_stage TEXT`).run();
+    console.log('✓ designer_sheet_todo_plans.work_stage を追加しました');
+  }
 
   // 予定日の変更履歴(2026-08-20)。マイスケジュールボードと社内の週間スケジュールボードで
   // タスクの予定日を動かすたびに1行残す。
