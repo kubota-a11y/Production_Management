@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>社内システムお知らせ Vol.8(A4印刷用)</title>
+<style>
+  /* A4印刷用。Chromeのヘッドレス印刷でPDF化する(生成手順はdocs/weekly-news/README.md参照) */
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #1c1917;
+    --text: #44403c;
+    --muted: #78716c;
+    --hairline: #e7e2dc;
+    --accent-bg: #f5f2ee;
+    --ask-bg: #f2f6f3;
+    --ask-line: #cfdfd4;
+    --ask-text: #3f6b50;
+    --serif: "Hiragino Mincho ProN", "Yu Mincho", serif;
+    --sans: "Hiragino Sans", "Noto Sans JP", sans-serif;
+  }
+
+  body {
+    font-family: var(--sans);
+    color: var(--text);
+    line-height: 1.65;
+    font-size: 9pt;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .page {
+    width: 210mm; height: 297mm;
+    padding: 14mm 18mm 13mm;
+    page-break-after: always;
+    position: relative;
+    background: #fff;
+  }
+  .page:last-child { page-break-after: auto; }
+
+  /* ===== ヘッダー ===== */
+  .hero { text-align: center; margin-bottom: 5.5mm; }
+  .overline {
+    font-size: 7pt; letter-spacing: .32em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 2mm;
+  }
+  h1 {
+    font-family: var(--serif); font-size: 19pt; font-weight: 600;
+    letter-spacing: .12em; color: var(--ink);
+  }
+  .hero.sub h1 { font-size: 15pt; }
+  .divider { width: 12mm; height: .35mm; background: var(--ink); margin: 3.2mm auto; }
+  .lead { color: var(--muted); font-size: 8.4pt; }
+
+  .intro {
+    background: var(--accent-bg);
+    border-radius: 1.5mm;
+    padding: 3.2mm 5mm;
+    margin-bottom: 5.5mm;
+    font-size: 8.8pt;
+  }
+  .intro strong { color: var(--ink); }
+
+  /* ===== セクション ===== */
+  .sec { margin-bottom: 4.8mm; }
+  .sec-head {
+    display: flex; align-items: baseline; gap: 3mm;
+    border-bottom: .3mm solid var(--ink);
+    padding-bottom: 1.2mm; margin-bottom: 2mm;
+  }
+  .sec-head h2 {
+    font-family: var(--serif); font-size: 11.5pt; font-weight: 600;
+    letter-spacing: .08em; color: var(--ink);
+  }
+  .sec-head .sub { margin-left: auto; font-size: 7.2pt; color: var(--muted); letter-spacing: .06em; }
+
+  ul.items { list-style: none; }
+  ul.items li {
+    position: relative;
+    padding-left: 4.2mm;
+    margin-bottom: 1.1mm;
+  }
+  ul.items li::before {
+    content: ""; position: absolute; left: .6mm; top: 2mm;
+    width: 1.5mm; height: 1.5mm; border-radius: 50%;
+    background: var(--ink);
+  }
+  ul.items strong { color: var(--ink); font-weight: 600; }
+  .note { color: var(--muted); font-size: 8.2pt; }
+
+  /* ===== テーマ見出し ===== */
+  .theme {
+    display: inline-block;
+    font-size: 7pt; font-weight: 600; letter-spacing: .14em;
+    color: #fff; background: var(--ink);
+    padding: .4mm 2.6mm; border-radius: .8mm;
+    margin-right: 2mm; vertical-align: middle;
+    white-space: nowrap; flex: none;
+  }
+
+  /* ===== 対象バッジ ===== */
+  .aud {
+    display: inline-block;
+    font-size: 6.8pt; font-weight: 600; letter-spacing: .1em;
+    padding: .3mm 2.2mm; border-radius: 3mm;
+    margin-left: 2mm; vertical-align: middle;
+    white-space: nowrap;
+  }
+  .aud-staff { border: .25mm solid var(--muted); color: var(--muted); background: #fff; }
+  .aud-all { border: .25mm solid var(--ask-line); color: var(--ask-text); background: var(--ask-bg); }
+
+  /* ===== 段階の流れ図 ===== */
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 1.4mm;
+    background: var(--accent-bg);
+    border-radius: 1.5mm;
+    padding: 2.4mm 3mm;
+    margin-bottom: 2.4mm;
+    font-size: 8pt;
+  }
+  .flow span {
+    background: #fff; border: .25mm solid var(--hairline); border-radius: .8mm;
+    padding: .5mm 2.2mm; color: var(--ink); font-weight: 600;
+  }
+  .flow em { font-style: normal; color: var(--muted); align-self: center; }
+
+  /* ===== お願いボックス ===== */
+  .ask {
+    background: var(--ask-bg);
+    border: .3mm solid var(--ask-line);
+    border-radius: 1.5mm;
+    padding: 3.2mm 5mm 2.8mm;
+    margin-top: 5mm;
+  }
+  .ask h3 {
+    font-family: var(--serif); font-size: 10.5pt; font-weight: 600;
+    letter-spacing: .1em; color: var(--ask-text); margin-bottom: 1.6mm;
+  }
+  .ask ul.items li::before { background: var(--ask-text); }
+
+  /* ===== フッター ===== */
+  .foot {
+    position: absolute; left: 18mm; right: 18mm; bottom: 9mm;
+    border-top: .3mm solid var(--hairline);
+    padding-top: 2mm;
+    display: flex; justify-content: space-between;
+    font-size: 7.2pt; color: var(--muted); letter-spacing: .06em;
+  }
+</style>
+</head>
+<body>
+
+
+
+<div class="page">
+  <header class="hero">
+    <div class="overline">HIYOSHI DX WEEKLY</div>
+    <h1>社内システムお知らせ</h1>
+    <div class="divider"></div>
+    <div class="lead">Vol.8 ─ 2026年9月7日発行 ─ 対象期間:9月1日〜9月7日</div>
+  </header>
+
+  <div class="intro">
+    今週は大きく3つです。<strong>①加工料金が改定され、見積シミュレーターの単価が入れ替わりました</strong>。<strong>②ミニマム手数料(10枚未満の5割増)が、シルクプリント以外では無くなりました</strong>。<strong>③工場のテレビに「今日の予定」を映す画面ができました</strong>。<br>
+    各見出しの右にある<span class="aud aud-staff">社員</span><span class="aud aud-all">全従業員</span>は、<strong>その項目を読んでいただきたい方</strong>の目安です。
+  </div>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">見積</span>
+      <h2>加工料金を改定しました(9/1・9/2)</h2>
+      <span class="aud aud-staff">社員</span>
+      <span class="sub">9/1〜9/2</span>
+    </div>
+    <ul class="items">
+      <li><strong>DTFプリント</strong>(9/1) … <strong>1〜5枚・6〜9枚の小口の段</strong>と、<strong>200枚〜・300枚〜・500枚〜の大口の段</strong>を新しく作りました。よく出る<strong>10〜99枚は値下げ</strong>しています。</li>
+      <li><strong>シルクスクリーン</strong>(9/2) … <strong>100枚〜・200枚〜・300枚〜・500枚〜</strong>の大口の段を新設しました。<strong>10〜99枚と製版代は今までどおり</strong>です。</li>
+      <li><strong>ラバー転写</strong>(9/2) … <strong>1〜4枚だけ値上げ</strong>(赤字になっていたため)、<strong>5〜9枚と10枚〜は値下げ</strong>しました。カス取りの手間が枚数どおりに増える加工のため、<strong>200枚以上の大口の段はあえて作っていません</strong>。</li>
+      <li><strong>刺繍</strong>(9/2) … 段の分け方を<strong>「1〜2箇所 / 3〜9箇所 / 10〜49箇所 / 50箇所〜」</strong>に整理しました。<strong>お客様への請求額はこれまでと変わりません</strong>(ミニマム手数料を単価の中に組み込んだためです)。<strong>マーキングは単価そのまま</strong>です。</li>
+      <li class="note">改定前に出した見積書の単価は<strong>そのまま使い回さない</strong>でください。同じ内容でも金額が変わっています。金額の正しさに迷ったら、シミュレーターで出し直すか久保田までご確認ください。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">見積</span>
+      <h2>ミニマム手数料が残るのは「シルク」だけになりました</h2>
+      <span class="aud aud-staff">社員</span>
+      <span class="sub">9/1〜9/2</span>
+    </div>
+    <div class="flow">
+      <span>シルク:10枚未満は5割増</span><em>／</em><span>DTF・ラバー転写・マーキング・刺繍:割増なし</span>
+    </div>
+    <ul class="items">
+      <li>これまで<strong>同じ品番で10枚未満のときに一律で5割増</strong>していたミニマム手数料が、<strong>シルクプリント以外では掛からなくなりました</strong>。少ない枚数のご相談に、そのままの単価でお答えできます。</li>
+      <li>例:<strong>DTFのA4を6枚</strong>のとき、加工代が<strong>2,510円 → 1,670円</strong>(税抜・1枚あたり)になりました。DTFのネームプリントも<strong>560円 → 370円</strong>です。</li>
+      <li><strong>シルクの10枚未満だけは今までどおり5割増</strong>です。見積書の摘要に出る<strong>「※ミニマム手数料込み」</strong>も、実際に掛かった行にだけ出るよう直しました。</li>
+      <li>DTFに付く割増は<strong>特急(1週間納期)・一重ブルゾン・持ち込み品</strong>の3つだけです。</li>
+      <li class="note">1〜5枚のご相談は、条件が合えば<strong>「1枚からパック」(税込・コミコミ)</strong>でその場でお答えできます。判断に迷うときは久保田・三浦さんへ。</li>
+    </ul>
+  </section>
+
+  <div class="foot">
+    <span>有限会社HiYOSHi ─ 社内システムお知らせ Vol.8</span>
+    <span>1 / 3</span>
+  </div>
+</div>
+
+<div class="page">
+  <header class="hero sub">
+    <div class="overline">WEEKLY UPDATE</div>
+    <h1>見積書の見た目・工場のテレビ表示</h1>
+    <div class="divider"></div>
+    <div class="lead">Vol.8 ─ 対象期間:9月1日〜9月7日</div>
+  </header>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">見積</span>
+      <h2>見積書の単価・明細・件名が読みやすくなりました</h2>
+      <span class="aud aud-staff">社員</span>
+      <span class="sub">9/1</span>
+    </div>
+    <ul class="items">
+      <li>見積書に出る<strong>単価がすべて10円単位に切り上げ</strong>られます。割増やボディ単価、割引の後も同じです。→ <strong>「1,673円」のような半端な単価がお客様の見積書に出なくなりました</strong>。</li>
+      <li>明細の<strong>「品名」の欄は使わない</strong>形に戻し、<strong>品番と商品名は摘要のいちばん頭</strong>に入れるようにしました。→ 摘要だけを見れば1行の内容がすべて読めます。<span class="note">(Vol.7でご案内した「品名の欄が増えます」は、この形に差し替えです)</span></li>
+      <li>見積書の<strong>件名が「品名 加工名 数量」</strong>で自動作成されるようになりました。<strong>お客様のお名前は件名に入りません</strong>(取引先の欄で分かるためです)。</li>
+      <li>KRATVSカスタムオーダーに<strong>ドライ長袖Tシャツ</strong>が加わりました。<strong>S〜XL 税込3,080円 / XXL 税込3,300円</strong>で、サイズはこの2つの帯だけです。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">現場</span>
+      <h2>工場のテレビに「今日の予定」を映せます</h2>
+      <span class="aud aud-all">全従業員</span>
+      <span class="sub">9/4〜9/5</span>
+    </div>
+    <ul class="items">
+      <li>ヘッダーの<strong>「⚙ 管理」→「📺 工場モニター表示」</strong>で、<strong>今日の予定だけ</strong>を大きな文字で映す画面が開きます。週間スケジュールボードをそのまま映すと3m先から読めなかったため、テレビ用に作った専用の画面です。</li>
+      <li><strong>1人1行</strong>で、左から<strong>「名前」「今日の予定時間 / 勤務時間」「今日やる作業」</strong>の順に出ます。<strong>🕗空きあり / 🔥入りきらない / 休み</strong>の意味はボードと同じで、入りきらない人の行は赤くなります。</li>
+      <li>作業の札の<strong>「準備」</strong>は製版・データ作成などの段取り、<strong>「提案中」</strong>はまだ確定していない予定、<strong>✓と取り消し線</strong>は終わった作業です。いちばん下の行は<strong>明日の予定</strong>(土日祝で全員休みの日は、次に誰かが出勤する日)です。</li>
+      <li><strong>この画面では何も変更できません</strong>。直したいときは<strong>週間スケジュールボードで直してください</strong>。テレビ側は1分以内に自動で追いつきます。</li>
+      <li class="note">iPadで映すときは、Safariの共有ボタン →<strong>「ホーム画面に追加」</strong>で開くとアドレスバーが消えて全画面になります。</li>
+    </ul>
+  </section>
+
+  <div class="foot">
+    <span>有限会社HiYOSHi ─ 社内システムお知らせ Vol.8</span>
+    <span>2 / 3</span>
+  </div>
+</div>
+
+<div class="page">
+  <header class="hero sub">
+    <div class="overline">WEEKLY UPDATE</div>
+    <h1>マイスケジュール・Claudeの価格ルール</h1>
+    <div class="divider"></div>
+    <div class="lead">Vol.8 ─ 対象期間:9月1日〜9月7日</div>
+  </header>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">スケジュール</span>
+      <h2>マイスケのTODOカードに作業段階の札が付きました</h2>
+      <span class="aud aud-all">全従業員</span>
+      <span class="sub">9/5</span>
+    </div>
+    <ul class="items">
+      <li>案件のカードには初校・修正・校了の札がありましたが、<strong>TODOリストから来たカードには「未着手/進行中」しか無く、いま何をしている段階かが分かりません</strong>でした。→ <strong>「制作 / 修正 / 入稿」の3つのボタン</strong>を足しました。</li>
+      <li>押すだけで切り替わります。もう一度押せば選択が外れます。→ <strong>週間スケジュールボードにも「【TODO・入稿】…」のように段階つきで出ます</strong>。他の人からも進み具合が見えるようになりました。</li>
+      <li>この札は<strong>TODOシートには書き戻しません</strong>。シート側の「未着手/進行中/完了」は今までどおりシートで動かしてください。</li>
+      <li class="note">案件のカードに付く校正の札(初校・修正・校了)は桃色、TODOの札は緑青色で、色で見分けられます。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">その他</span>
+      <h2>Claudeが価格表と指示書のルールを覚えました</h2>
+      <span class="aud aud-staff">社員</span>
+      <span class="sub">9/4</span>
+    </div>
+    <ul class="items">
+      <li>三浦さん・山本さんのClaudeが、<strong>起動したときに「価格ルール」と「指示書ルール」を自動で読み込む</strong>ようになりました。→ 見積の概算や指示書の下書きを、<strong>全員が同じ数字・同じ形</strong>で作れます。</li>
+      <li><strong>価格ルールは9/1〜9/3の改定をすべて反映済み</strong>です。1枚からパック・DTF・シルク・ラバー転写・マーキング・刺繍・KRATVS・八木繊維様まで1本にまとまっています。</li>
+      <li><strong>価格が改定されたら、Claude Codeを一度閉じて開き直してください</strong>。開いたときにしか新しいルールを読み込みません。</li>
+      <li><strong>AIは数字を間違えることがあります。</strong>見積書としてお出しする前に、必ずご自身で料金表と突き合わせてください。<strong>納期と価格はその場で即答しない</strong>のも今までどおりです(1枚からパックの定額のご案内だけは例外)。</li>
+    </ul>
+  </section>
+
+  <div class="ask">
+    <h3>皆さんへのお願い(今週からの動き方)</h3>
+    <ul class="items">
+      <li><strong>改定前に作った見積書の単価を使い回さない</strong>でください。DTF・シルク・ラバー転写・刺繍は9/1〜9/2で金額が変わっています。見積はシミュレーターで出し直しをお願いします。</li>
+      <li>10枚未満のご相談に<strong>もう5割増は付きません</strong>(シルクを除く)。少ない枚数のお問い合わせも、その場で身構えずにお受けしてください。</li>
+      <li>工場のテレビの内容がおかしいときは、<strong>テレビではなく週間スケジュールボードを直して</strong>ください。1分以内にテレビ側が追いつきます。</li>
+      <li>マイスケのTODOカードは、<strong>いまの段階に合わせて「制作 / 修正 / 入稿」を押して</strong>ください。→ 週間ボードにもそのまま出て、進み具合が全員に伝わります。</li>
+      <li>Claudeで見積の概算を出したら、<strong>お出しする前に必ず料金表と突き合わせて</strong>ください。価格改定の連絡が来たら、一度閉じて開き直しをお願いします。</li>
+    </ul>
+  </div>
+
+  <div class="note" style="margin-top: 2.4mm; text-align: right;">次号予定:2026年9月14日(月)</div>
+
+  <div class="foot">
+    <span>有限会社HiYOSHi ─ 社内システムお知らせ Vol.8</span>
+    <span>3 / 3</span>
+  </div>
+</div>
+
+</body>
+</html>
