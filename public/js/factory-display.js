@@ -40,6 +40,8 @@ const factoryDisplay = {
     this.setupFullscreenButton();
     this.load();
     setInterval(() => this.load(), this.REFRESH_MS);
+    // 全画面の切り替えやテレビへの接続で画面サイズが変わったら、収まり具合を取り直す
+    window.addEventListener('resize', () => this.fitToScreen());
   },
 
   // ===== 通信 =====
@@ -69,6 +71,8 @@ const factoryDisplay = {
     this.renderHeader(data.today);
     this.renderRows(data.today);
     this.renderNext(data.next, data.next_is_tomorrow);
+    // 明日の行の高さが決まってから収まり具合を測る(先に測ると明日の行の分だけ下がはみ出す)
+    this.fitToScreen();
   },
 
   renderHeader(day) {
@@ -88,6 +92,19 @@ const factoryDisplay = {
     }
 
     container.innerHTML = employees.map(emp => this.renderRow(emp)).join('');
+  },
+
+  // 作業が多い日に札が行からはみ出して下が切れる(工場の実機で実際に起きた)のを防ぐ。
+  // 文字の倍率(--fd-scale)を5%ずつ下げ、全行が画面に収まるまで繰り返す(下限45%)
+  fitToScreen() {
+    const root = document.documentElement;
+    const rows = document.getElementById('fd-rows');
+    let scale = 1;
+    root.style.setProperty('--fd-scale', '1');
+    for (let i = 0; i < 11 && rows.scrollHeight > rows.clientHeight + 1; i++) {
+      scale = Math.round((scale - 0.05) * 100) / 100;
+      root.style.setProperty('--fd-scale', String(scale));
+    }
   },
 
   renderRow(emp) {
@@ -151,7 +168,9 @@ const factoryDisplay = {
     if (item.hours > 0) subParts.push(`${this.formatHours(item.hours)}h`);
     const sub = subParts.length ? `<span class="fd-item-sub">${this.escapeHtml(subParts.join(' ・ '))}</span>` : '';
 
-    return `<span class="${cls.join(' ')}">${dot}${tags.join('')}<span class="fd-item-name">${this.escapeHtml(item.title)}</span>${sub}</span>`;
+    // 案件名が長いと札1枚で行幅を使い切り、札が縦に積み上がる。24文字で切り詰めて横に並びやすくする
+    const name = this.truncate(item.title, 24);
+    return `<span class="${cls.join(' ')}" title="${this.escapeHtml(item.title)}">${dot}${tags.join('')}<span class="fd-item-name">${this.escapeHtml(name)}</span>${sub}</span>`;
   },
 
   renderNext(day, isTomorrow) {

@@ -10,7 +10,10 @@
 
 :root {
   --fd-rows: 5;
-  --fd-base: clamp(16px, calc(72vh / var(--fd-rows) / 4.2), 46px);
+  /* --fd-scale はJS(fitToScreen)が、行が画面からはみ出すときに 1 → 0.95 → 0.9… と下げる。
+     作業が多い日でも札が途中で切れずに全部見えるようにするため */
+  --fd-scale: 1;
+  --fd-base: clamp(11px, calc(72vh / var(--fd-rows) / 4.2 * var(--fd-scale)), 46px);
   --fd-name: calc(var(--fd-base) * 1.25);
   --fd-date: calc(var(--fd-base) * 1.6);
   --fd-small: calc(var(--fd-base) * 0.72);
@@ -138,11 +141,11 @@ html, body {
   grid-template-columns: minmax(0, 7.2em) minmax(0, 6.2em) minmax(0, 1fr);
   gap: var(--space-5);
   align-items: center;
-  flex: 1 1 0;
-  min-height: 0;
+  /* 行の高さは中身(札の行数)で決め、余った高さを均等に配る。縮めない(flex-shrink: 0)ことで
+     はみ出しを .fd-rows の scrollHeight で検知でき、JSが文字を縮めて収める */
+  flex: 1 0 auto;
   padding: var(--space-2) var(--space-6);
   border-bottom: 2px solid var(--border-color);
-  overflow: hidden;
 }
 
 .fd-row:nth-child(even) {
@@ -245,10 +248,8 @@ html, body {
   display: flex;
   flex-wrap: wrap;
   align-content: center;
-  gap: var(--space-2) var(--space-3);
+  gap: var(--space-1) var(--space-2);
   min-width: 0;
-  max-height: 100%;
-  overflow: hidden;
 }
 
 .fd-empty {
@@ -261,8 +262,8 @@ html, body {
   align-items: center;
   gap: 0.4em;
   max-width: 100%;
-  padding: 0.12em 0.6em 0.12em 0.45em;
-  border: 3px solid var(--border-strong);
+  padding: 0.08em 0.5em 0.08em 0.4em;
+  border: 2px solid var(--border-strong);
   border-radius: var(--radius-xl);
   background: var(--surface);
   line-height: 1.2;
@@ -295,8 +296,9 @@ html, body {
   overflow-wrap: anywhere;
 }
 
+/* 加工種別・時間などの添え書き。案件名より一段小さくして札の幅を抑える */
 .fd-item-sub {
-  font-size: var(--fd-small);
+  font-size: calc(var(--fd-base) * 0.62);
   color: var(--text-subtle);
   white-space: nowrap;
 }
