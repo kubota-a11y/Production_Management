@@ -131,6 +131,17 @@ DBに保存されているパスの「ルート部分」と件数が出る(顧�
 | `WEB_ORDER_RECEIVED_PATH` | `\\192.168.1.25\disk1\DESIGN\WEB_ORDER_RECEIVED` | `G:\共有ドライブ\HiYOSHi共有\DESIGN\WEB_ORDER_RECEIVED` |
 | `PARTNER_ORDER_RECEIVED_PATH` | `\\192.168.1.25\disk1\DESIGN\PARTNER_ORDER_RECEIVED` | `G:\共有ドライブ\HiYOSHi共有\DESIGN\PARTNER_ORDER_RECEIVED` |
 
+> **【2026-09-09 追記・共有ドライブ整理(段階2)で NAS_BASE_PATH を広げた】**
+> フォルダ整理で KRATVS・会社系フォルダを DESIGN の外(HiYOSHi共有 直下)へ出したため、案件フォルダの参照範囲を共有ドライブ全体に広げた。
+>
+> | 項目 | 変更後 |
+> |---|---|
+> | `NAS_BASE_PATH` | `G:\共有ドライブ\HiYOSHi共有`(DESIGN を外す) |
+> | `LINE_RECEIVED_PATH`(新設) | `G:\共有ドライブ\HiYOSHi共有\DESIGN\LINE_RECEIVED` |
+>
+> `LINE_RECEIVED_PATH` は未設定なら従来どおり `NAS_BASE_PATH\LINE_RECEIVED` になる。**NAS_BASE_PATH を広げるときは必ずセットで書く**(書かないとLINE画像が `HiYOSHi共有\LINE_RECEIVED` に保存され始め、DBの既存パス213件と場所がずれる)。`WEB_ORDER_RECEIVED_PATH` / `PARTNER_ORDER_RECEIVED_PATH` は変更なし。
+> 案件登録のフォルダ選択は「HiYOSHi共有」直下から始まる。既存の案件パス(DESIGN\…)はそのまま有効(本番DBを2026-09-09に確認: 案件フォルダ3件・KRATVS等を指すものなし)。
+
 > **`DB_BACKUP_EXTRA_DIR` はこの移行作業では変更しない。** NASは廃棄せず、rcloneのバックアップ先として残す(手順6)。
 >
 > **【2026-08-10 追記・上の判断を一部変更】**

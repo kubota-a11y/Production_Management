@@ -51,6 +51,11 @@ process.on('uncaughtException', (err) => {
 // 未設定時のデフォルトはOSごとに変える（Windowsではマップ済みドライブ文字 or UNCパスを想定）。
 const NAS_BASE_PATH = process.env.NAS_BASE_PATH
   || (process.platform === 'win32' ? 'Z:\\DESIGN' : '/Volumes/disk1/DESIGN');
+// LINE受信画像の保存先。未設定なら従来どおり NAS_BASE_PATH 直下の LINE_RECEIVED。
+// 2026-09-09 共有ドライブ整理で NAS_BASE_PATH を「HiYOSHi共有」全体に広げたため、
+// LINE画像の置き場(DESIGN/LINE_RECEIVED)を動かさずに済むよう独立した設定にした。
+const LINE_RECEIVED_PATH = process.env.LINE_RECEIVED_PATH
+  || path.join(NAS_BASE_PATH, 'LINE_RECEIVED');
 
 // パス比較用ヘルパー。Windowsはファイルパスの大文字小文字を区別しないため、
 // セキュリティチェック(startsWith)がケース違いで誤ってブロックしないよう吸収する。
@@ -169,7 +174,7 @@ function insertLineMessage({ lineUserId, lineMessageId, messageType, textContent
 
 // 画像を取得しNAS上に保存する。取得・保存いずれかが失敗した場合はエラーをログに出しnullを返す(処理は継続)。
 async function saveLineImage(userId, messageId) {
-  const dir = path.join(NAS_BASE_PATH, 'LINE_RECEIVED', userId);
+  const dir = path.join(LINE_RECEIVED_PATH, userId);
   const filePath = path.join(dir, `${messageId}.jpg`);
   try {
     fs.mkdirSync(dir, { recursive: true });
