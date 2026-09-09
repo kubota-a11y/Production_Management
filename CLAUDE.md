@@ -63,8 +63,9 @@
 - デザイン担当が自分のボードから外した準備項目は `case_preparation_items.designer_released_at` に記録し、`registerPreparationItems` の寄せ直し(デザイン案件の担当が空の項目をデザイン担当へ寄せる処理)から除外する。**これが無いと案件を編集するたびに本人のボードへ戻る**。担当を割り当て直すとクリアされる。「初校提出」「入稿完了」は段階を進めるトリガーなので外せないようにしている(`NON_RELEASABLE_CODES`)
 - 入金・現金預かりは `projects.payment_status`(UNPAID/CASH_RECEIVED/PAID)+ `payment_holder_employee_id`。案件の進行(status)とは別の軸なので `PATCH /api/projects/:id/payment` に分けている。**CASH_RECEIVED 以外へ変えたときは預かり者をNULLに戻す**(前の預かり者が残ると誤解を生む)
 - 祝日は `lib/jp-holidays.js` の静的テーブル(2027年分まで)。**毎年、翌年分を手で追加する運用**
-- 公開フォームの誤送信対策は `public/js/form-guard.js` を3フォーム(Web注文/チーム追加/取引先加工依頼)で共有。**Enter送信の無効化と確認ウィンドウは両方必要**(確認ウィンドウだけではEnter2回で送信できてしまう)
-- 受付番号プレフィックスは4系統: W-=Web注文 / T-=チーム追加 / P-=取引先加工依頼 / LINEはバッジなし(`public/js/app.js` の receiptPrefix)
+- 公開フォームの誤送信対策は `public/js/form-guard.js` を4フォーム(Web注文/チーム追加/取引先加工依頼/公式LINE入口別お問い合わせ)で共有。**Enter送信の無効化と確認ウィンドウは両方必要**(確認ウィンドウだけではEnter2回で送信できてしまう)
+- 受付番号プレフィックスは5系統: W-=Web注文 / T-=チーム追加 / P-=取引先加工依頼 / M-・D-=メール・電話の手入力 / Q-=公式LINE入口別お問い合わせ / LINEはバッジなし(`public/js/app.js` の RECEIPT_PREFIX)。**プレフィックスを足したら `lib/order-status.js` の PREFIX_TO_SOURCE と受付番号の正規表現も直す**(進捗確認ページで照会できなくなる)
+- **公式LINEの入口別お問い合わせフォーム `/inquiry/{team|class-t|original}`(2026-09-09)は、項目定義 `lib/inquiry-kinds.js` が検証と画面描画の単一情報源**。入口や項目を変えるときはそのファイルだけを直す(`lib/inquiry.js`・`public/js/inquiry.js` は汎用)。`private: true` の項目(サンプル送付先住所)は受注候補のメモにだけ残し、一覧・TODO通知・会社宛てメール・ログには出さない。着地は `line_user_id='INQ_*'`(入口ごと)・受付番号は3入口とも Q-
 - **注文フォームは `?sim=` でコーポレートサイトの料金シミュレーターの内容を受け取る**(`order.js` の `applySim`)。**形式の単一の情報源は別リポジトリの `~/Projects/GITHUB_HiYOSHi_WEB/src/lib/sim-handoff.ts`** なので、変えるときは必ず両方を直す(項目を足すだけなら、フォーム側が知らない項目を無視するので壊れない)。**サイトの概算金額は備考に文字として残すだけで、業務データの金額として扱わない**(URLは誰でも書き換えられるため)。想定外の値は黙って無視してフォームを通常表示する
 - 進捗確認URLの案内メールは **`PUBLIC_ORDER_BASE_URL` 未設定だと黙って省略される**ので気づきにくい
 - TODOシート連携はシート行にIDが無く employee_id+タスク本文で同一視するため、**シート側で文言を書き換えると紐づけが外れる**

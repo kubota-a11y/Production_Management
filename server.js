@@ -9,6 +9,7 @@ const line = require('@line/bot-sdk');
 const { DESIGN_WORK_ITEM_CODES, NON_DESIGNER_ITEM_CODES, WORK_STATE_LABELS } = require('./lib/prep-items');
 const { runExtractionCycle } = require('./lib/ai-extraction');
 const { registerOrderRoutes } = require('./lib/order-intake');
+const { registerInquiryRoutes } = require('./lib/inquiry');
 const { registerTeamOrderRoutes } = require('./lib/team-order');
 const { registerPartnerPortalRoutes } = require('./lib/partner-portal');
 const { registerPartnerOrderRoutes } = require('./lib/partner-order');
@@ -318,6 +319,8 @@ const PUBLIC_HOSTNAMES = (() => {
 })();
 const EXTERNAL_ALLOWED_PATTERNS = [
   /^\/order$/,                       // Web注文フォーム(GET/POST)
+  /^\/inquiry(\/[\w-]+)?$/,          // 公式LINE入口別お問い合わせ(入口選択+各フォーム)
+  /^\/api\/inquiry\/[\w-]+$/,         // 同フォームの受け口
   /^\/guide$/,                       // ご注文の流れ
   /^\/status$/,                      // お客様向け 進捗確認ページ
   /^\/api\/order-status$/,           // 進捗確認の照合API(受付番号+電話下4桁)
@@ -3885,6 +3888,11 @@ app.get('/', (req, res) => {
 // 公開注文フォーム(GET /order 表示 / POST /order 受付)。
 // 社内管理APIとは別系統。着地は ai_extracted_intake(status=pending)。
 registerOrderRoutes(app, db);
+
+// 公式LINEの入口別お問い合わせフォーム(2026-09-09)。あいさつメッセージ・リッチメニューの
+// 「チーム・サッカー / クラスTシャツ / オリジナルアイテム」から /inquiry/{kind} へ誘導する。
+// 着地は ai_extracted_intake(line_user_id='INQ_*'、受付番号 Q-{id})。項目定義は lib/inquiry-kinds.js
+registerInquiryRoutes(app, db);
 
 // チーム追加注文(専用URL /team/{token} + 管理画面 /team-links)。
 // 着地は同じく ai_extracted_intake(line_user_id='TEAM'、受付番号 T-{id})。

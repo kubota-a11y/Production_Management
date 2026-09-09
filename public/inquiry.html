@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>{{PAGE_TITLE}}</title>
+  <link rel="stylesheet" href="/styles/order.css">
+  <link rel="stylesheet" href="/styles/public-brand.css">
+  <script>
+    // サーバーから注入される設定(入口一覧・現在の入口の項目定義・Turnstileサイトキー)。
+    // 項目定義の正本は lib/inquiry-kinds.js
+    window.__INQUIRY_CONFIG__ = {{INQUIRY_CONFIG}};
+  </script>
+</head>
+<body>
+  <div class="site-brand-bar">
+    <a class="site-brand" href="https://hiyoshi-1954.com/" aria-label="HiYOSHi 公式サイトへ">
+      <span class="site-brand-mark">HiYOSHi<span class="site-brand-suffix">Co., Ltd.</span></span>
+      <span class="site-brand-back">← 公式サイトへ</span>
+    </a>
+  </div>
+
+  <main class="order-wrap">
+    <!-- 入口選択(/inquiry) -->
+    <section id="chooser" hidden>
+      <header class="order-head">
+        <h1>ご相談の入口をお選びください</h1>
+        <p class="lead">ご用件に合わせてお進みください。入力は2分ほどで終わります。</p>
+      </header>
+      <div id="chooserList" class="entry-list"></div>
+      <p class="hint">写真やラフ画像は、公式LINEのトークに直接お送りいただいても大丈夫です。</p>
+    </section>
+
+    <!-- 入口別フォーム(/inquiry/{kind}) -->
+    <section id="formWrap" hidden>
+      <header class="order-head">
+        <p class="entry-back"><a href="#" id="backToChooser">← 入口を選び直す</a></p>
+        <h1 id="formTitle"></h1>
+        <p class="lead" id="formLead"></p>
+      </header>
+
+      <form id="inquiryForm" novalidate>
+        <!-- ハニーポット(人間には見えない。botが埋めると破棄される) -->
+        <div class="hp-field" aria-hidden="true">
+          <label>URL<input type="text" name="hp_url" tabindex="-1" autocomplete="off"></label>
+        </div>
+
+        <div id="sections"></div>
+
+        <section class="card">
+          <h2><span class="sec-no"></span>参考画像 <span class="opt">任意</span></h2>
+          <p class="hint" id="imagesHint">イメージに近い写真・ロゴ・手描きのラフなどがあれば添付してください(jpg / png / pdf / heic・1ファイル15MBまで)。</p>
+          <input type="file" id="referenceImages" accept=".jpg,.jpeg,.png,.pdf,.ai,.svg,.heic,.webp" multiple>
+        </section>
+
+        <div id="turnstileContainer"></div>
+        <div id="formErrors" class="form-errors" hidden></div>
+
+        <div class="submit-row">
+          <button type="submit" id="submitBtn" class="btn-submit">送信する</button>
+        </div>
+        <p class="hint center">送信後、担当より<strong>1〜2営業日以内</strong>にご連絡します。土日祝は週明けの対応となります。</p>
+      </form>
+
+      <!-- 送信完了 -->
+      <div id="donePanel" class="done-panel" hidden>
+        <h2>送信ありがとうございました</h2>
+        <p id="doneMessage"></p>
+        <p id="doneReceipt" class="done-receipt" hidden>受付番号: <strong id="doneReceiptNo"></strong><br>
+          <small>お問い合わせの際にこの番号をお伝えいただくとスムーズです。</small></p>
+        <p id="doneMailNote" hidden>ご記入いただいたメールアドレス宛に受付控えをお送りします。数分経っても届かない場合は、迷惑メールフォルダをご確認ください。</p>
+        <p id="doneSampleNote" hidden>サンプルは内容を確認のうえ、ご記入いただいた送付先へお送りします。</p>
+        <p id="doneImageWarning" hidden>※添付いただいた画像の保存に一部失敗した可能性があります。担当者から確認のご連絡を差し上げる場合がありますので、元のデータはお手元に保管をお願いいたします。</p>
+        <p>内容を確認のうえ、<strong>1〜2営業日以内に</strong>担当者よりご連絡いたします(土日祝は週明けの対応となります)。</p>
+        <div class="notice">
+          <p>LINEでのやり取りをご希望の方は、公式LINEのトークに<strong>お名前と受付番号</strong>をひとことお送りください。担当がそのトークでご連絡します。</p>
+          <a class="line-btn" href="https://lin.ee/z1nZULF" target="_blank" rel="noopener">公式LINEを開く</a>
+        </div>
+        <p>受付番号と<strong>お申し込み時の電話番号の下4桁</strong>で、いつでも <a href="/status">進捗確認ページ</a> からご確認いただけます。</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="/js/form-guard.js"></script>
+  <script src="/js/inquiry.js"></script>
+</body>
+</html>

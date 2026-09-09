@@ -5,7 +5,8 @@
 // 受注候補の受付番号の頭文字。line_users の疑似ユーザーIDと対応する。
 // W-=Web注文 / T-=チーム追加 / P-=取引先加工依頼 / M-=メール貼り付け / D-=電話メモ。
 // LINE由来(実在のLINEユーザーID)はバッジを出さない
-const RECEIPT_PREFIX = { WEB: 'W', TEAM: 'T', PARTNER: 'P', MAIL: 'M', PHONE: 'D' };
+// Q-=公式LINE入口別お問い合わせフォーム(3入口とも同じ Q-。入口は送信者名で見分ける)
+const RECEIPT_PREFIX = { WEB: 'W', TEAM: 'T', PARTNER: 'P', MAIL: 'M', PHONE: 'D', INQ_TEAM: 'Q', INQ_CLASS_T: 'Q', INQ_ORIGINAL: 'Q' };
 
 const app = {
   // ===== ステート =====

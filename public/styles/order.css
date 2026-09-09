@@ -171,3 +171,31 @@ textarea { resize: vertical; }
   background: #ecfdf5; border: 1px solid #6ee7b7; border-radius: 8px;
   padding: 10px 14px; margin-bottom: 14px; font-size: .9rem; color: #065f46;
 }
+
+/* ===== 公式LINE 入口別お問い合わせフォーム(/inquiry) 2026-09-09 ===== */
+.entry-list { display: grid; gap: 12px; margin: 16px 0; }
+.entry-card {
+  display: flex; align-items: center; gap: 14px;
+  background: #fff; border: 2px solid #d2d6dc; border-radius: 12px;
+  padding: 16px 18px; text-decoration: none; color: #1f2933;
+}
+.entry-card:hover { border-color: #2563eb; background: #eff6ff; }
+.entry-icon { font-size: 1.6rem; flex: none; }
+.entry-body { display: flex; flex-direction: column; flex: 1; }
+.entry-body strong { font-size: 1.05rem; }
+.entry-body small { color: #6b7280; }
+.entry-arrow { color: #94a3b8; font-size: 1.4rem; }
+.entry-back { margin: 0 0 4px; font-size: .85rem; }
+.entry-back a { color: #2563eb; }
+.field.full { grid-column: 1 / -1; }
+.field-title { display: inline-flex; align-items: center; gap: 6px; }
+.check-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.check-card {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid #cbd2d9; border-radius: 999px; padding: 8px 14px;
+  font-weight: 400; cursor: pointer; background: #fff;
+}
+.check-card input { width: 18px; height: 18px; margin: 0; }
+.check-card:has(input:checked) { border-color: #2563eb; background: #eff6ff; }
+.check-card.single { border-radius: 10px; padding: 12px 14px; font-weight: 600; }
+.hint.center { text-align: center; }
