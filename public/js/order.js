@@ -760,6 +760,24 @@
       if (resp.ok && data.ok) {
         clearDraft();
         form.hidden = true;
+
+        // 計測: 送信成功をコンバージョンイベントとして GTM へ渡す(サンクスページが無いため)。
+        // 種別はサーバー応答の request_type を正とし、GTM 側で GA4 イベント名
+        // (soudan_form / image_request / official_order)に変換してキーイベントにする。
+        // 氏名・電話・メール等の入力値は含めない。transaction_id は二重計上の防止用。
+        try {
+          const goalMap = { consult: 'soudan_form', quote: 'image_request', order: 'official_order' };
+          window.dataLayer = window.dataLayer || [];
+          window.dataLayer.push({
+            event: 'form_conversion',
+            form_goal: goalMap[data.request_type] || 'image_request',
+            request_type: data.request_type || '',
+            transaction_id: data.receipt_no || '',
+          });
+        } catch (e) {
+          // 計測の失敗で受付完了の表示を止めない
+        }
+
         const done = $('#donePanel');
         done.hidden = false;
         $('#doneMessage').textContent = data.request_type === 'order'

@@ -14,8 +14,25 @@
       minLeadDays: {{MIN_LEAD_DAYS}}
     };
   </script>
+  <script>
+    // Google タグマネージャー(コーポレートサイトと同じコンテナ GTM-53GQHZWD)。
+    // 送信成功時の form_conversion(order.js)を GTM が受けて GA4 のキーイベントにする。
+    // 公開ドメインのときだけ読み込む: 社内LANや開発機の操作を Clarity の録画や
+    // GA4 に混ぜないため。コンテナの中身(タグ・トリガー)は稲垣さんが管理画面から扱う。
+    // 手順書: 稲垣さん共有フォルダ/mtg/20260910/HiYOSHi_注文フォームCVトラッキング設定手順書_v1.3.docx
+    (function (w, d, s, l, i) {
+      if (location.hostname !== 'order.hiyoshi-1954.com') return;
+      w[l] = w[l] || [];
+      w[l].push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
+      var f = d.getElementsByTagName(s)[0], j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : '';
+      j.async = true;
+      j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl;
+      f.parentNode.insertBefore(j, f);
+    })(window, document, 'script', 'dataLayer', 'GTM-53GQHZWD');
+  </script>
 </head>
 <body>
+  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-53GQHZWD" height="0" width="0" style="display:none;visibility:hidden" title="Google Tag Manager"></iframe></noscript>
   <div class="site-brand-bar">
     <a class="site-brand" href="https://hiyoshi-1954.com/" aria-label="HiYOSHi 公式サイトへ">
       <span class="site-brand-mark">HiYOSHi<span class="site-brand-suffix">Co., Ltd.</span></span>
