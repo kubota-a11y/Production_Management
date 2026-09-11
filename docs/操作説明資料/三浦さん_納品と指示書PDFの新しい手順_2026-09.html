@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<title>三浦さん 納品と指示書PDFの新しい手順</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif; color: #1a2733; font-size: 9.4pt; line-height: 1.45; background: #f1f5f9; }
+  .page { width: 210mm; min-height: 297mm; padding: 11mm 13mm; page-break-after: always; background: #fff; margin: 0 auto 6mm; }
+  .page:last-child { page-break-after: auto; }
+  @media print { body { background: #fff; } .page { margin: 0; } }
+
+  .head { border-bottom: 3px solid #1d4ed8; padding-bottom: 2.4mm; margin-bottom: 3mm; display: flex; justify-content: space-between; align-items: flex-end; }
+  .head h1 { font-size: 15.5pt; color: #1d4ed8; }
+  .head .meta { font-size: 8pt; color: #667; text-align: right; }
+
+  h2 { font-size: 10.6pt; color: #fff; background: #1d4ed8; padding: 1.3mm 3mm; border-radius: 1.5mm; margin: 3.6mm 0 1.6mm; }
+  h2:first-of-type { margin-top: 1.6mm; }
+  h2.c { background: #444; }
+  h3 { font-size: 9.8pt; color: #1d4ed8; margin: 2.6mm 0 1mm; border-left: 3px solid #1d4ed8; padding-left: 2.5mm; }
+
+  p { margin-bottom: 1.3mm; }
+  ul, ol { margin: 1mm 0 1.6mm 5.5mm; }
+  li { margin-bottom: 0.7mm; }
+  strong { color: #0b2a52; }
+
+  table { width: 100%; border-collapse: collapse; margin: 1.3mm 0 1.8mm; font-size: 8.8pt; }
+  th { background: #eef2f9; color: #1d3f74; padding: 1.2mm 2.5mm; text-align: left; border: 1px solid #cbd5e1; font-weight: 600; }
+  td { border: 1px solid #cbd5e1; padding: 1.2mm 2.5mm; vertical-align: top; }
+  td.k { background: #fafafa; font-weight: 600; white-space: nowrap; }
+
+  .lead { background: #eef4fd; border-radius: 2mm; padding: 2.2mm 3mm; margin-bottom: 1.8mm; font-size: 9.6pt; }
+  .note { background: #fff8e6; border: 1px solid #e6c67a; border-radius: 2mm; padding: 1.8mm 2.6mm; margin: 1.4mm 0; font-size: 8.9pt; }
+  .key { background: #fdeeee; border: 1px solid #e0a3a3; border-radius: 2mm; padding: 1.8mm 2.6mm; margin: 1.4mm 0; font-size: 8.9pt; }
+  .key strong { color: #8a1f1f; }
+  .small { font-size: 8.3pt; color: #556; }
+
+  .btn { display: inline-block; background: #1d4ed8; color: #fff; border-radius: 1.4mm; padding: 0.6mm 2.4mm; font-size: 8.2pt; font-weight: 700; white-space: nowrap; }
+  .btn2 { display: inline-block; background: #e5e7eb; color: #1f2937; border-radius: 1.4mm; padding: 0.6mm 2.4mm; font-size: 8.2pt; font-weight: 700; white-space: nowrap; border: 1px solid #d1d5db; }
+  .bd { display: inline-block; font-size: 7.8pt; font-weight: 700; border-radius: 999px; padding: 0.3mm 2.2mm; white-space: nowrap; }
+  .bd-warn { background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; }
+  .bd-ok { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+  .path { font-family: Menlo, Consolas, monospace; font-size: 8.4pt; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 1mm; padding: 0.2mm 1.6mm; white-space: nowrap; }
+
+  .steps { margin: 1.4mm 0; }
+  .step { display: flex; gap: 2.2mm; margin-bottom: 1.6mm; align-items: flex-start; }
+  .step .no { flex: 0 0 5.4mm; height: 5.4mm; border-radius: 50%; background: #1d4ed8; color: #fff; font-size: 8.4pt; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .step .tx { flex: 1; padding-top: 0.5mm; }
+
+  .cols { display: flex; gap: 4mm; }
+  .cols > div { flex: 1; }
+
+  /* before/after */
+  .ba { display: flex; gap: 3mm; margin: 1.6mm 0 2mm; }
+  .ba > div { flex: 1; border-radius: 2mm; padding: 2mm 2.8mm; border: 1px solid #cbd5e1; }
+  .ba .t { font-weight: 700; font-size: 9.4pt; margin-bottom: 1mm; }
+  .ba-old { background: #f8fafc; }
+  .ba-old .t { color: #64748b; }
+  .ba-new { background: #eff6ff; border-color: #93c5fd; }
+  .ba-new .t { color: #1d4ed8; }
+  .ba ol { margin-left: 5mm; }
+
+  /* 流れ図 */
+  .flow { display: flex; gap: 1.4mm; align-items: stretch; margin: 1.8mm 0; }
+  .fnode { flex: 1; background: #eef4fd; border-radius: 1.6mm; padding: 1.8mm 1.6mm; text-align: center; }
+  .fnode .fh { font-size: 8.8pt; font-weight: 700; }
+  .fnode .fw { font-size: 7.8pt; color: #556; margin-top: 0.6mm; }
+  .fnode.hi { background: #dbeafe; border: 1px solid #93c5fd; }
+  .fsep { align-self: center; color: #94a3b8; font-size: 10pt; }
+
+  /* 画面モック */
+  .mock { border: 1px solid #cbd5e1; border-radius: 2mm; background: #fff; padding: 2.4mm 3mm; margin: 1.4mm 0 2mm; font-size: 8.6pt; }
+  .mock .mt { font-weight: 700; font-size: 9.2pt; border-bottom: 1px solid #e5e7eb; padding-bottom: 1.2mm; margin-bottom: 1.6mm; }
+  .mock .fl { font-size: 8pt; color: #374151; font-weight: 700; margin-top: 1.4mm; }
+  .mock .in { border: 1px solid #d1d5db; border-radius: 1.2mm; padding: 0.9mm 2mm; margin-top: 0.5mm; background: #fff; color: #111827; }
+  .picker { border: 1px solid #e5e7eb; border-radius: 1.6mm; background: #f9fafb; padding: 1.8mm 2.2mm; margin-top: 0.6mm; }
+  .picker.saved { background: #dcfce7; border-color: #10b981; }
+  .picker .st { font-weight: 700; margin-bottom: 1mm; }
+  .pill { display: inline-block; border: 1px solid #d1d5db; border-radius: 999px; padding: 0.4mm 2.4mm; background: #fff; margin: 0.4mm 0; font-size: 8.4pt; }
+  .pill.on { background: #2563eb; color: #fff; border-color: #2563eb; }
+  .pill .rd { display: inline-block; width: 2.6mm; height: 2.6mm; border-radius: 50%; border: 1px solid #9ca3af; vertical-align: -0.3mm; margin-right: 1.2mm; background: #fff; }
+  .pill.on .rd { border-color: #fff; background: radial-gradient(#2563eb 40%, #fff 45%); }
+  .sub { margin: 0.5mm 0 1.2mm 5mm; }
+  .sel { border: 1px solid #d1d5db; border-radius: 1.2mm; padding: 0.8mm 2mm; background: #fff; display: inline-block; min-width: 60mm; }
+  .hint { font-size: 7.9pt; color: #6b7280; margin: 0.3mm 0 1mm 5mm; }
+  .mock .actions { text-align: right; margin-top: 2mm; }
+
+  /* 納品履歴の行モック */
+  .rowmock { border: 1px solid #cbd5e1; border-radius: 1.6mm; padding: 1.6mm 2.4mm; display: flex; align-items: center; gap: 2.4mm; margin: 1.2mm 0 1.8mm; background: #fff; font-size: 8.6pt; }
+  .rowmock .nm { color: #1d4ed8; text-decoration: underline; font-weight: 700; }
+  .rowmock .sp { flex: 1; }
+
+  .chk { list-style: none; margin-left: 0; }
+  .chk li { padding-left: 5mm; position: relative; }
+  .chk li:before { content: "☐"; position: absolute; left: 0.6mm; color: #1d4ed8; font-weight: 700; }
+
+  .qa dt { font-weight: 700; color: #1d3f74; margin-top: 1.6mm; }
+  .qa dd { margin-left: 4mm; margin-bottom: 0.6mm; }
+</style></head><body>
+
+<!-- ============ 1ページ目 ============ -->
+<div class="page">
+  <div class="head">
+    <h1>納品と指示書PDFの新しい手順</h1>
+    <div class="meta">三浦さん用／2026-09-11 版<br>有限会社HiYOSHi　HiBoard</div>
+  </div>
+
+  <p class="lead">
+    <strong>結論: 「納品済みにする」を先に押してください。指示書PDFは後からで大丈夫です。</strong><br>
+    今までは「GoodNotesのPDFを案件フォルダに入れてから納品済みにする」順番だったため、フォルダ探しが面倒で納品登録が後回しになり、
+    納品待ちのカードが溜まっていました。今日からは<strong>PDFの置き場所探しをHiBoardがやります</strong>。
+  </p>
+
+  <h2>1. 何が変わったか</h2>
+  <div class="ba">
+    <div class="ba-old">
+      <div class="t">これまで(5手順・1件ずつ)</div>
+      <ol>
+        <li>GoodNotesで指示書をPDFに書き出す</li>
+        <li>共有ドライブで<strong>その案件のフォルダを探す</strong>(無ければ作る)</li>
+        <li>PDFをそのフォルダに保存する</li>
+        <li>HiBoardで「納品済みにする」を開く</li>
+        <li>「指示書PDFを保存した」にチェックして保存</li>
+      </ol>
+    </div>
+    <div class="ba-new">
+      <div class="t">これから(2手順・順番は自由)</div>
+      <ol>
+        <li>GoodNotesで指示書をPDFに書き出し、<strong>いつも同じ場所「_指示書受信箱」へ送る</strong></li>
+        <li>HiBoardで「納品済みにする」を押す。<strong>PDFは自動で案件フォルダに移ります</strong></li>
+      </ol>
+      <p class="small" style="margin-top:1mm">※ 1と2はどちらが先でも構いません。PDFがまだ無いときは「⏳ 後で保存する」で納品済みにできます。</p>
+    </div>
+  </div>
+
+  <div class="flow">
+    <div class="fnode"><div class="fh">📱 iPad</div><div class="fw">GoodNotes → PDF書き出し</div></div>
+    <div class="fsep">▶</div>
+    <div class="fnode hi"><div class="fh">📥 _指示書受信箱</div><div class="fw">共有ドライブの1か所に送るだけ</div></div>
+    <div class="fsep">▶</div>
+    <div class="fnode hi"><div class="fh">🤖 HiBoardが自動で振り分け</div><div class="fw">5分ごと・ファイル名で案件を特定</div></div>
+    <div class="fsep">▶</div>
+    <div class="fnode"><div class="fh">📁 案件フォルダ</div><div class="fw">DESIGN/客先名/年月_案件名</div></div>
+  </div>
+
+  <h2>2. iPadからの送り方(GoodNotes → 受信箱)</h2>
+  <div class="steps">
+    <div class="step"><div class="no">1</div><div class="tx"><strong>ノートの名前にHiBoardの案件名を入れる</strong>(例: 「静浦FC Tシャツ30枚」)。ノートの名前がそのままPDFのファイル名になり、HiBoardはこの名前で案件を探します。案件の受付番号(W-12 など)でも構いません</div></div>
+    <div class="step"><div class="no">2</div><div class="tx">GoodNotesの<strong>共有(□↑)</strong>→<strong>書き出す</strong>→ 形式は <strong>PDF</strong> → 書き出す</div></div>
+    <div class="step"><div class="no">3</div><div class="tx">送り先で <strong>Google ドライブ</strong>(ドライブのアプリ)を選ぶ → <strong>共有ドライブ › HiYOSHi共有 › DESIGN › _指示書受信箱</strong> を開いて<strong>アップロード</strong>。2回目からは「最近使った場所」に出ます</div></div>
+    <div class="step"><div class="no">4</div><div class="tx">以上です。<strong>案件フォルダを探す必要はありません。</strong> 5分以内にHiBoardが案件フォルダへ移します(納品の画面で「今すぐ」も押せます)</div></div>
+  </div>
+
+  <div class="note">
+    <strong>受信箱の場所(パソコンから見るとき):</strong> <span class="path">G:\共有ドライブ\HiYOSHi共有\DESIGN\_指示書受信箱</span><br>
+    受信箱は<strong>一時置き場</strong>です。振り分けが済んだPDFは消え、案件フォルダに移っています。案件が分からなかったPDFだけが残ります(→ 3ページ目)。
+  </div>
+
+  <div class="key">
+    <strong>案件フォルダが無い案件でも大丈夫。</strong> HiBoardが <span class="path">DESIGN\客先名\2026-09_案件名</span> の形でフォルダを自動で作り、案件の「共有ドライブのデザインフォルダ」欄にも書き込みます。
+    以後はそのフォルダに入稿データやFreeeのPDFを入れてください。
+  </div>
+</div>
+
+<!-- ============ 2ページ目 ============ -->
+<div class="page">
+  <div class="head">
+    <h1>「納品済みにする」画面の見方</h1>
+    <div class="meta">三浦さん用／2026-09-11 版　2/3</div>
+  </div>
+
+  <h2>3. 納品済みにする手順(今までと同じ+指示書PDF欄が変わった)</h2>
+  <div class="steps">
+    <div class="step"><div class="no">1</div><div class="tx">案件一覧の <span class="btn2">⋯ その他</span> → <span class="btn">📦 納品済みにする</span></div></div>
+    <div class="step"><div class="no">2</div><div class="tx"><strong>納品日</strong>(今日が入っています)・<strong>発送方法</strong>・<strong>納品者</strong>を確認</div></div>
+    <div class="step"><div class="no">3</div><div class="tx"><strong>「指示書PDF(GoodNotes)」欄</strong>を見る。下の4パターンのどれかが出ます。ほとんどの場合、<strong>何も触らず「納品済みにする」を押すだけ</strong>です</div></div>
+  </div>
+
+  <div class="mock">
+    <div class="mt">納品済みにする</div>
+    <div class="fl">納品日 *</div><div class="in">2026/09/11</div>
+    <div class="fl">発送方法 *</div><div class="in">来社納品 ▾</div>
+    <div class="fl">納品者</div><div class="in">三浦 ▾</div>
+    <div class="fl">指示書PDF(GoodNotes)</div>
+    <div class="picker">
+      <div class="st">📥 受信箱にこの案件のPDFがあります。そのまま保存できます</div>
+      <span class="pill on"><span class="rd"></span>📥 受信箱から選ぶ</span>
+      <div class="sub"><span class="sel">★ 静浦FC Tシャツ30枚.pdf ▾</span></div>
+      <span class="pill"><span class="rd"></span>💻 このパソコンのPDFを選ぶ</span>
+      <div class="sub"><span class="btn2">ファイルを選択</span> <span class="small">選択されていません</span></div>
+      <span class="pill"><span class="rd"></span>⏳ 後で保存する</span>
+      <div class="hint">納品履歴に「指示書PDF未保存」として残ります。あとから受信箱か案件フォルダにPDFが入れば自動で消えます</div>
+      <div class="hint">GoodNotesのノート名に案件名を入れて受信箱へ書き出すと、HiBoardが自動でこの案件のフォルダに移します(5分ごと)</div>
+    </div>
+    <div class="actions"><span class="btn2">キャンセル</span>　<span class="btn">納品済みにする</span></div>
+  </div>
+
+  <h3>指示書PDF欄の4パターン</h3>
+  <table>
+    <tr><th style="width:42%">画面に出る表示</th><th style="width:22%">意味</th><th>やること</th></tr>
+    <tr><td><span class="bd bd-ok">✅ 案件フォルダに指示書PDFがあります</span><br><span class="small">PDFの名前がボタンで並ぶ</span></td><td>もう案件フォルダに入っている</td><td><strong>そのまま「納品済みにする」</strong></td></tr>
+    <tr><td><strong>📥 受信箱から選ぶ</strong> が選ばれていて、<strong>★付き</strong>のPDFが入っている</td><td>受信箱にこの案件のPDFがある(まだ5分経っていないだけ)</td><td><strong>そのまま「納品済みにする」</strong>。HiBoardが案件フォルダへ移します</td></tr>
+    <tr><td><strong>📥 受信箱から選ぶ</strong> のプルダウンに★が無く、他のPDFだけ並ぶ</td><td>受信箱にあるが、名前から案件を特定できなかった</td><td>プルダウンからこの案件のPDFを<strong>自分で選んで</strong>「納品済みにする」。分からなければ「⏳ 後で保存する」</td></tr>
+    <tr><td><strong>⏳ 後で保存する</strong> が選ばれている</td><td>受信箱にも案件フォルダにもPDFが無い</td><td><strong>そのまま「納品済みにする」でOK</strong>。後で受信箱へ送れば自動で片付きます</td></tr>
+  </table>
+  <p class="small">「💻 このパソコンのPDFを選ぶ」は、PCにPDFがあるとき用(iPadを使わない場合など)。ファイルを選んで「納品済みにする」を押すと案件フォルダへ保存されます。</p>
+
+  <div class="key">
+    <strong>迷ったら「⏳ 後で保存する」で納品済みにしてください。</strong> 納品登録を止めないことが一番大事です。
+    未保存の案件は消えずに納品履歴に残り、次のページの方法でまとめて片付けられます。
+  </div>
+</div>
+
+<!-- ============ 3ページ目 ============ -->
+<div class="page">
+  <div class="head">
+    <h1>後で片付ける・困ったとき</h1>
+    <div class="meta">三浦さん用／2026-09-11 版　3/3</div>
+  </div>
+
+  <h2>4. 「後で保存する」にした案件の片付け方(週1回まとめてでOK)</h2>
+  <p>ヘッダーの <span class="btn">📦 納品履歴</span> を開くと、PDFがまだ無い案件に <span class="bd bd-warn">📎 指示書PDF未保存</span> が付いています。</p>
+
+  <div class="rowmock">
+    <span class="nm">静浦FC Tシャツ30枚</span><span class="bd bd-warn">📎 指示書PDF未保存</span>
+    <span class="sp"></span>
+    <span class="btn2">🔍 詳細</span><span class="btn">📎 指示書PDF</span><span class="btn2">↻ 再注文</span>
+  </div>
+
+  <div class="cols">
+    <div>
+      <h3>いちばん楽な方法(iPadから送るだけ)</h3>
+      <div class="steps">
+        <div class="step"><div class="no">1</div><div class="tx">未保存の案件のノートを、1ページ目の手順で<strong>受信箱へ送る</strong>(ノート名に案件名)</div></div>
+        <div class="step"><div class="no">2</div><div class="tx">5分待つか、納品履歴の <span class="btn2">📥 受信箱を今すぐ振り分け</span> を押す</div></div>
+        <div class="step"><div class="no">3</div><div class="tx">バッジが消えていれば完了</div></div>
+      </div>
+    </div>
+    <div>
+      <h3>画面で1件ずつ選ぶ方法</h3>
+      <div class="steps">
+        <div class="step"><div class="no">1</div><div class="tx">上部の <strong>「📎 指示書PDF未保存だけ」</strong> にチェック → 未保存の案件だけ残る(件数も出ます)</div></div>
+        <div class="step"><div class="no">2</div><div class="tx">行の <span class="btn">📎 指示書PDF</span> を押す → 納品のときと同じ「受信箱から選ぶ／このパソコンのPDFを選ぶ」画面</div></div>
+        <div class="step"><div class="no">3</div><div class="tx">PDFを選んで <span class="btn">保存する</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <h2>5. 困ったとき</h2>
+  <dl class="qa">
+    <dt>Q. 受信箱に送ったのに、案件フォルダに移らない</dt>
+    <dd>ファイル名からどの案件か分からなかったPDFは、間違った案件に入れないよう<strong>受信箱に残します</strong>。納品の画面か「📎 指示書PDF」のプルダウンに出るので、そこで案件を選んでください。次からはノート名に案件名を入れると自動で移ります。送った直後の1分間は同期待ちで動かしません。</dd>
+    <dt>Q. 同じ名前の案件が2つある(例: 同じチームの春と秋)</dt>
+    <dd>HiBoardは進行中の案件を優先しますが、決められないときは受信箱に残します。ノート名を「案件名+受付番号」にすると確実です。</dd>
+    <dt>Q. PDFを間違った案件に入れてしまった</dt>
+    <dd>共有ドライブでそのPDFを正しい案件フォルダへ移動してください(上書きはされず、同名があれば「_2」が付いて残ります)。HiBoardは案件フォルダの中を毎回見るので、移した後は正しく表示されます。</dd>
+    <dt>Q. 案件の詳細で指示書PDFが出てこない</dt>
+    <dd>ファイル名に<strong>「指示書」</strong>が入っているPDFを指示書として表示します。受信箱や納品画面から入れたPDFには自動で「_指示書」が付きますが、手で直接フォルダに入れるときは名前に「指示書」を入れてください。</dd>
+    <dt>Q. Freeeの見積書・請求書PDFはどうする?</dt>
+    <dd>今までどおり、案件フォルダ(受信箱ではなく)へ手で入れてください。案件の詳細から開けます。</dd>
+  </dl>
+
+  <h2 class="c">6. 今日からのチェックリスト</h2>
+  <ul class="chk">
+    <li>GoodNotesのノート名に、HiBoardの<strong>案件名</strong>を入れている</li>
+    <li>書き出し先は毎回 <strong>共有ドライブ › HiYOSHi共有 › DESIGN › _指示書受信箱</strong></li>
+    <li>納品したら、PDFの有無に関係なく<strong>その日のうちに「納品済みにする」</strong></li>
+    <li>週1回、納品履歴の「📎 指示書PDF未保存だけ」を見て、残っていれば片付ける</li>
+  </ul>
+  <p class="small" style="margin-top:2mm">詳しい説明はHiBoard上部の <span class="btn">📖 使い方</span> 第5章「納品したとき」にもあります。うまくいかないときは久保田まで。</p>
+</div>
+
+</body></html>

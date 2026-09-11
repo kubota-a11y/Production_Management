@@ -72,4 +72,5 @@
 - 共有モジュールを壊さない: `js/ui.js`(ヘッダー・モーダル・トースト)・`js/nas-browse.js`(NASフォルダ閲覧)・`js/case-detail.js`(案件詳細)・`js/form-guard.js`。プリント箇所/準備項目の描画・収集は `containerId` 引数で新規案件モーダルと受注候補確定画面が実装を共有している(片方を直せば両方に効く)
 - **機能を追加したら社員向けガイド `/manual`(public/manual.html) も更新する**
 - NAS周りの検証は実NASに書かず、`NAS_BASE_PATH=<一時ディレクトリ> PORT=3277 node server.js` で別インスタンスを起動して行う(dotenvは既存の環境変数を上書きしないのでこの方法が使える)
+- **指示書PDFの紐づけ(`lib/instruction-pdf.js`・2026-09-11)**: 共有ドライブ `DESIGN/_指示書受信箱` を5分ごとに見て、ファイル名(受付番号→#案件番号→案件名の部分一致)で案件を特定し案件フォルダへ移す。案件フォルダが無ければ `DESIGN/客先名/YYYY-MM_案件名` を自動作成して `nas_folder_path` に書き戻す。**特定できないPDFは受信箱に残す(誤配置より安全)**。納品モーダルと納品履歴の「📎 指示書PDF」は共有部品 `public/js/instruction-pdf.js`。`delivery_records.instruction_pdf_saved` は 1/0/NULL(導入前) の3値なので、「未保存」の判定は `= 0` で行う(NULLを未保存に数えない)
 - 過去の実装経緯・各機能の設計判断は `docs/開発履歴.md`

@@ -81,6 +81,36 @@ const API = {
     return response.json();
   },
 
+  // ===== 指示書PDF(2026-09-11) =====
+  // 案件フォルダ内の指示書PDF・受信箱の候補・受付番号をまとめて取る(納品モーダル/納品履歴の部品用)
+  async getInstructionPdfStatus(id) {
+    const response = await fetch(`/api/projects/${id}/instruction-pdf`);
+    return response.json();
+  },
+
+  // 指示書PDFを案件フォルダへ保存する。{ inboxPath } なら受信箱から移動、{ file } ならPCのファイルを送る
+  async attachInstructionPdf(id, { inboxPath, file }) {
+    let response;
+    if (file) {
+      const formData = new FormData();
+      formData.append('file', file, file.name);
+      response = await fetch(`/api/projects/${id}/instruction-pdf`, { method: 'POST', body: formData });
+    } else {
+      response = await fetch(`/api/projects/${id}/instruction-pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inbox_path: inboxPath }),
+      });
+    }
+    return response.json();
+  },
+
+  // 受信箱の振り分けを今すぐ走らせる(通常は5分ごとに自動)
+  async scanInstructionInbox() {
+    const response = await fetch('/api/instruction-inbox/scan', { method: 'POST' });
+    return response.json();
+  },
+
   // 過去案件を複製して新規案件を作成(リピート注文用)
   async duplicateProject(id, data) {
     const response = await fetch(`/api/projects/${id}/duplicate`, {

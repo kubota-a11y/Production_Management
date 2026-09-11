@@ -1785,6 +1785,8 @@ const app = {
     form.elements['delivered_date'].value = formatDateISO();
     this.populateDeliverStaffSelect();
     document.getElementById('deliver-modal').style.display = 'flex';
+    // 指示書PDFの状況(案件フォルダ・受信箱)は開いてから非同期で取る。取れなくても納品はできる
+    InstructionPdfPicker.load(document.getElementById('deliver-pdf-picker'), projectId);
   },
 
   closeDeliverModal() {
@@ -1812,14 +1814,32 @@ const app = {
     event.preventDefault();
     const form = event.target;
 
-    // 指示書PDFの保存は運用ルール(納品後の履歴を案件のフォルダに集約する)。
-    // 例外もあり得るため必須にはせず、未チェック時は確認だけ挟む
-    if (!form.elements['instruction_pdf_saved'].checked) {
-      if (!confirm('goodnoteの指示書PDFがまだ案件の共有ドライブフォルダに保存されていません。\nこのまま納品済みにしますか?')) {
-        return;
-      }
+    // 指示書PDF(2026-09-11): 受信箱/PCのPDFを選んでいれば先に案件フォルダへ保存し、
+    // 「後で保存する」なら未保存のまま納品を通す(納品履歴に未保存として残り、後から自動で解消される)。
+    // 以前の「保存した」チェック+確認ダイアログは、PDF保存が納品登録の前提になって滞留の原因だったため廃止
+    const picker = document.getElementById('deliver-pdf-picker');
+    const selection = InstructionPdfPicker.getSelection(picker);
+    if (selection.error) {
+      HiUI.toast(selection.error);
+      return;
     }
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    try {
+      if (selection.mode === 'inbox' || selection.mode === 'upload') {
+        const saved = await InstructionPdfPicker.save(this.deliveringProjectId, selection);
+        if (!saved.ok) {
+          HiUI.toast(`指示書PDFの保存に失敗しました: ${saved.error || ''}`);
+          return;
+        }
+      }
+      await this.registerDelivery(form, selection.mode !== 'later');
+    } finally {
+      submitBtn.disabled = false;
+    }
+  },
 
+  async registerDelivery(form, instructionPdfSaved) {
     const deliveredBy = form.elements['delivered_by'].value;
     const [deliveredByType, deliveredById] = deliveredBy ? deliveredBy.split('-') : [null, null];
 
@@ -1828,6 +1848,7 @@ const app = {
       delivery_method: form.elements['delivery_method'].value,
       delivered_by_staff_id: deliveredByType === 'staff' ? deliveredById : null,
       delivered_by_employee_id: deliveredByType === 'employee' ? deliveredById : null,
+      instruction_pdf_saved: !!instructionPdfSaved,
     };
 
     try {
@@ -1837,6 +1858,9 @@ const app = {
         return;
       }
       this.closeDeliverModal();
+      HiUI.toast(instructionPdfSaved
+        ? '✓ 納品済みにしました'
+        : '✓ 納品済みにしました(指示書PDFは未保存。納品履歴の「📎 指示書PDF」から後で入れられます)');
       await this.loadProjects();
       this.renderListView();
       if (this.currentTab === 'kanban') this.renderKanbanView();

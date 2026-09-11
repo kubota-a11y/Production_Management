@@ -21,6 +21,7 @@ const { registerOrderStatusRoutes } = require('./lib/order-status');
 const { registerManualIntakeRoutes } = require('./lib/manual-intake');
 const { registerReferralRoutes } = require('./lib/referral');
 const { registerWorksRoutes } = require('./lib/works-publish');
+const { registerInstructionPdfRoutes, scheduleInboxCycle, resolveSavedAtDelivery } = require('./lib/instruction-pdf');
 const { scheduleDailyBackup, getBackupStatus } = require('./lib/db-backup');
 const { extractCarriedData, extractCarriedItems } = require('./lib/intake-carry');
 const { completeIntakeTask } = require('./lib/todo-notify');
@@ -2025,7 +2026,7 @@ app.patch('/api/projects/:id/payment', (req, res) => {
 // (準備項目の「未着手に戻す」等と同じ、ステータス書き換えによるソフト削除の考え方)
 app.post('/api/projects/:id/deliver', (req, res) => {
   try {
-    const { delivered_date, delivery_method, delivered_by_staff_id, delivered_by_employee_id } = req.body;
+    const { delivered_date, delivery_method, delivered_by_staff_id, delivered_by_employee_id, instruction_pdf_saved } = req.body;
     const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(req.params.id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
     if (!delivered_date || !delivery_method) {
@@ -2033,6 +2034,9 @@ app.post('/api/projects/:id/deliver', (req, res) => {
     }
 
     const now = new Date().toISOString();
+    // 指示書PDFの保存状況(2026-09-11)。画面の申告に加えて、案件フォルダに実物があれば保存済みとみなす。
+    // 0(後で保存する)で納品した案件は納品履歴に「未保存」と出し、後からPDFが入れば自動で解消される
+    const pdfSaved = resolveSavedAtDelivery(db, project.id, !!instruction_pdf_saved);
     // 納品記録の作成・ステータス変更・残っている作業ブロックの削除を1トランザクションで行う。
     // 検品を経由せず直接納品した案件の割り当てがボードに残り続けないよう、ここでも削除する
     db.transaction(() => {
@@ -2049,9 +2053,9 @@ app.post('/api/projects/:id/deliver', (req, res) => {
       `).run(now, req.params.id);
       db.prepare(`
         INSERT INTO delivery_records
-          (case_id, delivered_date, delivery_method, delivered_by_staff_id, delivered_by_employee_id, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(req.params.id, delivered_date, delivery_method, delivered_by_staff_id || null, delivered_by_employee_id || null, now);
+          (case_id, delivered_date, delivery_method, delivered_by_staff_id, delivered_by_employee_id, created_at, instruction_pdf_saved)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(req.params.id, delivered_date, delivery_method, delivered_by_staff_id || null, delivered_by_employee_id || null, now, pdfSaved);
       db.prepare(`UPDATE projects SET status='COMPLETED', updated_at=? WHERE id=?`).run(now, req.params.id);
     })();
     // 納品処理をしたらデザイン進行ボードの段階を「納品」へ進める。
@@ -2068,7 +2072,7 @@ app.get('/api/delivery-records', (req, res) => {
   try {
     const records = db.prepare(`
       SELECT dr.*, p.project_name, p.customer_name, p.process_type, p.quantity, p.nas_folder_path,
-        p.freee_quote_url, p.freee_invoice_url,
+        p.freee_quote_url, p.freee_invoice_url, p.instruction_pdf_path,
         s.name as delivered_by_staff_name, emp.name as delivered_by_employee_name
       FROM delivery_records dr
       JOIN projects p ON dr.case_id = p.id
@@ -3928,6 +3932,11 @@ registerWorksRoutes(app);
 // 着地は ai_extracted_intake(line_user_id='MAIL' 受付 M-{id} / 'PHONE' 受付 D-{id})。
 // フォーム以外の注文も同じ振り分けデスクを通すために追加した。
 registerManualIntakeRoutes(app, db);
+
+// 指示書PDF(GoodNotes書き出し)の受信箱と案件フォルダへの紐づけ(2026-09-11)。
+// 受信箱は5分ごとに振り分ける。手順は /manual 第5章
+registerInstructionPdfRoutes(app, db);
+scheduleInboxCycle(db);
 
 // 5分ごとにLINEメッセージのAI構造化抽出を実行する。前回の実行が終わっていなければスキップする。
 let aiExtractionRunning = false;

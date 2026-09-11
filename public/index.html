@@ -1030,11 +1030,10 @@
         </div>
 
         <div class="form-group">
-          <label class="checkbox-pill">
-            <input type="checkbox" name="instruction_pdf_saved">
-            goodnoteの指示書PDFを案件の共有ドライブフォルダに保存した
-          </label>
-          <div class="field-hint">Freeeの見積書・請求書PDFも同じフォルダに入れておくと、後からこの案件だけで履歴をすべて辿れます</div>
+          <div class="form-label">指示書PDF(GoodNotes)</div>
+          <!-- 中身は js/instruction-pdf.js が描画する(受信箱から選ぶ / PCから選ぶ / 後で保存する) -->
+          <div id="deliver-pdf-picker"></div>
+          <div class="field-hint">Freeeの見積書・請求書PDFも同じ案件フォルダに入れておくと、後からこの案件だけで履歴をすべて辿れます</div>
         </div>
 
         <div class="form-actions">
@@ -1057,6 +1056,7 @@
        case-detail.js はフォルダを開くのに NasBrowse を使うので先に読み込む -->
   <script src="js/nas-browse.js"></script>
   <script src="js/case-detail.js"></script>
+  <script src="js/instruction-pdf.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

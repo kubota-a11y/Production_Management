@@ -559,6 +559,23 @@ function initDatabase(dbFile = dbPath) {
     console.log(`✓ projects.is_design_ops を追加しました(既存の${migrated.changes}件にフラグを設定)`);
   }
 
+  // 指示書PDFの紐づけ(2026-09-11)。納品時にGoodNotesの指示書PDFを案件フォルダへ入れる作業が
+  // 手作業で滞留していたため、HiBoard側で受信箱から振り分け/アップロードできるようにした(lib/instruction-pdf.js)。
+  //   projects.instruction_pdf_path      … 案件フォルダに保存した指示書PDFのパス
+  //   projects.instruction_pdf_saved_at  … 保存(確認)した日時
+  //   delivery_records.instruction_pdf_saved … 納品時点の申告。1=保存済み / 0=後で保存する / NULL=導入前の記録(不明)
+  if (!projectColumns.includes('instruction_pdf_path')) {
+    db.prepare(`ALTER TABLE projects ADD COLUMN instruction_pdf_path TEXT`).run();
+  }
+  if (!projectColumns.includes('instruction_pdf_saved_at')) {
+    db.prepare(`ALTER TABLE projects ADD COLUMN instruction_pdf_saved_at TEXT`).run();
+  }
+  const deliveryColumns = db.prepare(`PRAGMA table_info('delivery_records')`).all().map(col => col.name);
+  if (!deliveryColumns.includes('instruction_pdf_saved')) {
+    db.prepare(`ALTER TABLE delivery_records ADD COLUMN instruction_pdf_saved INTEGER`).run();
+    console.log('✓ delivery_records.instruction_pdf_saved を追加しました');
+  }
+
   // デザイナーの日別モード申告(この日はデザインに専念したい等)。本人がマイスケジュールボードで
   // 「デザイン」「デザイン関連業務」を選び、社内の週間スケジュールボードにバッジ表示される
   db.exec(`

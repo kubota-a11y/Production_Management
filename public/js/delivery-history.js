@@ -7,7 +7,9 @@ const deliveryHistoryApp = {
   // ===== ステート =====
   records: [],
   searchQuery: '',
+  unsavedOnly: false,
   duplicateSource: null,
+  instructionPdfTarget: null,
 
   // ===== 初期化 =====
   async init() {
@@ -37,13 +39,27 @@ const deliveryHistoryApp = {
       e.preventDefault();
       this.submitDuplicate();
     });
+
+    document.getElementById('delivery-unsaved-only').addEventListener('change', (e) => {
+      this.unsavedOnly = e.target.checked;
+      this.renderTable();
+    });
+
+    document.getElementById('delivery-inbox-scan').addEventListener('click', () => this.runInboxScan());
+  },
+
+  // 「後で保存する」で納品した記録で、まだ案件フォルダにPDFが無いもの
+  isInstructionPdfMissing(record) {
+    return record.instruction_pdf_saved === 0 && !record.instruction_pdf_path;
   },
 
   // ===== 検索 =====
   filteredRecords() {
-    if (!this.searchQuery) return this.records;
+    let records = this.records;
+    if (this.unsavedOnly) records = records.filter(r => this.isInstructionPdfMissing(r));
+    if (!this.searchQuery) return records;
     const q = this.searchQuery.toLowerCase();
-    return this.records.filter(r =>
+    return records.filter(r =>
       (r.customer_name || '').toLowerCase().includes(q) ||
       (r.project_name || '').toLowerCase().includes(q)
     );
@@ -56,19 +72,24 @@ const deliveryHistoryApp = {
 
     const records = this.filteredRecords();
     const countEl = document.getElementById('delivery-search-count');
-    countEl.textContent = this.searchQuery ? `${records.length}件ヒット` : `全${this.records.length}件`;
+    countEl.textContent = (this.searchQuery || this.unsavedOnly) ? `${records.length}件ヒット` : `全${this.records.length}件`;
+    const unsavedCount = this.records.filter(r => this.isInstructionPdfMissing(r)).length;
+    document.getElementById('delivery-unsaved-count').textContent = unsavedCount > 0 ? `(${unsavedCount}件)` : '';
 
     if (records.length === 0) {
-      const message = this.searchQuery ? '検索条件に合う納品履歴はありません' : '納品履歴はありません';
+      const message = this.unsavedOnly
+        ? '指示書PDFが未保存の納品はありません'
+        : (this.searchQuery ? '検索条件に合う納品履歴はありません' : '納品履歴はありません');
       tbody.innerHTML = `<tr><td colspan="8" class="empty-notice">${message}</td></tr>`;
       return;
     }
 
     records.forEach(record => {
       const deliveredByName = record.delivered_by_staff_name || record.delivered_by_employee_name || '-';
+      const pdfMissing = this.isInstructionPdfMissing(record);
       const row = document.createElement('tr');
       row.innerHTML = `
-        <td><a href="#" class="case-detail-link">${this.escapeHtml(record.project_name)}</a></td>
+        <td><a href="#" class="case-detail-link">${this.escapeHtml(record.project_name)}</a>${pdfMissing ? '<span class="pdf-missing-badge" title="納品時に「後で保存する」を選んだ案件です。「📎 指示書PDF」から入れられます">📎 指示書PDF未保存</span>' : ''}</td>
         <td>${this.escapeHtml(record.customer_name)}</td>
         <td>${this.escapeHtml(getProcessLabels(record.process_type))}</td>
         <td>${record.quantity ?? '-'}</td>
@@ -117,6 +138,14 @@ const deliveryHistoryApp = {
         invoiceBtn.addEventListener('click', () => window.open(record.freee_invoice_url, '_blank'));
         actions.appendChild(invoiceBtn);
       }
+      if (pdfMissing) {
+        const pdfBtn = document.createElement('button');
+        pdfBtn.className = 'btn-small btn-primary';
+        pdfBtn.textContent = '📎 指示書PDF';
+        pdfBtn.title = '受信箱かこのパソコンから指示書PDFを選んで、案件フォルダに保存する';
+        pdfBtn.addEventListener('click', () => this.openInstructionPdfModal(record));
+        actions.appendChild(pdfBtn);
+      }
       const dupBtn = document.createElement('button');
       dupBtn.className = 'btn-small';
       dupBtn.textContent = '↻ 再注文';
@@ -130,6 +159,85 @@ const deliveryHistoryApp = {
 
   // ===== 案件フォルダ閲覧 =====
   // モーダル本体は js/nas-browse.js の共有モジュール(NasBrowse)に集約(顧客台帳と共用)
+
+  // ===== 指示書PDFの後入れ =====
+  openInstructionPdfModal(record) {
+    this.instructionPdfTarget = record;
+    document.getElementById('instruction-pdf-source-info').textContent =
+      `${record.project_name} / ${record.customer_name} (納品日 ${formatDate(record.delivered_date)})`;
+    document.getElementById('instruction-pdf-modal').style.display = 'flex';
+    InstructionPdfPicker.load(document.getElementById('history-pdf-picker'), record.case_id);
+  },
+
+  closeInstructionPdfModal() {
+    this.instructionPdfTarget = null;
+    document.getElementById('instruction-pdf-modal').style.display = 'none';
+  },
+
+  async submitInstructionPdf() {
+    if (!this.instructionPdfTarget) return;
+    const picker = document.getElementById('history-pdf-picker');
+    const selection = InstructionPdfPicker.getSelection(picker);
+    if (selection.error) {
+      HiUI.toast(selection.error);
+      return;
+    }
+    if (selection.mode === 'later') {
+      HiUI.toast('受信箱かこのパソコンからPDFを選んでください');
+      return;
+    }
+    if (selection.mode === 'existing') {
+      // フォルダに既にある = 5分ごとの自動確認で解消されるが、待たずに反映するため振り分けを走らせる
+      await this.runInboxScan();
+      this.closeInstructionPdfModal();
+      return;
+    }
+    const btn = document.getElementById('instruction-pdf-save');
+    btn.disabled = true;
+    try {
+      const result = await InstructionPdfPicker.save(this.instructionPdfTarget.case_id, selection);
+      if (!result.ok) {
+        HiUI.toast(`指示書PDFの保存に失敗しました: ${result.error || ''}`);
+        return;
+      }
+      HiUI.toast(`✓ 指示書PDFを案件フォルダに保存しました(${result.name})`);
+      this.closeInstructionPdfModal();
+      await this.loadRecords();
+      this.renderTable();
+    } catch (error) {
+      console.error('指示書PDF保存エラー:', error);
+      HiUI.toast('指示書PDFの保存に失敗しました');
+    } finally {
+      btn.disabled = false;
+    }
+  },
+
+  async runInboxScan() {
+    const btn = document.getElementById('delivery-inbox-scan');
+    btn.disabled = true;
+    try {
+      const result = await API.scanInstructionInbox();
+      if (!result.ok) {
+        HiUI.toast(`振り分けに失敗しました: ${result.error || ''}`);
+        return;
+      }
+      const moved = (result.moved || []).length;
+      const resolved = (result.resolved || []).length;
+      const unmatched = result.unmatched || 0;
+      const parts = [];
+      if (moved) parts.push(`${moved}件を案件フォルダへ移しました`);
+      if (resolved) parts.push(`${resolved}件の未保存を解消しました`);
+      if (unmatched) parts.push(`案件を特定できないPDFが${unmatched}件あります(納品履歴の「📎 指示書PDF」から選べます)`);
+      HiUI.toast(parts.length ? `✓ ${parts.join(' / ')}` : '受信箱に振り分けるPDFはありませんでした');
+      await this.loadRecords();
+      this.renderTable();
+    } catch (error) {
+      console.error('受信箱振り分けエラー:', error);
+      HiUI.toast('振り分けに失敗しました');
+    } finally {
+      btn.disabled = false;
+    }
+  },
 
   // ===== リピート注文(複製) =====
   openDuplicateModal(record) {

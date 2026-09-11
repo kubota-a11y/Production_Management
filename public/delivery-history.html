@@ -27,6 +27,10 @@
           <label for="delivery-search" class="sr-only">顧客名・案件名で検索</label>
           <input type="search" id="delivery-search" placeholder="🔍 顧客名・案件名で検索(全期間)">
           <span id="delivery-search-count" class="delivery-search-count"></span>
+          <label class="checkbox-pill">
+            <input type="checkbox" id="delivery-unsaved-only"> 📎 指示書PDF未保存だけ <span id="delivery-unsaved-count" class="delivery-unsaved-count"></span>
+          </label>
+          <button type="button" class="btn btn-secondary btn-small" id="delivery-inbox-scan" title="共有ドライブの「_指示書受信箱」にあるPDFを、今すぐ案件フォルダへ振り分けます(通常は5分ごとに自動)">📥 受信箱を今すぐ振り分け</button>
         </div>
 
         <div class="table-container">
@@ -83,12 +87,34 @@
     </div>
   </div>
 
+  <!-- 指示書PDFの後入れモーダル(「後で保存する」で納品した案件用) -->
+  <div id="instruction-pdf-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>📎 指示書PDFを案件フォルダに保存</h2>
+        <button class="btn-close" onclick="deliveryHistoryApp.closeInstructionPdfModal()" aria-label="閉じる">✕</button>
+      </div>
+      <div class="project-form">
+        <p class="empty-notice" id="instruction-pdf-source-info"></p>
+        <div class="form-group">
+          <div class="form-label">指示書PDF(GoodNotes)</div>
+          <div id="history-pdf-picker"></div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" onclick="deliveryHistoryApp.closeInstructionPdfModal()">閉じる</button>
+          <button type="button" class="btn btn-primary" id="instruction-pdf-save" onclick="deliveryHistoryApp.submitInstructionPdf()">保存する</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- スクリプト -->
   <script src="js/ui.js"></script>
   <script src="js/utils.js"></script>
   <script src="js/api.js"></script>
   <script src="js/nas-browse.js"></script>
   <script src="js/case-detail.js"></script>
+  <script src="js/instruction-pdf.js"></script>
   <script src="js/delivery-history.js"></script>
 </body>
 </html>
