@@ -32,9 +32,10 @@
       ★掛け算の浮動小数点誤差(650.00000000000002等)で1つ上に繰り上がらないよう、
         先に銭単位で丸めてから切り上げる */
   const up10 = (n) => Math.ceil(Math.round(n * 100) / 1000) * 10;
-  /** KRATVSアイテムの種類に対応するプリント表を返す(shirt/shorts/bib) */
+  /** KRATVSアイテムの種類に対応するプリント表を返す(shirt/shorts/bib/cap。towel=プリント込みなので無し) */
   function kratvsPrintList(item) {
     const k = window.QS_KRATVS;
+    if (item.kind === 'towel') return [];
     if (item.kind === 'shorts') return k.printsShorts;
     if (item.kind === 'bib') return k.printsBib;
     if (item.kind === 'cap') return k.printsCap;
@@ -544,13 +545,18 @@
       break;
     }
     const d = currentDiscount('k');
+    // 仕入品(maxDiscount あり)は距離割引を上限で頭打ちにする(価格ルール §12・2026-09-11)。
+    // 社員特価もKRATVSは一律50%OFF扱いなので同じ上限に掛かる
+    let rate = d.key === 'staff' ? 50 : Math.max(0, d.rate);
+    const capped = item.maxDiscount != null && rate > item.maxDiscount;
+    if (capped) rate = item.maxDiscount;
     let discountNote = '';
     if (d.key === 'staff') discountNote = '社員特価(KRATVSは完成品価格のため一律50%OFFで計算)';
     else if (d.rate > 0) discountNote = `${d.name} ${d.rate}%OFF`;
+    if (capped) discountNote += `(仕入品のため${item.maxDiscount}%を上限に計算・価格ルール§12)`;
     const discountUnit = (u) => {
       // 割引後の単価も1円単位の端数が出ないよう10円単位へ切り上げる
-      if (d.key === 'staff') return up10(u * 0.5);
-      if (d.rate > 0) return up10((u * (100 - d.rate)) / 100);
+      if (rate > 0) return up10((u * (100 - rate)) / 100);
       return u;
     };
 
@@ -565,8 +571,16 @@
     const printAfter = prints.reduce((s, p) => s + discountUnit(p.p), 0);
 
     // サイズ帯ごとのグループ(枚数が入っている帯だけ)。すべて税抜
-    const groups = item.price
-      .map((band, i) => ({ band, qty: kBandQty[i] || 0 }))
+    // qtyTier のアイテムは入力が1つ(kBandQty[0]=総枚数)で、総枚数に当てはまる段(min以上の最大)を帯にする
+    const bandQtys = item.qtyTier
+      ? (() => {
+          const qty = kBandQty[0] || 0;
+          const tier = [...item.price].filter((b) => (b.min || 1) <= qty).sort((a, b) => (b.min || 1) - (a.min || 1))[0]
+            || item.price[item.price.length - 1];
+          return [{ band: tier, qty }];
+        })()
+      : item.price.map((band, i) => ({ band, qty: kBandQty[i] || 0 }));
+    const groups = bandQtys
       .filter((b) => b.qty > 0)
       .map(({ band, qty }) => {
         const bodyBefore = up10(taxOut(band.p));
@@ -1587,8 +1601,11 @@
     el('k-item').innerHTML = k.items.map((it, i) => `<option value="${i}">${it.code} ${it.name}</option>`).join('');
     const syncSizes = () => {
       const it = k.items[+el('k-item').value];
-      // サイズ帯ごとの枚数入力。単価が帯で違うため、総数ではなく帯別に入れてもらう
-      el('k-bands').innerHTML = it.price.map((p, i) => `
+      // サイズ帯ごとの枚数入力。単価が帯で違うため、総数ではなく帯別に入れてもらう。
+      // qtyTier のアイテム(タオル等)は総枚数の入力1つにし、段の一覧を添える(段は calcKratvs が総枚数から決める)
+      el('k-bands').innerHTML = it.qtyTier ? `
+        <label class="qs-kband">枚数(${it.price.map((p) => `${p.size} 税抜${up10(taxOut(p.p)).toLocaleString()}円`).join('／')})
+        <input type="number" min="0" data-kb="0" value="${kBandQty[0] || ''}" placeholder="0"></label>` : it.price.map((p, i) => `
         <label class="qs-kband">${p.size}(税抜${up10(taxOut(p.p)).toLocaleString()}円)
         <input type="number" min="0" data-kb="${i}" value="${kBandQty[i] || ''}" placeholder="0"></label>`).join('');
       el('k-bands').querySelectorAll('[data-kb]').forEach((inp) => {
