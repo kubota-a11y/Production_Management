@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>社内システムお知らせ Vol.9(A4印刷用)</title>
+<style>
+  /* A4印刷用。Chromeのヘッドレス印刷でPDF化する(生成手順はdocs/weekly-news/README.md参照) */
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #1c1917;
+    --text: #44403c;
+    --muted: #78716c;
+    --hairline: #e7e2dc;
+    --accent-bg: #f5f2ee;
+    --ask-bg: #f2f6f3;
+    --ask-line: #cfdfd4;
+    --ask-text: #3f6b50;
+    --serif: "Hiragino Mincho ProN", "Yu Mincho", serif;
+    --sans: "Hiragino Sans", "Noto Sans JP", sans-serif;
+  }
+
+  body {
+    font-family: var(--sans);
+    color: var(--text);
+    line-height: 1.65;
+    font-size: 9pt;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .page {
+    width: 210mm; height: 297mm;
+    padding: 14mm 18mm 13mm;
+    page-break-after: always;
+    position: relative;
+    background: #fff;
+  }
+  .page:last-child { page-break-after: auto; }
+
+  /* ===== ヘッダー ===== */
+  .hero { text-align: center; margin-bottom: 5.5mm; }
+  .overline {
+    font-size: 7pt; letter-spacing: .32em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 2mm;
+  }
+  h1 {
+    font-family: var(--serif); font-size: 19pt; font-weight: 600;
+    letter-spacing: .12em; color: var(--ink);
+  }
+  .hero.sub h1 { font-size: 15pt; }
+  .divider { width: 12mm; height: .35mm; background: var(--ink); margin: 3.2mm auto; }
+  .lead { color: var(--muted); font-size: 8.4pt; }
+
+  .intro {
+    background: var(--accent-bg);
+    border-radius: 1.5mm;
+    padding: 3.2mm 5mm;
+    margin-bottom: 5.5mm;
+    font-size: 8.8pt;
+  }
+  .intro strong { color: var(--ink); }
+
+  /* ===== セクション ===== */
+  .sec { margin-bottom: 4.8mm; }
+  .sec-head {
+    display: flex; align-items: baseline; gap: 3mm;
+    border-bottom: .3mm solid var(--ink);
+    padding-bottom: 1.2mm; margin-bottom: 2mm;
+  }
+  .sec-head h2 {
+    font-family: var(--serif); font-size: 11.5pt; font-weight: 600;
+    letter-spacing: .08em; color: var(--ink);
+  }
+  .sec-head .sub { margin-left: auto; font-size: 7.2pt; color: var(--muted); letter-spacing: .06em; }
+
+  ul.items { list-style: none; }
+  ul.items li {
+    position: relative;
+    padding-left: 4.2mm;
+    margin-bottom: 1.1mm;
+  }
+  ul.items li::before {
+    content: ""; position: absolute; left: .6mm; top: 2mm;
+    width: 1.5mm; height: 1.5mm; border-radius: 50%;
+    background: var(--ink);
+  }
+  ul.items strong { color: var(--ink); font-weight: 600; }
+  .note { color: var(--muted); font-size: 8.2pt; }
+
+  /* ===== テーマ見出し ===== */
+  .theme {
+    display: inline-block;
+    font-size: 7pt; font-weight: 600; letter-spacing: .14em;
+    color: #fff; background: var(--ink);
+    padding: .4mm 2.6mm; border-radius: .8mm;
+    margin-right: 2mm; vertical-align: middle;
+    white-space: nowrap; flex: none;
+  }
+
+  /* ===== 対象バッジ ===== */
+  .aud {
+    display: inline-block;
+    font-size: 6.8pt; font-weight: 600; letter-spacing: .1em;
+    padding: .3mm 2.2mm; border-radius: 3mm;
+    margin-left: 2mm; vertical-align: middle;
+    white-space: nowrap;
+  }
+  .aud-staff { border: .25mm solid var(--muted); color: var(--muted); background: #fff; }
+  .aud-all { border: .25mm solid var(--ask-line); color: var(--ask-text); background: var(--ask-bg); }
+
+  /* ===== 段階の流れ図 ===== */
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 1.4mm;
+    background: var(--accent-bg);
+    border-radius: 1.5mm;
+    padding: 2.4mm 3mm;
+    margin-bottom: 2.4mm;
+    font-size: 8pt;
+  }
+  .flow span {
+    background: #fff; border: .25mm solid var(--hairline); border-radius: .8mm;
+    padding: .5mm 2.2mm; color: var(--ink); font-weight: 600;
+  }
+  .flow em { font-style: normal; color: var(--muted); align-self: center; }
+
+  /* ===== お願いボックス ===== */
+  .ask {
+    background: var(--ask-bg);
+    border: .3mm solid var(--ask-line);
+    border-radius: 1.5mm;
+    padding: 3.2mm 5mm 2.8mm;
+    margin-top: 5mm;
+  }
+  .ask h3 {
+    font-family: var(--serif); font-size: 10.5pt; font-weight: 600;
+    letter-spacing: .1em; color: var(--ask-text); margin-bottom: 1.6mm;
+  }
+  .ask ul.items li::before { background: var(--ask-text); }
+
+  /* ===== フッター ===== */
+  .foot {
+    position: absolute; left: 18mm; right: 18mm; bottom: 9mm;
+    border-top: .3mm solid var(--hairline);
+    padding-top: 2mm;
+    display: flex; justify-content: space-between;
+    font-size: 7.2pt; color: var(--muted); letter-spacing: .06em;
+  }
+</style>
+</head>
+<body>
+
+
+<div class="page">
+  <header class="hero">
+    <div class="overline">HIYOSHI DX WEEKLY</div>
+    <h1>社内システムお知らせ</h1>
+    <div class="divider"></div>
+    <div class="lead">Vol.9 ─ 2026年9月14日発行 ─ 対象期間:9月8日〜9月14日</div>
+  </header>
+
+  <div class="intro">
+    今週は大きく2つです。<strong>①公式LINEのお問い合わせが「用途別の短いフォーム」で届くようになりました</strong>(何のご相談かが開く前に分かります)。<strong>②納品のときの指示書PDFは「受信箱へ送るだけ」になりました</strong>(案件フォルダを探す作業がなくなり、PDFが無くても納品済みにできます)。<br>
+    各見出しの右にある<span class="aud aud-staff">社員</span><span class="aud aud-all">全従業員</span>は、<strong>その項目を読んでいただきたい方</strong>の目安です。
+  </div>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">受注</span>
+      <h2>公式LINEのお問い合わせが3つの入口に分かれました</h2>
+      <span class="aud aud-all">全従業員</span>
+      <span class="sub">9/9</span>
+    </div>
+    <div class="flow">
+      <span>⚽ チーム・サッカーウェア</span><em>／</em><span>👕 クラスTシャツ</span><em>／</em><span>✨ オリジナルアイテム(お店・会社のウェア)</span>
+    </div>
+    <ul class="items">
+      <li>公式LINEのあいさつメッセージとリッチメニューから、<strong>用途別の短いフォーム</strong>へご案内する形にしました。お客様は<strong>2分ほどで送信</strong>でき、こちらは<strong>何のご相談かが分かった状態</strong>で受け取れます。</li>
+      <li>届いた内容は<strong>「受注候補の取り込み」タブ</strong>に入ります。カードの<strong>送信者名が「お問い合わせ(クラスTシャツ)」のように入口の名前</strong>になるので、<strong>開かずに仕分けできます</strong>。受付番号は3つの入口とも<strong>「Q-」</strong>で始まります。</li>
+      <li>担当の目安は<strong>オリジナルアイテム=三浦さん、チーム・サッカーとクラスT=山本さん</strong>です。入口ごとに聞く項目を変えてあります(チームはチーム名・カテゴリ、クラスTは学校名・学年クラス・使う日、オリジナルは作りたいもの・加工方法)。</li>
+      <li><strong>サンプルの送付はクラスTシャツだけ</strong>です。「サンプルの送付を希望する」にチェックされた方のみ送付先をご記入いただきます。<strong>ご住所は受注候補の詳細メモにだけ残り</strong>、一覧・TODO通知・会社宛てメールには出しません。</li>
+      <li>お客様から<strong>「Q-〇〇」</strong>と番号を言われたら、<strong>進捗確認ページ</strong>でも照会していただけます(受付番号+お申込み時の電話番号の下4桁)。</li>
+      <li class="note">メールアドレスをご記入いただいた方には、受付の控えが自動で届きます。電話・メールで直接いただいたご相談は、これまでどおり手入力(M-・D-)で受け付けてください。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">案件登録</span>
+      <h2>案件フォルダを共有ドライブ全体から選べます</h2>
+      <span class="aud aud-all">全従業員</span>
+      <span class="sub">9/9</span>
+    </div>
+    <ul class="items">
+      <li>共有ドライブの整理でKRATVSや会社関係のフォルダがDESIGNの外へ出たため、<strong>HiBoardから選べる範囲を「HiYOSHi共有」全体に広げました</strong>。→ 参照ボタンを押すと、<strong>DESIGNの中だけでなく共有ドライブ全体から選べます</strong>。<strong>これまでに登録した案件のフォルダはそのまま有効</strong>です。</li>
+      <li>案件フォルダ欄の入力例を、新しい命名ルール<strong>「DESIGN / 客先名 / 年月_内容」</strong>に合わせました。フォルダを手で作るときもこの形でお願いします。</li>
+    </ul>
+  </section>
+
+  <div class="foot">
+    <span>有限会社HiYOSHi ─ 社内システムお知らせ Vol.9</span>
+    <span>1 / 3</span>
+  </div>
+</div>
+
+<div class="page">
+  <header class="hero sub">
+    <div class="overline">WEEKLY UPDATE</div>
+    <h1>指示書PDF・工場のテレビ</h1>
+    <div class="divider"></div>
+    <div class="lead">Vol.9 ─ 対象期間:9月8日〜9月14日</div>
+  </header>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">納品</span>
+      <h2>指示書PDFは「受信箱へ送るだけ」になりました</h2>
+      <span class="aud aud-all">全従業員</span>
+      <span class="sub">9/11</span>
+    </div>
+    <div class="flow">
+      <span>GoodNotesでPDFに書き出す</span><em>→</em><span>共有ドライブ「DESIGN / _指示書受信箱」へ送る</span><em>→</em><span>HiBoardが案件フォルダへ自動で移す</span>
+    </div>
+    <ul class="items">
+      <li>これまでは<strong>「PDFを案件フォルダに手で入れてから納品済みにする」</strong>順番だったため、フォルダを探す手間で納品の登録が後回しになっていました。→ <strong>置き場所を探す作業をHiBoard側に寄せました</strong>。</li>
+      <li>iPadのGoodNotesから<strong>共有 → Googleドライブ → HiYOSHi共有 / DESIGN / _指示書受信箱</strong>へ書き出すだけです。HiBoardが<strong>5分ごと</strong>にファイル名を見て、<strong>その案件のフォルダへ自動で移します</strong>(案件フォルダが無い案件は「DESIGN / 客先名 / 年月_案件名」を自動で作ります)。</li>
+      <li><strong>ノート名(=PDFのファイル名)にHiBoardの案件名を入れておく</strong>のがコツです。受付番号「W-12」や案件番号「#123」でも見つけます。<strong>どの案件か分からないPDFは受信箱に残ります</strong>(間違った案件に入れないためです)。</li>
+      <li>納品モーダルの「指示書PDF」欄は<strong>4つの状態</strong>になりました。<strong>✅ 案件フォルダにある / 📥 受信箱から選ぶ(★付きが最初から選ばれています) / 💻 このパソコンのPDFを選ぶ / ⏳ 後で保存する</strong>。旧「保存した」のチェックは廃止です。</li>
+      <li><strong>PDFが無くても納品済みにして構いません。</strong>「後で保存する」で納品した案件は<strong>「📦 納品履歴」→「📎 指示書PDF未保存だけ」</strong>で絞り込めて、行の<strong>「📎 指示書PDF」</strong>ボタンから後入れできます。受信箱か案件フォルダにPDFが入れば5分以内に「未保存」が消えます(すぐ消したいときは「📥 受信箱を今すぐ振り分け」)。</li>
+      <li class="note">書き出した直後の1分間は、共有ドライブの同期待ちのため動かしません。詳しい手順は使い方ガイド(<strong>/manual</strong>)の第5章とQ&Aにも載せました。</li>
+    </ul>
+  </section>
+
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">現場</span>
+      <h2>工場のテレビで札の下が切れなくなりました</h2>
+      <span class="aud aud-all">全従業員</span>
+      <span class="sub">9/8</span>
+    </div>
+    <ul class="items">
+      <li>1人に4〜5件入っている日に札が縦に積み上がり、<strong>行の下のほうが切れて見えなくなっていました</strong>。→ <strong>画面に収まるまで文字の大きさを自動で下げる</strong>ようにしました。作業が多い日でも全部の札が見えます。</li>
+      <li>札が横に並びやすいよう、<strong>案件名は24文字で切り詰め</strong>、添え書きを小さく、枠線と余白を細くしました。<strong>直したいときは今までどおり週間スケジュールボードで</strong>直してください。</li>
+    </ul>
+  </section>
+
+  <div class="foot">
+    <span>有限会社HiYOSHi ─ 社内システムお知らせ Vol.9</span>
+    <span>2 / 3</span>
+  </div>
+</div>
+
+<div class="page">
+  <header class="hero sub">
+    <div class="overline">WEEKLY UPDATE</div>
+    <h1>見積シミュレーター・Claudeの席</h1>
+    <div class="divider"></div>
+    <div class="lead">Vol.9 ─ 対象期間:9月8日〜9月14日</div>
+  </header>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">見積</span>
+      <h2>見積シミュレーターにマフラータオルが入りました</h2>
+      <span class="aud aud-staff">社員</span>
+      <span class="sub">9/11</span>
+    </div>
+    <ul class="items">
+      <li>KRATVSカスタムオーダーに<strong>「O-02 マフラータオル(200×1100mm)」</strong>を追加しました。<strong>10枚以上は税込2,200円 / 1〜9枚は税込3,080円</strong>で、<strong>昇華フルカラーの全面プリント代が含まれます</strong>(プリントの追加料金はありません)。</li>
+      <li><strong>完全データ支給(実寸のAI・PNG)が条件</strong>です。データの直しが必要な場合は<strong>画像加工 税込3,300円〜</strong>を別にいただきます。</li>
+      <li>タオルのように<strong>枚数のまとまりで単価が決まる品物</strong>に対応しました。数量を入れると、当てはまる段の単価で計算されます。</li>
+      <li class="note">タオルは<strong>仕入れて販売する商品</strong>のため、<strong>お値引きは20%が上限</strong>です(シミュレーターで自動的に頭打ちになり、注記が出ます)。送料・納期は提携先への確認が必要なので、<strong>その場では即答しない</strong>でください。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">その他</span>
+      <h2>Claudeの席が鈴木さんへ移りました</h2>
+      <span class="aud aud-staff">社員</span>
+      <span class="sub">9/11</span>
+    </div>
+    <ul class="items">
+      <li>三浦さんが使っていたClaudeの席を<strong>鈴木さん(Mac・出社9〜15時)へ移しました</strong>。デザインのお仕事で使っていただく想定で、設定と手順書は共有ドライブの「Claude設定 / 鈴木さん」に置いてあります。</li>
+      <li>三浦さんの<strong>終業日報は終了</strong>し、<strong>9/14からは「問い合わせログ」+金曜日の週次まとめ</strong>に変わりました。日々のお問い合わせを記録して、<strong>AIに任せられる工程を探す</strong>ための運用です。</li>
+    </ul>
+  </section>
+
+  <div class="ask">
+    <h3>皆さんへのお願い(今週からの動き方)</h3>
+    <ul class="items">
+      <li>公式LINEからのお問い合わせは、<strong>カードの送信者名(入口の名前)を見て仕分けて</strong>ください。オリジナルアイテムは三浦さん、チーム・サッカーとクラスTは山本さんが目安です。</li>
+      <li>指示書PDFは<strong>案件フォルダを探さず「_指示書受信箱」へ送る</strong>だけにしてください。<strong>PDFがまだ無くても「後で保存する」で納品済みにして構いません</strong>。納品の登録を後回しにしないことが大事です。</li>
+      <li>GoodNotesの<strong>ノート名にHiBoardの案件名を入れて</strong>ください。自動で案件フォルダへ入り、あとの手間がなくなります。</li>
+      <li>案件フォルダを手で作るときは<strong>「DESIGN / 客先名 / 年月_内容」</strong>の形でお願いします。</li>
+      <li>マフラータオルのご相談は<strong>完全データ支給が条件</strong>、<strong>お値引きは20%まで</strong>です。送料・納期はその場で即答せず、見積書としてお出しします。</li>
+    </ul>
+  </div>
+
+  <div class="note" style="margin-top: 2.4mm; text-align: right;">次号予定:2026年9月21日(月)</div>
+
+  <div class="foot">
+    <span>有限会社HiYOSHi ─ 社内システムお知らせ Vol.9</span>
+    <span>3 / 3</span>
+  </div>
+</div>
+
+</body>
+</html>
