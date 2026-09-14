@@ -12,8 +12,44 @@
     // 項目定義の正本は lib/inquiry-kinds.js
     window.__INQUIRY_CONFIG__ = {{INQUIRY_CONFIG}};
   </script>
+  <script>
+    // LINE経由(?src=line)の流入を GA4 の標準レポートで「LINE」として集計できるよう、
+    // 独自パラメータ src=line に加えて utm_source=line / utm_medium=social を URL に補う
+    // (稲垣さん依頼書 v1.1 §8 の任意対応)。あいさつメッセージは500字上限で utm を足せないため、
+    // LINE側のURLは変えずにページ側で補う。GTM が読み込まれる前に replaceState するので、
+    // GA4 の page_location には utm 付きのURLが入る。LIFF の初回遷移(/inquiry?liff.state=/team?src=line)
+    // でも liff.state の中の src=line を見て同じように補う(セッションの最初のページに utm を乗せるため)。
+    (function () {
+      try {
+        var params = new URLSearchParams(location.search);
+        var inner = params.get('liff.state') || '';
+        var fromLine = params.get('src') === 'line' || /(^|[?&])src=line(&|$)/.test(inner);
+        if (!fromLine || params.has('utm_source')) return;
+        params.set('utm_source', 'line');
+        params.set('utm_medium', 'social');
+        history.replaceState(null, '', location.pathname + '?' + params.toString() + location.hash);
+      } catch (e) { /* 計測用の補助なので失敗しても何もしない */ }
+    })();
+  </script>
+  <script>
+    // Google タグマネージャー(/order と同じコンテナ GTM-53GQHZWD)。
+    // 送信成功時の form_conversion(inquiry.js)を GTM が受けて GA4 のキーイベントにする。
+    // 公開ドメインのときだけ読み込む: 社内LANや開発機の操作を Clarity の録画や GA4 に混ぜないため。
+    // コンテナの中身(タグ・トリガー)は稲垣さんが管理画面から扱う。
+    // 依頼書: 稲垣さん共有フォルダ/document/HiYOSHi_相談フォームCVトラッキング設定依頼書_v1.1.md
+    (function (w, d, s, l, i) {
+      if (location.hostname !== 'order.hiyoshi-1954.com') return;
+      w[l] = w[l] || [];
+      w[l].push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
+      var f = d.getElementsByTagName(s)[0], j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : '';
+      j.async = true;
+      j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl;
+      f.parentNode.insertBefore(j, f);
+    })(window, document, 'script', 'dataLayer', 'GTM-53GQHZWD');
+  </script>
 </head>
 <body>
+  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-53GQHZWD" height="0" width="0" style="display:none;visibility:hidden" title="Google Tag Manager"></iframe></noscript>
   <div class="site-brand-bar">
     <a class="site-brand" href="https://hiyoshi-1954.com/" aria-label="HiYOSHi 公式サイトへ">
       <span class="site-brand-mark">HiYOSHi<span class="site-brand-suffix">Co., Ltd.</span></span>

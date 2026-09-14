@@ -353,6 +353,24 @@
       const data = await resp.json().catch(() => ({}));
       if (resp.ok && data.ok) {
         $('#inquiryForm').hidden = true;
+
+        // 計測: 送信成功をコンバージョンイベントとして GTM へ渡す(サンクスページが無いため)。
+        // 種別は画面側の K.slug を使い、GTM 側で GA4 イベント名(form_goal)にする
+        // (稲垣さん依頼書 v1.1 §3〜4)。氏名・電話・メール等の入力値は含めない。
+        // transaction_id は二重計上の防止用(受付番号 Q-)。
+        try {
+          const goalMap = { team: 'team_inquiry', 'class-t': 'classt_inquiry', original: 'original_inquiry' };
+          window.dataLayer = window.dataLayer || [];
+          window.dataLayer.push({
+            event: 'form_conversion',
+            form_goal: goalMap[K.slug] || 'other_inquiry',
+            request_type: K.slug || '',
+            transaction_id: data.receipt_no || '',
+          });
+        } catch (e) {
+          // 計測の失敗で受付完了の表示を止めない
+        }
+
         const done = $('#donePanel');
         done.hidden = false;
         $('#doneMessage').textContent = `${K.label}のご相談を受け付けました。`;
