@@ -14,8 +14,8 @@
   </script>
   <script>
     // LINE経由(?src=line)の流入を GA4 の標準レポートで「LINE」として集計できるよう、
-    // 独自パラメータ src=line に加えて utm_source=line / utm_medium=social を URL に補う
-    // (稲垣さん依頼書 v1.1 §8 の任意対応)。あいさつメッセージは500字上限で utm を足せないため、
+    // 独自パラメータ src=line に加えて utm_source=line / utm_medium=social / utm_campaign=always_official を URL に補う
+    // (稲垣さん依頼書 v1.2 §8 の任意対応。utm_campaign が無いと GA4 のキャンペーンレポートで集計できない)。あいさつメッセージは500字上限で utm を足せないため、
     // LINE側のURLは変えずにページ側で補う。GTM が読み込まれる前に replaceState するので、
     // GA4 の page_location には utm 付きのURLが入る。LIFF の初回遷移(/inquiry?liff.state=/team?src=line)
     // でも liff.state の中の src=line を見て同じように補う(セッションの最初のページに utm を乗せるため)。
@@ -27,6 +27,7 @@
         if (!fromLine || params.has('utm_source')) return;
         params.set('utm_source', 'line');
         params.set('utm_medium', 'social');
+        params.set('utm_campaign', 'always_official');
         history.replaceState(null, '', location.pathname + '?' + params.toString() + location.hash);
       } catch (e) { /* 計測用の補助なので失敗しても何もしない */ }
     })();
@@ -36,7 +37,7 @@
     // 送信成功時の form_conversion(inquiry.js)を GTM が受けて GA4 のキーイベントにする。
     // 公開ドメインのときだけ読み込む: 社内LANや開発機の操作を Clarity の録画や GA4 に混ぜないため。
     // コンテナの中身(タグ・トリガー)は稲垣さんが管理画面から扱う。
-    // 依頼書: 稲垣さん共有フォルダ/document/HiYOSHi_相談フォームCVトラッキング設定依頼書_v1.1.md
+    // 依頼書: 稲垣さん共有フォルダ/document/HiYOSHi_相談フォームCVトラッキング設定依頼書_v1.2.md
     (function (w, d, s, l, i) {
       if (location.hostname !== 'order.hiyoshi-1954.com') return;
       w[l] = w[l] || [];
