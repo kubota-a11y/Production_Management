@@ -114,8 +114,10 @@ textarea { resize: vertical; }
 .line-btn {
   display: inline-block; background: #06c755; color: #fff; text-decoration: none;
   font-weight: 700; padding: 10px 20px; border-radius: 999px;
+  border: 0; font-size: 1rem; cursor: pointer; font-family: inherit;
 }
 .line-btn:hover { background: #05b34c; }
+.notice .hint { margin: 10px 0 0; font-size: .82rem; color: #4d7c5f; }
 
 .hp-field { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 

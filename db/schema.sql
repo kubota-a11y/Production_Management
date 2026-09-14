@@ -147,6 +147,8 @@ CREATE TABLE IF NOT EXISTS ai_extracted_intake (
   dropoff_status TEXT,
   dropoff_status_at TEXT,
   dropoff_status_by TEXT,
+  linked_line_user_id TEXT,
+  linked_line_at TEXT,
   FOREIGN KEY (line_user_id) REFERENCES line_users(line_user_id)
 );
 

@@ -566,6 +566,19 @@ html, body {
   letter-spacing: 0.03em;
 }
 
+/* 公式LINE入口フォーム(Q-)の候補が、お客様の公式LINEトークと紐づいたことを示すチップ(2026-09-14) */
+.linked-line-chip {
+  display: inline-block;
+  margin-left: var(--space-2);
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  background: var(--info-soft);
+  color: var(--info-text);
+  white-space: nowrap;
+}
+
 /* ===== 納期の警告フラグ(色だけに頼らず文字でも示す) ===== */
 .deadline-flag {
   display: inline-block;

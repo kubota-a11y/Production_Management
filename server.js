@@ -10,6 +10,7 @@ const { DESIGN_WORK_ITEM_CODES, NON_DESIGNER_ITEM_CODES, WORK_STATE_LABELS } = r
 const { runExtractionCycle } = require('./lib/ai-extraction');
 const { registerOrderRoutes } = require('./lib/order-intake');
 const { registerInquiryRoutes } = require('./lib/inquiry');
+const { linkInquiryFromMessage } = require('./lib/line-followup');
 const { registerTeamOrderRoutes } = require('./lib/team-order');
 const { registerPartnerPortalRoutes } = require('./lib/partner-portal');
 const { registerPartnerOrderRoutes } = require('./lib/partner-order');
@@ -167,11 +168,12 @@ async function upsertLineUser(userId) {
 
 function insertLineMessage({ lineUserId, lineMessageId, messageType, textContent, imagePath }) {
   const now = new Date().toISOString();
-  db.prepare(`
+  const info = db.prepare(`
     INSERT INTO line_messages
       (line_user_id, line_message_id, message_type, text_content, image_path, received_at, processed, case_id)
     VALUES (?, ?, ?, ?, ?, ?, 0, NULL)
   `).run(lineUserId, lineMessageId, messageType, textContent, imagePath, now);
+  return info.lastInsertRowid;
 }
 
 // 画像を取得しNAS上に保存する。取得・保存いずれかが失敗した場合はエラーをログに出しnullを返す(処理は継続)。
@@ -205,13 +207,23 @@ app.post('/webhook', line.middleware(lineConfig), async (req, res) => {
         if (message.type === 'text') {
           // 本文はお客様の送信内容そのもの(顧客データ)のため、ログにはIDと文字数のみ残す
           console.log(`[LINE Webhook] text message received: id=${message.id} length=${(message.text || '').length}`);
-          insertLineMessage({
+          const rowId = insertLineMessage({
             lineUserId: userId,
             lineMessageId: message.id,
             messageType: 'text',
             textContent: message.text,
             imagePath: null,
           });
+          // 公式LINE入口フォーム(Q-)の受付番号が本文にあれば、その受注候補とこのユーザーを結びつける
+          // (完了画面・受付控えメールのリンク、またはLIFFの自動投稿で届く)。紐づけたメッセージは
+          // processed=1 になるので、AI抽出が別の候補を作ることはない
+          try {
+            const link = linkInquiryFromMessage(db, { lineUserId: userId, text: message.text, messageRowId: rowId });
+            if (link.linked) console.log(`[LINE Webhook] 入口フォーム Q-${link.intakeId} をトークに紐づけ${link.already ? '(紐づけ済み・メッセージのみ追加)' : ''}`);
+            else if (link.reason === 'linked_to_other') console.warn(`[LINE Webhook] Q-${link.intakeId} は別のユーザーに紐づけ済みのため上書きしません`);
+          } catch (linkErr) {
+            console.error('[LINE Webhook] 入口フォームの紐づけでエラー:', linkErr.message);
+          }
         } else if (message.type === 'image') {
           console.log('[LINE Webhook] image message received');
           const imagePath = await saveLineImage(userId, message.id);
@@ -2431,10 +2443,12 @@ app.delete('/api/projects/:id', (req, res) => {
 app.get('/api/ai-intake', (req, res) => {
   try {
     const status = req.query.status || 'pending';
+    // linked_line_display_name: 公式LINE入口フォーム(Q-)の候補にお客様がトークで受付番号を送ってきたときの表示名
     const rows = db.prepare(`
-      SELECT ai.*, lu.display_name
+      SELECT ai.*, lu.display_name, llu.display_name AS linked_line_display_name
       FROM ai_extracted_intake ai
       LEFT JOIN line_users lu ON ai.line_user_id = lu.line_user_id
+      LEFT JOIN line_users llu ON ai.linked_line_user_id = llu.line_user_id
       WHERE ai.status = ?
       ORDER BY CASE WHEN ai.triage_type IS NULL OR ai.triage_type = '' THEN 0 ELSE 1 END,
                ai.extracted_at DESC
@@ -2470,9 +2484,10 @@ app.get('/api/ai-intake', (req, res) => {
 app.get('/api/ai-intake/:id', (req, res) => {
   try {
     const intake = db.prepare(`
-      SELECT ai.*, lu.display_name
+      SELECT ai.*, lu.display_name, llu.display_name AS linked_line_display_name
       FROM ai_extracted_intake ai
       LEFT JOIN line_users lu ON ai.line_user_id = lu.line_user_id
+      LEFT JOIN line_users llu ON ai.linked_line_user_id = llu.line_user_id
       WHERE ai.id = ?
     `).get(req.params.id);
     if (!intake) return res.status(404).json({ error: 'Intake not found' });

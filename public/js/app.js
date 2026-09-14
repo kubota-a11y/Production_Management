@@ -889,6 +889,10 @@ const app = {
         receipt.textContent = `${receiptPrefix}-${intake.id}`;
         sender.appendChild(receipt);
       }
+      // 公式LINE入口フォーム(Q-)のお客様がトークに受付番号を送ってきたら、その表示名を出す。
+      // 公式LINEマネージャーのチャットでこの名前を探せば返信できる(無ければまだトークが無い=こちらから話しかけられない)
+      const linkedChip = this.buildLinkedLineChip(intake);
+      if (linkedChip) sender.appendChild(linkedChip);
       body.appendChild(sender);
 
       const items = document.createElement('div');
@@ -1163,6 +1167,11 @@ const app = {
         receipt.textContent = `${modalReceiptPrefix}-${intake.id}`;
         title.appendChild(receipt);
       }
+      const modalLinkedChip = this.buildLinkedLineChip(intake);
+      if (modalLinkedChip) {
+        title.appendChild(document.createTextNode(' '));
+        title.appendChild(modalLinkedChip);
+      }
       // 振り分け済みならその行き先をタイトルに出す(登録時に判断をなぞり直さなくて済むように)
       const triageLabel = this.TRIAGE_LABELS[intake.triage_type];
       if (triageLabel) {
@@ -1188,6 +1197,17 @@ const app = {
       HiUI.toast('AI受注候補の取得に失敗しました');
       this.closeAiIntakeModal();
     });
+  },
+
+  // 公式LINE入口フォーム(Q-)の候補で、お客様が公式LINEのトークに受付番号を送ってきた(=紐づけ済み)ときのチップ。
+  // 未紐づけなら null(チップを出さない)
+  buildLinkedLineChip(intake) {
+    if (!intake || !intake.linked_line_user_id) return null;
+    const chip = document.createElement('span');
+    chip.className = 'linked-line-chip';
+    chip.textContent = `💬 LINE: ${intake.linked_line_display_name || '(表示名なし)'}`;
+    chip.title = '公式LINEのトークと紐づけ済み。公式LINEマネージャーのチャットでこの名前を探すと返信できます';
+    return chip;
   },
 
   closeAiIntakeModal() {

@@ -131,6 +131,15 @@ function initDatabase(dbFile = dbPath) {
     db.prepare(`ALTER TABLE ai_extracted_intake ADD COLUMN dropoff_status_by TEXT`).run();
     console.log('✓ ai_extracted_intake に持ち込み状態列(dropoff_status/dropoff_status_at/dropoff_status_by)を追加しました');
   }
+  // 公式LINE入口フォーム(Q-)の候補と、お客様の公式LINEトークとの紐づけ(2026-09-14 追加)。
+  // フォーム送信だけではお客様がLINEのチャット一覧に出ないため、お客様が受付番号入りのメッセージを
+  // トークに送った時点で Webhook が実際の line_user_id をここへ書く(lib/line-followup.js)。
+  // line_user_id(INQ_*)は「どの入口から来たか」を表す列として変えない。
+  if (aiIntakeColumns.length > 0 && !aiIntakeColumns.includes('linked_line_user_id')) {
+    db.prepare(`ALTER TABLE ai_extracted_intake ADD COLUMN linked_line_user_id TEXT`).run();
+    db.prepare(`ALTER TABLE ai_extracted_intake ADD COLUMN linked_line_at TEXT`).run();
+    console.log('✓ ai_extracted_intake にLINEトーク紐づけ列(linked_line_user_id/linked_line_at)を追加しました');
+  }
 
   // 顧客メモ(顧客台帳ページ用)。顧客マスタは持たず projects.customer_name の
   // TRIM値をキーに、担当窓口・連絡先・注意点などを顧客単位で書き残す

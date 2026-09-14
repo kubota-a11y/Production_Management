@@ -73,7 +73,19 @@
         <p id="doneSampleNote" hidden>サンプルは内容を確認のうえ、ご記入いただいた送付先へお送りします。</p>
         <p id="doneImageWarning" hidden>※添付いただいた画像の保存に一部失敗した可能性があります。担当者から確認のご連絡を差し上げる場合がありますので、元のデータはお手元に保管をお願いいたします。</p>
         <p>内容を確認のうえ、<strong>1〜2営業日以内に</strong>担当者よりご連絡いたします(土日祝は週明けの対応となります)。</p>
-        <div class="notice">
+        <!-- LINEアプリ内(LIFF)で開き、送信と同時にトークへ受付番号を自動投稿できたとき -->
+        <div class="notice" id="lineAutoNotice" hidden>
+          <p>公式LINEのトークに<strong>受付番号入りのメッセージを送信しました</strong>。担当がそのトークでご連絡します。</p>
+          <button type="button" class="line-btn" id="lineCloseBtn">トーク画面に戻る</button>
+        </div>
+        <!-- 受付番号入りの本文が入力済みの状態でトークを開くリンク(ベーシックID設定時) -->
+        <div class="notice" id="linePrefilledNotice" hidden>
+          <p>LINEでのやり取りをご希望の方は、下のボタンで公式LINEのトークを開き、<strong>用意されたメッセージをそのまま送信</strong>してください。担当がそのトークでご連絡します。</p>
+          <a class="line-btn" id="linePrefilledBtn" href="#" target="_blank" rel="noopener">公式LINEのトークを開く</a>
+          <p class="hint">ボタンが反応しない場合は、公式LINEのトークに<strong>お名前と受付番号</strong>をひとことお送りください。</p>
+        </div>
+        <!-- 従来の案内(ベーシックID未設定のとき) -->
+        <div class="notice" id="lineManualNotice" hidden>
           <p>LINEでのやり取りをご希望の方は、公式LINEのトークに<strong>お名前と受付番号</strong>をひとことお送りください。担当がそのトークでご連絡します。</p>
           <a class="line-btn" href="https://lin.ee/z1nZULF" target="_blank" rel="noopener">公式LINEを開く</a>
         </div>

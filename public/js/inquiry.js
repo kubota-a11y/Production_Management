@@ -11,6 +11,47 @@
   const SRC = ((new URLSearchParams(location.search).get('src') || '').match(/^[a-z0-9_-]{1,20}$/i) || [''])[0];
   const withSrc = (path) => SRC ? `${path}?src=${encodeURIComponent(SRC)}` : path;
 
+  // ===== LIFF(LINEアプリ内で開いたときの連携) =====
+  // LIFF ID が設定されているときだけ SDK を読み込んで初期化する。目的は2つ:
+  //   1. LIFF URL(https://liff.line.me/{ID}/team?src=line)で開いたときの liff.state による遷移を SDK に処理させる
+  //   2. 送信後に liff.sendMessages で「受付番号入りの本文」をお客様のトークとして自動投稿する
+  // 外部ブラウザで開いた場合や初期化に失敗した場合は、従来どおり(本文入力済みリンクの案内)に落ちる。
+  const LIFF_SDK_URL = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
+  const HAS_LIFF_STATE = /(?:^|[?&])liff\.state=/.test(location.search);
+  let liffInitPromise = null;
+  function ensureLiff() {
+    if (!CFG.liffId) return Promise.resolve(false);
+    if (liffInitPromise) return liffInitPromise;
+    liffInitPromise = new Promise((resolve) => {
+      const init = () => {
+        if (!window.liff || typeof window.liff.init !== 'function') return resolve(false);
+        window.liff.init({ liffId: CFG.liffId }).then(() => resolve(true)).catch(() => resolve(false));
+      };
+      if (window.liff) return init();
+      const script = document.createElement('script');
+      script.src = LIFF_SDK_URL;
+      script.async = true;
+      script.onload = init;
+      script.onerror = () => resolve(false);
+      document.head.appendChild(script);
+    });
+    return liffInitPromise;
+  }
+  function inLineApp() {
+    try { return !!(window.liff && typeof window.liff.isInClient === 'function' && window.liff.isInClient()); }
+    catch (_) { return false; }
+  }
+  // トークへ本文を自動投稿する。成功で true。失敗(権限なし・外部ブラウザ等)は false を返して呼び出し側が案内を切り替える
+  async function sendToTalk(text) {
+    if (!text || !inLineApp() || !window.liff || typeof window.liff.sendMessages !== 'function') return false;
+    try {
+      await window.liff.sendMessages([{ type: 'text', text }]);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   // ===== 入口選択ページ =====
   function renderChooser() {
     const wrap = $('#chooser');
@@ -259,9 +300,32 @@
   }
 
   function collectPayload() {
-    const payload = { _src: SRC };
+    const payload = { _src: SRC, _client: inLineApp() ? 'liff' : 'browser' };
     Object.values(controls).forEach(c => { payload[c.field.key] = c.el.hidden ? '' : c.get(); });
     return payload;
+  }
+
+  // 送信完了後のLINE案内を3段で切り替える:
+  //   自動投稿できた(LINEアプリ内) → 「送信しました」+ トークへ戻るボタン
+  //   本文入力済みリンクがある      → そのリンクのボタン(送信を押すだけ)
+  //   どちらも無い                  → 従来の「お名前と受付番号をひとこと」案内
+  async function showLineFollowup(followup) {
+    const auto = $('#lineAutoNotice');
+    const prefilled = $('#linePrefilledNotice');
+    const manual = $('#lineManualNotice');
+    if (followup && followup.text && await sendToTalk(followup.text)) {
+      auto.hidden = false;
+      $('#lineCloseBtn').addEventListener('click', () => {
+        try { window.liff.closeWindow(); } catch (_) { /* 閉じられない環境では何もしない */ }
+      });
+      return;
+    }
+    if (followup && followup.url) {
+      $('#linePrefilledBtn').href = followup.url;
+      prefilled.hidden = false;
+      return;
+    }
+    manual.hidden = false;
   }
 
   async function send() {
@@ -299,6 +363,7 @@
         if (data.receipt_mail) $('#doneMailNote').hidden = false;
         if (data.sample_requested) $('#doneSampleNote').hidden = false;
         if (data.image_warning) $('#doneImageWarning').hidden = false;
+        await showLineFollowup(data.line_followup || null);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         showErrors(data.errors && data.errors.length ? data.errors
@@ -315,11 +380,19 @@
 
   // ===== 起動 =====
   if (!K) {
-    renderChooser();
+    // LIFF URL から来た初回は liff.state を持っており、liff.init が本来の入口(/inquiry/team 等)へ移動させる。
+    // その間に入口選択を描くとちらつくので、初期化を待ってから(移動しなかった場合だけ)描く
+    if (CFG.liffId && HAS_LIFF_STATE) {
+      ensureLiff().then(() => renderChooser());
+    } else {
+      ensureLiff();
+      renderChooser();
+    }
     return;
   }
   renderForm();
   loadTurnstile();
+  ensureLiff();
   FormGuard.blockEnterSubmit();
   $('#inquiryForm').addEventListener('submit', (ev) => {
     ev.preventDefault();
