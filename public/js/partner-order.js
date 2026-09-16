@@ -215,10 +215,18 @@ const partnerOrder = {
     const errBox0 = document.getElementById('formErrors');
     errBox0.hidden = true;
     const items = this.collectItems();
+    // 送信前の軽いチェック(本チェックはサーバー側でも実施)。
+    // ユーザー名・メールは 2026-09-16 に必須化(八木繊維 木之下さん要望: 控えと受付番号の突き合わせのため)
+    const clientErrors0 = [];
+    if (!document.getElementById('userName').value.trim()) clientErrors0.push('ユーザー名(着用される会社・団体名)を入力してください');
+    if (!document.getElementById('contactName').value.trim()) clientErrors0.push('ご担当者名を入力してください');
+    if (!document.getElementById('contactEmail').value.trim()) clientErrors0.push('メールアドレスを入力してください');
     // サイズ超過はアップロード後にしか分からないと待ち時間が無駄になるため送信前に確認
     const oversize = Array.from(document.getElementById('images').files).find(f => f.size > 15 * 1024 * 1024);
-    if (oversize) {
-      errBox0.textContent = `ファイル「${oversize.name}」が大きすぎます(上限15MB)。サイズを小さくして再度お試しください。`;
+    if (oversize) clientErrors0.push(`ファイル「${oversize.name}」が大きすぎます(上限15MB)。サイズを小さくして再度お試しください。`);
+    if (clientErrors0.length) {
+      errBox0.textContent = clientErrors0.join('\n');
+      errBox0.style.whiteSpace = 'pre-line';
       errBox0.hidden = false;
       errBox0.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
@@ -244,7 +252,7 @@ const partnerOrder = {
     const payload = {
       order_type: 'new',
       website: document.getElementById('website').value,
-      // ユーザー名 = 着用される会社・団体名(取引先のエンドユーザー)。任意
+      // ユーザー名 = 着用される会社・団体名(取引先のエンドユーザー)。2026-09-16から必須
       user_name: document.getElementById('userName').value,
       dropoff: {
         date: document.getElementById('dropoffDate').value,
@@ -303,7 +311,10 @@ const partnerOrder = {
     const contactName = document.getElementById('a_contactName').value.trim();
     const files = document.getElementById('a_images').files;
     const clientErrors = [];
+    // ユーザー名・メールは 2026-09-16 に必須化(八木繊維 木之下さん要望)
+    if (!document.getElementById('a_userName').value.trim()) clientErrors.push('ユーザー名(着用される会社・団体名)を入力してください');
     if (!contactName) clientErrors.push('ご担当者名を入力してください');
+    if (!document.getElementById('a_contactEmail').value.trim()) clientErrors.push('メールアドレスを入力してください');
     if (!files.length) clientErrors.push('指図書の添付が必須です(写真またはPDF)');
     const oversizeA = Array.from(files).find(f => f.size > 15 * 1024 * 1024);
     if (oversizeA) clientErrors.push(`ファイル「${oversizeA.name}」が大きすぎます(上限15MB)`);
@@ -336,7 +347,7 @@ const partnerOrder = {
     const payload = {
       order_type: 'additional',
       website: document.getElementById('a_website').value,
-      // ユーザー名 = 着用される会社・団体名(取引先のエンドユーザー)。任意
+      // ユーザー名 = 着用される会社・団体名(取引先のエンドユーザー)。2026-09-16から必須
       user_name: document.getElementById('a_userName').value,
       dropoff: {
         contact_name: contactName,

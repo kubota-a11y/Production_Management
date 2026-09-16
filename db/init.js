@@ -381,6 +381,34 @@ function initDatabase(dbFile = dbPath) {
     console.log('✓ partner_links.notify_emails を追加しました');
   }
 
+  // 取引先が納期確認ページで「受け取り済み」にした案件(2026-09-16 八木繊維 木之下さん要望)。
+  // 取引先側で完了ボタンを押されると社内の案件状態が動いて困るため、社内の projects.status には
+  // 触れず「取引先リンク単位でその案件を進行中一覧から非表示にした」事実だけを持つ。
+  // 社内で納品処理すれば従来どおり納品済み欄に出る。取り消し(再表示)は行を消す
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS partner_hidden_projects (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      link_id INTEGER NOT NULL REFERENCES partner_links(id),
+      project_id INTEGER NOT NULL REFERENCES projects(id),
+      hidden_at TEXT NOT NULL,
+      UNIQUE(link_id, project_id)
+    )
+  `);
+
+  // 取引先が納期確認ページの案件カードから送ったコメント(2026-09-16)。
+  // 「急ぎ分の共有」が目的なので案件単位。送信時に projects.memo の末尾へも追記し、
+  // Google Chat の専用スペースへ投稿する(lib/partner-notify.js)。ここは取引先画面の履歴表示用
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS partner_comments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      link_id INTEGER NOT NULL REFERENCES partner_links(id),
+      project_id INTEGER NOT NULL REFERENCES projects(id),
+      author_name TEXT NOT NULL,
+      body TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `);
+
   // デザイン担当が自分のボードから「自分の担当ではない」として外した記録(2026-08-18)。
   // 単に assigned_staff_id を NULL に戻すだけだと、案件を編集するたびに
   // registerPreparationItems の寄せ直しでまた本人へ戻ってしまうため、外した事実を残して

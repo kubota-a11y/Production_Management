@@ -74,6 +74,35 @@
     .done-table tr:last-child td { border-bottom: none; }
     .done-date { white-space: nowrap; font-weight: 600; }
 
+    /* 取引先側の操作(2026-09-16): 受け取り済み・コメント */
+    .card-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .btn-mini {
+      font-size: .8rem; font-weight: 600; color: #334155; background: #fff;
+      border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px 12px; cursor: pointer;
+    }
+    .btn-mini:disabled { opacity: .5; cursor: default; }
+    .btn-mini.done { color: #166534; border-color: #bbf7d0; background: #f0fdf4; }
+    .btn-mini.primary { color: #fff; background: #2563eb; border-color: #2563eb; }
+
+    .comments { margin-top: 12px; border-top: 1px dashed #e2e8f0; padding-top: 10px; }
+    .comments-title { font-size: .78rem; font-weight: 700; color: #64748b; }
+    .comment-list { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+    .comment-item { font-size: .84rem; background: #f8fafc; border-radius: 8px; padding: 7px 10px; }
+    .comment-meta { font-size: .72rem; color: #64748b; }
+    .comment-body { white-space: pre-wrap; word-break: break-word; margin-top: 1px; }
+    .comment-form { display: none; margin-top: 8px; gap: 6px; flex-direction: column; }
+    .comment-form.open { display: flex; }
+    .comment-form input, .comment-form textarea {
+      font: inherit; font-size: .88rem; border: 1px solid #cbd5e1; border-radius: 8px; padding: 7px 10px; width: 100%;
+    }
+    .comment-form textarea { min-height: 64px; resize: vertical; }
+    .comment-hint { font-size: .72rem; color: #64748b; }
+    .comment-error { font-size: .8rem; color: #991b1b; }
+
+    .hidden-toggle { margin-top: 14px; text-align: center; }
+    .hidden-toggle button { font-size: .8rem; color: #475569; background: none; border: none; text-decoration: underline; cursor: pointer; }
+    .card.hidden-card { opacity: .8; border-style: dashed; }
+
     .refresh-row { text-align: center; margin-top: 24px; }
     .refresh-btn {
       font-size: .85rem; font-weight: 600; color: #334155; background: #fff;
@@ -91,7 +120,7 @@
       <div class="brand">HIYOSHI</div>
       <h1>納期確認ページ</h1>
       <div class="partner-badge" id="partnerBadge" hidden></div>
-      <p class="page-note">ご依頼いただいている加工の進行状況と納品予定日をご確認いただけます。<br>このページは貴社専用です。URLの共有にはご注意ください。</p>
+      <p class="page-note">ご依頼いただいている加工の進行状況と納品予定日をご確認いただけます。<br>お受け取りが済んだ案件は「✓ 受け取り済み」で一覧から外せます。急ぎのご連絡は各案件の「💬 コメント」からお送りください。<br>このページは貴社専用です。URLの共有にはご注意ください。</p>
     </div>
 
     <div class="load-error" id="loadError" hidden></div>
@@ -100,6 +129,10 @@
       <h2 class="sec-title">▶ 進行中のご依頼 <span class="count" id="activeCount"></span></h2>
       <div class="sec-empty" id="activeEmpty" hidden>現在進行中のご依頼はありません。</div>
       <div class="cards" id="activeCards"></div>
+      <div class="hidden-toggle" id="hiddenToggle" hidden>
+        <button type="button" onclick="toggleHidden()" id="hiddenToggleBtn"></button>
+      </div>
+      <div class="cards" id="hiddenCards" hidden></div>
     </section>
 
     <section id="doneSection" hidden>
@@ -149,43 +182,167 @@
       return e;
     }
 
+    // お名前は端末に覚えておく(毎回入力しなくて済むように)
+    const NAME_KEY = 'partnerCommentName';
+    function savedName() { try { return localStorage.getItem(NAME_KEY) || ''; } catch (e) { return ''; } }
+    function rememberName(v) { try { localStorage.setItem(NAME_KEY, v); } catch (e) { /* noop */ } }
+
+    function fmtDateTime(iso) {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return '';
+      return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+    }
+
+    async function postJson(url, body) {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body || {}),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error(data.error || '通信に失敗しました。時間をおいて再度お試しください。');
+      return data;
+    }
+
+    // 「受け取り済み」= この一覧から非表示にする(HiYOSHi側の案件状態は変わらない)
+    async function setHidden(p, hide, btn) {
+      if (hide && !confirm(`「${p.project_name}」を受け取り済みにして、進行中の一覧から外します。よろしいですか?\n(HiYOSHi側の納品処理とは別で、いつでも元に戻せます)`)) return;
+      btn.disabled = true;
+      try {
+        await postJson(`/api/partner-status/${encodeURIComponent(token)}/projects/${p.id}/hide`, { hide });
+        await loadStatus();
+      } catch (e) {
+        alert(e.message);
+        btn.disabled = false;
+      }
+    }
+
+    // 案件カードのコメント履歴+入力フォーム(フォームは「💬 コメントする」で開く)
+    function renderComments(p) {
+      const wrap = el('div', 'comments');
+      wrap.appendChild(el('div', 'comments-title', `💬 コメント${p.comments.length ? `(${p.comments.length}件)` : ''}`));
+      if (p.comments.length) {
+        const list = el('div', 'comment-list');
+        p.comments.forEach(c => {
+          const item = el('div', 'comment-item');
+          item.appendChild(el('div', 'comment-meta', `${fmtDateTime(c.created_at)} ${c.author_name} 様`));
+          item.appendChild(el('div', 'comment-body', c.body));
+          list.appendChild(item);
+        });
+        wrap.appendChild(list);
+      }
+
+      const form = el('form', 'comment-form');
+      const name = document.createElement('input');
+      name.type = 'text'; name.maxLength = 50; name.placeholder = 'お名前(必須)'; name.value = savedName();
+      form.appendChild(name);
+      const ta = document.createElement('textarea');
+      ta.maxLength = 500; ta.placeholder = '例: この分は急ぎです。○日までに上がりますか?';
+      form.appendChild(ta);
+      form.appendChild(el('div', 'comment-hint', '送信するとHiYOSHiの担当者に通知が届き、案件のメモにも記録されます(500文字まで)'));
+      const err = el('div', 'comment-error'); err.hidden = true;
+      form.appendChild(err);
+      const actions = el('div', 'card-actions');
+      const cancel = el('button', 'btn-mini', 'キャンセル'); cancel.type = 'button';
+      cancel.onclick = () => { form.classList.remove('open'); };
+      const send = el('button', 'btn-mini primary', '送信する'); send.type = 'submit';
+      actions.append(cancel, send);
+      form.appendChild(actions);
+      form.onsubmit = async (ev) => {
+        ev.preventDefault();
+        err.hidden = true;
+        const author = name.value.trim();
+        const body = ta.value.trim();
+        if (!author || !body) { err.textContent = 'お名前とコメントの両方を入力してください。'; err.hidden = false; return; }
+        send.disabled = true; cancel.disabled = true;
+        try {
+          await postJson(`/api/partner-status/${encodeURIComponent(token)}/projects/${p.id}/comments`, { author_name: author, body });
+          rememberName(author);
+          await loadStatus();
+        } catch (e) {
+          err.textContent = e.message; err.hidden = false;
+          send.disabled = false; cancel.disabled = false;
+        }
+      };
+      wrap.appendChild(form);
+      return { wrap, form };
+    }
+
+    function renderCard(p, isHidden) {
+      const card = el('div', 'card' + (isHidden ? ' hidden-card' : ''));
+
+      const top = el('div', 'card-top');
+      const left = el('div');
+      left.appendChild(el('div', 'p-name', p.project_name));
+      const meta = [];
+      if (p.received_date) meta.push(`受付日: ${fmtDate(p.received_date)}`);
+      if (p.quantity) meta.push(`数量: ${p.quantity}`);
+      if (isHidden && p.hidden_at) meta.push(`受け取り済みにした日: ${fmtDateTime(p.hidden_at)}`);
+      left.appendChild(el('div', 'p-meta', meta.join(' ／ ')));
+      top.appendChild(left);
+      top.appendChild(el('span', `stage-pill stage-${p.stage}`, p.stage_label));
+      card.appendChild(top);
+
+      const dl = el('div', 'deadline-row');
+      dl.appendChild(el('span', 'deadline-label', '納品予定日'));
+      dl.appendChild(el('span', 'deadline-date', p.deadline ? fmtDate(p.deadline) : '未定'));
+      if (p.deadline) {
+        const remain = daysUntil(p.deadline);
+        if (remain >= 0 && remain <= 3) dl.appendChild(el('span', 'deadline-soon', remain === 0 ? '本日予定' : 'まもなく'));
+      }
+      card.appendChild(dl);
+
+      const steps = el('div', 'steps');
+      STAGE_NAMES.forEach((name, i) => {
+        const step = el('div', 'step' + (i < p.stage ? ' done' : ''));
+        step.appendChild(el('div', 'bar'));
+        step.appendChild(el('div', 'lbl', name));
+        steps.appendChild(step);
+      });
+      card.appendChild(steps);
+
+      const { wrap: comments, form } = renderComments(p);
+      const actions = el('div', 'card-actions');
+      const cBtn = el('button', 'btn-mini', '💬 コメントする'); cBtn.type = 'button';
+      cBtn.onclick = () => {
+        form.classList.toggle('open');
+        if (form.classList.contains('open')) form.querySelector('textarea').focus();
+      };
+      actions.appendChild(cBtn);
+      const hBtn = el('button', 'btn-mini' + (isHidden ? '' : ' done'), isHidden ? '↩ 進行中に戻す' : '✓ 受け取り済み');
+      hBtn.type = 'button';
+      hBtn.onclick = () => setHidden(p, !isHidden, hBtn);
+      actions.appendChild(hBtn);
+      card.appendChild(actions);
+      card.appendChild(comments);
+      return card;
+    }
+
     function renderActive(list) {
       const cards = document.getElementById('activeCards');
       cards.innerHTML = '';
       document.getElementById('activeCount').textContent = `${list.length}件`;
       document.getElementById('activeEmpty').hidden = list.length !== 0;
-      list.forEach(p => {
-        const card = el('div', 'card');
+      list.forEach(p => cards.appendChild(renderCard(p, false)));
+    }
 
-        const top = el('div', 'card-top');
-        const left = el('div');
-        left.appendChild(el('div', 'p-name', p.project_name));
-        const meta = [];
-        if (p.received_date) meta.push(`受付日: ${fmtDate(p.received_date)}`);
-        if (p.quantity) meta.push(`数量: ${p.quantity}`);
-        left.appendChild(el('div', 'p-meta', meta.join(' ／ ')));
-        top.appendChild(left);
-        top.appendChild(el('span', `stage-pill stage-${p.stage}`, p.stage_label));
-        card.appendChild(top);
-
-        const dl = el('div', 'deadline-row');
-        dl.appendChild(el('span', 'deadline-label', '納品予定日'));
-        dl.appendChild(el('span', 'deadline-date', fmtDate(p.deadline)));
-        const remain = daysUntil(p.deadline);
-        if (remain >= 0 && remain <= 3) dl.appendChild(el('span', 'deadline-soon', remain === 0 ? '本日予定' : 'まもなく'));
-        card.appendChild(dl);
-
-        const steps = el('div', 'steps');
-        STAGE_NAMES.forEach((name, i) => {
-          const step = el('div', 'step' + (i < p.stage ? ' done' : ''));
-          step.appendChild(el('div', 'bar'));
-          step.appendChild(el('div', 'lbl', name));
-          steps.appendChild(step);
-        });
-        card.appendChild(steps);
-
-        cards.appendChild(card);
-      });
+    // 受け取り済みにした案件(HiYOSHi側では未納品)。折りたたみで見せて取り消せるようにする
+    let hiddenOpen = false;
+    let lastHidden = [];
+    function renderHidden(list) {
+      const toggle = document.getElementById('hiddenToggle');
+      const btn = document.getElementById('hiddenToggleBtn');
+      const cards = document.getElementById('hiddenCards');
+      cards.innerHTML = '';
+      toggle.hidden = list.length === 0;
+      if (list.length === 0) { cards.hidden = true; hiddenOpen = false; return; }
+      btn.textContent = `${hiddenOpen ? '▲' : '▼'} 受け取り済みにした案件(${list.length}件)を${hiddenOpen ? '閉じる' : '表示'}`;
+      cards.hidden = !hiddenOpen;
+      list.forEach(p => cards.appendChild(renderCard(p, true)));
+    }
+    function toggleHidden() {
+      hiddenOpen = !hiddenOpen;
+      renderHidden(lastHidden);
     }
 
     function renderDelivered(list) {
@@ -219,6 +376,8 @@
         badge.textContent = `${data.partner_name} 様`;
         badge.hidden = false;
         renderActive(data.active || []);
+        lastHidden = data.hidden || [];
+        renderHidden(lastHidden);
         renderDelivered(data.delivered || []);
         document.getElementById('activeSection').hidden = false;
         document.getElementById('doneSection').hidden = false;
