@@ -15,9 +15,13 @@
       持込料のみ。2026-09-01 社長確定)
    価格データはすべて quote-sim-data.js(出典コメントあり)。
    割引はこの画面だけの機能(サイトには無い):
-   - 距離基準プリセット(10〜50%)…1枚単価(ボディ+加工)に適用。
-     製版代・パンチング代などの初期費用は割引対象外(実費)
-   - 社員特価…ボディ=推定仕入値(表示価格×0.55)+加工賃50%OFF
+   - 距離基準プリセット(10〜50%)…**加工1箇所の単価だけ**に適用(2026-09-18 社長決定。
+     ボディは上代×0.55の薄い粗利なので割引を乗せない)。
+     製版代・パンチング代などの初期費用・袋入れ・送料は割引対象外(実費)
+   - 社員特価…ボディ=推定仕入値(表示価格×0.55)+加工賃50%OFF(ボディだけ例外的に触る)
+   - 枚数単価の段の指定(加工行ごと)…率で引く代わりに「10枚〜の段の単価」のように
+     枚数帯を手で選べる(2026-09-18 鈴木さん要望・社長決定)。実枚数より上の段を選ぶと
+     割引と同じく社長承認ゲートの対象になる
    ========================================================= */
 (function () {
   'use strict';
@@ -53,6 +57,17 @@
       if (qty >= t) hit = t;
     }
     return hit;
+  }
+
+  /** 加工行に出す「枚数単価の段」の候補(その加工が参照する料金表の段の枚数)。自動はシルク+DTFの和集合 */
+  function tierKeysFor(row) {
+    const tbl = activeTables();
+    const set = new Set();
+    const add = (t) => t && Object.keys(t).forEach((k) => set.add(Number(k)));
+    if (row.method === 'rubber') add(tbl.rubber[row.size] || tbl.rubber.A4);
+    if (row.method === 'dtf' || row.method === 'auto') add(tbl.dtf[row.size] || tbl.dtf.A4);
+    if (row.method === 'silk' || row.method === 'auto') add(tbl.silk.print[row.colors === 'full' ? 1 : Math.min(row.colors, tbl.silk.maxColors)]);
+    return [...set].sort((a, b) => a - b);
   }
 
   /* ---------- 価格表の切り替え ----------
@@ -98,6 +113,8 @@
       locationName: '',
       // 追加注文などで版・刺繍データが既にあるとき、初期費用(製版代・パンチング代)を外す
       noInitial: false,
+      // 枚数単価の段の指定。null=自動(実枚数で判定)、数値=その段(10枚〜など)の単価で計算する
+      tierQty: null,
     });
   }
 
@@ -407,9 +424,21 @@
     // 製版代・パンチング代(initial)は版の数ぶんなので、行につき1回だけ数える
     const lines = rows.map((r) => {
       const targets = bodyCalcs.filter((bc) => rowAppliesTo(r, bc.b.id));
-      const tierQty = targets.reduce((s, bc) => s + bc.qty, 0) || qty || 1;
+      const actualQty = targets.reduce((s, bc) => s + bc.qty, 0) || qty || 1;
+      /* 枚数単価の段の指定(2026-09-18)。実枚数より上の段を選んだときだけ「特別対応」として
+         扱う(単価が下がる=値引きなので社長承認ゲートの対象)。実枚数以下の段は自動判定と
+         同じか高くなるだけなので、指定は無視して自動に戻す(八木繊維様モードも指定なし) */
+      const wantOver = Boolean(r.tierQty) && !isYagi() && r.tierQty > actualQty;
+      // 段を上げても単価が変わらない(例: シルク3枚で10枚〜=自動判定と同じ「10枚時×1.5」)なら特別対応にしない
+      const tierOver = wantOver && targets.some((bc) => calcRow(r, r.tierQty, bc.qty, opt).unit < calcRow(r, actualQty, bc.qty, opt).unit);
+      const tierQty = tierOver ? r.tierQty : actualQty;
       const byBody = new Map();
-      targets.forEach((bc) => byBody.set(bc.b.id, calcRow(r, tierQty, bc.qty, opt)));
+      targets.forEach((bc) => {
+        const eff = calcRow(r, tierQty, bc.qty, opt);
+        // 自動判定なら幾らだったか(見積書の摘要に「通常価格→」で残すため)
+        const listUnit = tierOver ? calcRow(r, actualQty, bc.qty, opt).unit : eff.unit;
+        byBody.set(bc.b.id, { ...eff, listUnit });
+      });
       // 表(内訳表示)に出す代表値は、ミニマムのかからない側=単価が安いほう
       const rep = byBody.size
         ? [...byBody.values()].reduce((a, x) => (x.unit < a.unit ? x : a))
@@ -417,6 +446,7 @@
       const varies = byBody.size > 1 && new Set([...byBody.values()].map((x) => x.unit)).size > 1;
       return {
         ...rep, byBody, varies,
+        tierOver, tierQty: tierOver ? tierQty : null, actualQty,
         locationName: String(r.locationName || '').trim(),
         targetIds: targets.map((t) => t.b.id),
         targetNames: targets.map((t) => t.info.short),
@@ -430,10 +460,14 @@
     if (d.key === 'staff') {
       discountNote = '社員特価: ボディ推定仕入値(表示価格×0.55・要実額確認)+加工賃50%OFF';
     } else if (d.rate > 0) {
-      discountNote = `${d.name} ${d.rate}%OFF(1枚単価に適用・初期費用は対象外)`;
+      discountNote = `${d.name} ${d.rate}%OFF(加工代に適用・ボディ代と初期費用は対象外)`;
     }
+    const tierLines = lines.filter((l) => l.tierOver);
+    const tierNote = tierLines.length
+      ? `枚数単価の特別適用: ${tierLines.map((l) => `${l.cust || l.label}=${l.tierQty}枚〜の段(実枚数${l.actualQty}枚)`).join('・')}`
+      : '';
 
-    /* 割引は「ボディ」と「加工1箇所」のそれぞれに掛ける。
+    /* 割引は「加工1箇所」の単価に掛ける(ボディには掛けない・2026-09-18 社長決定)。
        ★明細を1行ずつに割る都合上、**行の単価を先に確定させて積み上げる**。
          1枚あたりも小計もこの積み上げから出すので、画面の金額とfreeeの見積書が
          構造的にズレない(合計に1回だけ割引を掛ける作りだと1円ズレが出る) */
@@ -441,6 +475,7 @@
       // 社員特価: ボディは推定仕入値(表示価格×0.55)、加工賃は半額
       // 割引後の単価も1円単位の端数が出ないよう10円単位へ切り上げる
       if (d.key === 'staff') return up10(u * (kind === 'body' ? 0.55 : 0.5));
+      if (kind === 'body') return u; // 距離割引・任意%はボディに乗せない
       if (d.rate > 0) return up10((u * (100 - d.rate)) / 100);
       return u;
     };
@@ -459,6 +494,8 @@
           kind: 'print', label: c.cust || c.label, location: l.locationName,
           minFee: c.minFee, initialWaived: c.initialWaived, waivedNote: c.waivedNote,
           bodyShort: bc.info.short, qty: bc.qty, unitName: '式',
+          // listUnit=自動判定の単価 / unitBefore=枚数単価の段を適用した単価 / unit=割引率も掛けた単価
+          listUnit: c.listUnit, tierOver: l.tierOver, tierQty: l.tierQty, actualQty: l.actualQty,
           unitBefore: c.unit, unit: discountUnit(c.unit, 'print'),
         };
       });
@@ -509,7 +546,7 @@
       quoteOnlyNames: bodyCalcs.filter((bc) => bc.info.quoteOnly).map((bc) => bc.info.name),
       quoteOnlyReasons: bodyCalcs.filter((bc) => bc.info.quoteOnly).map((bc) => bc.info.quoteReason),
       unitBefore: groups[0].unitBefore, unitAfter: groups[0].unitAfter,
-      discount: d, discountNote, bag, items,
+      discount: d, discountNote, tierNote, tierOver: tierLines.length > 0, bag, items,
       initial, shipping, subtotal, tax, total,
       perPieceAll: Math.round(subtotal / qty),
       // 卸表の「100枚以上は要相談」。概算は出すが目立つ警告を添える(2026-08-20社長判断)
@@ -903,6 +940,18 @@
       html += `<label class="qs-check"><input type="checkbox" data-noinit${row.noInitial ? ' checked' : ''}>
         ${initialName}を含めない(追加注文・データ作成済み)</label>`;
     }
+    /* 枚数単価の段の指定(2026-09-18)。率で引く代わりに「10枚〜の段の単価」で見積を出したいとき用。
+       枚数帯のある加工(シルク・DTF・ラバー・自動)だけに出す。八木繊維様モードは卸価格なので出さない */
+    if (['auto', 'silk', 'dtf', 'rubber'].includes(row.method) && !isYagi()) {
+      const keys = tierKeysFor(row);
+      html += `<label>枚数単価の段(通常は自動)
+        <select data-tier>
+          <option value="">自動(実枚数で判定)</option>
+          ${keys.map((k) => `<option value="${k}"${row.tierQty === k ? ' selected' : ''}>${k}枚〜の段の単価で計算</option>`).join('')}
+        </select>
+      </label>
+      <div class="qs-note">実枚数より上の段を選ぶと特別対応(値引き)になり、社長の承認欄が出ます</div>`;
+    }
 
     // 割増オプション(方法に関係するものだけ表示)
     const nylonSheets = ['sheetNylon', 'sheetNylonGold', 'sheetNylonRef'];
@@ -948,6 +997,7 @@
           : (f === 'embSize') ? +input.value : input.value;
         if (f === 'method') {
           if (row.method === 'rubber' && row.size === 'B8') row.size = 'B7';
+          row.tierQty = null; // 加工方法が変われば段の候補も変わるので自動に戻す
           renderRowBody(row);
         }
         recalc();
@@ -958,6 +1008,8 @@
     if (locInput) locInput.oninput = () => { row.locationName = locInput.value; recalc(); };
     const noInit = box.querySelector('[data-noinit]');
     if (noInit) noInit.onchange = () => { row.noInitial = noInit.checked; recalc(); };
+    const tierSel = box.querySelector('[data-tier]');
+    if (tierSel) tierSel.onchange = () => { row.tierQty = tierSel.value ? Number(tierSel.value) : null; recalc(); };
     box.querySelectorAll('[data-sur]').forEach((cb) => {
       cb.onchange = () => {
         cb.checked ? row.surcharges.add(cb.dataset.sur) : row.surcharges.delete(cb.dataset.sur);
@@ -1005,7 +1057,9 @@
       r.lines.forEach((l) => {
         // 複数ボディのときは、その加工がどのボディに載るかを添える
         const target = r.multiBody ? `<div class="qs-note">対象: ${l.targetNames.join('・') || 'なし'}${l.varies ? '(10枚未満のボディはミニマム手数料で単価が上がります)' : ''}</div>` : '';
-        rowsHtml += `<tr><td>${l.label}${l.note ? `<div class="qs-note">${l.note}</div>` : ''}${target}</td><td class="qs-num">${yen(l.unit)}</td></tr>`;
+        const tier = l.tierOver
+          ? `<div class="qs-note">枚数単価: ${l.tierQty}枚〜の段を適用(実枚数${l.actualQty}枚・自動判定なら${yen(l.listUnit)})</div>` : '';
+        rowsHtml += `<tr><td>${l.label}${l.note ? `<div class="qs-note">${l.note}</div>` : ''}${tier}${target}</td><td class="qs-num">${yen(l.unit)}${l.tierOver ? ` <s>${yen(l.listUnit)}</s>` : ''}</td></tr>`;
         if (l.initial) rowsHtml += `<tr class="qs-initial"><td>└ ${l.initialLabel}</td><td class="qs-num">${yen(l.initial)}</td></tr>`;
       });
     } else {
@@ -1018,8 +1072,9 @@
       });
     }
     if (r.bag) rowsHtml += `<tr><td>${r.bag.name}(割引対象外)</td><td class="qs-num">${yen(r.bag.unit)}</td></tr>`;
-    const discountRow = r.discountNote
-      ? `<tr class="qs-discount"><td>${r.discountNote}</td><td class="qs-num">${multi ? '下記参照' : `${yen(r.unitAfter)}/枚`}</td></tr>` : '';
+    const discountRow = (r.discountNote
+      ? `<tr class="qs-discount"><td>${r.discountNote}</td><td class="qs-num">${multi ? '下記参照' : `${yen(r.unitAfter)}/枚`}</td></tr>` : '')
+      + (r.tierNote ? `<tr class="qs-discount"><td>${r.tierNote}</td><td class="qs-num"></td></tr>` : '');
 
     // 1枚あたり。内訳があるときはグループごとに並べる
     const unitHtml = multi
@@ -1129,8 +1184,13 @@
         // ボディ(品番と名称)・初期費用・袋入れ・送料は摘要の頭に書く
         bits.unshift(x.label);
       }
-      // 割引が乗った行にだけ「通常価格→割引後」を書く(初期費用・実費は対象外なので出ない)
-      if (x.unit !== x.unitBefore) {
+      // 割引が乗った行にだけ「通常価格→割引後」を書く(初期費用・実費は対象外なので出ない)。
+      // 枚数単価の段を指定した行は、通常価格(自動判定の単価)→適用した段 の順に書き、割引率が重なればさらに続ける
+      if (x.tierOver) {
+        const steps = [`通常価格 ${x.listUnit.toLocaleString()}円 → ${x.tierQty}枚〜の枚数単価 ${x.unitBefore.toLocaleString()}円を特別適用`];
+        if (x.unit !== x.unitBefore) steps.push(r.discount.key === 'staff' ? '社員特価' : `特別割引 ${r.discount.rate}%OFF`);
+        bits.push(steps.join(' → '));
+      } else if (x.unit !== x.unitBefore) {
         bits.push(r.discount.key === 'staff'
           ? `社員特価(通常価格 ${x.unitBefore.toLocaleString()}円)`
           : `通常価格 ${x.unitBefore.toLocaleString()}円 → 特別割引 ${r.discount.rate}%OFF`);
@@ -1231,7 +1291,16 @@
      ★歯止めは運用ルールではなく画面で担保する(2026-08-20 社長指示) */
   function isDiscounted() {
     const d = currentDiscountForMode();
-    return d.key === 'staff' || d.rate > 0;
+    // 枚数単価の段を実枚数より上に指定した行も値引きなので、同じゲートを通す(2026-09-18)
+    return d.key === 'staff' || d.rate > 0 || Boolean(lastResult && lastResult.tierOver);
+  }
+  /** 案件・freeeに残す割引の名前。割引率と枚数単価の特別適用が重なれば両方書く */
+  function discountLabelForSave() {
+    const d = currentDiscountForMode();
+    const parts = [];
+    if (d.key !== 'none') parts.push(d.name);
+    if (lastResult && lastResult.tierOver) parts.push('枚数単価の特別適用');
+    return parts.length ? parts.join('+') : null;
   }
   function currentDiscountForMode() {
     const mode = currentMode();
@@ -1247,7 +1316,7 @@
   function approvalOk() {
     if (!isDiscounted()) return true;
     if (!el('approval-check').checked) {
-      HiUI.toast('割引を適用した見積です。社長の承認チェックを入れてください');
+      HiUI.toast('割引(または枚数単価の特別適用)を含む見積です。社長の承認チェックを入れてください');
       el('approval-box').scrollIntoView({ block: 'center' });
       return false;
     }
@@ -1386,7 +1455,7 @@
         body: JSON.stringify({
           sheet_text: sheetText(sh),
           total: sh.total,
-          discount_name: (d.key === 'none') ? null : d.name,
+          discount_name: discountLabelForSave(),
           approved_by: el('approval-by').value.trim() || null,
         }),
       });
@@ -1552,7 +1621,7 @@
           partner: { id: partner.id, name: partner.name, display_name: el('freee-display-name').value.trim() || null },
           case_id: linkedCase ? linkedCase.id : null,
           sheet_text: sheetText(sh),
-          discount_name: (d.key === 'none') ? null : d.name,
+          discount_name: discountLabelForSave(),
           approved_by: el('approval-by').value.trim() || null,
         }),
       });

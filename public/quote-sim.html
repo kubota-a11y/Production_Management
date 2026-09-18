@@ -74,6 +74,7 @@
             <div class="qs-block" id="discount-block">
               <div class="form-label">割引(距離基準・2026-07-17決定)</div>
               <div id="discounts" class="qs-discounts"></div>
+              <div class="qs-note">割引率は加工代だけに掛かります(ボディ代・製版代などの初期費用・袋入れ・送料は対象外・2026-09-18変更)。率ではなく「10枚〜の段の単価」で出したいときは、各加工行の「枚数単価の段」で選んでください</div>
             </div>
           </div>
 
@@ -121,8 +122,8 @@
 
           <!-- 割引を適用したときだけ出る。承認が入るまで転記シートは使えない -->
           <div id="approval-box" class="qs-approval" hidden>
-            <div class="qs-approval-title">⚠️ 割引を適用しています</div>
-            <p>値引きの判断は社長の確認が必要です。確認が取れてからチェックを入れてください。</p>
+            <div class="qs-approval-title">⚠️ 割引(または枚数単価の特別適用)を含む見積です</div>
+            <p>値引き(割引率・実枚数より上の枚数単価の段)の判断は社長の確認が必要です。確認が取れてからチェックを入れてください。</p>
             <label class="qs-check"><input type="checkbox" id="approval-check"> 社長の承認を受けました</label>
             <label>承認を受けた方 <input type="text" id="approval-by" placeholder="例: 久保田"></label>
           </div>
