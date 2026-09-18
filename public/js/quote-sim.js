@@ -264,6 +264,9 @@
       return {
         name: `${hit.name}(${hit.sku})`, short: hit.sku, cat: hit.cat, unit: hit.body,
         quoteOnly: window.QS_isQuoteOnly(hit), quoteReason: window.QS_quoteOnlyReason(hit),
+        // 仕入値の推定係数。上代あり=表示価格×0.55(上代×0.55で作った単価なので仕入値は別途)、
+        // OPEN PRICE品(open)=下代÷0.65で作った単価なので 表示価格×0.65 が下代(2026-09-18)
+        costRate: hit.open ? 0.65 : 0.55,
       };
     }
     const manual = parseInt(b.manual, 10);
@@ -458,7 +461,7 @@
     const d = isYagi() ? { key: 'none', rate: 0, name: '割引なし' } : currentDiscount();
     let discountNote = '';
     if (d.key === 'staff') {
-      discountNote = '社員特価: ボディ推定仕入値(表示価格×0.55・要実額確認)+加工賃50%OFF';
+      discountNote = '社員特価: ボディ推定仕入値(表示価格×0.55・OPEN PRICE品は×0.65・要実額確認)+加工賃50%OFF';
     } else if (d.rate > 0) {
       discountNote = `${d.name} ${d.rate}%OFF(加工代に適用・ボディ代と初期費用は対象外)`;
     }
@@ -471,10 +474,10 @@
        ★明細を1行ずつに割る都合上、**行の単価を先に確定させて積み上げる**。
          1枚あたりも小計もこの積み上げから出すので、画面の金額とfreeeの見積書が
          構造的にズレない(合計に1回だけ割引を掛ける作りだと1円ズレが出る) */
-    const discountUnit = (u, kind) => {
-      // 社員特価: ボディは推定仕入値(表示価格×0.55)、加工賃は半額
+    const discountUnit = (u, kind, costRate) => {
+      // 社員特価: ボディは推定仕入値(表示価格×0.55・OPEN PRICE品は×0.65)、加工賃は半額
       // 割引後の単価も1円単位の端数が出ないよう10円単位へ切り上げる
-      if (d.key === 'staff') return up10(u * (kind === 'body' ? 0.55 : 0.5));
+      if (d.key === 'staff') return up10(u * (kind === 'body' ? (costRate || 0.55) : 0.5));
       if (kind === 'body') return u; // 距離割引・任意%はボディに乗せない
       if (d.rate > 0) return up10((u * (100 - d.rate)) / 100);
       return u;
@@ -503,7 +506,8 @@
       const printAfter = printItems.reduce((s, x) => s + x.unit, 0);
 
       bc.groups.forEach((g) => {
-        const bodyAfter = bc.info.none ? 0 : discountUnit(g.bodyUnit, 'body');
+        const costRate = bc.info.costRate || 0.55;
+        const bodyAfter = bc.info.none ? 0 : discountUnit(g.bodyUnit, 'body', costRate);
         // ボディなし(加工のみ)のときは行を作らない
         if (!bc.info.none) {
           items.push({
@@ -514,8 +518,8 @@
         }
         g.unitBefore = g.bodyUnit + printBefore;
         g.unitAfter = bodyAfter + printAfter;
-        if (d.key === 'staff') g.cost = Math.round(g.bodyUnit * 0.55); // 推定仕入値(税抜)
-        groups.push({ ...g, parts, bodyId: bc.b.id, bodyName: bc.info.name, bodyShort: bc.info.short });
+        if (d.key === 'staff') g.cost = Math.round(g.bodyUnit * costRate); // 推定仕入値(税抜)
+        groups.push({ ...g, parts, costRate, bodyId: bc.b.id, bodyName: bc.info.name, bodyShort: bc.info.short });
       });
       items.push(...printItems);
     });
@@ -1085,10 +1089,10 @@
     // 原価・粗利(トグル)。内訳があるときはグループごとの推定仕入で合算する(すべて税抜)
     let costHtml = '';
     if (el('toggle-cost').checked && r.mode !== 'kratvs' && r.groups.some((g) => g.bodyUnit > 0)) {
-      const cost = r.groups.reduce((s, g) => s + Math.round(g.bodyUnit * 0.55) * g.qty, 0);
+      const cost = r.groups.reduce((s, g) => s + Math.round(g.bodyUnit * (g.costRate || 0.55)) * g.qty, 0);
       const profit = r.subtotal - cost - r.shipping - (r.bag ? r.bag.unit * r.qty : 0);
       costHtml = `<div class="qs-cost">
-        <b>原価めやす(社外秘)</b> ボディ推定仕入 合計${yen(cost)}(表示価格×0.55・要実額確認)
+        <b>原価めやす(社外秘)</b> ボディ推定仕入 合計${yen(cost)}(表示価格×0.55・OPEN PRICE品は×0.65・要実額確認)
         → 粗利 ${yen(profit)}(${Math.round(profit / r.subtotal * 100)}%)※加工材料費・人件費は含まず</div>`;
     }
 
