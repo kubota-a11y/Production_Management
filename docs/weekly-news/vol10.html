@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>社内システムお知らせ Vol.10(A4印刷用)</title>
+<style>
+  /* A4印刷用。Chromeのヘッドレス印刷でPDF化する(生成手順はdocs/weekly-news/README.md参照) */
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #1c1917;
+    --text: #44403c;
+    --muted: #78716c;
+    --hairline: #e7e2dc;
+    --accent-bg: #f5f2ee;
+    --ask-bg: #f2f6f3;
+    --ask-line: #cfdfd4;
+    --ask-text: #3f6b50;
+    --serif: "Hiragino Mincho ProN", "Yu Mincho", serif;
+    --sans: "Hiragino Sans", "Noto Sans JP", sans-serif;
+  }
+
+  body {
+    font-family: var(--sans);
+    color: var(--text);
+    line-height: 1.65;
+    font-size: 9pt;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .page {
+    width: 210mm; height: 297mm;
+    padding: 14mm 18mm 13mm;
+    page-break-after: always;
+    position: relative;
+    background: #fff;
+  }
+  .page:last-child { page-break-after: auto; }
+
+  /* ===== ヘッダー ===== */
+  .hero { text-align: center; margin-bottom: 5.5mm; }
+  .overline {
+    font-size: 7pt; letter-spacing: .32em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 2mm;
+  }
+  h1 {
+    font-family: var(--serif); font-size: 19pt; font-weight: 600;
+    letter-spacing: .12em; color: var(--ink);
+  }
+  .hero.sub h1 { font-size: 15pt; }
+  .divider { width: 12mm; height: .35mm; background: var(--ink); margin: 3.2mm auto; }
+  .lead { color: var(--muted); font-size: 8.4pt; }
+
+  .intro {
+    background: var(--accent-bg);
+    border-radius: 1.5mm;
+    padding: 3.2mm 5mm;
+    margin-bottom: 5.5mm;
+    font-size: 8.8pt;
+  }
+  .intro strong { color: var(--ink); }
+
+  /* ===== セクション ===== */
+  .sec { margin-bottom: 4.8mm; }
+  .sec-head {
+    display: flex; align-items: baseline; gap: 3mm;
+    border-bottom: .3mm solid var(--ink);
+    padding-bottom: 1.2mm; margin-bottom: 2mm;
+  }
+  .sec-head h2 {
+    font-family: var(--serif); font-size: 11.5pt; font-weight: 600;
+    letter-spacing: .08em; color: var(--ink);
+  }
+  .sec-head .sub { margin-left: auto; font-size: 7.2pt; color: var(--muted); letter-spacing: .06em; }
+
+  ul.items { list-style: none; }
+  ul.items li {
+    position: relative;
+    padding-left: 4.2mm;
+    margin-bottom: 1.1mm;
+  }
+  ul.items li::before {
+    content: ""; position: absolute; left: .6mm; top: 2mm;
+    width: 1.5mm; height: 1.5mm; border-radius: 50%;
+    background: var(--ink);
+  }
+  ul.items strong { color: var(--ink); font-weight: 600; }
+  .note { color: var(--muted); font-size: 8.2pt; }
+
+  /* ===== テーマ見出し ===== */
+  .theme {
+    display: inline-block;
+    font-size: 7pt; font-weight: 600; letter-spacing: .14em;
+    color: #fff; background: var(--ink);
+    padding: .4mm 2.6mm; border-radius: .8mm;
+    margin-right: 2mm; vertical-align: middle;
+    white-space: nowrap; flex: none;
+  }
+
+  /* ===== 対象バッジ ===== */
+  .aud {
+    display: inline-block;
+    font-size: 6.8pt; font-weight: 600; letter-spacing: .1em;
+    padding: .3mm 2.2mm; border-radius: 3mm;
+    margin-left: 2mm; vertical-align: middle;
+    white-space: nowrap;
+  }
+  .aud-staff { border: .25mm solid var(--muted); color: var(--muted); background: #fff; }
+  .aud-all { border: .25mm solid var(--ask-line); color: var(--ask-text); background: var(--ask-bg); }
+
+  /* ===== 段階の流れ図 ===== */
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 1.4mm;
+    background: var(--accent-bg);
+    border-radius: 1.5mm;
+    padding: 2.4mm 3mm;
+    margin-bottom: 2.4mm;
+    font-size: 8pt;
+  }
+  .flow span {
+    background: #fff; border: .25mm solid var(--hairline); border-radius: .8mm;
+    padding: .5mm 2.2mm; color: var(--ink); font-weight: 600;
+  }
+  .flow em { font-style: normal; color: var(--muted); align-self: center; }
+
+  /* ===== お願いボックス ===== */
+  .ask {
+    background: var(--ask-bg);
+    border: .3mm solid var(--ask-line);
+    border-radius: 1.5mm;
+    padding: 3.2mm 5mm 2.8mm;
+    margin-top: 5mm;
+  }
+  .ask h3 {
+    font-family: var(--serif); font-size: 10.5pt; font-weight: 600;
+    letter-spacing: .1em; color: var(--ask-text); margin-bottom: 1.6mm;
+  }
+  .ask ul.items li::before { background: var(--ask-text); }
+
+  /* ===== フッター ===== */
+  .foot {
+    position: absolute; left: 18mm; right: 18mm; bottom: 9mm;
+    border-top: .3mm solid var(--hairline);
+    padding-top: 2mm;
+    display: flex; justify-content: space-between;
+    font-size: 7.2pt; color: var(--muted); letter-spacing: .06em;
+  }
+</style>
+</head>
+<body>
+
+
+<div class="page">
+  <header class="hero">
+    <div class="overline">HIYOSHI DX WEEKLY</div>
+    <h1>社内システムお知らせ</h1>
+    <div class="divider"></div>
+    <div class="lead">Vol.10 ─ 2026年9月24日発行 ─ 対象期間:9月15日〜9月22日</div>
+  </header>
+
+  <div class="intro">
+    今週は大きく2つです。<strong>①見積のお値引きが「加工代だけ」に掛かるようになりました</strong>。あわせて<strong>パーカー・スウェットなど41品番のボディ単価が上がりました</strong>。<strong>②取引先さま専用の納期確認ページに「受け取り済み」とコメント欄が付きました</strong>(コメントは案件のメモ欄に自動で入ります)。<br>
+    各見出しの右にある<span class="aud aud-staff">社員</span><span class="aud aud-all">全従業員</span>は、<strong>その項目を読んでいただきたい方</strong>の目安です。
+  </div>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">見積</span>
+      <h2>お値引きは「加工代」だけに掛かります</h2>
+      <span class="aud aud-staff">社員</span>
+      <span class="sub">9/18</span>
+    </div>
+    <div class="flow">
+      <span>ボディ代(無地の服)</span><em>…値引きなし</em><span>加工代(プリント・刺繍 1箇所)</span><em>…ここだけ値引き</em><span>製版代・袋入れ・送料</span><em>…従来どおり対象外</em>
+    </div>
+    <ul class="items">
+      <li>これまでは距離割引・任意%を<strong>ボディ代にも加工代にも掛けていました</strong>。ボディは仕入れに近い薄い利益で販売しているため、<strong>これからは加工1箇所の単価だけに掛かります</strong>。製版代・パンチング代・袋入れ・送料が対象外なのは今までどおりです。</li>
+      <li><strong>同じ割引率でも、見積の合計は今までより上がります。</strong>9月18日より前にお出しした見積を作り直すと<strong>金額が変わる</strong>ので、再発行のときは必ず前の見積書と見比べてください。</li>
+      <li>画面とfreeeの摘要には<strong>「◯%OFF(加工代に適用・ボディ代と初期費用は対象外)」</strong>と出ます。お客様に理由を聞かれたら<strong>「ウェア本体は値引きの対象外です」</strong>とお伝えください。</li>
+      <li class="note"><strong>社員特価</strong>だけは今までどおりボディも仕入値になります。<strong>KRATVSカスタムオーダー</strong>は完成品の価格のため、従来どおり全体に掛かります。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">見積</span>
+      <h2>値引きの代わりに「枚数単価の段」を選べます</h2>
+      <span class="aud aud-staff">社員</span>
+      <span class="sub">9/18</span>
+    </div>
+    <ul class="items">
+      <li><strong>「1枚だけれど10枚のときの単価で出したい」</strong>という出し方ができるようになりました。加工行の<strong>「枚数単価の段(通常は自動)」</strong>で段を選ぶだけです。%で引くより、お客様に金額の根拠を説明しやすくなります。</li>
+      <li><strong>実際の枚数より上の段を選んで、単価が本当に下がるときだけ</strong>効きます。実際の枚数以下の段を選んでも自動判定に戻るので、<strong>誤って高く出してしまう心配はありません</strong>。</li>
+      <li><strong>お値引きと同じ扱いです。使う前に必ず社長へご確認ください。</strong>使うと見積書に承認欄が出て、摘要に<strong>「通常価格 1,650円 → 10枚〜の枚数単価 980円を特別適用」</strong>と残ります。</li>
+      <li class="note">シルクの<strong>10枚未満の割増(ミニマム手数料)は実際の枚数で判定</strong>するため、段を上げても外れません。割引率と重ねて使うこともできます。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">見積</span>
+      <h2>パーカー・スウェットなど41品番の単価が上がりました</h2>
+      <span class="aud aud-staff">社員</span>
+      <span class="sub">9/18</span>
+    </div>
+    <ul class="items">
+      <li>メーカーの<strong>定価(参考上代)が載っていない品番</strong>は、これまで実態より安い単価になっていました。計算の仕方を見直し、<strong>41品番の単価を引き上げました</strong>。例:United Athle 7230-01 シェルパーカ → <strong>6,080円(税抜)</strong>。</li>
+      <li>対象はUnited Athleの<strong>スウェット・ビッグシルエット・シェル・中綿・ボア・ダックキャンバスなど33品番</strong>と、SLOTH(品番の頭がCJ・ST)の8品番です。<strong>定価のある品番・Printstar・glimmerは変更ありません</strong>。</li>
+      <li><strong>HiBoardの見積シミュレーターとコーポレートサイトの料金シミュレーターは、どちらも新しい単価に差し替え済み</strong>です。<strong>9月18日より前にお出しした見積の金額とは合わない</strong>ので、作り直しのときはご注意ください。</li>
+      <li class="note">「個別見積り」と出る品番は今までどおり概算を出さず、社長へご相談ください。</li>
+    </ul>
+  </section>
+
+  <div class="foot">
+    <span>有限会社HiYOSHi ─ 社内システムお知らせ Vol.10</span>
+    <span>1 / 2</span>
+  </div>
+</div>
+
+<div class="page">
+  <header class="hero sub">
+    <div class="overline">WEEKLY UPDATE</div>
+    <h1>取引先さまの納期確認ページ</h1>
+    <div class="divider"></div>
+    <div class="lead">Vol.10 ─ 対象期間:9月15日〜9月22日</div>
+  </header>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">取引先</span>
+      <h2>「受け取り済み」とコメント欄が付きました</h2>
+      <span class="aud aud-all">全従業員</span>
+      <span class="sub">9/16</span>
+    </div>
+    <div class="flow">
+      <span>取引先さまがコメントを送る</span><em>→</em><span>案件のメモ欄の末尾に自動で追記</span><em>→</em><span>担当のGoogleチャットへ通知</span>
+    </div>
+    <ul class="items">
+      <li>取引先さまが商品を受け取ったら、ご自身の画面で<strong>「✓ 受け取り済み」</strong>を押せるようになりました。押された案件は<strong>先方の一覧から消えるだけ</strong>で、<strong>HiBoardの案件の状態・納品記録は一切変わりません</strong>。こちらの進め方は今までどおりです(先方が押し間違えても元に戻せます)。</li>
+      <li><strong>案件ごとにコメントをいただけるようになりました。</strong>急ぎの分の共有などが届きます。いただいたコメントは<strong>その案件のメモ欄の末尾に自動で追記</strong>され、<strong>担当のGoogleチャットにも通知</strong>が飛びます。案件詳細・編集画面をご覧いただければ、そのまま読めます。</li>
+      <li class="note">コメントはメモ欄へ直接書き込まれるため、<strong>案件の編集画面を長く開いたまま保存すると、その間に届いたコメントが消えてしまいます</strong>。編集画面は開きっぱなしにせず、こまめに保存してお閉じください。</li>
+      <li>取引先さまの<strong>加工依頼フォームは「ユーザー名」「メールアドレス」が必須</strong>になりました。受付の控えメールを先方へ確実にお届けするためと、<strong>受付番号と着用される会社・団体名の突き合わせ</strong>のためです。今後届く依頼には必ず両方が入っています。</li>
+    </ul>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <span class="theme">その他</span>
+      <h2>使い方ガイドも更新しています</h2>
+      <span class="aud aud-all">全従業員</span>
+      <span class="sub">9/16・9/18</span>
+    </div>
+    <ul class="items">
+      <li>今回の変更は<strong>使い方ガイド(/manual)</strong>にも反映済みです。見積シミュレーターの節に<strong>「お値引きの掛かる範囲」と「枚数単価の段」</strong>を、取引先の節に<strong>「受け取り済み」と「コメント」</strong>を追記しました。操作に迷ったらまずガイドをご覧ください。</li>
+    </ul>
+  </section>
+
+  <div class="ask">
+    <h3>皆さんへのお願い(今週からの動き方)</h3>
+    <ul class="items">
+      <li><strong>9月18日より前の見積を作り直すときは、必ず前の見積書と金額を見比べてください。</strong>お値引きが加工代だけになったことと、41品番のボディ単価が上がったことで<strong>合計が変わります</strong>。</li>
+      <li>お客様に値引きの範囲を聞かれたら<strong>「ウェア本体(ボディ代)と製版代・送料は対象外です」</strong>とお伝えください。</li>
+      <li><strong>「枚数単価の段」は割引と同じ扱いです。使う前に必ず社長へご確認ください。</strong>自己判断で段を上げないようにお願いします。</li>
+      <li>取引先さまのコメントは<strong>案件のメモ欄に入ります</strong>。<strong>案件の編集画面を開いたままにしない</strong>でください(届いたコメントが消えます)。</li>
+      <li>価格のことでご不明な点や、価格表と実態が合わないと感じたときは、<strong>その場で即答せず社長へご相談ください</strong>。納期と価格をその場で答えないのは今までどおりです。</li>
+    </ul>
+  </div>
+
+  <div class="note" style="margin-top: 2.4mm; text-align: right;">次号予定:2026年9月28日(月)</div>
+
+  <div class="foot">
+    <span>有限会社HiYOSHi ─ 社内システムお知らせ Vol.10</span>
+    <span>2 / 2</span>
+  </div>
+</div>
+
+</body>
+</html>
