@@ -11,6 +11,7 @@ description: 毎週月曜の社員向け「社内システムお知らせ」(A4�
 ## 手順
 
 1. **前号の確認**: `docs/weekly-news/README.md` の発行履歴表を読み、最新号の号数と対象期間の終了日を得る。
+   同じREADMEの**「次号に持ち越す項目」の節も必ず読む**(git履歴の対象期間から外れるが載せると決めた項目。載せたらその行をREADMEから消す)。
 2. **履歴の収集**: 対象期間はその翌日〜今日。
    ```
    git log --since="<開始日>" --reverse --date=format:'%m/%d' --pretty=format:'%ad | %s'
