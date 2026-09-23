@@ -1,0 +1,300 @@
+// ========================================
+// 公式LINE AI受付「返信キュー」(2026-09-24)
+// AIが作った返信の下書きを一覧→確認→[送信]/[直して送信]/[送らない]。
+// 送信は Messaging API の push(取り消せない)なので、送る前に必ず確認ダイアログを出す。
+// ========================================
+(function () {
+  'use strict';
+
+  const SENDER_KEY = 'hiboard.lineReply.sender';
+  const el = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const nl2br = (s) => esc(s).replace(/\n/g, '<br>');
+
+  const state = { status: 'pending', drafts: [], selectedId: null, detail: null, senders: [] };
+
+  async function getJson(url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }
+  async function postJson(url, body) {
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+    return res.json();
+  }
+
+  function fmtTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+  function elapsed(iso) {
+    if (!iso) return '';
+    const min = Math.round((Date.now() - Date.parse(iso)) / 60000);
+    if (min < 60) return `${min}分前`;
+    if (min < 60 * 24) return `${Math.floor(min / 60)}時間前`;
+    return `${Math.floor(min / 1440)}日前`;
+  }
+  const STATUS_LABEL = { pending: '待ち', sent: 'そのまま送信', edited: '直して送信', discarded: '送らない', superseded: '作り直し', auto_sent: '自動送信', error: 'エラー' };
+
+  function chip(text, cls) { return `<span class="lr-chip ${cls || ''}">${esc(text)}</span>`; }
+  function flagChips(flags) {
+    return (flags || []).map((f) => chip(f, f === '社長確認' || f === 'クレーム' ? 'lr-chip-danger' : f === '価格に触れた' || f === '納期に触れた' ? 'lr-chip-warn' : '')).join('');
+  }
+
+  // ---- 一覧 ----
+  async function loadList() {
+    const data = await getJson(`/api/line-reply?status=${encodeURIComponent(state.status)}`);
+    state.drafts = data.drafts;
+    el('lr-count-pending').textContent = data.pendingCount;
+    const c = data.config;
+    el('lr-status').textContent = `${c.enabled ? `AI下書き: 有効(${c.model})` : 'AI下書き: 停止中(ANTHROPIC_API_KEY 未設定または AI_REPLY_ENABLED=off)'}｜${c.now}｜時間外の自動送信: ${c.autoAfterHours ? 'オン' : 'オフ'}${c.dryRun ? '｜送信はdry-run(実際には送られません)' : ''}`;
+    renderList();
+    if (state.selectedId && !state.drafts.some((d) => d.id === state.selectedId) && state.status === 'pending') {
+      // 選択中の下書きが一覧から消えた(送信済みなど)ときは詳細をそのまま残す
+    }
+  }
+
+  function renderList() {
+    const list = el('lr-list');
+    if (!state.drafts.length) {
+      list.innerHTML = `<div class="empty-notice">${state.status === 'pending' ? '待っている下書きはありません。' : '該当する下書きはありません。'}</div>`;
+      return;
+    }
+    list.innerHTML = state.drafts.map((d) => {
+      const sel = d.id === state.selectedId ? ' is-selected' : '';
+      const noReply = d.category === '挨拶のみ';
+      return `
+        <article class="lr-card${sel}${noReply ? ' lr-card-muted' : ''}" data-id="${d.id}" id="draft-${d.id}" tabindex="0" role="button" aria-label="下書き #${d.id}">
+          <div class="lr-card-head">
+            <span class="lr-card-name">${esc(d.display_name || '(表示名なし)')}</span>
+            <span class="lr-card-time" title="${esc(fmtTime(d.last_inbound_at))}">${elapsed(d.last_inbound_at || d.created_at)}</span>
+          </div>
+          <div class="lr-card-chips">
+            ${chip(d.category || '(未分類)', 'lr-chip-cat')}
+            ${d.order_likelihood === 'high' ? chip('注文の可能性: 高', 'lr-chip-ok') : ''}
+            ${d.status !== 'pending' ? chip(STATUS_LABEL[d.status] || d.status, 'lr-chip-status') : ''}
+            ${flagChips(d.flags)}
+          </div>
+          <div class="lr-card-summary">${esc(d.summary || d.error || '')}</div>
+        </article>`;
+    }).join('');
+    list.querySelectorAll('.lr-card').forEach((card) => {
+      const open = () => selectDraft(parseInt(card.dataset.id, 10));
+      card.addEventListener('click', open);
+      card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+    });
+  }
+
+  // ---- 詳細 ----
+  async function selectDraft(id) {
+    state.selectedId = id;
+    renderList();
+    el('lr-detail').innerHTML = '<div class="folder-loading">読み込み中…</div>';
+    try {
+      state.detail = await getJson(`/api/line-reply/${id}`);
+      renderDetail();
+    } catch (err) {
+      el('lr-detail').innerHTML = `<div class="empty-notice">読み込みに失敗しました(${esc(err.message)})</div>`;
+    }
+  }
+
+  function bubble(m) {
+    const mine = m.direction === 'out';
+    let body;
+    if (m.message_type === 'text') body = nl2br(m.text_content);
+    else if (m.message_type === 'image' && m.image_path) body = `<a href="${API.getNasFileUrl(m.image_path)}" target="_blank" rel="noopener"><img class="lr-bubble-img" src="${API.getNasFileUrl(m.image_path)}" alt="お客様からの画像" loading="lazy"></a>`;
+    else body = `<span class="lr-bubble-other">[${esc(m.message_type)}]</span>`;
+    return `<div class="lr-bubble ${mine ? 'lr-bubble-out' : 'lr-bubble-in'}">
+      <div class="lr-bubble-meta">${mine ? `当社(${esc(m.sent_by || '担当')})` : 'お客様'}・${esc(fmtTime(m.received_at))}</div>
+      <div class="lr-bubble-body">${body}</div>
+    </div>`;
+  }
+
+  function renderDetail() {
+    const { draft: d, user, messages } = state.detail;
+    const pending = d.status === 'pending';
+    const patch = d.intake_patch || {};
+    const missing = (d.missing_info || []).length ? `<ul class="lr-missing">${d.missing_info.map((m) => `<li>${esc(m)}</li>`).join('')}</ul>` : '<span class="text-muted">なし</span>';
+    const tools = (d.tool_calls || []).length ? d.tool_calls.map((t) => `${t.name}${t.ok ? '' : '(失敗)'}`).join('・') : 'なし';
+    el('lr-detail').innerHTML = `
+      <div class="lr-detail-head">
+        <div>
+          <h2 class="lr-detail-name">${esc(d.display_name || '(表示名なし)')} <span class="text-muted">#${d.id}</span></h2>
+          <div class="lr-card-chips">
+            ${chip(d.category || '(未分類)', 'lr-chip-cat')}
+            ${chip(`注文タイプ: ${d.order_type || '不明'}`, '')}
+            ${d.order_likelihood === 'high' ? chip('注文の可能性: 高', 'lr-chip-ok') : chip('注文の可能性: 低', '')}
+            ${chip(STATUS_LABEL[d.status] || d.status, 'lr-chip-status')}
+            ${flagChips(d.flags)}
+            ${user && user.ai_reply_muted ? chip('AI下書き停止中', 'lr-chip-danger') : ''}
+            ${user && user.price_profile ? chip(`価格: ${user.price_profile}`, '') : ''}
+          </div>
+        </div>
+        <div class="lr-detail-actions">
+          <button type="button" class="btn btn-small btn-secondary" id="lr-regen">🔁 作り直す</button>
+          <button type="button" class="btn btn-small btn-ghost" id="lr-mute">${user && user.ai_reply_muted ? 'AI下書きを再開' : 'この相手のAI下書きを止める'}</button>
+        </div>
+      </div>
+
+      <div class="lr-detail-grid">
+        <section class="lr-conv" aria-label="やり取り">
+          <h3 class="lr-h3">やり取り(直近30日)</h3>
+          <div class="lr-conv-scroll" id="lr-conv">${messages.length ? messages.map(bubble).join('') : '<div class="empty-notice">履歴がありません</div>'}</div>
+          <form class="lr-manual" id="lr-manual-form">
+            <label for="lr-manual-text" class="form-label">自由に書いて送る(AIの下書きを使わない返信)</label>
+            <textarea id="lr-manual-text" rows="3" placeholder="ここに書いて送ると、この会話にそのまま送信されます"></textarea>
+            <div class="lr-manual-actions"><button type="submit" class="btn btn-small btn-secondary">この文で送信</button></div>
+          </form>
+        </section>
+
+        <section class="lr-draft" aria-label="AIの下書き">
+          <h3 class="lr-h3">AIの下書き <span class="text-muted">${esc(d.summary || '')}</span></h3>
+          ${d.error ? `<div class="lr-error">生成エラー: ${esc(d.error)}</div>` : ''}
+          <textarea id="lr-draft-text" rows="12" ${pending ? '' : 'readonly'}>${esc(pending ? d.reply_text : (d.final_text || d.reply_text || ''))}</textarea>
+          ${pending ? `
+          <div class="lr-draft-actions">
+            <button type="button" class="btn btn-primary" id="lr-send">📤 このまま送信</button>
+            <label class="lr-discard">
+              <select id="lr-discard-reason">
+                <option value="">送らない(理由を選ぶ)</option>
+                <option value="返信不要">返信不要だった</option>
+                <option value="自分で返した">別の方法で返した(LINEアプリ等)</option>
+                <option value="内容が違う">内容が違う・使えない</option>
+                <option value="人が判断">人が判断する案件</option>
+                <option value="その他">その他</option>
+              </select>
+            </label>
+          </div>` : `<p class="text-muted">${esc(STATUS_LABEL[d.status] || d.status)}${d.decided_by ? `・${esc(d.decided_by)}` : ''}${d.decided_at ? `・${esc(fmtTime(d.decided_at))}` : ''}${d.discard_reason ? `・理由: ${esc(d.discard_reason)}` : ''}${typeof d.edit_ratio === 'number' && d.status === 'edited' ? `・修正率 ${Math.round(d.edit_ratio * 100)}%` : ''}${typeof d.response_minutes === 'number' ? `・受信から${d.response_minutes}分` : ''}</p>`}
+
+          <details class="lr-more" open>
+            <summary>AIのメモ・足りない情報・受注候補に足せる情報</summary>
+            <dl class="lr-dl">
+              <dt>承認者向けメモ</dt><dd>${esc(patch.reasoning_note || 'なし')}</dd>
+              <dt>見積・受注に足りない情報</dt><dd>${missing}</dd>
+              <dt>受注候補に足せる情報</dt><dd>${['customer_name', 'items', 'quantity', 'deadline', 'notes'].filter((k) => patch[k]).map((k) => `${{ customer_name: '顧客名', items: '内容', quantity: '数量', deadline: '希望納期', notes: 'メモ' }[k]}: ${esc(patch[k])}`).join('<br>') || 'なし'}</dd>
+              <dt>使った価格ツール</dt><dd>${esc(tools)}</dd>
+              <dt>生成</dt><dd>${esc(d.model || '')}・${esc(fmtTime(d.created_at))}・確信度 ${typeof d.confidence === 'number' ? Math.round(d.confidence * 100) + '%' : '-'}・トークン in ${d.input_tokens || 0}(cache ${d.cache_read_tokens || 0})/out ${d.output_tokens || 0}</dd>
+            </dl>
+          </details>
+        </section>
+      </div>`;
+
+    const conv = el('lr-conv');
+    if (conv) conv.scrollTop = conv.scrollHeight;
+
+    if (pending) {
+      const ta = el('lr-draft-text');
+      const sendBtn = el('lr-send');
+      const syncLabel = () => { sendBtn.textContent = ta.value.trim() !== String(d.reply_text || '').trim() ? '📤 直して送信' : '📤 このまま送信'; };
+      ta.addEventListener('input', syncLabel);
+      syncLabel();
+      sendBtn.addEventListener('click', () => sendCurrent(d, ta.value));
+      el('lr-discard-reason').addEventListener('change', (e) => { if (e.target.value) discardCurrent(d, e.target.value); });
+    }
+    el('lr-regen').addEventListener('click', () => regenerate(d.line_user_id));
+    el('lr-mute').addEventListener('click', () => toggleMute(user));
+    el('lr-manual-form').addEventListener('submit', (e) => { e.preventDefault(); sendManual(d.line_user_id, el('lr-manual-text').value); });
+  }
+
+  function currentSender() {
+    const v = el('lr-sender').value;
+    if (!v) { HiUI.toast('送信者を選んでください', 'warning'); return null; }
+    return v;
+  }
+
+  async function sendCurrent(d, text) {
+    const sender = currentSender();
+    if (!sender) return;
+    const t = String(text || '').trim();
+    if (!t) { HiUI.toast('本文が空です', 'warning'); return; }
+    if (!confirm(`「${d.display_name || 'このお客様'}」へ公式LINEで送信します。送ると取り消せません。よろしいですか?\n\n${t.slice(0, 200)}${t.length > 200 ? '…' : ''}`)) return;
+    const r = await postJson(`/api/line-reply/${d.id}/send`, { text: t, sent_by: sender });
+    if (!r.ok) { HiUI.toast(r.error || '送信に失敗しました', 'error'); return; }
+    HiUI.toast(r.status === 'edited' ? '直した文で送信しました' : 'そのまま送信しました', 'success');
+    await loadList();
+    await selectDraft(d.id);
+  }
+
+  async function discardCurrent(d, reason) {
+    const r = await postJson(`/api/line-reply/${d.id}/discard`, { reason, by: el('lr-sender').value || null });
+    if (!r.ok) { HiUI.toast(r.error || '更新に失敗しました', 'error'); return; }
+    HiUI.toast('送らない、として記録しました', 'success');
+    await loadList();
+    await selectDraft(d.id);
+  }
+
+  async function regenerate(lineUserId) {
+    HiUI.toast('作り直しています(30秒ほどかかります)…', 'info');
+    const r = await postJson(`/api/line-reply/users/${encodeURIComponent(lineUserId)}/regenerate`, {});
+    if (!r.ok) { HiUI.toast(r.error || `作り直せませんでした(${r.skipped || ''})`, 'error'); return; }
+    HiUI.toast('下書きを作り直しました', 'success');
+    await loadList();
+    if (r.draftId) await selectDraft(r.draftId);
+  }
+
+  async function toggleMute(user) {
+    if (!user) return;
+    const next = !user.ai_reply_muted;
+    if (next && !confirm('この相手にはAIの下書きを作らなくなります。よろしいですか?')) return;
+    const r = await postJson(`/api/line-reply/users/${encodeURIComponent(user.line_user_id)}/mute`, { muted: next });
+    if (!r.ok) { HiUI.toast('更新に失敗しました', 'error'); return; }
+    HiUI.toast(next ? 'この相手のAI下書きを止めました' : 'この相手のAI下書きを再開しました', 'success');
+    if (state.selectedId) await selectDraft(state.selectedId);
+  }
+
+  async function sendManual(lineUserId, text) {
+    const sender = currentSender();
+    if (!sender) return;
+    const t = String(text || '').trim();
+    if (!t) { HiUI.toast('本文が空です', 'warning'); return; }
+    if (!confirm(`この文を公式LINEで送信します。送ると取り消せません。よろしいですか?\n\n${t.slice(0, 200)}${t.length > 200 ? '…' : ''}`)) return;
+    const r = await postJson(`/api/line-reply/users/${encodeURIComponent(lineUserId)}/send`, { text: t, sent_by: sender });
+    if (!r.ok) { HiUI.toast(r.error || '送信に失敗しました', 'error'); return; }
+    HiUI.toast('送信しました', 'success');
+    await loadList();
+    if (state.selectedId) await selectDraft(state.selectedId);
+  }
+
+  // ---- 初期化 ----
+  async function setupSenders() {
+    try {
+      const data = await getJson('/api/line-reply/senders');
+      state.senders = data.senders || [];
+    } catch (_) { state.senders = ['三浦', '山本', '久保田']; }
+    const sel = el('lr-sender');
+    let saved = '';
+    try { saved = localStorage.getItem(SENDER_KEY) || ''; } catch (_) { /* noop */ }
+    sel.innerHTML = '<option value="">選んでください</option>' + state.senders.map((n) => `<option value="${esc(n)}"${n === saved ? ' selected' : ''}>${esc(n)}</option>`).join('');
+    sel.addEventListener('change', () => { try { localStorage.setItem(SENDER_KEY, sel.value); } catch (_) { /* noop */ } });
+  }
+
+  function setupTabs() {
+    document.querySelectorAll('.lr-tabs [data-status]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        state.status = btn.dataset.status;
+        document.querySelectorAll('.lr-tabs [data-status]').forEach((b) => {
+          const on = b === btn;
+          b.classList.toggle('btn-primary', on); b.classList.toggle('btn-secondary', !on); b.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        await loadList();
+      });
+    });
+  }
+
+  async function openFromHash() {
+    const m = (location.hash || '').match(/^#draft-(\d+)$/);
+    if (m) await selectDraft(parseInt(m[1], 10));
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    setupTabs();
+    await setupSenders();
+    try { await loadList(); } catch (err) { el('lr-list').innerHTML = `<div class="empty-notice">読み込みに失敗しました(${esc(err.message)})</div>`; }
+    await openFromHash();
+    window.addEventListener('hashchange', openFromHash);
+    // 待ちの一覧は60秒ごとに更新(新しい下書きが増えるため)。詳細を開いているときはそのまま
+    setInterval(() => { if (state.status === 'pending') loadList().catch(() => {}); }, 60 * 1000);
+  });
+})();

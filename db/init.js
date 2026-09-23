@@ -1131,6 +1131,60 @@ function initDatabase(dbFile = dbPath) {
     console.log('✓ Database initialized with sample staff');
   }
 
+  // ---- 公式LINE AI受付(返信キュー)(2026-09-24) ----
+  // line_messages に「当社からの送信」も残す(direction='out')。AIが会話の文脈として読むため。
+  const lineMsgColumns = db.prepare(`PRAGMA table_info('line_messages')`).all().map(col => col.name);
+  if (lineMsgColumns.length > 0 && !lineMsgColumns.includes('direction')) {
+    db.prepare(`ALTER TABLE line_messages ADD COLUMN direction TEXT NOT NULL DEFAULT 'in'`).run();
+    db.prepare(`ALTER TABLE line_messages ADD COLUMN sent_by TEXT`).run();
+    db.prepare(`ALTER TABLE line_messages ADD COLUMN reply_draft_id INTEGER`).run();
+    console.log('✓ line_messages に送信記録用の列(direction/sent_by/reply_draft_id)を追加しました');
+  }
+  // line_users: AI下書きを止める相手(ai_reply_muted)・価格の判定に使うプロファイル(price_profile: NULL/yagi など)
+  const lineUserColumns = db.prepare(`PRAGMA table_info('line_users')`).all().map(col => col.name);
+  if (lineUserColumns.length > 0 && !lineUserColumns.includes('ai_reply_muted')) {
+    db.prepare(`ALTER TABLE line_users ADD COLUMN ai_reply_muted INTEGER NOT NULL DEFAULT 0`).run();
+    db.prepare(`ALTER TABLE line_users ADD COLUMN price_profile TEXT`).run();
+    console.log('✓ line_users に AI受付用の列(ai_reply_muted/price_profile)を追加しました');
+  }
+  // AIが作った返信の下書き。status: pending(承認待ち)/sent(そのまま送信)/edited(直して送信)/
+  // discarded(送らない)/superseded(新しい受信で作り直し)/auto_sent(自動送信)/error(生成失敗)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS line_reply_drafts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      line_user_id TEXT NOT NULL,
+      trigger_message_ids TEXT NOT NULL,
+      last_inbound_at TEXT,
+      created_at TEXT NOT NULL,
+      category TEXT,
+      summary TEXT,
+      reply_text TEXT,
+      order_likelihood TEXT,
+      flags TEXT,
+      missing_info TEXT,
+      intake_patch TEXT,
+      confidence REAL,
+      order_type TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      final_text TEXT,
+      decided_by TEXT,
+      decided_at TEXT,
+      discard_reason TEXT,
+      sent_line_message_id TEXT,
+      edit_ratio REAL,
+      response_minutes REAL,
+      model TEXT,
+      input_tokens INTEGER,
+      output_tokens INTEGER,
+      cache_read_tokens INTEGER,
+      tool_calls TEXT,
+      error TEXT,
+      FOREIGN KEY (line_user_id) REFERENCES line_users(line_user_id)
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_line_reply_drafts_status ON line_reply_drafts(status)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_line_reply_drafts_user ON line_reply_drafts(line_user_id)`);
+
   return db;
 }
 

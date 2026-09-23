@@ -16,6 +16,8 @@ const HiUI = {
   // 日常業務で毎日使うリンク。ここは常に表に出す。
   // designer-board は担当者名が分かり次第ラベルを差し替える(下の applyDesignerNavLabel)
   navDaily: [
+    // 公式LINE AI受付の返信キュー(2026-09-24)。未処理件数のバッジは line-reply.js 側ではなく ui.js の applyLineReplyBadge で付ける
+    { key: 'line-reply', href: '/line-reply', label: '💬 LINE返信' },
     { key: 'schedule', href: '/schedule', label: '🗓️ スケジュール' },
     { key: 'designer-board', href: '/designer', label: '🎨 デザインの作業予定' },
     { key: 'ops', href: '/ops', label: '🗂 デザイン進行ボード' },
@@ -482,6 +484,28 @@ const HiUI = {
     this.setupCollapsibles();
     this.restoreToasts();
     this.loadDesignerNavLabel();
+    this.loadLineReplyBadge();
+  },
+
+  // 「💬 LINE返信」のリンクに未処理の下書き件数を付ける(2026-09-24)。
+  // 取得できないときは何も付けない(リンク自体は必ず出す)。ページを開いている間は2分ごとに更新
+  async loadLineReplyBadge() {
+    const link = document.querySelector('.nav-link[href="/line-reply"]');
+    if (!link) return;
+    const apply = async () => {
+      try {
+        const res = await fetch('/api/line-reply?status=pending&limit=1');
+        if (!res.ok) return;
+        const data = await res.json();
+        let badge = link.querySelector('.lr-nav-badge');
+        if (!data.pendingCount) { if (badge) badge.remove(); return; }
+        if (!badge) { badge = document.createElement('span'); badge.className = 'lr-nav-badge'; link.appendChild(badge); }
+        badge.textContent = data.pendingCount;
+        badge.setAttribute('aria-label', `未処理 ${data.pendingCount}件`);
+      } catch (_) { /* 通信できないときはバッジ無しのまま */ }
+    };
+    await apply();
+    setInterval(apply, 2 * 60 * 1000);
   },
 };
 

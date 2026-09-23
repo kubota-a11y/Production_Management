@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LINE返信キュー - Production Management</title>
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <div class="header-content">
+        <div>
+          <h1 class="app-title">💬 LINE返信キュー</h1>
+          <p class="app-subtitle">AIが作った返信の下書きを確認して送る(10月は影運転)</p>
+        </div>
+      </div>
+      <nav class="header-buttons" data-nav="line-reply" aria-label="画面の切り替え"></nav>
+    </header>
+
+    <main class="main-content">
+      <section class="lr-toolbar" aria-label="絞り込みと送信者">
+        <div class="lr-tabs" role="tablist">
+          <button type="button" class="btn btn-small btn-primary" data-status="pending" role="tab" aria-selected="true">待ち <span class="lr-count" id="lr-count-pending">0</span></button>
+          <button type="button" class="btn btn-small btn-secondary" data-status="done" role="tab" aria-selected="false">送信済み・見送り</button>
+          <button type="button" class="btn btn-small btn-secondary" data-status="error" role="tab" aria-selected="false">エラー</button>
+        </div>
+        <label class="lr-sender">
+          送信者
+          <select id="lr-sender"></select>
+        </label>
+        <p class="lr-status" id="lr-status" aria-live="polite"></p>
+      </section>
+
+      <section class="lr-layout">
+        <div class="lr-list" id="lr-list" aria-label="下書き一覧">
+          <div class="folder-loading">読み込み中…</div>
+        </div>
+        <div class="lr-detail" id="lr-detail" aria-label="下書きの詳細">
+          <div class="empty-notice">左の一覧から下書きを選んでください。</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/ui.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/line-reply.js"></script>
+</body>
+</html>

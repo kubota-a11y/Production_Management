@@ -12,6 +12,7 @@ const { registerOrderRoutes } = require('./lib/order-intake');
 const { registerInquiryRoutes } = require('./lib/inquiry');
 const { linkInquiryFromMessage } = require('./lib/line-followup');
 const opsInventory = require('./lib/ops-inventory');
+const lineReply = require('./lib/line-reply');
 const { registerTeamOrderRoutes } = require('./lib/team-order');
 const { registerPartnerPortalRoutes } = require('./lib/partner-portal');
 const { registerPartnerOrderRoutes } = require('./lib/partner-order');
@@ -135,6 +136,8 @@ const lineBlobClient = new line.messagingApi.MessagingApiBlobClient({
 });
 
 const db = initDatabase();
+// 公式LINE AI受付(返信キュー)。db と lineClient が揃ってから初期化する(lib/line-reply.js)
+lineReply.init({ db, lineClient });
 
 function streamToBuffer(stream) {
   return new Promise((resolve, reject) => {
@@ -244,6 +247,8 @@ app.post('/webhook', line.middleware(lineConfig), async (req, res) => {
             imagePath: null,
           });
         }
+        // AI受付: 個人トークの受信だけ返信の下書きを予約する(グループは10月は対象外)
+        if (!event.source.type || event.source.type === 'user') lineReply.onInbound(userId);
       }
     } catch (err) {
       console.error('[LINE Webhook] イベント処理でエラー:', err);
@@ -2442,6 +2447,59 @@ app.delete('/api/projects/:id', (req, res) => {
 
 // ===== AI受注候補(LINEから自動収集) =====
 
+// ---- 公式LINE AI受付(返信キュー)(2026-09-24) ----
+// 画面: /line-reply。API はすべて社内向け(公開ドメインでは外部公開ガードで404)。
+app.get('/line-reply', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'line-reply.html'));
+});
+app.get('/api/line-reply', (req, res) => {
+  try {
+    const status = String(req.query.status || 'pending');
+    res.json({ drafts: lineReply.listDrafts({ status, limit: Math.min(300, parseInt(req.query.limit, 10) || 100) }), pendingCount: lineReply.pendingCount(), config: { enabled: lineReply.cfg().enabled, model: lineReply.cfg().model, autoAfterHours: lineReply.cfg().autoAfterHours, dryRun: lineReply.cfg().dryRun, businessTime: lineReply.isBusinessTime(), now: lineReply.describeNow() } });
+  } catch (error) { sendServerError(res, req, error); }
+});
+app.get('/api/line-reply/senders', (req, res) => {
+  try {
+    // 送信者名の候補: 従業員マスタ(在籍)+固定の3名。HiBoardに認証が無いので画面で選ぶ
+    const names = new Set(['三浦', '山本', '久保田']);
+    db.prepare('SELECT name FROM employees WHERE is_active = 1 ORDER BY id').all().forEach((e) => names.add(String(e.name).replace(/[\s　].*$/, '')));
+    res.json({ senders: [...names] });
+  } catch (error) { sendServerError(res, req, error); }
+});
+app.get('/api/line-reply/users/:id/conversation', (req, res) => {
+  try { res.json(lineReply.conversation(req.params.id, { days: Math.min(90, parseInt(req.query.days, 10) || 30) })); }
+  catch (error) { sendServerError(res, req, error); }
+});
+app.post('/api/line-reply/users/:id/mute', (req, res) => {
+  try { res.json(lineReply.setMuted(req.params.id, Boolean(req.body && req.body.muted), req.body ? req.body.price_profile : undefined)); }
+  catch (error) { sendServerError(res, req, error); }
+});
+app.post('/api/line-reply/users/:id/regenerate', async (req, res) => {
+  try {
+    const r = await lineReply.generateDraft(req.params.id, { reason: 'manual', force: true });
+    res.json({ ok: !r.skipped, ...r });
+  } catch (error) { res.json({ ok: false, error: `下書きの生成に失敗しました: ${error.message}` }); }
+});
+app.post('/api/line-reply/users/:id/send', async (req, res) => {
+  try { res.json(await lineReply.sendManual(req.params.id, { text: req.body && req.body.text, sentBy: req.body && req.body.sent_by })); }
+  catch (error) { res.json({ ok: false, error: `送信に失敗しました: ${error.message}` }); }
+});
+app.get('/api/line-reply/:id', (req, res) => {
+  try {
+    const d = lineReply.getDraft(parseInt(req.params.id, 10));
+    if (!d) return res.status(404).json({ error: '下書きが見つかりません' });
+    res.json({ draft: d, ...lineReply.conversation(d.line_user_id) });
+  } catch (error) { sendServerError(res, req, error); }
+});
+app.post('/api/line-reply/:id/send', async (req, res) => {
+  try { res.json(await lineReply.sendDraft(parseInt(req.params.id, 10), { text: req.body && req.body.text, sentBy: req.body && req.body.sent_by })); }
+  catch (error) { res.json({ ok: false, error: `送信に失敗しました: ${error.message}` }); }
+});
+app.post('/api/line-reply/:id/discard', (req, res) => {
+  try { res.json(lineReply.discardDraft(parseInt(req.params.id, 10), { reason: req.body && req.body.reason, by: req.body && req.body.by })); }
+  catch (error) { sendServerError(res, req, error); }
+});
+
 // 業務棚卸し集計API(2026-09-23)。受付〜納品の件数・週別・社員別・所要時間だけを返す(顧客名・本文は含めない)。
 // 社内LANはそのまま使える。公開ドメイン経由は .env の OPS_INVENTORY_TOKEN と一致する
 // X-Inventory-Token ヘッダーが必須(未設定なら公開ドメインからは常に404)。
@@ -2457,7 +2515,9 @@ app.get('/api/ops-inventory', (req, res) => {
   const range = opsInventory.parseRange(req.query);
   if (range.error) return res.status(400).json({ error: range.error });
   try {
-    res.json(opsInventory.buildInventory(db, range));
+    const inv = opsInventory.buildInventory(db, range);
+    try { inv.lineReply = lineReply.replyStats(range.from, range.to); } catch (err) { inv.lineReply = { error: err.message }; }
+    res.json(inv);
   } catch (err) {
     console.error('[ops-inventory] 集計に失敗:', err.message);
     res.status(500).json({ error: '集計に失敗しました' });
@@ -3990,6 +4050,14 @@ setInterval(async () => {
     aiExtractionRunning = false;
   }
 }, 5 * 60 * 1000);
+
+// 60秒ごとにAI受付の取りこぼし(再起動などでタイマーが消えた受信)を拾う
+let aiReplyRunning = false;
+setInterval(async () => {
+  if (aiReplyRunning) return;
+  aiReplyRunning = true;
+  try { await lineReply.runReplyCycle(); } catch (err) { console.error('[AI受付] 巡回でエラー:', err); } finally { aiReplyRunning = false; }
+}, 60 * 1000);
 
 app.listen(PORT, HOST, () => {
   scheduleDailyBackup(db);
