@@ -11,6 +11,7 @@ const { runExtractionCycle } = require('./lib/ai-extraction');
 const { registerOrderRoutes } = require('./lib/order-intake');
 const { registerInquiryRoutes } = require('./lib/inquiry');
 const { linkInquiryFromMessage } = require('./lib/line-followup');
+const opsInventory = require('./lib/ops-inventory');
 const { registerTeamOrderRoutes } = require('./lib/team-order');
 const { registerPartnerPortalRoutes } = require('./lib/partner-portal');
 const { registerPartnerOrderRoutes } = require('./lib/partner-order');
@@ -344,6 +345,7 @@ const EXTERNAL_ALLOWED_PATTERNS = [
   /^\/partner\/[\w-]+(\/order)?$/,   // 取引先ポータル・加工依頼フォーム
   /^\/designer\/[\w-]+$/,            // デザイナー マイスケジュールボード
   /^\/webhook$/,                     // LINE Webhook(署名検証あり)
+  /^\/api\/ops-inventory$/,          // 業務棚卸し集計(公開ドメインでは X-Inventory-Token 必須・lib/ops-inventory.js)
   /^\/api\/(team-order|partner-order|partner-status|designer)\//, // 公開フォーム用API
   /^\/(styles|js|img)\//,            // 公開ページが参照する静的資産
   /^\/favicon\.ico$/,
@@ -2439,6 +2441,28 @@ app.delete('/api/projects/:id', (req, res) => {
 });
 
 // ===== AI受注候補(LINEから自動収集) =====
+
+// 業務棚卸し集計API(2026-09-23)。受付〜納品の件数・週別・社員別・所要時間だけを返す(顧客名・本文は含めない)。
+// 社内LANはそのまま使える。公開ドメイン経由は .env の OPS_INVENTORY_TOKEN と一致する
+// X-Inventory-Token ヘッダーが必須(未設定なら公開ドメインからは常に404)。
+app.get('/api/ops-inventory', (req, res) => {
+  const hostname = (req.hostname || '').toLowerCase();
+  if (PUBLIC_HOSTNAMES.has(hostname)) {
+    const expected = String(process.env.OPS_INVENTORY_TOKEN || '');
+    const given = String(req.get('x-inventory-token') || '');
+    const ok = expected.length >= 16 && given.length === expected.length
+      && require('crypto').timingSafeEqual(Buffer.from(given), Buffer.from(expected));
+    if (!ok) return res.status(404).send('Not Found');
+  }
+  const range = opsInventory.parseRange(req.query);
+  if (range.error) return res.status(400).json({ error: range.error });
+  try {
+    res.json(opsInventory.buildInventory(db, range));
+  } catch (err) {
+    console.error('[ops-inventory] 集計に失敗:', err.message);
+    res.status(500).json({ error: '集計に失敗しました' });
+  }
+});
 
 app.get('/api/ai-intake', (req, res) => {
   try {
