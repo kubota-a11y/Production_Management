@@ -93,6 +93,7 @@
 
       <div class="subblock">
         <h4>アイテム指定 <span class="req">品番 または カテゴリ</span></h4>
+        <p class="hint">品番がわからない場合は空欄でOKです。下の「カテゴリ」だけ選んでください。</p>
         <div class="catalog-rows"></div>
         <button type="button" class="btn-add" data-add-row="catalog">＋ 品番を追加</button>
         <div class="grid2" style="margin-top:.5rem">
