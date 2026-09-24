@@ -129,9 +129,26 @@
         <div class="lr-form-body">
           ${it.images.length ? `<div class="lr-form-images">${it.images.map((im) => `<a href="${API.getNasFileUrl(im.path)}" target="_blank" rel="noopener" title="${esc(im.name)}"><img src="${API.getNasFileUrl(im.path)}" alt="${esc(im.name)}" loading="lazy"></a>`).join('')}</div>` : ''}
           <pre class="lr-form-notes">${esc(it.notes || [it.customer_name, it.items, it.quantity, it.deadline].filter(Boolean).join(' / '))}</pre>
-          <div class="lr-form-actions"><a class="btn btn-small btn-ghost" href="/" target="_blank" rel="noopener">受注候補の取り込みで開く</a></div>
+          <div class="lr-form-actions"><a class="btn btn-small btn-ghost" href="/?intake=${it.id}" target="_blank" rel="noopener">${it.status === 'pending' ? '受注候補を開く(案件として登録)' : '受注候補を開く'}</a></div>
         </div>
       </details>`).join('');
+  }
+
+  // LINE由来の受注候補(返信キューのAIが作ったもの)。案件登録は受注候補の確認モーダル(トップ)で行う
+  function intakePanel(d, lineIntakes) {
+    const list = (lineIntakes || []).filter((it) => it.status === 'pending');
+    const done = (lineIntakes || []).filter((it) => it.status !== 'pending');
+    const row = (it) => `<div class="lr-intake-row">
+        <span class="receipt-badge">${esc(it.receipt)}</span>
+        <span>${esc([it.items, it.quantity ? `${it.quantity}枚` : '', it.deadline ? `納期 ${it.deadline}` : ''].filter(Boolean).join('・') || '(内容未記入)')}</span>
+        ${it.status === 'pending' ? `<a class="btn btn-small btn-primary" href="/?intake=${it.id}" target="_blank" rel="noopener">案件として登録</a><button type="button" class="btn btn-small btn-danger-soft" data-reject-intake="${it.id}">却下</button>` : chip(it.status === 'confirmed' ? `案件登録済み${it.case_id ? ` #${it.case_id}` : ''}` : '却下済み', 'lr-chip-status')}
+      </div>`;
+    return `<div class="lr-intake">
+      <div class="lr-attach-head"><span class="form-label">📥 受注候補 <span class="text-muted">(AIが「注文の可能性: 高」と判断した会話は自動で1件にまとめます)</span></span>
+        ${d.status === 'pending' && !list.length ? `<button type="button" class="btn btn-small btn-secondary" id="lr-make-intake">この会話を受注候補にする</button>` : ''}</div>
+      ${list.map(row).join('') || '<div class="text-muted">未処理の受注候補はありません</div>'}
+      ${done.length ? `<details class="lr-more"><summary>処理済み ${done.length}件</summary>${done.map(row).join('')}</details>` : ''}
+    </div>`;
   }
 
   function attachmentsPanel() {
@@ -217,6 +234,7 @@
           </div>` : `<p class="text-muted">${esc(STATUS_LABEL[d.status] || d.status)}${d.decided_by ? `・${esc(d.decided_by)}` : ''}${d.decided_at ? `・${esc(fmtTime(d.decided_at))}` : ''}${d.discard_reason ? `・理由: ${esc(d.discard_reason)}` : ''}${typeof d.edit_ratio === 'number' && d.status === 'edited' ? `・修正率 ${Math.round(d.edit_ratio * 100)}%` : ''}${typeof d.response_minutes === 'number' ? `・受信から${d.response_minutes}分` : ''}</p>`}
 
           <div id="lr-attach-panel">${attachmentsPanel()}</div>
+          <div id="lr-intake-panel">${intakePanel(d, state.detail.lineIntakes)}</div>
 
           <details class="lr-more" open>
             <summary>AIのメモ・足りない情報・受注候補に足せる情報</summary>
@@ -255,6 +273,24 @@
     el('lr-mute').addEventListener('click', () => toggleMute(user));
     el('lr-manual-form').addEventListener('submit', (e) => { e.preventDefault(); sendManual(d.line_user_id, el('lr-manual-text').value); });
     bindAttachmentPanel();
+    bindIntakePanel(d);
+  }
+
+  function bindIntakePanel(d) {
+    const mk = el('lr-make-intake');
+    if (mk) mk.addEventListener('click', async () => {
+      const r = await postJson(`/api/line-reply/${d.id}/intake`, {});
+      if (!r.ok) { HiUI.toast(r.error || '受注候補を作れませんでした', 'error'); return; }
+      HiUI.toast(`受注候補 L-${r.intake_id} を作りました`, 'success');
+      await selectDraft(d.id);
+    });
+    document.querySelectorAll('#lr-intake-panel [data-reject-intake]').forEach((b) => b.addEventListener('click', async () => {
+      if (!confirm('この受注候補を却下します。よろしいですか?')) return;
+      const res = await fetch(`/api/ai-intake/${b.dataset.rejectIntake}/reject`, { method: 'POST' });
+      if (!res.ok) { HiUI.toast('却下できませんでした', 'error'); return; }
+      HiUI.toast('受注候補を却下しました', 'success');
+      await selectDraft(d.id);
+    }));
   }
 
   // ---- 添付 ----

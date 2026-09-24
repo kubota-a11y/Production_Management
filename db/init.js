@@ -1222,6 +1222,12 @@ function initDatabase(dbFile = dbPath) {
     db.prepare(`ALTER TABLE line_reply_drafts ADD COLUMN freee_report_url TEXT`).run();
     console.log('✓ line_reply_drafts に見積連携の列(quote_conditions/quote_file_id/freee_*)を追加しました');
   }
+  // 返信キューと受注候補の連動(2026-09-24): 下書きから作った/更新した受注候補のID
+  const draftColumns2 = db.prepare(`PRAGMA table_info('line_reply_drafts')`).all().map(col => col.name);
+  if (draftColumns2.length > 0 && !draftColumns2.includes('intake_id')) {
+    db.prepare(`ALTER TABLE line_reply_drafts ADD COLUMN intake_id INTEGER`).run();
+    console.log('✓ line_reply_drafts に受注候補の列(intake_id)を追加しました');
+  }
 
   return db;
 }

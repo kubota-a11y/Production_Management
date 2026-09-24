@@ -912,6 +912,29 @@ const app = {
         : formatDateTime(intake.extracted_at);
       body.appendChild(dateEl);
 
+      // 返信キューのAIの判断(要約・注文の可能性)と、返信キューへのリンク(2026-09-24)
+      if (intake.reply_draft) {
+        const rd = intake.reply_draft;
+        const replyRow = document.createElement('div');
+        replyRow.className = 'ai-intake-card-reply';
+        const badge = document.createElement('span');
+        badge.className = 'intake-state-chip';
+        badge.textContent = rd.order_likelihood === 'high' ? '💬 AI: 注文の可能性 高' : '💬 AI: 注文の可能性 低';
+        replyRow.appendChild(badge);
+        if (rd.summary) {
+          const sum = document.createElement('span');
+          sum.textContent = rd.summary;
+          replyRow.appendChild(sum);
+        }
+        const link = document.createElement('a');
+        link.href = `/line-reply#draft-${rd.id}`;
+        link.textContent = '返信キューで開く';
+        link.className = 'btn btn-small btn-ghost';
+        link.onclick = (e) => e.stopPropagation();
+        replyRow.appendChild(link);
+        body.appendChild(replyRow);
+      }
+
       card.appendChild(body);
       card.appendChild(this.buildTriageBar(intake));
       grid.appendChild(card);
@@ -2512,6 +2535,14 @@ const app = {
     // デザイン進行ボードの「➕ 新規案件」「✎ 案件を編集」からは
     // /?open=new-project&design_ops=1&return=/ops または /?open=edit-project&id=N&return=/ops で来る。
     // 案件フォームは1つしかないので複製せず、この画面のモーダルを開いて使ってもらう
+    // LINE返信キューの「案件として登録」からは /?intake=N で来る(2026-09-24)。
+    // 受注候補タブに切り替えて、その候補の確認モーダルを開く(登録処理は従来どおりこのモーダルで行う)
+    const intakeId = parseInt(params.get('intake'), 10);
+    if (Number.isFinite(intakeId) && intakeId > 0) {
+      this.switchTab('import');
+      this.openAiIntakeModal(intakeId);
+    }
+
     const open = params.get('open');
     if (open === 'new-project' || open === 'edit-project') {
       // 戻り先は自サイト内の相対パスだけ受け付ける(外部URLへ飛ばさないため)

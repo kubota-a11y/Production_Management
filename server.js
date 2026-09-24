@@ -2539,6 +2539,11 @@ app.post('/api/line-reply/:id/quote-prep', async (req, res) => {
     res.json({ ok: true, conditions: cond });
   } catch (error) { res.json({ ok: false, error: `見積条件を作れませんでした: ${error.message}` }); }
 });
+// 返信キューから受注候補を作る/更新する(注文の可能性が低いと判断された会話でも人の判断で)
+app.post('/api/line-reply/:id/intake', (req, res) => {
+  try { res.json(lineReply.createIntakeFromDraft(parseInt(req.params.id, 10))); }
+  catch (error) { res.json({ ok: false, error: `受注候補を作れませんでした: ${error.message}` }); }
+});
 app.get('/api/line-reply/:id/quote-context', (req, res) => {
   try {
     const ctx = lineReply.getQuoteContext(parseInt(req.params.id, 10));
@@ -2611,7 +2616,15 @@ app.get('/api/ai-intake', (req, res) => {
         `).get(...messageIds);
         thumbnail_path = firstImage ? firstImage.image_path : null;
       }
-      return { ...row, thumbnail_path };
+      // 返信キューの最新の下書き(要約・注文の可能性・ID)。カードに「💬 返信キューで開く」を出すため(2026-09-24)
+      let reply_draft = null;
+      if (/^U[0-9a-f]{32}$/.test(String(row.line_user_id || ''))) {
+        reply_draft = db.prepare(`
+          SELECT id, status, category, summary, order_likelihood, created_at FROM line_reply_drafts
+          WHERE line_user_id = ? AND status != 'superseded' ORDER BY created_at DESC LIMIT 1
+        `).get(row.line_user_id) || null;
+      }
+      return { ...row, thumbnail_path, reply_draft };
     });
 
     res.json(withThumbnail);
