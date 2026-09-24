@@ -141,7 +141,12 @@
 
           <!-- 案件と紐づいていないときだけ出る「あとから紐づける」ブロック -->
           <div id="case-link" class="qs-case-actions">
-            <div class="form-label">案件と紐づける(任意)</div>
+            <!-- 見積→案件登録(2026-09-24): 受注候補が無くても、この見積の内容で案件を作れる -->
+            <div class="form-label">この見積で案件を登録する</div>
+            <button type="button" class="btn btn-primary btn-small" id="btn-register-case">📥 この見積で案件を登録</button>
+            <p class="qs-note" id="register-case-note">取引先・品名・枚数・プリント箇所・加工種別と見積書URLを入れた状態で、案件の登録画面を開きます。概算は案件の「概算の履歴」に残ります。</p>
+
+            <div class="form-label">既存の案件と紐づける(任意)</div>
             <div class="qs-partner-search">
               <input type="text" id="case-search" placeholder="顧客名・案件名・品名で検索">
               <button type="button" class="btn btn-secondary btn-small" id="case-search-btn">🔍 検索</button>

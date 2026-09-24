@@ -579,6 +579,18 @@ html, body {
   white-space: nowrap;
 }
 
+/* 見積→案件登録(2026-09-24): 登録画面の上に「どの見積の内容を入れたか」を出す帯 */
+.quote-carry-banner {
+  margin-bottom: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--info-soft);
+  color: var(--info-text);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+.quote-carry-banner a { color: inherit; font-weight: 600; }
+
 /* ===== 納期の警告フラグ(色だけに頼らず文字でも示す) ===== */
 .deadline-flag {
   display: inline-block;

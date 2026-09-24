@@ -1228,6 +1228,14 @@ function initDatabase(dbFile = dbPath) {
     db.prepare(`ALTER TABLE line_reply_drafts ADD COLUMN intake_id INTEGER`).run();
     console.log('✓ line_reply_drafts に受注候補の列(intake_id)を追加しました');
   }
+  // 見積→案件登録の引き継ぎ(2026-09-24): freee発行時の転記シート・合計・登録画面の初期値(quote_snapshot)と、
+  // 案件へ運んだ先(quote_case_id)。lib/quote-carry.js
+  const draftColumns3 = db.prepare(`PRAGMA table_info('line_reply_drafts')`).all().map(col => col.name);
+  if (draftColumns3.length > 0 && !draftColumns3.includes('quote_snapshot')) {
+    db.prepare(`ALTER TABLE line_reply_drafts ADD COLUMN quote_snapshot TEXT`).run();
+    db.prepare(`ALTER TABLE line_reply_drafts ADD COLUMN quote_case_id INTEGER`).run();
+    console.log('✓ line_reply_drafts に見積の引き継ぎ列(quote_snapshot/quote_case_id)を追加しました');
+  }
 
   return db;
 }

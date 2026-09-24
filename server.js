@@ -31,6 +31,7 @@ const { extractCarriedData, extractCarriedItems } = require('./lib/intake-carry'
 const { completeIntakeTask } = require('./lib/todo-notify');
 const { HOLIDAYS, isJpHoliday } = require('./lib/jp-holidays');
 const freeeQuote = require('./lib/freee-quote');
+const quoteCarry = require('./lib/quote-carry');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -1758,7 +1759,7 @@ app.post('/api/freee/partners', async (req, res) => {
 
 app.post('/api/freee/quotations', async (req, res) => {
   try {
-    const { sheet, partner, case_id: caseId, reply_draft_id: replyDraftId, sheet_text: sheetText, discount_name: discountName, approved_by: approvedBy } = req.body || {};
+    const { sheet, partner, case_id: caseId, reply_draft_id: replyDraftId, sheet_text: sheetText, discount_name: discountName, approved_by: approvedBy, case_hint: caseHint } = req.body || {};
     if (!sheet || !Array.isArray(sheet.lines) || !sheet.lines.length) {
       return res.status(400).json({ ok: false, error: '見積の明細がありません' });
     }
@@ -1789,6 +1790,7 @@ app.post('/api/freee/quotations', async (req, res) => {
     //   「発行できませんでした」と出すと利用者が押し直し、二重発行になる。
     //   後片付け(記録)が転んでも発行そのものは成功として返し、警告だけ添える
     let warning = memoWarning;
+    let linkedCaseId = null;
     try {
       // 次回から名前で引けるよう、選ばれた取引先を覚える
       const customerName = String(sheet.customer || '').trim();
@@ -1806,8 +1808,11 @@ app.post('/api/freee/quotations', async (req, res) => {
           partner.display_name ? String(partner.display_name) : null, now, now);
       }
 
-      // 案件と紐づいていれば、見積書URLと概算履歴を書き戻す(手作業のコピペが不要になる)
-      const projectId = parseInt(caseId, 10);
+      // 案件と紐づいていれば、見積書URLと概算履歴を書き戻す(手作業のコピペが不要になる)。
+      // 返信キューから来た見積は、その会話の受注候補がもう案件になっていればその案件へ書く(2026-09-24)
+      let projectId = parseInt(caseId, 10);
+      const draftIdForCase = parseInt(replyDraftId, 10);
+      if (!(projectId > 0) && draftIdForCase > 0) projectId = quoteCarry.resolveCaseForDraft(db, draftIdForCase) || 0;
       if (projectId > 0 && db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId)) {
         const now = new Date().toISOString();
         if (created.report_url) {
@@ -1822,6 +1827,8 @@ app.post('/api/freee/quotations', async (req, res) => {
             discountName ? String(discountName) : null,
             approvedBy ? String(approvedBy) : null, now);
         }
+        if (draftIdForCase > 0) db.prepare('UPDATE line_reply_drafts SET quote_case_id = ? WHERE id = ?').run(projectId, draftIdForCase);
+        linkedCaseId = projectId;
       }
     } catch (recordError) {
       console.error('freee見積書の記録エラー(発行そのものは成功):', recordError.message);
@@ -1833,21 +1840,33 @@ app.post('/api/freee/quotations', async (req, res) => {
     // ここも発行そのものは成功しているので、失敗しても ok:true のまま reply.attached=false で返す
     let reply = null;
     const draftId = parseInt(replyDraftId, 10);
+    let pendingIntakeId = null;
     if (draftId > 0) {
+      // 案件を登録するときに運ぶため、転記シート・合計・登録画面の初期値を下書きに残す(見積→案件登録 2026-09-24)
+      try {
+        const snapshot = quoteCarry.buildSnapshot({ sheetText, total: sheet.total, discountName, approvedBy, hint: caseHint });
+        db.prepare('UPDATE line_reply_drafts SET quote_snapshot = ? WHERE id = ?').run(JSON.stringify(snapshot), draftId);
+        const d = db.prepare('SELECT intake_id FROM line_reply_drafts WHERE id = ?').get(draftId);
+        const it = d && d.intake_id ? db.prepare('SELECT id, status FROM ai_extracted_intake WHERE id = ?').get(d.intake_id) : null;
+        pendingIntakeId = it && it.status === 'pending' ? it.id : null;
+      } catch (snapErr) {
+        console.error('[freee] 見積の引き継ぎ情報の保存に失敗(発行そのものは成功):', snapErr.message);
+      }
       try {
         let pdf = null;
         try { pdf = await freeeQuote.downloadQuotationPdf(created.id); } catch (pdfErr) { console.warn('[freee] 見積書PDFの取得に失敗:', pdfErr.message); }
         const r = await lineReply.attachFreeeQuote(draftId, {
           quotationId: created.id, quotationNumber: created.quotation_number, reportUrl: created.report_url, pdfBuffer: pdf, sentBy: approvedBy || null,
         });
-        reply = { draft_id: draftId, attached: Boolean(r.ok && r.file), file: r.file || null };
+        reply = { draft_id: draftId, attached: Boolean(r.ok && r.file), file: r.file || null, intake_id: null };
       } catch (attachErr) {
         console.error('[freee] 返信キューへの添付に失敗(発行そのものは成功):', attachErr.message);
         reply = { draft_id: draftId, attached: false };
       }
+      if (reply) reply.intake_id = pendingIntakeId;
     }
 
-    res.json({ ok: true, quotation: created, warning, reply });
+    res.json({ ok: true, quotation: created, warning, reply, case_id: linkedCaseId });
   } catch (error) {
     if (error.code === 'NOT_AUTHORIZED') return res.json({ ok: false, need_auth: true, error: error.message });
     console.error('freee見積書作成エラー:', error.message);
@@ -1934,6 +1953,24 @@ function createProjectRecord(data) {
 app.post('/api/projects', (req, res) => {
   try {
     const id = createProjectRecord(req.body);
+    // 見積シミュレーターの「この見積で案件を登録」から来た場合は、概算の履歴と見積書URLも残す(2026-09-24)。
+    // 記録が転んでも案件は作れているので、登録そのものは成功として返す
+    const carry = req.body && req.body.quote_carry;
+    if (carry && typeof carry === 'object') {
+      try {
+        const draftId = parseInt(carry.reply_draft_id, 10);
+        if (draftId > 0 && quoteCarry.carryDraftToCase(db, id, draftId)) {
+          // 下書き側に発行済みの見積がある: そちらを正とする
+        } else {
+          quoteCarry.carryToCase(db, id, {
+            report_url: carry.report_url && /^https:\/\//.test(String(carry.report_url)) ? carry.report_url : null,
+            sheet_text: carry.sheet_text, total: carry.total, discount_name: carry.discount_name, approved_by: carry.approved_by,
+          }, draftId > 0 ? draftId : null);
+        }
+      } catch (carryErr) {
+        console.error(`見積の引き継ぎに失敗(project_id=${id}):`, carryErr.message);
+      }
+    }
     // 社内デザイン案件とカーヴ案件は生産作業ではないため、従業員への自動割り当て提案の対象外にする
     if (req.body.project_kind !== 'INTERNAL_DESIGN' && req.body.paper_source !== 'CARVE') {
       try {
@@ -2659,7 +2696,11 @@ app.get('/api/ai-intake/:id', (req, res) => {
       `).all(...messageIds);
     }
 
-    res.json({ ...intake, messages });
+    // 返信キューからfreeeに発行した見積があれば、登録画面の初期値と「見積の帯」に使う(2026-09-24)
+    let quote = null;
+    try { quote = quoteCarry.findQuoteForIntake(db, intake); } catch (quoteErr) { console.error('受注候補の見積の取得に失敗:', quoteErr.message); }
+
+    res.json({ ...intake, messages, quote });
   } catch (error) {
     sendServerError(res, req, error);
   }
@@ -2701,6 +2742,9 @@ const confirmAiIntake = db.transaction((intakeId, projectData) => {
     const insRoster = db.prepare(`INSERT INTO case_roster (case_id, row_no, player_name, number, size) VALUES (?, ?, ?, ?, ?)`);
     for (const r of carried.roster) insRoster.run(projectId, r.row_no, r.player_name, r.number, r.size);
   }
+
+  // 登録画面で選ばれていた見積(返信キューからfreeeに発行したもの)を案件へ運ぶ: 見積書URL・概算の履歴(2026-09-24)
+  if (projectData.quote_draft_id) quoteCarry.carryDraftToCase(db, projectId, projectData.quote_draft_id);
 
   db.prepare(`UPDATE ai_extracted_intake SET status = 'confirmed', case_id = ? WHERE id = ?`).run(projectId, intakeId);
   return projectId;

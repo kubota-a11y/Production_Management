@@ -279,6 +279,8 @@
       </div>
 
       <form id="project-form" class="project-form">
+        <!-- 見積シミュレーターの「この見積で案件を登録」から来たときだけ出る(2026-09-24) -->
+        <div id="project-quote-banner" class="quote-carry-banner" hidden></div>
         <!-- 案件の型: よくある4通りをカードで1回選ぶ。
              中身は project_kind / is_design_ops / ops_flow の3つの値だが、
              登録する人にその3つを別々に考えさせないため、ここでまとめて決める。
@@ -650,6 +652,8 @@
         <div class="ai-intake-form-panel">
           <h3>抽出結果（確認・修正してから登録）</h3>
           <form id="ai-intake-form" class="project-form">
+            <!-- 返信キューからfreeeに発行した見積があるときだけ出る(2026-09-24) -->
+            <div id="ai-intake-quote-banner" class="quote-carry-banner" hidden></div>
             <div class="form-row">
               <div class="form-group">
                 <label for="ai-project-name">案件名 <span class="req-mark" aria-hidden="true">*</span></label>

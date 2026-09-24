@@ -1322,6 +1322,36 @@
     };
   }
 
+  /* ---------- 見積 → 案件登録の初期値(2026-09-24) ----------
+     案件の登録画面に入れる品名・枚数・プリント箇所・加工種別を、画面の見積内容から作る。
+     加工行と計算結果の lines は同じ並び(calcNormal が rows.map で作る)なので、
+     自動(シルク/DTFの安い方)の行も、実際に採用された加工で加工種別を決められる */
+  function processCodeOf(short) {
+    const t = String(short || '');
+    if (t.startsWith('シルク')) return 'SILK_SCREEN_PRINT';
+    if (t.startsWith('DTF')) return 'DTF_PRINT';
+    if (t === 'ラバー転写' || t === 'マーキング') return 'RUBBER_TRANSFER_PRINT';
+    if (t === '帽子刺繍') return 'HAT_EMBROIDERY';
+    if (t.includes('刺繍')) return 'STANDARD_EMBROIDERY';
+    return null;
+  }
+  function caseHint() {
+    const r = lastResult;
+    if (!r) return null;
+    const title = el('item-title').value.trim() || defaultItemName(r);
+    if (r.mode === 'kratvs') {
+      const prints = [...(r.setApplied ? [r.setApplied.t] : []), ...r.rest.map((p) => p.t)];
+      return { title, customer: el('customer').value.trim(), qty: r.qty, locations: prints.map((t) => ({ location_name: t, color_count: 1 })), process_types: [] };
+    }
+    const locations = rows.map((row, i) => {
+      const l = r.lines[i] || {};
+      const c = row.colors === 'full' ? 1 : Math.min(4, Math.max(1, parseInt(row.colors, 10) || 1));
+      return { location_name: String(row.locationName || '').trim() || l.short || '', color_count: c };
+    }).filter((l) => l.location_name);
+    const processTypes = [...new Set(r.lines.map((l) => processCodeOf(l.short)).filter(Boolean))];
+    return { title, customer: el('customer').value.trim(), qty: r.qty, locations, process_types: processTypes };
+  }
+
   /** 転記シートの文字列。この形のままClaudeが読めるので書式を崩さないこと */
   function sheetText(sh) {
     const L = [];
@@ -1749,6 +1779,7 @@
           sheet_text: sheetText(sh),
           discount_name: discountLabelForSave(),
           approved_by: el('approval-by').value.trim() || null,
+          case_hint: caseHint(),
         }),
       });
       const data = await resp.json();
@@ -1760,7 +1791,19 @@
       closeFreeeModal();
       const q = data.quotation;
       HiUI.toast(data.warning || `見積書を発行しました(No. ${q.quotation_number})`);
-      // LINE返信キューから来た場合: 下書きへの添付結果を出し、戻るリンクを置く
+      // 見積→案件登録(2026-09-24): その会話の受注候補がもう案件になっていれば、サーバーが案件へ書いている
+      if (data.case_id && !linkedCase) await linkCaseQuietly(data.case_id, '見積書URLと概算を登録済みの案件にも保存しました');
+      lastIssued = q;
+      if (q.report_url) {
+        el('freee-url').value = q.report_url;
+        // ★window.open は await のあとなのでポップアップブロックされることがある。
+        //   開けなかったときのために、画面にもリンクを残す(案件未紐づけだと
+        //   #freee-url は hidden の中にあり、URLがどこにも見えなくなるため)
+        const opened = window.open(q.report_url, '_blank');
+        showIssuedLink(q, !opened);
+      }
+      // LINE返信キューから来た場合: 下書きへの添付結果を出し、戻るリンクを置く。
+      // ★showIssuedLink は枠の中身を作り直すので、その後に足す(先に足すと消える)
       if (replyDraftId && data.reply) {
         const box = el('freee-issued');
         box.hidden = false;
@@ -1775,14 +1818,7 @@
         p.appendChild(document.createTextNode(' '));
         p.appendChild(back);
         box.appendChild(p);
-      }
-      if (q.report_url) {
-        el('freee-url').value = q.report_url;
-        // ★window.open は await のあとなのでポップアップブロックされることがある。
-        //   開けなかったときのために、画面にもリンクを残す(案件未紐づけだと
-        //   #freee-url は hidden の中にあり、URLがどこにも見えなくなるため)
-        const opened = window.open(q.report_url, '_blank');
-        showIssuedLink(q, !opened);
+        if (data.reply.intake_id) replyIntakeId = data.reply.intake_id;
       }
     } catch (err) {
       // ★ここに来ても発行済みの可能性がある(送信後に通信が切れた等)。
@@ -1811,6 +1847,8 @@
       return;
     }
     replyDraftId = parseInt(draftId, 10);
+    replyIntakeId = data.intake_id || null;
+    if (data.freee_report_url) lastIssued = { quotation_number: data.freee_quotation_number, report_url: data.freee_report_url };
     const cond = data.conditions;
     el('case-badge').hidden = false;
     el('case-badge-name').textContent = `LINE返信キュー #${draftId}(${data.display_name || '表示名なし'}様)から。freeeで発行すると見積書PDFが下書きに添付されます`;
@@ -1864,7 +1902,60 @@
 
     const miss = (cond.missing || []).length ? `\n確認が必要: ${cond.missing.join('・')}` : '';
     HiUI.toast(`AIの見積条件を入れました(確信度 ${Math.round((cond.confidence || 0) * 100)}%)。内容を確認してから発行してください${miss}`);
+    // この会話の受注候補がもう案件になっていれば、入力は変えずに紐づけだけ行う(発行時にURL・概算が案件へ入る)
+    if (data.case_id) await linkCaseQuietly(data.case_id, null);
   }
+
+  /** 入力内容は変えずに案件と紐づける(返信キューから来た見積の案件が既にある場合) */
+  async function linkCaseQuietly(caseId, message) {
+    try {
+      const resp = await fetch(`/api/projects/${caseId}/quote-context`);
+      if (!resp.ok) throw new Error(String(resp.status));
+      linkedCase = (await resp.json()).project;
+      showLinkedCase();
+      if (message) HiUI.toast(message);
+    } catch (_) { /* 紐づけられなくても見積は作れる */ }
+  }
+
+  /* ---------- この見積で案件を登録(2026-09-24) ----------
+     返信キューの会話に未処理の受注候補があれば、その確認モーダル(/?intake=ID)へ。見積の内容は
+     サーバーが下書きから初期値に入れる。受注候補が無ければ、案件一覧の新規案件モーダルを
+     見積の内容入りで開く(同じオリジンなので localStorage で1回だけ受け渡す) */
+  let replyIntakeId = null;
+  let lastIssued = null;
+  const QUOTE_HANDOFF_KEY = 'hiboard.quoteToCase';
+  el('btn-register-case').onclick = () => {
+    if (replyIntakeId) {
+      if (!lastIssued && !window.confirm('まだfreeeに見積書を発行していません。発行前の内容は案件へ運ばれません(受注候補の内容で登録します)。このまま登録画面を開きますか?')) return;
+      window.location.href = `/?intake=${replyIntakeId}`;
+      return;
+    }
+    const sh = buildSheet();
+    if (!sh) { HiUI.toast('先に見積内容を入力してください'); return; }
+    if (!approvalOk(sh)) return;
+    const hint = caseHint();
+    const handoff = {
+      ...hint,
+      subject: sh.subject,
+      reply_draft_id: replyDraftId || null,
+      quote: {
+        report_url: lastIssued ? lastIssued.report_url : null,
+        quotation_number: lastIssued ? lastIssued.quotation_number : null,
+        sheet_text: sheetText(sh),
+        total: sh.total,
+        discount_name: discountLabelForSave(),
+        approved_by: el('approval-by').value.trim() || null,
+      },
+      created_at: Date.now(),
+    };
+    try {
+      localStorage.setItem(QUOTE_HANDOFF_KEY, JSON.stringify(handoff));
+    } catch (_) {
+      HiUI.toast('ブラウザに一時保存できませんでした。案件一覧の「新規案件」から登録してください');
+      return;
+    }
+    window.location.href = '/?open=new-project&from_quote=1';
+  };
 
   /* ---------- 初期化 ---------- */
   function setupBodyList() {

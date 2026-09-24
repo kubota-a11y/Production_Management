@@ -1343,6 +1343,63 @@ const app = {
     // AIが返した生の値が日付/数値としてうまく変換できなかった場合に備え、参考情報として表示する
     document.getElementById('ai-intake-deadline-hint').textContent = intake.deadline ? `AI抽出値: ${intake.deadline}` : '';
     document.getElementById('ai-intake-quantity-hint').textContent = intake.quantity ? `AI抽出値: ${intake.quantity}` : '';
+
+    // 返信キューからfreeeに発行した見積があれば、その内容を初期値にする(見積→案件登録 2026-09-24)。
+    // 見積はお客様に出した数字なので、会話からAIが拾った値より優先する
+    this.renderQuoteCarryBanner('ai-intake-quote-banner', intake.quote);
+    if (intake.quote) {
+      this.applyQuoteToForm(form, intake.quote.hint, 'ai-intake-print-locations-container');
+      if (intake.quote.report_url) form.elements['freee_quote_url'].value = intake.quote.report_url;
+    }
+  },
+
+  // ===== 見積→案件登録(2026-09-24) =====
+  // 見積の内容(品名・枚数・プリント箇所・加工種別)を案件フォームの初期値に入れる。
+  // 受注候補の確認モーダルと新規案件モーダルで共有する
+  applyQuoteToForm(form, hint, printLocationsContainerId) {
+    if (!hint) return;
+    if (hint.title && form.elements['item_name']) form.elements['item_name'].value = hint.title;
+    if (hint.customer && !form.elements['customer_name'].value) form.elements['customer_name'].value = hint.customer;
+    if (hint.title && !form.elements['project_name'].value) {
+      form.elements['project_name'].value = `${hint.customer ? `${hint.customer}様 ` : ''}${hint.title}`.substring(0, 50);
+    }
+    if (hint.qty) form.elements['quantity'].value = hint.qty;
+    if (Array.isArray(hint.process_types) && hint.process_types.length) {
+      this.setCheckboxGroupValues(form, 'process_type', hint.process_types.join(','));
+    }
+    if (Array.isArray(hint.locations) && hint.locations.length) {
+      this.renderPrintLocationRows(hint.locations, printLocationsContainerId);
+    }
+  },
+
+  // 登録画面の上に「どの見積の内容を入れたか」を出す。見積が無ければ隠す
+  renderQuoteCarryBanner(elId, quote) {
+    const box = document.getElementById(elId);
+    if (!box) return;
+    box.textContent = '';
+    box.hidden = !quote;
+    if (!quote) return;
+    const parts = ['🧾 見積'];
+    if (quote.quotation_number) parts.push(`No. ${quote.quotation_number}`);
+    if (quote.total) parts.push(`合計 ${Number(quote.total).toLocaleString()}円(税込)`);
+    box.appendChild(document.createTextNode(`${parts.join(' ')} の内容を入れています。`));
+    if (quote.report_url) {
+      const a = document.createElement('a');
+      a.href = quote.report_url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.textContent = 'freeeで開く';
+      box.appendChild(document.createTextNode(' '));
+      box.appendChild(a);
+    }
+    const note = document.createElement('div');
+    const kept = [];
+    if (quote.report_url) kept.push('見積書URL');
+    if (quote.sheet_text) kept.push('見積の明細(「概算の履歴」)');
+    note.textContent = `登録すると、${kept.join('と') || '見積'}が案件に残ります。`
+      + (quote.report_url ? '' : 'freeeの見積書はまだ発行されていません。')
+      + '納期は見積に無いので確認してください。';
+    box.appendChild(note);
   },
 
   // Web注文フォーム由来の候補は raw_ai_response にプリント箇所を持っているので取り出す。
@@ -1386,6 +1443,9 @@ const app = {
     data.print_locations = this.collectPrintLocationData('ai-intake-print-locations-container');
     const prepItemCodes = formData.getAll('prep_items');
     data.prep_items = prepItemCodes.join(',');
+    // 返信キューで発行した見積を案件へ運ぶ(見積書URL・概算の履歴)
+    const carriedQuote = this.currentAiIntakeDetail && this.currentAiIntakeDetail.quote;
+    if (carriedQuote) data.quote_draft_id = carriedQuote.draft_id;
 
     try {
       const result = await API.confirmAiIntake(this.editingAiIntakeId, data);
@@ -1413,7 +1473,9 @@ const app = {
 
       // 業務フローの次工程(見積書作成)へそのまま進めるようにする(2026-08-20)。
       // 断っても案件詳細の「💴 見積を作る」からいつでも開ける
-      if (confirm('案件を登録しました。\n続けて見積シミュレーターで見積を作りますか？')) {
+      if (carriedQuote && carriedQuote.report_url) {
+        HiUI.toast('✓ 見積書URLと概算の履歴も案件に残しました');
+      } else if (confirm('案件を登録しました。\n続けて見積シミュレーターで見積を作りますか？')) {
         window.location.href = `/quote-sim?case=${result.id}`;
       }
     } catch (error) {
@@ -1632,6 +1694,8 @@ const app = {
   closeProjectModal() {
     document.getElementById('project-modal').style.display = 'none';
     this.editingProjectId = null;
+    this.pendingQuoteCarry = null;
+    this.renderQuoteCarryBanner('project-quote-banner', null);
   },
 
   // ===== 担当者提案 =====
@@ -2331,8 +2395,11 @@ const app = {
         await API.updateProject(this.editingProjectId, data);
         console.log(`✓ プロジェクト #${this.editingProjectId} を更新`);
       } else {
+        // 見積シミュレーターの「この見積で案件を登録」から来た場合は、見積も一緒に案件へ残す
+        if (this.pendingQuoteCarry) data.quote_carry = this.pendingQuoteCarry;
         const result = await API.createProject(data);
         projectId = result.id;
+        this.pendingQuoteCarry = null;
         console.log('✓ 新規プロジェクトを作成');
       }
 
@@ -2525,6 +2592,30 @@ const app = {
 
   // Google Calendar integration removed
 
+  // 見積シミュレーターの「この見積で案件を登録」(2026-09-24)。localStorage で1回だけ受け取り、すぐ消す。
+  // openProjectModal は非同期でフォームを初期化するので、その後に値を入れる
+  async applyQuoteHandoff() {
+    let handoff = null;
+    try {
+      handoff = JSON.parse(localStorage.getItem('hiboard.quoteToCase') || 'null');
+      localStorage.removeItem('hiboard.quoteToCase');
+    } catch (_) { handoff = null; }
+    // 古い受け渡し(開いたまま放置した等)は使わない
+    if (!handoff || !(Date.now() - (handoff.created_at || 0) < 30 * 60 * 1000)) {
+      HiUI.toast('見積の内容を受け取れませんでした。見積シミュレーターからもう一度お試しください');
+      return;
+    }
+    await new Promise(r => setTimeout(r, 0));
+    const form = document.getElementById('project-form');
+    form.elements['contact_method'].value = handoff.reply_draft_id ? 'LINE' : (form.elements['contact_method'].value || '');
+    if (handoff.subject && !form.elements['project_name'].value) form.elements['project_name'].value = String(handoff.subject).substring(0, 50);
+    this.applyQuoteToForm(form, handoff, 'print-locations-container');
+    const q = handoff.quote || {};
+    if (q.report_url) form.elements['freee_quote_url'].value = q.report_url;
+    this.pendingQuoteCarry = { ...q, reply_draft_id: handoff.reply_draft_id || null };
+    this.renderQuoteCarryBanner('project-quote-banner', q);
+  },
+
   handleQueryParams() {
     const params = new URLSearchParams(window.location.search);
     // 他画面のヘッダーメニュー「担当者マスタ」からは /?open=staff で戻ってくる
@@ -2554,6 +2645,7 @@ const app = {
         if (Number.isFinite(id)) this.openProjectModal(id);
       } else {
         this.openProjectModal();
+        if (params.get('from_quote') === '1') this.applyQuoteHandoff();
         if (params.get('design_ops') === '1') {
           const box = document.getElementById('project-form').elements['is_design_ops'];
           if (box) box.checked = true;
