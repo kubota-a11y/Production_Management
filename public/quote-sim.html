@@ -44,6 +44,11 @@
             <p class="qs-note">件名は「品名 加工名 数量」で自動生成されます(顧客名は取引先欄に入るため件名には入れません)。書き換えると自動生成は止まります。
               <button type="button" class="btn btn-ghost btn-small" id="btn-subject-auto">🔄 自動生成に戻す</button>
             </p>
+            <!-- 売上区分(2026-09-24): freeeの見積書の明細行に勘定科目を付け、請求書→取引登録まで科目を引き継ぐ -->
+            <label>売上区分(freeeの勘定科目)
+              <select id="sales-category"><option value="">自動(見積内容から判定)</option></select>
+            </label>
+            <p class="qs-note" id="sales-category-note"></p>
           </div>
 
           <!-- 通常加工 -->
@@ -215,6 +220,7 @@
   </div>
 
   <script src="js/ui.js"></script>
+  <script src="js/sales-category.js"></script>
   <script src="js/quote-sim-data.js"></script>
   <script src="js/quote-sim.js"></script>
 </body>

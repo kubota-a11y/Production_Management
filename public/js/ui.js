@@ -32,6 +32,8 @@ const HiUI = {
     // 毎日見る画面ではなく、社長が週次・月次で振り返るための画面なのでここに畳む
     // (navDaily に足すと横並びのリンクが増えて、全画面でタイトルが2行に折り返す)
     { key: 'workload', href: '/workload', label: '📊 業務量レポート' },
+    // 月1回、freeeの売上取引の勘定科目を案件の売上区分に合わせて振り替える画面(2026-09-24)
+    { key: 'freee-sales-check', href: '/freee-sales-check', label: '🧾 freee売上科目チェック' },
     // 工場のテレビに映す閲覧専用画面。開く人はテレビを設定する人だけなので管理メニューに畳む
     { key: 'factory-display', href: '/schedule/display', label: '📺 工場モニター表示' },
     { divider: true },

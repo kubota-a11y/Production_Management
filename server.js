@@ -32,6 +32,8 @@ const { completeIntakeTask } = require('./lib/todo-notify');
 const { HOLIDAYS, isJpHoliday } = require('./lib/jp-holidays');
 const freeeQuote = require('./lib/freee-quote');
 const quoteCarry = require('./lib/quote-carry');
+const salesCategory = require('./lib/sales-category');
+const freeeSalesSync = require('./lib/freee-sales-sync');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -1779,7 +1781,7 @@ app.post('/api/freee/quotations', async (req, res) => {
     const created = await freeeQuote.createQuotation(sheet, partner);
 
     // 補助的な項目だけ入らなかった場合は、発行は成功しているので警告で伝える
-    const skippedLabels = { memo: '社内メモ', item_name: '明細の品名(摘要にまとめて発行しました)' };
+    const skippedLabels = { memo: '社内メモ', item_name: '明細の品名(摘要にまとめて発行しました)', text_line: '見出しのテキスト行(摘要にまとめて発行しました)' };
     const skipped = created.skipped || [];
     let memoWarning = skipped.length
       ? `見積書は発行できましたが、${skipped.map((k) => skippedLabels[k] || k).join('・')}はfreee側の項目に入りませんでした。必要ならfreeeで直接ご修正ください`
@@ -1815,6 +1817,12 @@ app.post('/api/freee/quotations', async (req, res) => {
       if (!(projectId > 0) && draftIdForCase > 0) projectId = quoteCarry.resolveCaseForDraft(db, draftIdForCase) || 0;
       if (projectId > 0 && db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId)) {
         const now = new Date().toISOString();
+        // 見積で決めた売上区分(freeeの勘定科目)を案件にも残す。案件側が未設定のときだけ(人が選んだ値は上書きしない)
+        const sheetCategory = salesCategory.normalize(sheet.sales_category);
+        if (sheetCategory) {
+          db.prepare(`UPDATE projects SET sales_category = ?, updated_at = ? WHERE id = ? AND COALESCE(sales_category, '') = ''`)
+            .run(sheetCategory, now, projectId);
+        }
         if (created.report_url) {
           db.prepare('UPDATE projects SET freee_quote_url = ?, updated_at = ? WHERE id = ?')
             .run(created.report_url, now, projectId);
@@ -1916,9 +1924,11 @@ function createProjectRecord(data) {
     status, priority, reference_link, memo, nas_folder_path, prep_items,
     required_skill_tags, estimated_hours, assigned_employee_id, project_kind,
     freee_quote_url, freee_invoice_url, is_design_ops, item_name, ops_flow, paper_source,
-    first_draft_due, submission_due, design_planned_hours } = data;
+    first_draft_due, submission_due, design_planned_hours, sales_category } = data;
   // 社内デザイン案件は数量・作業予定時間なしで登録できるため、NOT NULL列は0で埋める
   const kind = project_kind === 'INTERNAL_DESIGN' ? 'INTERNAL_DESIGN' : 'NORMAL';
+  // 売上区分(freeeの勘定科目の振り分け先・2026-09-24)。不明な値は未設定('')にする
+  const salesCat = salesCategory.normalize(sales_category);
   // 進行タイプ: FULL=加工まで(標準) / SUBMIT_END=紙媒体・入稿で完了
   const flow = ops_flow === 'SUBMIT_END' ? 'SUBMIT_END' : 'FULL';
   // 紙媒体の出どころ: HIYOSHI=弊社依頼 / CARVE=鈴木さんがCARVEで受けている案件
@@ -1931,15 +1941,15 @@ function createProjectRecord(data) {
       status, priority, reference_link, memo, nas_folder_path, prep_items,
       required_skill_tags, estimated_hours, assigned_employee_id, project_kind,
       freee_quote_url, freee_invoice_url, is_design_ops, item_name, ops_flow, paper_source,
-      first_draft_due, submission_due, design_planned_hours, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      first_draft_due, submission_due, design_planned_hours, sales_category, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(project_name, received_date, deadline || '', customer_name, contact_method,
     work_content || '', process_type || '', quantity || 0, planned_hours || 0, assigned_staff_id || null,
     status || 'PRE_ORDER', priority || 'MEDIUM', reference_link || '', memo || '',
     nas_folder_path || '', prep_items || '', required_skill_tags || '', estimated_hours || null,
     assigned_employee_id || null, kind, freee_quote_url || '', freee_invoice_url || '',
     is_design_ops ? 1 : 0, item_name || '', flow, paperSrc,
-    first_draft_due || null, submission_due || null, design_planned_hours || null, now, now);
+    first_draft_due || null, submission_due || null, design_planned_hours || null, salesCat, now, now);
 
   // 紙媒体(入稿で完了)タイプは鈴木さんの制作から始まる(2026-08-03 社長決定)。
   // 山本さんのブリーフ・ラフ工程を飛ばして「制作」段階でボードに載せる
@@ -1995,7 +2005,7 @@ app.put('/api/projects/:id', (req, res) => {
       status, priority, reference_link, memo, nas_folder_path, prep_items,
       required_skill_tags, estimated_hours, assigned_employee_id, project_kind,
       freee_quote_url, freee_invoice_url, is_design_ops, item_name, ops_flow, paper_source,
-      first_draft_due, submission_due, design_planned_hours } = req.body;
+      first_draft_due, submission_due, design_planned_hours, sales_category } = req.body;
     const kind = project_kind === 'INTERNAL_DESIGN' ? 'INTERNAL_DESIGN' : 'NORMAL';
     const now = new Date().toISOString();
     db.prepare(`
@@ -2005,7 +2015,7 @@ app.put('/api/projects/:id', (req, res) => {
         status=?, priority=?, reference_link=?, memo=?, nas_folder_path=?, prep_items=?,
         required_skill_tags=?, estimated_hours=?, assigned_employee_id=?, project_kind=?,
         freee_quote_url=?, freee_invoice_url=?, is_design_ops=?, item_name=?, ops_flow=?, paper_source=?,
-        first_draft_due=?, submission_due=?, design_planned_hours=?, updated_at=?
+        first_draft_due=?, submission_due=?, design_planned_hours=?, sales_category=?, updated_at=?
       WHERE id=?
     `).run(project_name, received_date, deadline || '', customer_name, contact_method,
       work_content || '', process_type || '', quantity || 0, planned_hours || 0, assigned_staff_id || null,
@@ -2014,7 +2024,8 @@ app.put('/api/projects/:id', (req, res) => {
       freee_quote_url || '', freee_invoice_url || '', is_design_ops ? 1 : 0, item_name || '',
       ops_flow === 'SUBMIT_END' ? 'SUBMIT_END' : 'FULL',
       paper_source === 'CARVE' ? 'CARVE' : 'HIYOSHI',
-      first_draft_due || null, submission_due || null, design_planned_hours || null, now, req.params.id);
+      first_draft_due || null, submission_due || null, design_planned_hours || null,
+      salesCategory.normalize(sales_category), now, req.params.id);
     res.json({ message: 'Project updated successfully' });
   } catch (error) {
     sendServerError(res, req, error);
@@ -3860,6 +3871,58 @@ app.get('/backup-status', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'backup-status.html'));
 });
 
+/* ---------- 売上区分 → freeeの勘定科目(2026-09-24 社長指示) ----------
+ * 対応表は lib/sales-category.js が単一の情報源。画面(案件フォーム・見積シミュレーター・案件詳細)にも
+ * 同じファイルを配る。月1回の「freee売上科目チェック」画面はここのAPIで取引を読み、科目を振り替える
+ */
+app.get('/js/sales-category.js', (req, res) => {
+  res.sendFile(path.join(__dirname, 'lib', 'sales-category.js'));
+});
+app.get('/api/sales-categories', (req, res) => {
+  res.json({ ok: true, categories: salesCategory.LIST.map((c) => ({ ...c, account_item_id: salesCategory.accountItemId(c.code) })) });
+});
+
+// 月1回の科目チェック画面(社内画面。外部公開ガードで公開ドメインでは404)
+app.get('/freee-sales-check', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'freee-sales-check.html'));
+});
+
+// その月の売上取引と、案件から引いた「振り替え先の提案」(判定の高・中・低と反映履歴つき)。
+// 提案の作り方と自動実行は lib/freee-sales-sync.js
+app.get('/api/freee/sales-deals', async (req, res) => {
+  const month = String(req.query.month || '').trim();
+  if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ ok: false, error: '月は YYYY-MM で指定してください' });
+  try {
+    const rows = await freeeSalesSync.buildRows(db, month);
+    res.json({ ok: true, month, deals: rows, categories: salesCategory.LIST, auto_enabled: process.env.FREEE_SALES_AUTO !== 'off' });
+  } catch (error) {
+    if (error.code === 'NOT_AUTHORIZED') return res.json({ ok: false, need_auth: true, error: error.message });
+    if (error.need_permission) return res.json({ ok: false, need_permission: true, error: error.message });
+    console.error('freee売上取引の取得エラー:', error.message);
+    res.json({ ok: false, error: error.message });
+  }
+});
+
+// 取引1件の売上科目を人が振り替える(画面の「反映」)。履歴に残し、案件の区分が未設定なら案件側にも書く
+app.post('/api/freee/sales-deals/:id/account-item', async (req, res) => {
+  const code = salesCategory.normalize(req.body && req.body.code);
+  if (!code) return res.status(400).json({ ok: false, error: '売上区分を選んでください' });
+  try {
+    const b = req.body || {};
+    const result = await freeeSalesSync.applyRow(db, {
+      dealId: req.params.id, code, caseId: parseInt(b.case_id, 10), mode: 'manual',
+      fromCode: salesCategory.normalize(b.from_code) || (b.from_code === 'MIXED' ? 'MIXED' : null),
+      issueDate: b.issue_date, amount: b.amount,
+    });
+    res.json({ ok: true, ...result });
+  } catch (error) {
+    if (error.code === 'NOT_AUTHORIZED') return res.json({ ok: false, need_auth: true, error: error.message });
+    if (error.need_permission) return res.json({ ok: false, need_permission: true, error: error.message });
+    console.error('freee売上科目の更新エラー:', error.message);
+    res.json({ ok: false, error: error.message });
+  }
+});
+
 // 保存先ごとの実状態を返す。保存先がNAS・共有ドライブの場合、
 // 切断されていると fs の呼び出しに数秒かかることがあるが、
 // 画面を開いたときだけ実行されるので業務処理には影響しない。
@@ -4173,6 +4236,8 @@ setInterval(async () => {
 
 app.listen(PORT, HOST, () => {
   scheduleDailyBackup(db);
+  // freeeの売上取引の勘定科目を案件の売上区分へ自動で振り替える(6時間ごと・2026-09-24)
+  freeeSalesSync.start(db);
   const candidates = getLocalIPs();
   console.log(`サーバー起動:`);
   console.log(`  このMacから: http://localhost:${PORT}`);

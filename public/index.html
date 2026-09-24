@@ -380,6 +380,12 @@
               <div class="field-hint">案件名は「北上少年団記念品」のような正式名称、こちらは作る物そのものを入れてください。案件一覧とデザイン進行ボードの両方に表示されます</div>
             </div>
 
+            <div class="form-group">
+              <div class="form-label">売上区分（freeeの勘定科目）</div>
+              <div class="checkbox-group" data-sales-category-pills="1"></div>
+              <div class="field-hint">freeeの見積書・請求書の勘定科目の振り分け先です（通常=売上高 / 昇華=昇華アイテム売上 / 企業ユニ=企業ユニフォーム売上 / カスタム=カスタムオーダー売上 / KRATVS小売=EC売上(BASE)）。見積シミュレーターから登録すると自動で入ります。迷ったら「通常」</div>
+            </div>
+
             <div class="form-row">
               <div class="form-group">
                 <label for="pf-received-date">受付日 <span class="req-mark" aria-hidden="true">*</span></label>
@@ -669,6 +675,12 @@
               <label for="ai-item-name">アイテム名</label>
               <input type="text" id="ai-item-name" name="item_name" placeholder="例: ドライTシャツ / az50018 半袖ポロシャツ">
               <div class="field-hint">何を作る案件かが一目で分かるように入れてください</div>
+            </div>
+
+            <div class="form-group">
+              <div class="form-label">売上区分（freeeの勘定科目）</div>
+              <div class="checkbox-group" data-sales-category-pills="1"></div>
+              <div class="field-hint">freeeの見積書・請求書の勘定科目の振り分け先です（通常=売上高 / 昇華=昇華アイテム売上 / 企業ユニ=企業ユニフォーム売上 / カスタム=カスタムオーダー売上 / KRATVS小売=EC売上(BASE)）。見積シミュレーターから登録すると自動で入ります。迷ったら「通常」</div>
             </div>
 
             <div class="form-row">
@@ -1059,6 +1071,7 @@
   <!-- 案件名クリックで開く案件詳細モーダル(納品履歴・顧客台帳と共通)。
        case-detail.js はフォルダを開くのに NasBrowse を使うので先に読み込む -->
   <script src="js/nas-browse.js"></script>
+  <script src="js/sales-category.js"></script>
   <script src="js/case-detail.js"></script>
   <script src="js/instruction-pdf.js"></script>
   <script src="js/app.js"></script>

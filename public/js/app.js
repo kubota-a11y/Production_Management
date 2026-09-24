@@ -1298,6 +1298,8 @@ const app = {
   // AIの抽出結果(自由記述のquantity/deadlineを含む)を登録フォームの初期値として反映する
   prefillAiIntakeForm(intake) {
     const form = document.getElementById('ai-intake-form');
+    // 売上区分の既定は「通常」。見積があれば applyQuoteToForm が見積の区分で上書きする
+    if (form.elements['sales_category']) form.elements['sales_category'].value = 'GENERAL';
     const messages = intake.messages || [];
     const firstMessage = messages[0];
     const receivedDate = firstMessage
@@ -1371,6 +1373,17 @@ const app = {
     if (Array.isArray(hint.locations) && hint.locations.length) {
       this.renderPrintLocationRows(hint.locations, printLocationsContainerId);
     }
+    // 見積で決めた売上区分(freeeの勘定科目)をそのまま案件へ
+    if (hint.sales_category && form.elements['sales_category']) form.elements['sales_category'].value = hint.sales_category;
+  },
+
+  // 売上区分の選択肢を lib/sales-category.js から作る(新規案件モーダル・受注候補の確認モーダルの2箇所)
+  renderSalesCategoryPills() {
+    const sc = window.SalesCategory;
+    if (!sc) return;
+    document.querySelectorAll('[data-sales-category-pills]').forEach((box) => {
+      box.innerHTML = sc.LIST.map((c) => `<label class="checkbox-pill" title="${c.hint}"><input type="radio" name="sales_category" value="${c.code}"> ${c.label}</label>`).join('');
+    });
   },
 
   // 見積から作る案件名「名前 作業内容 アイテム」(最大23文字)。
@@ -1653,6 +1666,8 @@ const app = {
     const deleteBtn = document.getElementById('btn-delete');
 
     form.reset();
+    // 売上区分の既定は「通常」(売上の約85%)。見積から来た登録はこの後 applyQuoteToForm が上書きする
+    if (form.elements['sales_category']) form.elements['sales_category'].value = 'GENERAL';
     // 「詳細設定」は毎回畳んだ状態から始める(前に開いた案件の状態を引きずらない)。
     // 型に当てはまらない案件を開いたときは syncCaseShapeFromFields が開き直す
     const kindAdvanced = document.getElementById('pf-kind-advanced');
@@ -1690,6 +1705,10 @@ const app = {
           form.elements['paper_source'].value = project.paper_source || 'HIYOSHI';
         }
         this.onOpsFlowChange();
+        // 売上区分(freeeの勘定科目・2026-09-24)。導入前の案件は未設定のまま(どれも選ばれない)
+        if (form.elements['sales_category']) {
+          form.elements['sales_category'].value = project.sales_category || '';
+        }
       }
 
       try {
@@ -2647,6 +2666,9 @@ const app = {
 
   handleQueryParams() {
     const params = new URLSearchParams(window.location.search);
+    // freee売上科目チェックの「案件」リンク(/?case=ID・2026-09-24)。案件詳細をそのまま開く
+    const caseIdParam = parseInt(params.get('case'), 10);
+    if (caseIdParam > 0) CaseDetail.open(caseIdParam);
     // 他画面のヘッダーメニュー「担当者マスタ」からは /?open=staff で戻ってくる
     if (params.get('open') === 'staff') {
       this.openStaffModal();
@@ -2693,6 +2715,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('payment-form')?.addEventListener('submit', (e) => app.submitPaymentForm(e));
   // ボタンはtype="button"でapp.submitAiIntakeConfirm()を直接呼ぶため、
   // フォーム内でEnterキー等により暗黙的にsubmitされた場合のページ遷移だけを防ぐ
+  app.renderSalesCategoryPills();
   document.getElementById('ai-intake-form')?.addEventListener('submit', (e) => e.preventDefault());
 
   // デザインが絡む案件かどうかで「デザインの入稿納期」の必須表示が変わるため、

@@ -607,6 +607,13 @@ function initDatabase(dbFile = dbPath) {
   if (!projectColumns.includes('instruction_pdf_saved_at')) {
     db.prepare(`ALTER TABLE projects ADD COLUMN instruction_pdf_saved_at TEXT`).run();
   }
+  // 売上区分(2026-09-24 社長指示): freeeの勘定科目の振り分け先。
+  //   GENERAL=売上高 / SUBLIMATION=昇華アイテム売上 / CORP_UNIFORM=企業ユニフォーム売上 /
+  //   CUSTOM_ORDER=カスタムオーダー売上 / KRATVS_RETAIL=EC売上(BASE)。空=未設定(導入前の案件)。
+  //   対応表は lib/sales-category.js が単一の情報源
+  if (!projectColumns.includes('sales_category')) {
+    db.prepare(`ALTER TABLE projects ADD COLUMN sales_category TEXT NOT NULL DEFAULT ''`).run();
+  }
   const deliveryColumns = db.prepare(`PRAGMA table_info('delivery_records')`).all().map(col => col.name);
   if (!deliveryColumns.includes('instruction_pdf_saved')) {
     db.prepare(`ALTER TABLE delivery_records ADD COLUMN instruction_pdf_saved INTEGER`).run();
@@ -1096,6 +1103,25 @@ function initDatabase(dbFile = dbPath) {
       updated_at TEXT NOT NULL
     )
   `);
+
+  // freeeの売上取引の勘定科目を案件の売上区分へ振り替えた履歴(2026-09-24)。
+  // 自動実行はこの表に載っている取引を二度と触らない(人が戻した値を上書きしないため)。
+  // 取引先名・顧客名は持たない(取引IDと金額・区分だけ)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS freee_sales_sync_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      deal_id INTEGER NOT NULL,
+      issue_date TEXT,
+      from_code TEXT,
+      to_code TEXT NOT NULL,
+      mode TEXT NOT NULL,
+      case_id INTEGER,
+      amount INTEGER,
+      changed_lines INTEGER,
+      created_at TEXT NOT NULL
+    )
+  `);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_freee_sales_sync_log_deal ON freee_sales_sync_log(deal_id)');
 
   // カーヴ案件(paper_source='CARVE')は鈴木さん専用でスケジュールボードの対象外にしたが
   // (2026-08-24 社長指示)、それ以前に案件登録時の自動提案で作られた「提案」行が残っていると

@@ -1120,8 +1120,44 @@
     lastResult = r;
     renderResult(r);
     syncSubject(r);
+    syncSalesCategory(r);
     // 割引の有無で承認欄の出し入れが変わる。転記シートもここで作り直す
     syncApproval();
+  }
+
+  /* ---------- 売上区分(freeeの勘定科目)・2026-09-24 ----------
+     見積の内容(モード・取引先・品名・加工)から lib/sales-category.js の判定で区分を提案し、
+     人が選び直せる。決まった区分は freee見積書の明細行の勘定科目になり、案件登録にも運ぶ */
+  let salesCategoryFromCase = null; // 紐づけた案件に区分があれば1回だけ初期値に使う
+  function salesCategoryContext(r) {
+    const texts = r ? (r.items || []).map((x) => [x.label, x.location].filter(Boolean).join(' ')) : [];
+    const processTypes = r && r.mode !== 'kratvs' ? (r.lines || []).map((l) => processCodeOf(l.short)).filter(Boolean) : [];
+    return { mode: r ? r.mode : currentMode(), customer: el('customer').value.trim(), title: el('item-title').value.trim(), texts, process_types: processTypes };
+  }
+  function suggestedSalesCategory(r) {
+    const sc = window.SalesCategory;
+    if (!sc) return { code: 'GENERAL', reason: '' };
+    return sc.suggest(salesCategoryContext(r));
+  }
+  /** 実際に使う区分(人の選択 > 自動判定) */
+  function effectiveSalesCategory(r) {
+    const picked = el('sales-category').value;
+    return picked || suggestedSalesCategory(r).code;
+  }
+  function syncSalesCategory(r) {
+    const sc = window.SalesCategory;
+    const note = el('sales-category-note');
+    if (!sc) { note.textContent = ''; return; }
+    if (salesCategoryFromCase && !el('sales-category').value) {
+      el('sales-category').value = salesCategoryFromCase;
+      salesCategoryFromCase = null;
+    }
+    const sug = suggestedSalesCategory(r);
+    const picked = sc.get(el('sales-category').value);
+    const sugItem = sc.get(sug.code);
+    note.textContent = picked
+      ? `選択中: ${picked.label} → freee勘定科目「${picked.account}」(自動判定は ${sugItem ? sugItem.label : '—'})`
+      : `自動判定: ${sugItem ? sugItem.label : '—'} → freee勘定科目「${sugItem ? sugItem.account : '—'}」　${sug.reason}`;
   }
 
   function renderResult(r) {
@@ -1319,6 +1355,8 @@
       subtotal: r.subtotal, tax: r.tax, total: r.total,
       notes,
       discount: r.discount,
+      // 売上区分(freeeの明細行の勘定科目になる・2026-09-24)
+      sales_category: effectiveSalesCategory(r),
     };
   }
 
@@ -1341,7 +1379,7 @@
     const title = el('item-title').value.trim() || defaultItemName(r);
     if (r.mode === 'kratvs') {
       const prints = [...(r.setApplied ? [r.setApplied.t] : []), ...r.rest.map((p) => p.t)];
-      return { title, customer: el('customer').value.trim(), qty: r.qty, locations: prints.map((t) => ({ location_name: t, color_count: 1 })), process_types: [] };
+      return { title, customer: el('customer').value.trim(), qty: r.qty, locations: prints.map((t) => ({ location_name: t, color_count: 1 })), process_types: [], sales_category: effectiveSalesCategory(r) };
     }
     const locations = rows.map((row, i) => {
       const l = r.lines[i] || {};
@@ -1349,7 +1387,7 @@
       return { location_name: String(row.locationName || '').trim() || l.short || '', color_count: c };
     }).filter((l) => l.location_name);
     const processTypes = [...new Set(r.lines.map((l) => processCodeOf(l.short)).filter(Boolean))];
-    return { title, customer: el('customer').value.trim(), qty: r.qty, locations, process_types: processTypes };
+    return { title, customer: el('customer').value.trim(), qty: r.qty, locations, process_types: processTypes, sales_category: effectiveSalesCategory(r) };
   }
 
   /** 転記シートの文字列。この形のままClaudeが読めるので書式を崩さないこと */
@@ -1360,6 +1398,9 @@
     L.push(`件名    : ${sh.subject}`);
     L.push(`見積日  : ${sh.date}　有効期限: ${sh.due}`);
     L.push('税区分  : 外税(単価は税抜)　★freeeの初期値のままでよい');
+    // 売上区分(2026-09-24)。freeeの見積書には入力しない(勘定科目の欄が無い)。案件に運び、取引の科目合わせに使う
+    const scItem = window.SalesCategory && window.SalesCategory.get(sh.sales_category);
+    if (scItem) L.push(`売上区分: ${scItem.label}(freee勘定科目「${scItem.account}」・見積書には入力しない)`);
     L.push('─ 明細 ─');
     sh.lines.forEach((l, i) => {
       // テキスト行(金額なし)。freeeでは「テキスト行」で追加する
@@ -1483,6 +1524,8 @@
       return;
     }
     linkedCase = data.project;
+    // 案件に売上区分があれば、次の再計算で選択欄の初期値にする(未選択のときだけ)
+    salesCategoryFromCase = (data.project && data.project.sales_category) || null;
     el('customer').value = linkedCase.customer_name || '';
     el('item-title').value = linkedCase.item_name || linkedCase.project_name || '';
     const q = parseInt(linkedCase.quantity, 10);
@@ -1564,6 +1607,8 @@
       if (!resp.ok) throw new Error(String(resp.status));
       const data = await resp.json();
       linkedCase = data.project;
+    // 案件に売上区分があれば、次の再計算で選択欄の初期値にする(未選択のときだけ)
+    salesCategoryFromCase = (data.project && data.project.sales_category) || null;
       showLinkedCase();
       HiUI.toast('案件と紐づけました。freeeで発行すると見積書URLが自動で保存されます');
     } catch (_) {
@@ -1912,6 +1957,7 @@
       const resp = await fetch(`/api/projects/${caseId}/quote-context`);
       if (!resp.ok) throw new Error(String(resp.status));
       linkedCase = (await resp.json()).project;
+      salesCategoryFromCase = (linkedCase && linkedCase.sales_category) || null;
       showLinkedCase();
       if (message) HiUI.toast(message);
     } catch (_) { /* 紐づけられなくても見積は作れる */ }
@@ -2032,6 +2078,17 @@
   ['shipping', 'customer', 'item-title'].forEach((id) => {
     el(id).addEventListener('input', recalc);
   });
+  // 売上区分の選択肢(lib/sales-category.js から)。選び直したら転記シート・注記を作り直す
+  if (window.SalesCategory) {
+    window.SalesCategory.LIST.forEach((c) => {
+      const o = document.createElement('option');
+      o.value = c.code;
+      o.textContent = `${c.label}(${c.account})`;
+      o.title = c.hint;
+      el('sales-category').appendChild(o);
+    });
+  }
+  el('sales-category').onchange = recalc;
   el('bagging').onchange = recalc;
   el('opt-express').onchange = recalc;
   el('toggle-cost').onchange = recalc;

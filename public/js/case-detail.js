@@ -106,6 +106,8 @@ const CaseDetail = {
       ['ステータス', `<span class="status-badge ${getStatusClass(p.status)}">${getStatusLabel(p.status)}</span>`],
       ['納品', d ? `${formatDate(d.delivered_date)}(${this.escapeHtml(d.delivery_method)}${deliveredBy ? ' / ' + this.escapeHtml(deliveredBy) : ''})` : '—'],
       ['担当', this.escapeHtml(p.assigned_employee_name || p.assigned_staff_name || '未割り当て')],
+      // 売上区分(freeeの勘定科目の振り分け先・2026-09-24)。未設定は導入前の案件
+      ['売上区分', this.renderSalesCategory(p.sales_category)],
     ];
     return `
       <div class="case-detail-section">
@@ -115,6 +117,13 @@ const CaseDetail = {
         </table>
       </div>
     `;
+  },
+
+  renderSalesCategory(code) {
+    const sc = window.SalesCategory;
+    const c = sc && sc.get ? sc.get(code) : null;
+    if (!c) return '<span class="case-quote-extra">未設定(案件の編集で選べます)</span>';
+    return `${this.escapeHtml(c.label)} <span class="case-quote-extra">→ freee勘定科目「${this.escapeHtml(c.account)}」</span>`;
   },
 
   // ===== 加工詳細 =====

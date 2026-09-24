@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>freee売上科目チェック - Production Management</title>
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- ヘッダー(ナビゲーションの中身は js/ui.js が data-nav を見て生成する) -->
+    <header class="app-header">
+      <div class="header-content">
+        <div>
+          <h1 class="app-title">🧾 freee売上科目チェック</h1>
+          <p class="app-subtitle">売上取引の勘定科目を、案件の売上区分に合わせて振り替える(月1回)</p>
+        </div>
+      </div>
+      <nav class="header-buttons" data-nav="freee-sales-check" aria-label="画面の切り替え"></nav>
+    </header>
+
+    <main class="main-content">
+      <section>
+        <div class="list-controls fsc-controls">
+          <label for="fsc-month">対象月</label>
+          <input type="month" id="fsc-month">
+          <button type="button" class="btn btn-secondary" id="fsc-load">🔄 freeeから読み込む</button>
+          <button type="button" class="btn btn-primary" id="fsc-apply-all" disabled>✅ 変更のある行をまとめて反映</button>
+        </div>
+        <p class="qs-note">
+          freeeで「売上高」「昇華アイテム売上」「企業ユニフォーム売上」「カスタムオーダー売上」「EC売上(BASE)」のどれかで立っている収入取引を月ごとに並べます。
+          「振り替え先」の初期値は、同じ取引先の案件の売上区分(無ければ取引先名・摘要からの判定)です。<strong>反映を押すとfreeeの取引の勘定科目が書き換わります</strong>(金額・入金の消込は変わりません)。<br>
+          <strong>判定「高」(案件の見積と税込合計が一致・八木繊維様)で「売上高」のままの取引は、HiBoardが6時間ごとに自動で振り替えます。</strong>この画面は自動で決めきれなかった分(判定「中」「低」)を人が見る場所です。一度でも反映した取引は自動では二度と触りません。
+        </p>
+
+        <div class="fsc-summary" id="fsc-summary"></div>
+
+        <div class="table-container">
+          <table class="projects-table fsc-table">
+            <thead>
+              <tr>
+                <th>発生日</th>
+                <th>取引先</th>
+                <th>内容(摘要 / 管理番号)</th>
+                <th class="fsc-amount">金額(税込)</th>
+                <th>今の科目</th>
+                <th>振り替え先(売上区分)</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="fsc-tbody"></tbody>
+          </table>
+        </div>
+        <p class="empty-notice" id="fsc-empty" hidden>対象月を選んで「freeeから読み込む」を押してください</p>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/ui.js"></script>
+  <script src="js/sales-category.js"></script>
+  <script src="js/freee-sales-check.js"></script>
+</body>
+</html>
