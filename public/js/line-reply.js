@@ -140,7 +140,9 @@
           <span class="form-label">📎 ファイルを付ける <span class="text-muted">(見積書PDF・仕上がりイメージ。次に送るメッセージに添付されます)</span></span>
           <div class="lr-attach-buttons">
             ${folders && folders.length ? `<button type="button" class="btn btn-small btn-secondary" id="lr-pick-folder">案件フォルダから選ぶ</button>` : ''}
-            <label class="btn btn-small btn-secondary" for="lr-upload-input">PCからアップロード</label>
+            <label class="btn btn-small btn-secondary" for="lr-photo-input">📷 写真を撮る/選ぶ</label>
+            <input type="file" id="lr-photo-input" accept="image/*" capture="environment" class="sr-only">
+            <label class="btn btn-small btn-secondary" for="lr-upload-input">📄 PDF・ファイル</label>
             <input type="file" id="lr-upload-input" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp" class="sr-only">
           </div>
         </div>
@@ -155,7 +157,9 @@
     const patch = d.intake_patch || {};
     const missing = (d.missing_info || []).length ? `<ul class="lr-missing">${d.missing_info.map((m) => `<li>${esc(m)}</li>`).join('')}</ul>` : '<span class="text-muted">なし</span>';
     const tools = (d.tool_calls || []).length ? d.tool_calls.map((t) => `${t.name}${t.ok ? '' : '(失敗)'}`).join('・') : 'なし';
+    document.querySelector('.lr-layout').classList.add('lr-detail-open');
     el('lr-detail').innerHTML = `
+      <button type="button" class="btn btn-small btn-ghost lr-back" id="lr-back">← 一覧へ戻る</button>
       <div class="lr-detail-head">
         <div>
           <h2 class="lr-detail-name">${esc(d.display_name || '(表示名なし)')} <span class="text-muted">#${d.id}</span></h2>
@@ -234,6 +238,13 @@
       sendBtn.addEventListener('click', () => sendCurrent(d, ta.value));
       el('lr-discard-reason').addEventListener('change', (e) => { if (e.target.value) discardCurrent(d, e.target.value); });
     }
+    el('lr-back').addEventListener('click', () => {
+      // スマホ幅では一覧と詳細を切り替えて見せる(PCでは両方見えているのでボタン自体を出さない)
+      document.querySelector('.lr-layout').classList.remove('lr-detail-open');
+      state.selectedId = null;
+      renderList();
+      window.scrollTo(0, 0);
+    });
     el('lr-regen').addEventListener('click', () => regenerate(d.line_user_id));
     el('lr-mute').addEventListener('click', () => toggleMute(user));
     el('lr-manual-form').addEventListener('submit', (e) => { e.preventDefault(); sendManual(d.line_user_id, el('lr-manual-text').value); });
@@ -249,12 +260,15 @@
     const { draft: d, folders } = state.detail;
     const pickBtn = el('lr-pick-folder');
     if (pickBtn) pickBtn.addEventListener('click', () => pickFromFolder(folders, d.line_user_id));
-    const input = el('lr-upload-input');
-    if (input) input.addEventListener('change', async () => {
-      const file = input.files && input.files[0];
-      if (!file) return;
-      await uploadAttachment(file, d.line_user_id);
-      input.value = '';
+    ['lr-upload-input', 'lr-photo-input'].forEach((id) => {
+      const input = el(id);
+      if (!input) return;
+      input.addEventListener('change', async () => {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        await uploadAttachment(file, d.line_user_id);
+        input.value = '';
+      });
     });
     document.querySelectorAll('#lr-attach-list [data-remove]').forEach((b) => b.addEventListener('click', () => {
       state.attachments.splice(parseInt(b.dataset.remove, 10), 1);

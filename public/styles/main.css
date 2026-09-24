@@ -3208,3 +3208,24 @@ td.empty-notice {
 .lr-form-images img { width: 140px; height: 140px; object-fit: cover; border-radius: var(--radius-sm); background: var(--surface); border: 1px solid var(--border-color); }
 .lr-form-notes { margin: 0; white-space: pre-wrap; font-family: var(--font-sans); font-size: var(--text-sm); line-height: var(--leading-relaxed); background: var(--surface); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); max-height: 260px; overflow: auto; }
 .lr-form-actions { margin-top: var(--space-2); text-align: right; }
+
+/* 返信キュー: スマホ対応(2026-09-24)。767px以下は一覧と詳細を切り替え、送信ボタンを下端に固定 */
+.lr-back { display: none; margin-bottom: var(--space-2); }
+@media (max-width: 767px) {
+  .lr-back { display: inline-flex; }
+  .lr-layout.lr-detail-open .lr-list { display: none; }
+  .lr-layout.lr-detail-open .lr-detail { padding: var(--space-3); }
+  .lr-conv-scroll { max-height: 320px; }
+  .lr-draft-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: var(--z-sticky);
+    padding: var(--space-2) 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border-color);
+  }
+  .lr-draft-actions .btn-primary { flex: 1 1 auto; }
+  .lr-attach-buttons .btn { flex: 1 1 45%; text-align: center; }
+  .lr-toolbar { position: sticky; top: 0; z-index: var(--z-sticky); background: var(--surface-muted); padding: var(--space-2) 0; }
+  .lr-status { display: none; }
+}
