@@ -2,6 +2,7 @@
 // 公式LINE AI受付「返信キュー」(2026-09-24)
 // AIが作った返信の下書きを一覧→確認→[送信]/[直して送信]/[送らない]。
 // 送信は Messaging API の push(取り消せない)なので、送る前に必ず確認ダイアログを出す。
+// 2026-09-24 追加: ファイル添付(見積書PDF・仕上がりイメージ)・フォームの問い合わせ内容と画像の表示
 // ========================================
 (function () {
   'use strict';
@@ -11,7 +12,7 @@
   const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const nl2br = (s) => esc(s).replace(/\n/g, '<br>');
 
-  const state = { status: 'pending', drafts: [], selectedId: null, detail: null, senders: [] };
+  const state = { status: 'pending', drafts: [], selectedId: null, detail: null, senders: [], attachments: [] };
 
   async function getJson(url) {
     const res = await fetch(url);
@@ -37,6 +38,7 @@
     return `${Math.floor(min / 1440)}日前`;
   }
   const STATUS_LABEL = { pending: '待ち', sent: 'そのまま送信', edited: '直して送信', discarded: '送らない', superseded: '作り直し', auto_sent: '自動送信', error: 'エラー' };
+  const INTAKE_STATUS = { pending: '未処理', confirmed: '案件登録済み', rejected: '却下' };
 
   function chip(text, cls) { return `<span class="lr-chip ${cls || ''}">${esc(text)}</span>`; }
   function flagChips(flags) {
@@ -51,9 +53,6 @@
     const c = data.config;
     el('lr-status').textContent = `${c.enabled ? `AI下書き: 有効(${c.model})` : 'AI下書き: 停止中(ANTHROPIC_API_KEY 未設定または AI_REPLY_ENABLED=off)'}｜${c.now}｜時間外の自動送信: ${c.autoAfterHours ? 'オン' : 'オフ'}${c.dryRun ? '｜送信はdry-run(実際には送られません)' : ''}`;
     renderList();
-    if (state.selectedId && !state.drafts.some((d) => d.id === state.selectedId) && state.status === 'pending') {
-      // 選択中の下書きが一覧から消えた(送信済みなど)ときは詳細をそのまま残す
-    }
   }
 
   function renderList() {
@@ -90,6 +89,7 @@
   // ---- 詳細 ----
   async function selectDraft(id) {
     state.selectedId = id;
+    state.attachments = [];
     renderList();
     el('lr-detail').innerHTML = '<div class="folder-loading">読み込み中…</div>';
     try {
@@ -105,6 +105,11 @@
     let body;
     if (m.message_type === 'text') body = nl2br(m.text_content);
     else if (m.message_type === 'image' && m.image_path) body = `<a href="${API.getNasFileUrl(m.image_path)}" target="_blank" rel="noopener"><img class="lr-bubble-img" src="${API.getNasFileUrl(m.image_path)}" alt="お客様からの画像" loading="lazy"></a>`;
+    else if (m.message_type === 'file' && m.sent_file) {
+      const f = m.sent_file;
+      body = `<div class="lr-file-sent">${f.internal_preview ? `<a href="${esc(f.url || '#')}" target="_blank" rel="noopener"><img class="lr-bubble-img" src="${esc(f.internal_preview)}" alt="${esc(f.file_name)}" loading="lazy"></a>` : ''}
+        <div>📎 <a href="${esc(f.url || '#')}" target="_blank" rel="noopener">${esc(f.file_name)}</a><span class="text-muted">(${f.kind === 'pdf' ? 'PDF' : '画像'}${f.preview_count ? `・画像${f.preview_count}枚+リンク` : '・リンク'})</span></div></div>`;
+    } else if (m.message_type === 'file') body = nl2br(m.text_content || '[ファイル]');
     else body = `<span class="lr-bubble-other">[${esc(m.message_type)}]</span>`;
     return `<div class="lr-bubble ${mine ? 'lr-bubble-out' : 'lr-bubble-in'}">
       <div class="lr-bubble-meta">${mine ? `当社(${esc(m.sent_by || '担当')})` : 'お客様'}・${esc(fmtTime(m.received_at))}</div>
@@ -112,8 +117,40 @@
     </div>`;
   }
 
+  // フォーム(Q-/W-/T-/P-)の問い合わせ内容と参考画像
+  function formPanel(intakes) {
+    if (!intakes || !intakes.length) return '';
+    return intakes.map((it, idx) => `
+      <details class="lr-form" ${idx === 0 ? 'open' : ''}>
+        <summary>📋 ${esc(it.kind)}のお問い合わせ(受付 ${esc(it.receipt)}・${esc(fmtTime(it.extracted_at))}・${esc(INTAKE_STATUS[it.status] || it.status)}${it.case_id ? `・案件#${it.case_id}` : ''})</summary>
+        <div class="lr-form-body">
+          ${it.images.length ? `<div class="lr-form-images">${it.images.map((im) => `<a href="${API.getNasFileUrl(im.path)}" target="_blank" rel="noopener" title="${esc(im.name)}"><img src="${API.getNasFileUrl(im.path)}" alt="${esc(im.name)}" loading="lazy"></a>`).join('')}</div>` : ''}
+          <pre class="lr-form-notes">${esc(it.notes || [it.customer_name, it.items, it.quantity, it.deadline].filter(Boolean).join(' / '))}</pre>
+          <div class="lr-form-actions"><a class="btn btn-small btn-ghost" href="/" target="_blank" rel="noopener">受注候補の取り込みで開く</a></div>
+        </div>
+      </details>`).join('');
+  }
+
+  function attachmentsPanel() {
+    const { filesReady, folders } = state.detail;
+    const chips = state.attachments.map((f, i) => `<span class="lr-attach-chip">${f.kind === 'pdf' ? '📄' : '🖼'} ${esc(f.file_name)}${f.preview_count ? `<span class="text-muted">(画像${f.preview_count}枚+リンク)</span>` : `<span class="text-muted">(リンクのみ${f.preview_error ? '・画像化できず' : ''})</span>`} <button type="button" class="btn-icon-remove" data-remove="${i}" aria-label="外す">✕</button></span>`).join('');
+    return `
+      <div class="lr-attach">
+        <div class="lr-attach-head">
+          <span class="form-label">📎 ファイルを付ける <span class="text-muted">(見積書PDF・仕上がりイメージ。次に送るメッセージに添付されます)</span></span>
+          <div class="lr-attach-buttons">
+            ${folders && folders.length ? `<button type="button" class="btn btn-small btn-secondary" id="lr-pick-folder">案件フォルダから選ぶ</button>` : ''}
+            <label class="btn btn-small btn-secondary" for="lr-upload-input">PCからアップロード</label>
+            <input type="file" id="lr-upload-input" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp" class="sr-only">
+          </div>
+        </div>
+        ${filesReady ? '' : '<div class="lr-error">公開URL(PUBLIC_ORDER_BASE_URL)が未設定のため、ファイルは送れません。</div>'}
+        <div class="lr-attach-list" id="lr-attach-list">${chips || '<span class="text-muted">添付なし</span>'}</div>
+      </div>`;
+  }
+
   function renderDetail() {
-    const { draft: d, user, messages } = state.detail;
+    const { draft: d, user, messages, intakes } = state.detail;
     const pending = d.status === 'pending';
     const patch = d.intake_patch || {};
     const missing = (d.missing_info || []).length ? `<ul class="lr-missing">${d.missing_info.map((m) => `<li>${esc(m)}</li>`).join('')}</ul>` : '<span class="text-muted">なし</span>';
@@ -138,13 +175,15 @@
         </div>
       </div>
 
+      ${formPanel(intakes)}
+
       <div class="lr-detail-grid">
         <section class="lr-conv" aria-label="やり取り">
           <h3 class="lr-h3">やり取り(直近30日)</h3>
           <div class="lr-conv-scroll" id="lr-conv">${messages.length ? messages.map(bubble).join('') : '<div class="empty-notice">履歴がありません</div>'}</div>
           <form class="lr-manual" id="lr-manual-form">
             <label for="lr-manual-text" class="form-label">自由に書いて送る(AIの下書きを使わない返信)</label>
-            <textarea id="lr-manual-text" rows="3" placeholder="ここに書いて送ると、この会話にそのまま送信されます"></textarea>
+            <textarea id="lr-manual-text" rows="3" placeholder="ここに書いて送ると、この会話にそのまま送信されます(ファイルだけ送るときは空のまま)"></textarea>
             <div class="lr-manual-actions"><button type="submit" class="btn btn-small btn-secondary">この文で送信</button></div>
           </form>
         </section>
@@ -167,6 +206,8 @@
               </select>
             </label>
           </div>` : `<p class="text-muted">${esc(STATUS_LABEL[d.status] || d.status)}${d.decided_by ? `・${esc(d.decided_by)}` : ''}${d.decided_at ? `・${esc(fmtTime(d.decided_at))}` : ''}${d.discard_reason ? `・理由: ${esc(d.discard_reason)}` : ''}${typeof d.edit_ratio === 'number' && d.status === 'edited' ? `・修正率 ${Math.round(d.edit_ratio * 100)}%` : ''}${typeof d.response_minutes === 'number' ? `・受信から${d.response_minutes}分` : ''}</p>`}
+
+          <div id="lr-attach-panel">${attachmentsPanel()}</div>
 
           <details class="lr-more" open>
             <summary>AIのメモ・足りない情報・受注候補に足せる情報</summary>
@@ -196,7 +237,69 @@
     el('lr-regen').addEventListener('click', () => regenerate(d.line_user_id));
     el('lr-mute').addEventListener('click', () => toggleMute(user));
     el('lr-manual-form').addEventListener('submit', (e) => { e.preventDefault(); sendManual(d.line_user_id, el('lr-manual-text').value); });
+    bindAttachmentPanel();
   }
+
+  // ---- 添付 ----
+  function refreshAttachmentPanel() {
+    el('lr-attach-panel').innerHTML = attachmentsPanel();
+    bindAttachmentPanel();
+  }
+  function bindAttachmentPanel() {
+    const { draft: d, folders } = state.detail;
+    const pickBtn = el('lr-pick-folder');
+    if (pickBtn) pickBtn.addEventListener('click', () => pickFromFolder(folders, d.line_user_id));
+    const input = el('lr-upload-input');
+    if (input) input.addEventListener('change', async () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      await uploadAttachment(file, d.line_user_id);
+      input.value = '';
+    });
+    document.querySelectorAll('#lr-attach-list [data-remove]').forEach((b) => b.addEventListener('click', () => {
+      state.attachments.splice(parseInt(b.dataset.remove, 10), 1);
+      refreshAttachmentPanel();
+    }));
+  }
+  async function uploadAttachment(file, lineUserId) {
+    if (file.size > 20 * 1024 * 1024) { HiUI.toast('ファイルが大きすぎます(上限20MB)', 'warning'); return; }
+    HiUI.toast('ファイルを預かっています(PDFは画像化に数秒かかります)…', 'info');
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('line_user_id', lineUserId);
+    try {
+      const res = await fetch('/api/line-reply/files/upload', { method: 'POST', body: fd });
+      const r = await res.json();
+      if (!r.ok) { HiUI.toast(r.error || 'アップロードに失敗しました', 'error'); return; }
+      state.attachments.push(r.file);
+      refreshAttachmentPanel();
+      HiUI.toast(`${r.file.file_name} を付けました`, 'success');
+    } catch (err) {
+      HiUI.toast('アップロードに失敗しました', 'error');
+    }
+  }
+  function pickFromFolder(folders, lineUserId) {
+    if (!window.NasBrowse) { HiUI.toast('フォルダ閲覧の部品が読み込めていません', 'error'); return; }
+    const onPick = async (entry) => {
+      HiUI.toast('ファイルを預かっています(PDFは画像化に数秒かかります)…', 'info');
+      const r = await postJson('/api/line-reply/files/from-folder', { path: entry.path, line_user_id: lineUserId });
+      if (!r.ok) { HiUI.toast(r.error || '取り込みに失敗しました', 'error'); return; }
+      state.attachments.push(r.file);
+      refreshAttachmentPanel();
+      HiUI.toast(`${r.file.file_name} を付けました`, 'success');
+    };
+    if (folders.length === 1) {
+      NasBrowse.pick(folders[0].nas_folder_path, `${folders[0].project_name} / ${folders[0].customer_name}`, onPick);
+      return;
+    }
+    // 案件が複数あるときは先に選ぶ(プロンプトで番号)
+    const choice = prompt(`どの案件のフォルダを開きますか? 番号を入力\n${folders.map((f, i) => `${i + 1}: ${f.project_name}(${f.customer_name})`).join('\n')}`, '1');
+    const idx = parseInt(choice, 10) - 1;
+    if (!(idx >= 0 && idx < folders.length)) return;
+    NasBrowse.pick(folders[idx].nas_folder_path, `${folders[idx].project_name} / ${folders[idx].customer_name}`, onPick);
+  }
+  function attachmentIds() { return state.attachments.map((f) => f.id); }
+  function attachmentSummary() { return state.attachments.length ? `\n\n添付: ${state.attachments.map((f) => f.file_name).join('、')}` : ''; }
 
   function currentSender() {
     const v = el('lr-sender').value;
@@ -208,11 +311,12 @@
     const sender = currentSender();
     if (!sender) return;
     const t = String(text || '').trim();
-    if (!t) { HiUI.toast('本文が空です', 'warning'); return; }
-    if (!confirm(`「${d.display_name || 'このお客様'}」へ公式LINEで送信します。送ると取り消せません。よろしいですか?\n\n${t.slice(0, 200)}${t.length > 200 ? '…' : ''}`)) return;
-    const r = await postJson(`/api/line-reply/${d.id}/send`, { text: t, sent_by: sender });
+    if (!t && !state.attachments.length) { HiUI.toast('本文が空です', 'warning'); return; }
+    if (!confirm(`「${d.display_name || 'このお客様'}」へ公式LINEで送信します。送ると取り消せません。よろしいですか?\n\n${t.slice(0, 200)}${t.length > 200 ? '…' : ''}${attachmentSummary()}`)) return;
+    const r = await postJson(`/api/line-reply/${d.id}/send`, { text: t, sent_by: sender, attachment_ids: attachmentIds() });
     if (!r.ok) { HiUI.toast(r.error || '送信に失敗しました', 'error'); return; }
-    HiUI.toast(r.status === 'edited' ? '直した文で送信しました' : 'そのまま送信しました', 'success');
+    HiUI.toast(`${r.status === 'edited' ? '直した文で送信しました' : 'そのまま送信しました'}${r.files ? `(ファイル${r.files}件つき)` : ''}`, 'success');
+    state.attachments = [];
     await loadList();
     await selectDraft(d.id);
   }
@@ -248,11 +352,12 @@
     const sender = currentSender();
     if (!sender) return;
     const t = String(text || '').trim();
-    if (!t) { HiUI.toast('本文が空です', 'warning'); return; }
-    if (!confirm(`この文を公式LINEで送信します。送ると取り消せません。よろしいですか?\n\n${t.slice(0, 200)}${t.length > 200 ? '…' : ''}`)) return;
-    const r = await postJson(`/api/line-reply/users/${encodeURIComponent(lineUserId)}/send`, { text: t, sent_by: sender });
+    if (!t && !state.attachments.length) { HiUI.toast('本文が空です', 'warning'); return; }
+    if (!confirm(`この文を公式LINEで送信します。送ると取り消せません。よろしいですか?\n\n${t.slice(0, 200)}${t.length > 200 ? '…' : ''}${attachmentSummary()}`)) return;
+    const r = await postJson(`/api/line-reply/users/${encodeURIComponent(lineUserId)}/send`, { text: t, sent_by: sender, attachment_ids: attachmentIds() });
     if (!r.ok) { HiUI.toast(r.error || '送信に失敗しました', 'error'); return; }
-    HiUI.toast('送信しました', 'success');
+    HiUI.toast(`送信しました${r.files ? `(ファイル${r.files}件つき)` : ''}`, 'success');
+    state.attachments = [];
     await loadList();
     if (state.selectedId) await selectDraft(state.selectedId);
   }
@@ -294,7 +399,6 @@
     try { await loadList(); } catch (err) { el('lr-list').innerHTML = `<div class="empty-notice">読み込みに失敗しました(${esc(err.message)})</div>`; }
     await openFromHash();
     window.addEventListener('hashchange', openFromHash);
-    // 待ちの一覧は60秒ごとに更新(新しい下書きが増えるため)。詳細を開いているときはそのまま
     setInterval(() => { if (state.status === 'pending') loadList().catch(() => {}); }, 60 * 1000);
   });
 })();

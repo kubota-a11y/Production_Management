@@ -1185,6 +1185,34 @@ function initDatabase(dbFile = dbPath) {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_line_reply_drafts_status ON line_reply_drafts(status)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_line_reply_drafts_user ON line_reply_drafts(line_user_id)`);
 
+  // 返信キューからお客様へ送ったファイル(見積書PDF・仕上がりイメージ)(2026-09-24)。
+  // 公開URL /f/{token} で配り、PDFは各ページのプレビュー画像も持つ。lib/line-files.js
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS line_sent_files (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      token TEXT NOT NULL UNIQUE,
+      line_user_id TEXT,
+      file_name TEXT NOT NULL,
+      mime TEXT NOT NULL,
+      size INTEGER NOT NULL,
+      stored_path TEXT NOT NULL,
+      preview_count INTEGER NOT NULL DEFAULT 0,
+      preview_error TEXT,
+      source TEXT,
+      source_path TEXT,
+      created_at TEXT NOT NULL,
+      expires_at TEXT,
+      sent_at TEXT,
+      sent_by TEXT,
+      message_row_id INTEGER
+    )
+  `);
+  const lineMsgColumns2 = db.prepare(`PRAGMA table_info('line_messages')`).all().map(col => col.name);
+  if (lineMsgColumns2.length > 0 && !lineMsgColumns2.includes('sent_file_id')) {
+    db.prepare(`ALTER TABLE line_messages ADD COLUMN sent_file_id INTEGER`).run();
+    console.log('✓ line_messages に送信ファイル列(sent_file_id)を追加しました');
+  }
+
   return db;
 }
 

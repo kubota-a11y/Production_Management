@@ -35,6 +35,17 @@ const NasBrowse = {
 
   open(nasPath, label = '') {
     this.ensureModal();
+    this.onPick = null;
+    document.getElementById('nas-browse-project-info').textContent = label;
+    document.getElementById('nas-browse-modal').style.display = 'flex';
+    this.load(nasPath);
+  },
+
+  // ファイルを「選ぶ」モードで開く(2026-09-24・LINE返信キューの添付用)。
+  // ファイル行に「📎 選ぶ」ボタンが出て、押すと onPick(entry) を呼んで閉じる。フォルダの移動は通常どおり
+  pick(nasPath, label = '', onPick = null) {
+    this.ensureModal();
+    this.onPick = typeof onPick === 'function' ? onPick : null;
     document.getElementById('nas-browse-project-info').textContent = label;
     document.getElementById('nas-browse-modal').style.display = 'flex';
     this.load(nasPath);
@@ -44,6 +55,7 @@ const NasBrowse = {
     const modal = document.getElementById('nas-browse-modal');
     if (modal) modal.style.display = 'none';
     this.currentPath = null;
+    this.onPick = null;
   },
 
   async load(path) {
@@ -83,6 +95,19 @@ const NasBrowse = {
           item.style.cursor = 'pointer';
           item.onclick = () => this.load(entry.path);
         } else {
+          if (this.onPick) {
+            const pickBtn = document.createElement('button');
+            pickBtn.className = 'btn btn-small btn-primary';
+            pickBtn.textContent = '📎 選ぶ';
+            pickBtn.style.marginLeft = '8px';
+            pickBtn.onclick = (e) => {
+              e.stopPropagation();
+              const cb = this.onPick;
+              this.close();
+              cb(entry);
+            };
+            item.appendChild(pickBtn);
+          }
           const openBtn = document.createElement('button');
           openBtn.className = 'btn-small';
           openBtn.textContent = '📂 開く/DL';

@@ -13,6 +13,7 @@ const { registerInquiryRoutes } = require('./lib/inquiry');
 const { linkInquiryFromMessage } = require('./lib/line-followup');
 const opsInventory = require('./lib/ops-inventory');
 const lineReply = require('./lib/line-reply');
+const lineFiles = require('./lib/line-files');
 const { registerTeamOrderRoutes } = require('./lib/team-order');
 const { registerPartnerPortalRoutes } = require('./lib/partner-portal');
 const { registerPartnerOrderRoutes } = require('./lib/partner-order');
@@ -138,6 +139,13 @@ const lineBlobClient = new line.messagingApi.MessagingApiBlobClient({
 const db = initDatabase();
 // 公式LINE AI受付(返信キュー)。db と lineClient が揃ってから初期化する(lib/line-reply.js)
 lineReply.init({ db, lineClient });
+// 返信キューから送るファイル(見積書PDF等)の預かり場所と公開URL(lib/line-files.js)
+lineFiles.init({
+  db,
+  sentPath: process.env.LINE_SENT_PATH || path.join(path.dirname(LINE_RECEIVED_PATH), 'LINE_SENT'),
+  publicBase: process.env.PUBLIC_ORDER_BASE_URL || '',
+  ttlDays: parseInt(process.env.AI_REPLY_FILE_TTL_DAYS, 10) || 90,
+});
 
 function streamToBuffer(stream) {
   return new Promise((resolve, reject) => {
@@ -351,6 +359,7 @@ const EXTERNAL_ALLOWED_PATTERNS = [
   /^\/designer\/[\w-]+$/,            // デザイナー マイスケジュールボード
   /^\/webhook$/,                     // LINE Webhook(署名検証あり)
   /^\/api\/ops-inventory$/,          // 業務棚卸し集計(公開ドメインでは X-Inventory-Token 必須・lib/ops-inventory.js)
+  /^\/f\/[A-Za-z0-9_-]{20,}(\/\d+\.jpg)?$/, // 返信キューから送ったファイルの公開URL(トークン付き・期限あり・lib/line-files.js)
   /^\/api\/(team-order|partner-order|partner-status|designer)\//, // 公開フォーム用API
   /^\/(styles|js|img)\//,            // 公開ページが参照する静的資産
   /^\/favicon\.ico$/,
@@ -2481,9 +2490,10 @@ app.post('/api/line-reply/users/:id/regenerate', async (req, res) => {
   } catch (error) { res.json({ ok: false, error: `下書きの生成に失敗しました: ${error.message}` }); }
 });
 app.post('/api/line-reply/users/:id/send', async (req, res) => {
-  try { res.json(await lineReply.sendManual(req.params.id, { text: req.body && req.body.text, sentBy: req.body && req.body.sent_by })); }
+  try { res.json(await lineReply.sendManual(req.params.id, { text: req.body && req.body.text, sentBy: req.body && req.body.sent_by, attachmentIds: req.body && req.body.attachment_ids })); }
   catch (error) { res.json({ ok: false, error: `送信に失敗しました: ${error.message}` }); }
 });
+lineFiles.registerLineFileRoutes(app, { nasBasePath: NAS_BASE_PATH, isWithinBase });
 app.get('/api/line-reply/:id', (req, res) => {
   try {
     const d = lineReply.getDraft(parseInt(req.params.id, 10));
@@ -2492,7 +2502,7 @@ app.get('/api/line-reply/:id', (req, res) => {
   } catch (error) { sendServerError(res, req, error); }
 });
 app.post('/api/line-reply/:id/send', async (req, res) => {
-  try { res.json(await lineReply.sendDraft(parseInt(req.params.id, 10), { text: req.body && req.body.text, sentBy: req.body && req.body.sent_by })); }
+  try { res.json(await lineReply.sendDraft(parseInt(req.params.id, 10), { text: req.body && req.body.text, sentBy: req.body && req.body.sent_by, attachmentIds: req.body && req.body.attachment_ids })); }
   catch (error) { res.json({ ok: false, error: `送信に失敗しました: ${error.message}` }); }
 });
 app.post('/api/line-reply/:id/discard', (req, res) => {
