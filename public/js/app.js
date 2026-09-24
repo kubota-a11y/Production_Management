@@ -1360,9 +1360,10 @@ const app = {
     if (!hint) return;
     if (hint.title && form.elements['item_name']) form.elements['item_name'].value = hint.title;
     if (hint.customer && !form.elements['customer_name'].value) form.elements['customer_name'].value = hint.customer;
-    if (hint.title && !form.elements['project_name'].value) {
-      form.elements['project_name'].value = `${hint.customer ? `${hint.customer}様 ` : ''}${hint.title}`.substring(0, 50);
-    }
+    // 案件名は「名前 作業内容 アイテム」を23文字以内で作る(案件一覧で見やすくするため・2026-09-24 社長指示)。
+    // 見積がある登録では、会話から拾った案件名より優先する
+    const quoteName = this.buildQuoteProjectName(form.elements['customer_name'].value || hint.customer, hint.process_types, hint.title);
+    if (quoteName) form.elements['project_name'].value = quoteName;
     if (hint.qty) form.elements['quantity'].value = hint.qty;
     if (Array.isArray(hint.process_types) && hint.process_types.length) {
       this.setCheckboxGroupValues(form, 'process_type', hint.process_types.join(','));
@@ -1370,6 +1371,35 @@ const app = {
     if (Array.isArray(hint.locations) && hint.locations.length) {
       this.renderPrintLocationRows(hint.locations, printLocationsContainerId);
     }
+  },
+
+  // 見積から作る案件名「名前 作業内容 アイテム」(最大23文字)。
+  // 長いときは 作業内容 → 名前 → アイテム の順に削り、名前とアイテムはなるべく残す
+  QUOTE_NAME_MAX: 23,
+  PROCESS_SHORT_LABELS: {
+    SILK_SCREEN_PRINT: 'シルク', DTF_PRINT: 'DTF', RUBBER_TRANSFER_PRINT: 'ラバー', SUBLIMATION_PRINT: '昇華',
+    STANDARD_EMBROIDERY: '刺繍', HAT_EMBROIDERY: '帽子刺繍', PATCH_EMBROIDERY: 'ワッペン',
+  },
+  buildQuoteProjectName(customer, processTypes, item) {
+    const max = this.QUOTE_NAME_MAX;
+    // 敬称と法人格(株式会社・有限会社・(株)等)は一覧では要らないので外す
+    let name = String(customer || '').trim().replace(/\s*(様|さま)$/, '')
+      .replace(/^(株式会社|有限会社|合同会社)\s*|\s*(株式会社|有限会社|合同会社)$/g, '').replace(/[(（](株|有)[)）]/g, '').trim();
+    let work = [...new Set((processTypes || []).map(c => this.PROCESS_SHORT_LABELS[c]).filter(Boolean))].join('・');
+    let itemName = String(item || '').trim();
+    const join = () => [name, work, itemName].filter(Boolean).join(' ');
+    if (!name && !itemName) return '';
+    // 1) 作業内容が複数なら先頭だけに
+    if (join().length > max && work.includes('・')) work = work.split('・')[0];
+    // 2) 名前とアイテムの長いほうから1文字ずつ削る(名前は最短6文字・アイテムは最短4文字まで)
+    const over = () => join().length - max;
+    while (over() > 0 && (name.length > 6 || itemName.length > 4)) {
+      const cutName = name.length > 6 && (name.length >= itemName.length || itemName.length <= 4);
+      if (cutName) name = name.slice(0, -1); else itemName = itemName.slice(0, -1);
+    }
+    // 3) それでも長ければ作業内容を外す 4) 最後は末尾で切る
+    if (over() > 0) work = '';
+    return join().slice(0, max);
   },
 
   // 登録画面の上に「どの見積の内容を入れたか」を出す。見積が無ければ隠す
@@ -2608,7 +2638,6 @@ const app = {
     await new Promise(r => setTimeout(r, 0));
     const form = document.getElementById('project-form');
     form.elements['contact_method'].value = handoff.reply_draft_id ? 'LINE' : (form.elements['contact_method'].value || '');
-    if (handoff.subject && !form.elements['project_name'].value) form.elements['project_name'].value = String(handoff.subject).substring(0, 50);
     this.applyQuoteToForm(form, handoff, 'print-locations-container');
     const q = handoff.quote || {};
     if (q.report_url) form.elements['freee_quote_url'].value = q.report_url;
