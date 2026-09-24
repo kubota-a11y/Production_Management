@@ -280,6 +280,17 @@
     const hit = window.QS_BODIES.find((x) => v.startsWith(x.sku) || v === `${x.sku} ${x.name}`);
     return hit ? hit.sku : null;
   }
+  /** 見積書の品番見出し(例「United Athle 5048-01　5.6オンス ラグラン…」)。
+      メーカー名はUnited Athle(品番 NNNN-NN)とSLOTH系だけ品番から分かるので付ける。
+      TOMSの品番(00085 等)はglimmer/Printstarが混在するため品番と名称だけにする */
+  function bodyHeading(b, info) {
+    const sku = bodySku(b);
+    if (!sku) return info.name;
+    const hit = window.QS_BODIES.find((x) => x.sku === sku);
+    const maker = /^\d{4}-\d{2}$/.test(sku) ? 'United Athle'
+      : /^CJ/.test(sku) ? 'COLLECTIVE J+' : /^ST/.test(sku) ? 'SLOTH' : /^DF/.test(sku) ? 'D-FACTORY' : '';
+    return `${[maker, sku].filter(Boolean).join(' ')}　${hit ? hit.name : info.name}`;
+  }
   function bodySizeData(b) {
     const sku = bodySku(b);
     return sku ? (window.QS_BODY_SIZES[sku] || null) : null;
@@ -372,14 +383,15 @@
     list.forEach((r) => {
       if (!data) {
         // サイズ表の無いボディ(持込・リスト外)は、これまでどおりサイズを手打ちする
-        let label = r.sizeText || '';
-        if (r.color) label += `${label ? '・' : ''}${r.color}`;
+        // 見積書の書き方は「色名　サイズ内訳」(三浦さんの見積書に揃える・2026-09-24)
+        const label = [r.color, r.sizeText].filter(Boolean).join('　');
         groups.push({ label, qty: r.qty, bodyUnit: up10(info.unit) });
         return;
       }
       const variant = data.v[Math.min(r.variant, data.v.length - 1)];
-      // 色区分(ホワイト/カラー)と入力された色名が同じときは1つにまとめる(「ホワイト・ホワイト」を防ぐ)
-      const head = [...new Set([variant.l, r.color].filter(Boolean))].join('・');
+      // 色名が入っていれば色名だけを書く(「ホワイト×ブラック」)。色区分(ホワイト/カラー)は
+      // 単価の区分なので、色名が無いときだけ代わりに出す(三浦さんの見積書に揃える・2026-09-24)
+      const head = r.color || variant.l || '';
       // 入力されたサイズを単価(帯)ごとにまとめる
       const byBand = new Map();
       variantSizes(variant).forEach((s) => {
@@ -387,12 +399,13 @@
         if (!n) return;
         if (!byBand.has(s.bandIdx)) byBand.set(s.bandIdx, { unit: s.price, parts: [], qty: 0 });
         const g = byBand.get(s.bandIdx);
-        g.parts.push(`${s.size}:${n}`);
+        // 見積書は価格表と同じ XXL/XXXL 表記にする(画面の入力欄は 2XL 表記のまま)
+        g.parts.push(`${s.size.replace(/^(\d)XL$/, (m, k) => `${'X'.repeat(+k)}L`)}:${n}`);
         g.qty += n;
       });
       byBand.forEach((g) => {
         groups.push({
-          label: [head, g.parts.join('・')].filter(Boolean).join('　'),
+          label: [head, g.parts.join(' / ')].filter(Boolean).join('　'),
           qty: g.qty, bodyUnit: up10(g.unit),
         });
       });
@@ -483,8 +496,14 @@
       return u;
     };
 
-    // 見積書の明細(すべて税抜)。ボディ行 → 加工行 の順に並べる
+    /* 見積書の明細(すべて税抜)。三浦さんの見積書の書き方に揃える(2026-09-24 社長指示):
+         持込の見出し → ボディごとに「メーカー 品番 名称」の見出し+色・サイズ内訳の行 →
+         加工行(同じ加工・同じ単価はボディをまたいで1行にまとめる) → 初期費用 → 袋入れ → 送料
+       見出し(kind='heading')は数量0・単価0で、freeeにはテキスト行として出る */
     const items = [];
+    const headItems = [];   // 持込(ボディなし)の見出し。先頭に出す
+    const bodyItems = [];
+    const allPrints = [];
     const groups = [];
     bodyCalcs.forEach((bc) => {
       const mine = lines.filter((l) => l.targetIds.includes(bc.b.id));
@@ -505,13 +524,22 @@
       const printBefore = printItems.reduce((s, x) => s + x.unitBefore, 0);
       const printAfter = printItems.reduce((s, x) => s + x.unit, 0);
 
+      // 色・サイズの内訳があるボディは「品番の見出し+内訳ごとの行」にする
+      const headed = !bc.info.none && bc.groups.some((g) => g.label);
+      if (bc.info.none) {
+        // 名前の入った持込(例「持込シャツ」)だけ見出しにする。ボディ欄が空のままなら何も出さない
+        const what = String(bc.b.input || '').trim();
+        if (what) headItems.push({ kind: 'heading', label: `${what}${bc.qty}枚`, qty: 0, unitName: '', unitBefore: 0, unit: 0 });
+      } else if (headed) {
+        bodyItems.push({ kind: 'heading', label: bodyHeading(bc.b, bc.info), qty: 0, unitName: '', unitBefore: 0, unit: 0 });
+      }
       bc.groups.forEach((g) => {
         const costRate = bc.info.costRate || 0.55;
         const bodyAfter = bc.info.none ? 0 : discountUnit(g.bodyUnit, 'body', costRate);
         // ボディなし(加工のみ)のときは行を作らない
         if (!bc.info.none) {
-          items.push({
-            kind: 'body', label: bc.info.name, location: g.label,
+          bodyItems.push({
+            kind: 'body', label: bc.info.name, location: g.label, headed,
             bodyShort: bc.info.short, qty: g.qty, unitName: '枚',
             unitBefore: g.bodyUnit, unit: bodyAfter,
           });
@@ -521,8 +549,27 @@
         if (d.key === 'staff') g.cost = Math.round(g.bodyUnit * costRate); // 推定仕入値(税抜)
         groups.push({ ...g, parts, costRate, bodyId: bc.b.id, bodyName: bc.info.name, bodyShort: bc.info.short });
       });
-      items.push(...printItems);
+      allPrints.push(...printItems);
     });
+
+    /* 加工行はボディをまたいで「同じ加工・同じ単価」を1行にまとめる(例: DTF A4 を20式)。
+       ミニマム手数料などで単価が違うボディは別の行に分かれる。
+       まとめた行が全ボディに載るなら「対象:」は書かない(一部のボディだけのときだけ書く) */
+    const mergedPrints = [];
+    allPrints.forEach((p) => {
+      const key = [p.label, p.location, p.unit, p.unitBefore, p.listUnit, p.minFee, p.tierOver, p.tierQty, p.initialWaived, p.waivedNote].join('|');
+      const hit = mergedPrints.find((m) => m.key === key);
+      if (hit) {
+        hit.qty += p.qty;
+        hit.bodyShorts.push(p.bodyShort);
+      } else {
+        mergedPrints.push({ ...p, key, bodyShorts: [p.bodyShort] });
+      }
+    });
+    mergedPrints.forEach((m) => {
+      m.bodyShort = m.bodyShorts.length >= bodyCalcs.length ? '' : m.bodyShorts.join('・');
+    });
+    items.push(...headItems, ...bodyItems, ...mergedPrints);
 
     // 製版代・パンチング代は版の数ぶんの実費。割引対象外なので unitBefore と同額
     lines.filter((l) => l.initial).forEach((l) => {
@@ -707,6 +754,46 @@
       sizes: {},        // サイズ名 → 枚数(サイズ表のあるボディ)
       sizeText: '', color: '', qty: 0,
     });
+  }
+
+  /** AIの見積条件の色・サイズ内訳 → ボディの内訳行(2026-09-24)。
+      色区分(ホワイト/カラー/アッシュ)で単価の列を選び、サイズ別の枚数を入れる。
+      サイズ表に無いサイズは入れずに unplaced へ積む(黙って捨てない) */
+  function applyAiBreakdown(body, list, unplaced) {
+    if (!Array.isArray(list) || !list.length) return;
+    const data = bodySizeData(body);
+    // 全角→半角・大文字にそろえてから、サイズ表と同じ表記(XXL→2XL・cm除去)にする
+    const sizeKey = (s) => normSize(String(s || '').trim()
+      .replace(/[Ａ-Ｚａ-ｚ０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+      .toUpperCase()).toUpperCase();
+    list.forEach((item) => {
+      const sizes = (item.sizes || []).filter((s) => s && parseInt(s.qty, 10) > 0);
+      if (!sizes.length) return;
+      addBreakdownRow(body);
+      const r = body.breakdown[body.breakdown.length - 1];
+      r.color = String(item.color || '').trim();
+      if (!data) {
+        // サイズ表の無いボディ(持込・リスト外)はサイズを文字で持つ
+        r.sizeText = sizes.map((s) => `${String(s.size).trim()}:${s.qty}`).join(' / ');
+        r.qty = sizes.reduce((n, s) => n + (parseInt(s.qty, 10) || 0), 0);
+        return;
+      }
+      const cls = String(item.price_class || '').trim();
+      let vi = cls ? data.v.findIndex((v) => v.l === cls) : -1;
+      if (vi < 0 && cls) vi = data.v.findIndex((v) => String(v.l || '').split('・').includes(cls));
+      if (vi < 0) vi = data.base[0];
+      r.variant = vi;
+      const avail = variantSizes(data.v[vi]).map((s) => s.size);
+      sizes.forEach((s) => {
+        const want = sizeKey(s.size);
+        const name = avail.find((a) => sizeKey(a) === want);
+        if (name) r.sizes[name] = (parseInt(r.sizes[name], 10) || 0) + parseInt(s.qty, 10);
+        else unplaced.push(`${bodySku(body) || ''} ${r.color} ${s.size}`.trim());
+      });
+      syncRowQty(body, r);
+    });
+    const total = body.breakdown.reduce((n, r) => n + (r.qty || 0), 0);
+    if (total > 0) body.qty = total;
   }
 
   function renderBodies() {
@@ -1175,6 +1262,12 @@
        ★品名(name)は使わず、すべて摘要(desc)に書く。ボディ行も品名(行の見出し)には
          出さず、本体の品番と名称を摘要の頭に入れる(2026-09-01 社長指示) */
     const lines = r.items.map((x) => {
+      // 見出し(品番・持込)は金額の無いテキスト行
+      if (x.kind === 'heading') return { type: 'text', name: '', desc: x.label, qty: 0, unit: '', price: 0 };
+      // 品番の見出しの下に並ぶボディ行は「色名　サイズ内訳」だけを書く
+      if (x.kind === 'body' && x.headed && x.unit === x.unitBefore) {
+        return { name: '', desc: x.location, qty: x.qty, unit: x.unitName, price: x.unit };
+      }
       const bits = [];
       if (x.location) bits.push(x.location);
       if (x.kind === 'print') {
@@ -1239,6 +1332,8 @@
     L.push('税区分  : 外税(単価は税抜)　★freeeの初期値のままでよい');
     L.push('─ 明細 ─');
     sh.lines.forEach((l, i) => {
+      // テキスト行(金額なし)。freeeでは「テキスト行」で追加する
+      if (l.type === 'text') { L.push(`${i + 1}) 見出し ${l.desc}　★テキスト行(数量・単価なし)`); return; }
       L.push(`${i + 1}) 品名 ${l.name || '(なし)'}`);
       L.push(`   摘要 ${l.desc || '(なし)'}`);
       L.push(`   数量 ${l.qty} ${l.unit} ／ 単価 ${l.price.toLocaleString()}円(税抜) → ${(l.price * l.qty).toLocaleString()}円`);
@@ -1734,15 +1829,18 @@
       // ボディ
       if (Array.isArray(cond.bodies) && cond.bodies.length) {
         bodies.length = 0;
+        const unplaced = [];
         cond.bodies.forEach((b) => {
           const hit = b.sku ? window.QS_BODIES.find((x) => x.sku === b.sku || x.sku.startsWith(b.sku)) : null;
-          newBody({
+          const body = newBody({
             input: hit ? `${hit.sku} ${hit.name}` : (b.name_hint || ''),
             manual: b.manual_unit != null && !hit ? String(b.manual_unit) : '',
             qty: b.qty > 0 ? b.qty : 1,
           });
+          applyAiBreakdown(body, b.breakdown, unplaced);
         });
         renderBodies();
+        if (unplaced.length) HiUI.toast(`サイズ表に無いサイズがあり内訳に入れられませんでした: ${unplaced.join('・')}。手で直してください`);
       }
       // 加工行
       if (Array.isArray(cond.rows) && cond.rows.length) {
