@@ -3229,3 +3229,6 @@ td.empty-notice {
   .lr-toolbar { position: sticky; top: 0; z-index: var(--z-sticky); background: var(--surface-muted); padding: var(--space-2) 0; }
   .lr-status { display: none; }
 }
+
+/* 返信キュー: freee見積書の発行状況(2026-09-24) */
+.lr-quote-note { margin: var(--space-2) 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--success-soft); color: var(--success-text); font-size: var(--text-sm); }

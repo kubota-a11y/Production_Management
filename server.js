@@ -1743,9 +1743,22 @@ app.get('/api/freee/partners', async (req, res) => {
 });
 
 // 見積書を作成する。成功したら report_url を案件に紐づけ、概算履歴にも残す
+// 取引先の新規作成(2026-09-24)。LINE返信キューからの見積で、freeeに無い新規のお客様を登録する
+app.post('/api/freee/partners', async (req, res) => {
+  try {
+    const name = String((req.body && req.body.name) || '').trim();
+    if (!name) return res.status(400).json({ ok: false, error: '取引先名を入れてください' });
+    const partner = await freeeQuote.createPartner(name);
+    res.json({ ok: true, partner });
+  } catch (error) {
+    if (error.code === 'NOT_AUTHORIZED') return res.json({ ok: false, need_auth: true, error: error.message });
+    res.json({ ok: false, error: error.message });
+  }
+});
+
 app.post('/api/freee/quotations', async (req, res) => {
   try {
-    const { sheet, partner, case_id: caseId, sheet_text: sheetText, discount_name: discountName, approved_by: approvedBy } = req.body || {};
+    const { sheet, partner, case_id: caseId, reply_draft_id: replyDraftId, sheet_text: sheetText, discount_name: discountName, approved_by: approvedBy } = req.body || {};
     if (!sheet || !Array.isArray(sheet.lines) || !sheet.lines.length) {
       return res.status(400).json({ ok: false, error: '見積の明細がありません' });
     }
@@ -1816,7 +1829,25 @@ app.post('/api/freee/quotations', async (req, res) => {
         + '案件詳細で見積書URLの貼り付けをお願いします(発行はやり直さないでください)';
     }
 
-    res.json({ ok: true, quotation: created, warning });
+    // LINE返信キューから来た見積(2026-09-24): PDFを取って下書きに添付し、本文を「見積送付」の型にする。
+    // ここも発行そのものは成功しているので、失敗しても ok:true のまま reply.attached=false で返す
+    let reply = null;
+    const draftId = parseInt(replyDraftId, 10);
+    if (draftId > 0) {
+      try {
+        let pdf = null;
+        try { pdf = await freeeQuote.downloadQuotationPdf(created.id); } catch (pdfErr) { console.warn('[freee] 見積書PDFの取得に失敗:', pdfErr.message); }
+        const r = await lineReply.attachFreeeQuote(draftId, {
+          quotationId: created.id, quotationNumber: created.quotation_number, reportUrl: created.report_url, pdfBuffer: pdf, sentBy: approvedBy || null,
+        });
+        reply = { draft_id: draftId, attached: Boolean(r.ok && r.file), file: r.file || null };
+      } catch (attachErr) {
+        console.error('[freee] 返信キューへの添付に失敗(発行そのものは成功):', attachErr.message);
+        reply = { draft_id: draftId, attached: false };
+      }
+    }
+
+    res.json({ ok: true, quotation: created, warning, reply });
   } catch (error) {
     if (error.code === 'NOT_AUTHORIZED') return res.json({ ok: false, need_auth: true, error: error.message });
     console.error('freee見積書作成エラー:', error.message);
@@ -2498,7 +2529,21 @@ app.get('/api/line-reply/:id', (req, res) => {
   try {
     const d = lineReply.getDraft(parseInt(req.params.id, 10));
     if (!d) return res.status(404).json({ error: '下書きが見つかりません' });
-    res.json({ draft: d, ...lineReply.conversation(d.line_user_id) });
+    res.json({ draft: d, quote_file: d.quote_file_id ? lineFiles.get(d.quote_file_id) : null, ...lineReply.conversation(d.line_user_id) });
+  } catch (error) { sendServerError(res, req, error); }
+});
+// 返信キューからの見積作成(2026-09-24): AIが会話から見積条件を組み立てる → /quote-sim?lr=ID で開く
+app.post('/api/line-reply/:id/quote-prep', async (req, res) => {
+  try {
+    const cond = await lineReply.buildQuoteConditions(parseInt(req.params.id, 10));
+    res.json({ ok: true, conditions: cond });
+  } catch (error) { res.json({ ok: false, error: `見積条件を作れませんでした: ${error.message}` }); }
+});
+app.get('/api/line-reply/:id/quote-context', (req, res) => {
+  try {
+    const ctx = lineReply.getQuoteContext(parseInt(req.params.id, 10));
+    if (!ctx) return res.status(404).json({ error: '下書きが見つかりません' });
+    res.json(ctx);
   } catch (error) { sendServerError(res, req, error); }
 });
 app.post('/api/line-reply/:id/send', async (req, res) => {

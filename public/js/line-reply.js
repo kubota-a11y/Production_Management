@@ -94,6 +94,9 @@
     el('lr-detail').innerHTML = '<div class="folder-loading">読み込み中…</div>';
     try {
       state.detail = await getJson(`/api/line-reply/${id}`);
+      // freeeで発行した見積書PDFが下書きに紐づいていて、まだ送っていなければ最初から添付しておく
+      const qf = state.detail.quote_file;
+      if (qf && !qf.sent_at && state.detail.draft.status === 'pending') state.attachments = [qf];
       renderDetail();
     } catch (err) {
       el('lr-detail').innerHTML = `<div class="empty-notice">読み込みに失敗しました(${esc(err.message)})</div>`;
@@ -196,9 +199,11 @@
           <h3 class="lr-h3">AIの下書き <span class="text-muted">${esc(d.summary || '')}</span></h3>
           ${d.error ? `<div class="lr-error">生成エラー: ${esc(d.error)}</div>` : ''}
           <textarea id="lr-draft-text" rows="12" ${pending ? '' : 'readonly'}>${esc(pending ? d.reply_text : (d.final_text || d.reply_text || ''))}</textarea>
+          ${d.freee_quotation_number ? `<div class="lr-quote-note">🧾 freee見積書 No. ${esc(d.freee_quotation_number)} を発行済み${d.freee_report_url ? ` <a href="${esc(d.freee_report_url)}" target="_blank" rel="noopener">freeeで開く</a>` : ''}${state.detail.quote_file ? '(PDFを添付)' : '(PDFは手動で添付してください)'}</div>` : ''}
           ${pending ? `
           <div class="lr-draft-actions">
             <button type="button" class="btn btn-primary" id="lr-send">📤 このまま送信</button>
+            <button type="button" class="btn btn-secondary" id="lr-quote" title="AIが会話から見積条件を組み立てて見積シミュレーターを開きます。金額の確認とfreeeへの発行は人が行います">🧾 見積を作る</button>
             <label class="lr-discard">
               <select id="lr-discard-reason">
                 <option value="">送らない(理由を選ぶ)</option>
@@ -237,6 +242,7 @@
       syncLabel();
       sendBtn.addEventListener('click', () => sendCurrent(d, ta.value));
       el('lr-discard-reason').addEventListener('change', (e) => { if (e.target.value) discardCurrent(d, e.target.value); });
+      el('lr-quote').addEventListener('click', () => prepareQuote(d));
     }
     el('lr-back').addEventListener('click', () => {
       // スマホ幅では一覧と詳細を切り替えて見せる(PCでは両方見えているのでボタン自体を出さない)
@@ -311,6 +317,26 @@
     const idx = parseInt(choice, 10) - 1;
     if (!(idx >= 0 && idx < folders.length)) return;
     NasBrowse.pick(folders[idx].nas_folder_path, `${folders[idx].project_name} / ${folders[idx].customer_name}`, onPick);
+  }
+  // 見積を作る: AIが会話から見積条件を組み立て(10〜20秒)、見積シミュレーターを別タブで開く
+  async function prepareQuote(d) {
+    const btn = el('lr-quote');
+    btn.disabled = true;
+    btn.textContent = '🧾 条件を組み立て中…';
+    HiUI.toast('AIが会話から見積条件を組み立てています(10〜20秒)…', 'info');
+    try {
+      const r = await postJson(`/api/line-reply/${d.id}/quote-prep`, {});
+      if (!r.ok) { HiUI.toast(r.error || '見積条件を作れませんでした', 'error'); return; }
+      const miss = (r.conditions.missing || []).length ? `確認が必要: ${r.conditions.missing.join('・')}` : '';
+      HiUI.toast(`見積シミュレーターを開きます。${miss}`, 'success');
+      const w = window.open(`/quote-sim?lr=${d.id}`, '_blank');
+      if (!w) HiUI.toast('タブを開けませんでした。見積計算の画面を /quote-sim?lr=' + d.id + ' で開いてください', 'warning');
+    } catch (err) {
+      HiUI.toast('見積条件を作れませんでした', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🧾 見積を作る';
+    }
   }
   function attachmentIds() { return state.attachments.map((f) => f.id); }
   function attachmentSummary() { return state.attachments.length ? `\n\n添付: ${state.attachments.map((f) => f.file_name).join('、')}` : ''; }

@@ -1584,6 +1584,32 @@
     searchFreeePartners(el('freee-partner-search').value.trim());
   };
 
+  /* 取引先の新規作成(2026-09-24)。LINEだけの新規のお客様はfreeeに取引先が無いので、検索欄の名前でその場で作る。
+     freeeのマスタに実際に登録されるので、名前を確認してから */
+  el('freee-partner-create-btn').onclick = async () => {
+    const name = el('freee-partner-search').value.trim();
+    const note = el('freee-partner-note');
+    if (!name) { HiUI.toast('検索欄に取引先名を入れてから押してください'); return; }
+    if (!window.confirm(`freeeに取引先「${name}」を新規登録します。よろしいですか?(同じ名前が既にあると二重登録になります)`)) return;
+    note.textContent = '登録中...';
+    try {
+      const resp = await fetch('/api/freee/partners', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+      const data = await resp.json();
+      if (!data.ok) { if (data.need_auth) askFreeeAuth(data.error); note.textContent = data.error || '登録できませんでした'; return; }
+      freeePartners = [data.partner, ...freeePartners.filter((p) => p.id !== data.partner.id)];
+      const sel = el('freee-partner-select');
+      const o = document.createElement('option');
+      o.value = String(data.partner.id);
+      o.textContent = data.partner.name;
+      sel.insertBefore(o, sel.firstChild);
+      sel.value = String(data.partner.id);
+      if (!el('freee-display-name').value.trim()) el('freee-display-name').value = name;
+      note.textContent = `取引先「${data.partner.name}」を登録し、発行先に選びました。`;
+    } catch (err) {
+      note.textContent = `登録できませんでした: ${err.message}`;
+    }
+  };
+
   function closeFreeeModal() { el('freee-modal').style.display = 'none'; }
 
   /** 発行した見積書へのリンクを画面に残す(案件と紐づいていなくても辿れるように) */
@@ -1624,6 +1650,7 @@
           sheet: sh,
           partner: { id: partner.id, name: partner.name, display_name: el('freee-display-name').value.trim() || null },
           case_id: linkedCase ? linkedCase.id : null,
+          reply_draft_id: replyDraftId,
           sheet_text: sheetText(sh),
           discount_name: discountLabelForSave(),
           approved_by: el('approval-by').value.trim() || null,
@@ -1638,6 +1665,22 @@
       closeFreeeModal();
       const q = data.quotation;
       HiUI.toast(data.warning || `見積書を発行しました(No. ${q.quotation_number})`);
+      // LINE返信キューから来た場合: 下書きへの添付結果を出し、戻るリンクを置く
+      if (replyDraftId && data.reply) {
+        const box = el('freee-issued');
+        box.hidden = false;
+        const p = document.createElement('div');
+        p.textContent = data.reply.attached
+          ? `📎 見積書PDFをLINE返信キューの下書き #${replyDraftId} に添付しました。`
+          : `⚠️ 見積書は発行できましたが、PDFを自動で取れませんでした。freeeからPDFを保存し、返信キューの「📄 PDF・ファイル」で付けてください。`;
+        const back = document.createElement('a');
+        back.href = `/line-reply#draft-${replyDraftId}`;
+        back.textContent = '返信キューに戻って送る';
+        back.className = 'btn btn-small btn-primary';
+        p.appendChild(document.createTextNode(' '));
+        p.appendChild(back);
+        box.appendChild(p);
+      }
       if (q.report_url) {
         el('freee-url').value = q.report_url;
         // ★window.open は await のあとなのでポップアップブロックされることがある。
@@ -1656,6 +1699,74 @@
       btn.textContent = 'この内容で発行する';
     }
   };
+
+  /* ---------- LINE返信キューからの見積作成(2026-09-24) ----------
+     /quote-sim?lr=<下書きID> で開くと、AIが会話から組み立てた見積条件(ボディ・枚数・加工行・割増)を
+     入れる。金額はこの画面で人が確認し、freeeに発行すると見積書PDFが返信キューの下書きに自動で添付される。
+     案件とは別の紐づけ(reply_draft_id)なので、案件登録前のお客様にも見積を出せる */
+  let replyDraftId = null;
+  async function loadFromReply(draftId) {
+    let data;
+    try {
+      const resp = await fetch(`/api/line-reply/${draftId}/quote-context`);
+      if (!resp.ok) throw new Error(String(resp.status));
+      data = await resp.json();
+    } catch (_) {
+      HiUI.toast('LINE返信キューの見積条件を読み込めませんでした');
+      return;
+    }
+    replyDraftId = parseInt(draftId, 10);
+    const cond = data.conditions;
+    el('case-badge').hidden = false;
+    el('case-badge-name').textContent = `LINE返信キュー #${draftId}(${data.display_name || '表示名なし'}様)から。freeeで発行すると見積書PDFが下書きに添付されます`;
+    if (!cond) { HiUI.toast('AIの見積条件がまだありません。手で入力してください'); return; }
+
+    el('customer').value = cond.customer_name || cond.customer_name_hint || '';
+    if (cond.title) el('item-title').value = cond.title;
+    const modeValue = cond.mode === 'yagi' ? 'yagi' : cond.mode === 'kratvs' ? 'kratvs' : 'normal';
+    const radio = document.querySelector(`input[name="mode"][value="${modeValue}"]`);
+    if (radio && !radio.checked) { radio.checked = true; radio.dispatchEvent(new Event('change')); }
+
+    if (modeValue === 'kratvs' && cond.kratvs) {
+      const idx = window.QS_KRATVS.items.findIndex((it) => it.code === cond.kratvs.item_code);
+      if (idx >= 0) { el('k-item').value = String(idx); el('k-item').dispatchEvent(new Event('change')); }
+    } else {
+      // ボディ
+      if (Array.isArray(cond.bodies) && cond.bodies.length) {
+        bodies.length = 0;
+        cond.bodies.forEach((b) => {
+          const hit = b.sku ? window.QS_BODIES.find((x) => x.sku === b.sku || x.sku.startsWith(b.sku)) : null;
+          newBody({
+            input: hit ? `${hit.sku} ${hit.name}` : (b.name_hint || ''),
+            manual: b.manual_unit != null && !hit ? String(b.manual_unit) : '',
+            qty: b.qty > 0 ? b.qty : 1,
+          });
+        });
+        renderBodies();
+      }
+      // 加工行
+      if (Array.isArray(cond.rows) && cond.rows.length) {
+        rows.length = 0;
+        cond.rows.forEach((r) => {
+          newRow();
+          const row = rows[rows.length - 1];
+          row.method = r.method || 'auto';
+          row.size = SIZES_ALL.includes(r.size) ? r.size : 'A4';
+          row.colors = r.colors === 'full' ? 'full' : Math.min(4, Math.max(1, parseInt(r.colors, 10) || 1));
+          row.locationName = String(r.location_name || '').trim();
+          (r.surcharges || []).forEach((k) => { if (window.QS_SURCHARGE[k]) row.surcharges.add(k); });
+        });
+        renderRows();
+      }
+    }
+    if (cond.express) el('opt-express').checked = true;
+    if (cond.shipping && el('shipping').querySelector(`option[value="${cond.shipping}"]`)) el('shipping').value = cond.shipping;
+    if (cond.bagging && el('bagging').querySelector(`option[value="${cond.bagging}"]`)) el('bagging').value = cond.bagging;
+    recalc();
+
+    const miss = (cond.missing || []).length ? `\n確認が必要: ${cond.missing.join('・')}` : '';
+    HiUI.toast(`AIの見積条件を入れました(確信度 ${Math.round((cond.confidence || 0) * 100)}%)。内容を確認してから発行してください${miss}`);
+  }
 
   /* ---------- 初期化 ---------- */
   function setupBodyList() {
@@ -1757,4 +1868,7 @@
 
   const caseId = new URLSearchParams(location.search).get('case');
   if (caseId && /^\d+$/.test(caseId)) loadCase(caseId);
+  // LINE返信キューから開いた場合(?lr=下書きID): AIが組み立てた見積条件を入れる(2026-09-24)
+  const lrId = new URLSearchParams(location.search).get('lr');
+  if (lrId && /^\d+$/.test(lrId)) loadFromReply(lrId);
 })();

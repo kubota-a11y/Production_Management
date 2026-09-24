@@ -1212,6 +1212,16 @@ function initDatabase(dbFile = dbPath) {
     db.prepare(`ALTER TABLE line_messages ADD COLUMN sent_file_id INTEGER`).run();
     console.log('✓ line_messages に送信ファイル列(sent_file_id)を追加しました');
   }
+  // 返信キューからの見積作成(2026-09-24): AIが会話から組み立てた見積条件と、freeeで発行した見積書の紐づけ
+  const draftColumns = db.prepare(`PRAGMA table_info('line_reply_drafts')`).all().map(col => col.name);
+  if (draftColumns.length > 0 && !draftColumns.includes('quote_conditions')) {
+    db.prepare(`ALTER TABLE line_reply_drafts ADD COLUMN quote_conditions TEXT`).run();
+    db.prepare(`ALTER TABLE line_reply_drafts ADD COLUMN quote_file_id INTEGER`).run();
+    db.prepare(`ALTER TABLE line_reply_drafts ADD COLUMN freee_quotation_id INTEGER`).run();
+    db.prepare(`ALTER TABLE line_reply_drafts ADD COLUMN freee_quotation_number TEXT`).run();
+    db.prepare(`ALTER TABLE line_reply_drafts ADD COLUMN freee_report_url TEXT`).run();
+    console.log('✓ line_reply_drafts に見積連携の列(quote_conditions/quote_file_id/freee_*)を追加しました');
+  }
 
   return db;
 }
