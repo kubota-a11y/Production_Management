@@ -175,6 +175,10 @@ window.QS_KRATVS = {
       price: [{ size: 'S〜XL', p: 3080 }, { size: 'XXL', p: 3300 }] },
     { code: 'P-01', kind: 'shirt',  name: 'ドライポロシャツ 4.4oz',
       price: [{ size: '120〜160', p: 3190 }, { size: 'S〜XL', p: 3300 }, { size: 'XXL〜XXXXL', p: 3630 }] },
+    { code: 'P-02', kind: 'shirt',  name: 'ドライ長袖ポロシャツ 4.4oz',
+      // 2026-09-25追加(社長決定)。ボディ glimmer 00335-ALP(下代 SS〜LL=711円/3L〜5L=840円)。
+      // 上代+約1,800円で 3,850/4,180(税込)。キッズなし・6L/7L帯は設定しない・カラー廃番010/014/024は載せない
+      price: [{ size: 'S〜XL', p: 3850 }, { size: 'XXL〜XXXXL', p: 4180 }] },
     { code: 'S-01', kind: 'shorts', name: 'ドライショーツ 4.4oz',
       price: [{ size: '100〜150', p: 3190 }, { size: '160〜XL', p: 3630 }, { size: 'XXL〜XXXXL', p: 4180 }] },
     { code: 'S-02', kind: 'shorts', name: 'スペシャルドライショーツ',
