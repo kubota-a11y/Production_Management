@@ -2285,6 +2285,10 @@ function collectCaseDocuments(folderPath) {
           result.truncated = true;
           continue;
         }
+        // 0バイト(iPadからの書き出し失敗)は書類として出さない(開いても「読み込めません」になるだけ)
+        let size = 0;
+        try { size = fs.statSync(fullPath).size; } catch (_) { continue; }
+        if (size === 0) continue;
         result.documents.push({
           name: entry.name,
           path: fullPath,
@@ -2353,6 +2357,22 @@ app.get('/api/projects/:id/detail', (req, res) => {
       .get(project.id).c;
 
     const { documents, truncated } = collectCaseDocuments(project.nas_folder_path);
+    // 顧客ノート方式(2026-09-25)では指示書PDFが案件フォルダの外(DESIGN/客先名/指示書/)にある。
+    // 案件に記録されたPDFがフォルダ走査に含まれていなければ、先頭に「指示書」として足す
+    if (project.instruction_pdf_path && !documents.some(d => d.path === project.instruction_pdf_path)) {
+      let size = 0;
+      try { size = fs.statSync(project.instruction_pdf_path).size; } catch (_) { size = 0; }
+      if (size > 0) {
+        const inCaseFolder = project.nas_folder_path
+          && isWithinBase(path.resolve(path.normalize(project.instruction_pdf_path)), path.resolve(path.normalize(project.nas_folder_path)));
+        documents.unshift({
+          name: path.basename(project.instruction_pdf_path),
+          path: project.instruction_pdf_path,
+          kind: 'instruction',
+          customer_note: !inCaseFolder,
+        });
+      }
+    }
 
     // 見積シミュレーターで記録した概算の履歴(新しい順)。sheet_textは重いので一覧には返さない
     const quotes = db.prepare(`

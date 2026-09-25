@@ -53,13 +53,19 @@ const InstructionPdfPicker = {
       ? `「${esc(status.receipt_no)}」か案件名`
       : '案件名';
 
-    // 既に案件フォルダにある → それで完了。選択肢は出さない
+    // 既に案件フォルダか顧客ノートにある → それで完了。選択肢は出さない
     if (status.existing && status.existing.length > 0) {
-      const list = status.existing.map(f =>
-        `<li><button type="button" class="btn-small pdf-picker-open" data-path="${esc(f.path)}">📄 ${esc(f.name)}</button></li>`).join('');
+      const list = status.existing.map(f => {
+        const isNote = f.kind === 'customer_note';
+        const label = isNote ? `📒 顧客ノート: ${esc(f.name)}` : `📄 ${esc(f.name)}`;
+        return `<li><button type="button" class="btn-small pdf-picker-open" data-path="${esc(f.path)}">${label}</button></li>`;
+      }).join('');
+      const onlyNote = status.existing.every(f => f.kind === 'customer_note');
       container.innerHTML = `
         <div class="pdf-picker pdf-picker-saved">
-          <div class="pdf-picker-status">✅ 案件フォルダに指示書PDFがあります</div>
+          <div class="pdf-picker-status">${onlyNote
+            ? '✅ 受注後に書き出された顧客ノート(GoodNotes全体のPDF)があります。この案件のページはその中にあります'
+            : '✅ 案件フォルダに指示書PDFがあります'}</div>
           <ul class="pdf-picker-list">${list}</ul>
           <input type="hidden" name="${name}" value="existing">
         </div>`;
@@ -72,8 +78,21 @@ const InstructionPdfPicker = {
     const files = (status.inbox && status.inbox.files) || [];
     const matched = files.filter(f => f.matched_here);
     const others = files.filter(f => !f.matched_here);
-    const optionHtml = (f, star) =>
-      `<option value="${esc(f.path)}">${star ? '★ ' : ''}${esc(f.name)}${f.match && !f.matched_here ? `(別案件「${esc(f.match.project_name)}」と一致)` : ''}</option>`;
+    const optionHtml = (f, star) => {
+      let note = '';
+      if (f.empty) note = '(0バイト・書き出し失敗)';
+      else if (f.warning) note = `(${f.warning})`;
+      else if (f.customer_match) note = f.matched_here ? '(顧客ノート)' : `(別のお客様「${esc(f.customer_match.customer_name)}」のノート)`;
+      else if (f.match && !f.matched_here) note = `(別案件「${esc(f.match.project_name)}」と一致)`;
+      return `<option value="${esc(f.path)}" ${f.empty ? 'disabled' : ''}>${star ? '★ ' : ''}${esc(f.name)}${note}</option>`;
+    };
+    const emptyCount = files.filter(f => f.empty).length;
+    const emptyNotice = emptyCount > 0
+      ? `<div class="field-hint pdf-picker-warning">⚠ 受信箱に0バイトのPDFが${emptyCount}件あります(iPadからの書き出しが途中で切れています)。GoodNotesから書き出し直してください</div>`
+      : '';
+    const recordedEmpty = status.recorded_empty
+      ? '<div class="field-hint pdf-picker-warning">⚠ 以前保存した指示書PDFは0バイト(中身なし)でした。書き出し直してください</div>'
+      : '';
     const selectHtml = files.length === 0
       ? '<div class="field-hint">受信箱にPDFはありません。iPadのGoodNotesから共有ドライブの「DESIGN/_指示書受信箱」へ書き出すと、ここに出てきます</div>'
       : `<select class="pdf-picker-select" aria-label="受信箱のPDF">
@@ -82,12 +101,14 @@ const InstructionPdfPicker = {
            ${others.length ? `<optgroup label="その他のPDF">${others.map(f => optionHtml(f, false)).join('')}</optgroup>` : ''}
          </select>`;
 
-    const defaultMode = matched.length > 0 ? 'inbox' : 'later';
+    const selectable = matched.filter(f => !f.empty);
+    const defaultMode = selectable.length > 0 ? 'inbox' : 'later';
     container.innerHTML = `
       <div class="pdf-picker">
-        <div class="pdf-picker-status">${matched.length > 0
-          ? '📥 受信箱にこの案件のPDFがあります。そのまま保存できます'
-          : '案件フォルダにまだ指示書PDFがありません'}</div>
+        <div class="pdf-picker-status">${selectable.length > 0
+          ? '📥 受信箱にこの案件(またはこのお客様のノート)のPDFがあります。そのまま保存できます'
+          : '案件フォルダ・顧客ノートにまだ指示書PDFがありません'}</div>
+        ${recordedEmpty}${emptyNotice}
         <div class="pdf-picker-option-block">
           <label class="checkbox-pill pdf-picker-option">
             <input type="radio" name="${name}" value="inbox" ${defaultMode === 'inbox' ? 'checked' : ''} ${files.length === 0 ? 'disabled' : ''}> 📥 受信箱から選ぶ
@@ -111,14 +132,15 @@ const InstructionPdfPicker = {
           </div>
         </div>
         <div class="field-hint pdf-picker-hint">
-          GoodNotesのノート名に${hintName}を入れて受信箱へ書き出すと、HiBoardが自動でこの案件のフォルダに移します(5分ごと)。
+          GoodNotesのノート名が<strong>お客様名</strong>(${esc(status.customer_name || '')})ならノート全体を受信箱へ書き出すだけでOK。HiBoardが「DESIGN/客先名/指示書/」に置き、納品済みの案件へ紐づけます(5分ごと)。
+          案件単体で書き出すときはファイル名に${hintName}を入れると、この案件のフォルダに移します。
           保存先: ${status.folder_path ? esc(status.folder_path) : '案件フォルダ未設定のため、DESIGN/客先名/年月_案件名 を自動で作ります'}
         </div>
       </div>`;
 
     // 受信箱のプルダウンで一致ファイルがあれば最初から選んでおく
     const select = container.querySelector('.pdf-picker-select');
-    if (select && matched.length > 0) select.value = matched[0].path;
+    if (select && selectable.length > 0) select.value = selectable[0].path;
 
     // プルダウン/ファイル欄を触ったら、そのラジオを選んだことにする(ラジオを別に押す手間を省く)
     const pick = (mode) => {

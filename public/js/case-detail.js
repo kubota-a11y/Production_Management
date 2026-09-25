@@ -228,7 +228,8 @@ const CaseDetail = {
     detail.documents.forEach(doc => {
       const kindLabel = this.DOCUMENT_KIND_LABELS[doc.kind];
       const prefix = doc.kind === 'other' ? '📎' : '📄';
-      const label = doc.kind === 'other' ? doc.name : `${kindLabel}: ${doc.name}`;
+      const label = doc.kind === 'other' ? doc.name
+        : doc.customer_note ? `${kindLabel}(顧客ノート): ${doc.name}` : `${kindLabel}: ${doc.name}`;
       buttons.push(`<button type="button" class="btn-small" data-doc-path="${this.escapeHtml(doc.path)}">${prefix} ${this.escapeHtml(label)}</button>`);
     });
 

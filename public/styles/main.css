@@ -2297,6 +2297,11 @@ td.empty-notice {
   color: var(--text-color);
 }
 
+.pdf-picker-warning {
+  color: var(--danger-text);
+  font-weight: 600;
+}
+
 .pdf-picker-list {
   list-style: none;
   margin: 0;

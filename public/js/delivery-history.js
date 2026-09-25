@@ -200,7 +200,9 @@ const deliveryHistoryApp = {
         HiUI.toast(`指示書PDFの保存に失敗しました: ${result.error || ''}`);
         return;
       }
-      HiUI.toast(`✓ 指示書PDFを案件フォルダに保存しました(${result.name})`);
+      HiUI.toast(result.mode === 'customer_note'
+        ? `✓ 顧客ノートとして保存し、この案件に紐づけました(${result.name})`
+        : `✓ 指示書PDFを案件フォルダに保存しました(${result.name})`);
       this.closeInstructionPdfModal();
       await this.loadRecords();
       this.renderTable();
