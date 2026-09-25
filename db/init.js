@@ -1254,6 +1254,19 @@ function initDatabase(dbFile = dbPath) {
     db.prepare(`ALTER TABLE line_reply_drafts ADD COLUMN intake_id INTEGER`).run();
     console.log('✓ line_reply_drafts に受注候補の列(intake_id)を追加しました');
   }
+  // 公式LINEのグループ・複数人トーク対応(2026-09-25): 会話はグループ単位(line_user_id=グループID)で持ち、
+  // 誰の発言かは line_messages.sender_user_id / sender_name に残す。line_users.chat_type = user/group/room
+  const lmCols = db.prepare(`PRAGMA table_info('line_messages')`).all().map(col => col.name);
+  if (lmCols.length > 0 && !lmCols.includes('sender_name')) {
+    db.prepare(`ALTER TABLE line_messages ADD COLUMN sender_user_id TEXT`).run();
+    db.prepare(`ALTER TABLE line_messages ADD COLUMN sender_name TEXT`).run();
+    console.log('✓ line_messages に発言者の列(sender_user_id/sender_name)を追加しました');
+  }
+  const luCols = db.prepare(`PRAGMA table_info('line_users')`).all().map(col => col.name);
+  if (luCols.length > 0 && !luCols.includes('chat_type')) {
+    db.prepare(`ALTER TABLE line_users ADD COLUMN chat_type TEXT`).run();
+    console.log('✓ line_users にトークの種類の列(chat_type)を追加しました');
+  }
   // 見積→案件登録の引き継ぎ(2026-09-24): freee発行時の転記シート・合計・登録画面の初期値(quote_snapshot)と、
   // 案件へ運んだ先(quote_case_id)。lib/quote-carry.js
   const draftColumns3 = db.prepare(`PRAGMA table_info('line_reply_drafts')`).all().map(col => col.name);

@@ -159,35 +159,70 @@ function streamToBuffer(stream) {
   });
 }
 
-// line_usersを確認し、未登録なら getProfile で表示名を取得して新規登録、
-// 既存ならlast_message_atのみ更新する。getProfile失敗時もdisplay_name=nullで登録を続行する。
-async function upsertLineUser(userId) {
+// line_usersを確認し、未登録なら表示名を取得して新規登録、既存ならlast_message_atのみ更新する。
+// 会話のID(convId)は個人トーク=ユーザーID(U…)、グループ=グループID(C…)、複数人トーク=ルームID(R…)。
+// グループの表示名は「👥 グループ名」(2026-09-25: 返信をグループへ届けるため、グループを1つの会話として扱う)。
+// 表示名の取得に失敗しても display_name=null で登録を続行する。
+async function upsertLineUser(convId, source = {}) {
   const now = new Date().toISOString();
-  const existing = db.prepare('SELECT line_user_id FROM line_users WHERE line_user_id = ?').get(userId);
-  if (existing) {
-    db.prepare('UPDATE line_users SET last_message_at = ? WHERE line_user_id = ?').run(now, userId);
+  const chatType = source.groupId ? 'group' : source.roomId ? 'room' : 'user';
+  const existing = db.prepare('SELECT line_user_id, display_name FROM line_users WHERE line_user_id = ?').get(convId);
+  if (existing && (existing.display_name || chatType === 'user')) {
+    db.prepare('UPDATE line_users SET last_message_at = ? WHERE line_user_id = ?').run(now, convId);
     return;
   }
   let displayName = null;
   try {
-    const profile = await lineClient.getProfile(userId);
-    displayName = profile.displayName || null;
+    if (chatType === 'group') {
+      const summary = await lineClient.getGroupSummary(convId);
+      displayName = `👥 ${summary.groupName || 'グループ'}`;
+    } else if (chatType === 'room') {
+      displayName = '👥 複数人トーク';
+    } else {
+      const profile = await lineClient.getProfile(convId);
+      displayName = profile.displayName || null;
+    }
   } catch (err) {
-    console.error(`[LINE Webhook] getProfile失敗 userId=${userId}:`, err.message);
+    console.error(`[LINE Webhook] 表示名の取得に失敗 ${chatType}=${convId.slice(0, 8)}:`, err.message);
+    if (chatType !== 'user') displayName = chatType === 'group' ? '👥 グループ' : '👥 複数人トーク';
+  }
+  if (existing) {
+    db.prepare('UPDATE line_users SET display_name = COALESCE(?, display_name), chat_type = ?, last_message_at = ? WHERE line_user_id = ?').run(displayName, chatType, now, convId);
+    return;
   }
   db.prepare(`
-    INSERT INTO line_users (line_user_id, display_name, first_seen_at, last_message_at)
-    VALUES (?, ?, ?, ?)
-  `).run(userId, displayName, now, now);
+    INSERT INTO line_users (line_user_id, display_name, first_seen_at, last_message_at, chat_type)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(convId, displayName, now, now, chatType);
 }
 
-function insertLineMessage({ lineUserId, lineMessageId, messageType, textContent, imagePath }) {
+// グループ・複数人トークの発言者の名前。友だち追加していないメンバーでもグループ内なら取れる。
+// 同じ人の名前を毎回問い合わせないよう、サーバー起動中はメモリに持つ
+const lineMemberNameCache = new Map();
+async function lineMemberName(source) {
+  if (!source || !source.userId || (!source.groupId && !source.roomId)) return null;
+  const key = `${source.groupId || source.roomId}:${source.userId}`;
+  if (lineMemberNameCache.has(key)) return lineMemberNameCache.get(key);
+  let name = null;
+  try {
+    const profile = source.groupId
+      ? await lineClient.getGroupMemberProfile(source.groupId, source.userId)
+      : await lineClient.getRoomMemberProfile(source.roomId, source.userId);
+    name = profile.displayName || null;
+  } catch (err) {
+    console.error('[LINE Webhook] グループメンバーの名前の取得に失敗:', err.message);
+  }
+  lineMemberNameCache.set(key, name);
+  return name;
+}
+
+function insertLineMessage({ lineUserId, lineMessageId, messageType, textContent, imagePath, senderUserId = null, senderName = null }) {
   const now = new Date().toISOString();
   const info = db.prepare(`
     INSERT INTO line_messages
-      (line_user_id, line_message_id, message_type, text_content, image_path, received_at, processed, case_id)
-    VALUES (?, ?, ?, ?, ?, ?, 0, NULL)
-  `).run(lineUserId, lineMessageId, messageType, textContent, imagePath, now);
+      (line_user_id, line_message_id, message_type, text_content, image_path, received_at, processed, case_id, sender_user_id, sender_name)
+    VALUES (?, ?, ?, ?, ?, ?, 0, NULL, ?, ?)
+  `).run(lineUserId, lineMessageId, messageType, textContent, imagePath, now, senderUserId, senderName);
   return info.lastInsertRowid;
 }
 
@@ -211,11 +246,17 @@ app.post('/webhook', line.middleware(lineConfig), async (req, res) => {
   const events = req.body.events || [];
   for (const event of events) {
     try {
-      const userId = event.source && event.source.userId;
-      console.log(`[LINE Webhook] type=${event.type} userId=${userId}`);
+      // 会話の単位: 個人トークはユーザー、グループ・複数人トークはそのグループ(返信もグループへ送る・2026-09-25)。
+      // これまではグループの発言も発言者の個人IDで記録していたため、返信が発言者との1:1トーク宛てになり、
+      // 友だち追加していない方には届いていなかった(LINEはエラーを返さず黙って捨てる)
+      const source = event.source || {};
+      const userId = source.groupId || source.roomId || source.userId;
+      console.log(`[LINE Webhook] type=${event.type} source=${source.type || 'user'} id=${userId ? userId.slice(0, 8) : '-'}`);
       if (!userId) continue;
 
-      await upsertLineUser(userId);
+      await upsertLineUser(userId, source);
+      const senderName = await lineMemberName(source);
+      const sender = { senderUserId: source.userId || null, senderName };
 
       if (event.type === 'message') {
         const message = event.message;
@@ -228,6 +269,7 @@ app.post('/webhook', line.middleware(lineConfig), async (req, res) => {
             messageType: 'text',
             textContent: message.text,
             imagePath: null,
+            ...sender,
           });
           // 公式LINE入口フォーム(Q-)の受付番号が本文にあれば、その受注候補とこのユーザーを結びつける
           // (完了画面・受付控えメールのリンク、またはLIFFの自動投稿で届く)。紐づけたメッセージは
@@ -248,6 +290,7 @@ app.post('/webhook', line.middleware(lineConfig), async (req, res) => {
             messageType: 'image',
             textContent: null,
             imagePath,
+            ...sender,
           });
         } else {
           insertLineMessage({
@@ -256,10 +299,12 @@ app.post('/webhook', line.middleware(lineConfig), async (req, res) => {
             messageType: message.type,
             textContent: null,
             imagePath: null,
+            ...sender,
           });
         }
-        // AI受付: 個人トークの受信だけ返信の下書きを予約する(グループは10月は対象外)
-        if (!event.source.type || event.source.type === 'user') lineReply.onInbound(userId);
+        // AI受付: 返信の下書きを予約する。グループ・複数人トークも対象(2026-09-25。雑談が多いグループは返信キューの
+        // 「この相手のAI下書きを止める」で止める)
+        lineReply.onInbound(userId);
       }
     } catch (err) {
       console.error('[LINE Webhook] イベント処理でエラー:', err);
@@ -2666,7 +2711,7 @@ app.get('/api/ai-intake', (req, res) => {
       }
       // 返信キューの最新の下書き(要約・注文の可能性・ID)。カードに「💬 返信キューで開く」を出すため(2026-09-24)
       let reply_draft = null;
-      if (/^U[0-9a-f]{32}$/.test(String(row.line_user_id || ''))) {
+      if (/^[UCR][0-9a-f]{32}$/.test(String(row.line_user_id || ''))) { // グループ(C)・複数人トーク(R)も返信キューの会話
         reply_draft = db.prepare(`
           SELECT id, status, category, summary, order_likelihood, created_at FROM line_reply_drafts
           WHERE line_user_id = ? AND status != 'superseded' ORDER BY created_at DESC LIMIT 1

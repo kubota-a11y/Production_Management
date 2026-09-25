@@ -115,7 +115,7 @@
     } else if (m.message_type === 'file') body = nl2br(m.text_content || '[ファイル]');
     else body = `<span class="lr-bubble-other">[${esc(m.message_type)}]</span>`;
     return `<div class="lr-bubble ${mine ? 'lr-bubble-out' : 'lr-bubble-in'}">
-      <div class="lr-bubble-meta">${mine ? `当社(${esc(m.sent_by || '担当')})` : 'お客様'}・${esc(fmtTime(m.received_at))}</div>
+      <div class="lr-bubble-meta">${mine ? `当社(${esc(m.sent_by || '担当')})` : (m.sender_name ? `お客様(${esc(m.sender_name)})` : 'お客様')}・${esc(fmtTime(m.received_at))}</div>
       <div class="lr-bubble-body">${body}</div>
     </div>`;
   }
