@@ -135,18 +135,22 @@
 
   function calcRowBase(row, qty, minQty, opt) {
     const tbl = activeTables();
-    // 持込料は八木繊維様は「サービス」なのでチェックが残っていても掛けない
-    const sur = [...row.surcharges]
+    /* 割増は「元の単価 × (1 + 各割増の増分の合計)」で出す(2026-09-25 社長指示)。
+       割増した金額にさらに割増を掛ける重ね掛けはしない。
+       例: 持込5割増+特殊プリント5割増 → ×2.0(重ね掛けだと 1.5×1.5=×2.25 になり膨らむ)
+       特急(5割増)・ミニマム手数料(5割増)も同じ扱いで増分を足す。
+       持込料は八木繊維様は「サービス」なのでチェックが残っていても掛けない */
+    const surAdd = [...row.surcharges]
       .filter((k) => !(tbl.bringFree && k === 'bring'))
-      .reduce((m, k) => m * surRate(k), 1);
-    const minFee = (tbl.minFeeApplies && minQty < 10) ? window.QS_COMMON.minFeeRate : 1;
-    const expr = opt.express ? 1.5 : 1;
+      .reduce((s, k) => s + (surRate(k) - 1), 0);
+    const minFeeAdd = (tbl.minFeeApplies && minQty < 10) ? window.QS_COMMON.minFeeRate - 1 : 0;
+    const exprAdd = opt.express ? 0.5 : 0;
     // 割増・ミニマム・特急で出る1円単位の端数は10円単位へ切り上げる
-    const mul = (u) => up10(u * sur * minFee * expr);
+    const mul = (u) => up10(u * (1 + surAdd + minFeeAdd + exprAdd));
     /* ミニマム手数料が掛かるのは**シルクスクリーンのみ**(2026-09-02 社長確定)。
        DTF(9/1)・ラバー転写(9/2)・刺繍(9/2・段に折り込み)・マーキング(9/2)は対象外。
-       mulDtfは「ミニマムを掛けない加工」用の倍率(割増・特急はそのまま掛かる) */
-    const mulDtf = (u) => up10(u * sur * expr);
+       mulDtfは「ミニマムを掛けない加工」用の倍率(割増・特急はそのまま加算される) */
+    const mulDtf = (u) => up10(u * (1 + surAdd + exprAdd));
 
     if (row.method === 'marking') {
       const m = window.QS_MARKING.find((x) => x.key === row.markKey);

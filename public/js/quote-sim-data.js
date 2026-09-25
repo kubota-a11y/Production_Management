@@ -109,7 +109,9 @@ window.QS_EMB = {
   patch: 360,        // ワッペン用資材一式(1枚あたり・税抜)
 };
 
-/* ---- オプション割増(倍率)。加工単価に掛ける ---- */
+/* ---- オプション割増(倍率)。加工単価に掛ける ----
+   ★複数付けたときは重ね掛けせず「元の単価 × (1 + 各割増の増分の合計)」で出す(2026-09-25 社長指示)。
+   計算は public/js/quote-sim.js calcRowBase と lib/price-tool.js calcProcessing の2箇所(同じ式) */
 window.QS_SURCHARGE = {
   express:    { name: '特急料金(1週間納期)',              rate: 1.5 },
   special:    { name: '特殊プリント(厚手素材・ポケット跨ぎ等)', rate: 1.5 },
